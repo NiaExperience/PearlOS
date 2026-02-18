@@ -29,9 +29,9 @@ PearlOS is a browser-based, voice-first desktop environment powered by an AI com
 
 <div align="center">
 
-<table>
+<table border="0" cellspacing="0" cellpadding="0">
 <tr>
-<td width="33%" align="center" valign="top" style="padding: 10px;">
+<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
 
 ### Desktop Interface
 
@@ -40,7 +40,7 @@ PearlOS is a browser-based, voice-first desktop environment powered by an AI com
 *PearlOS desktop with application icons, chat interface, and pixel-art fantasy forest background*
 
 </td>
-<td width="33%" align="center" valign="top" style="padding: 10px;">
+<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
 
 ### Task Management
 
@@ -49,7 +49,7 @@ PearlOS is a browser-based, voice-first desktop environment powered by an AI com
 *Real-time task tracking with job status, progress indicators, and active work monitoring*
 
 </td>
-<td width="33%" align="center" valign="top" style="padding: 10px;">
+<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
 
 ### Dashboard & Analytics
 
