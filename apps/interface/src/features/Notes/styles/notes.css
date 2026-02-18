@@ -1,0 +1,285 @@
+/* Notes feature styles */
+/* Scoped under .nia-notes-root to avoid leaking styles */
+
+/* Import PearlOS content animations */
+@import url('../../../styles/content-animations.css');
+
+/* iOS safe area support for notes */
+.nia-notes-root {
+  /* Respect iOS safe areas */
+  padding-top: max(0px, env(safe-area-inset-top));
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+  padding-left: max(0px, env(safe-area-inset-left));
+  padding-right: max(0px, env(safe-area-inset-right));
+  
+  /* Use dynamic viewport height for proper mobile sizing */
+  min-height: 100dvh;
+  max-height: 100dvh;
+}
+
+/* Define Gohufont (NerdFont patched version) */
+@font-face {
+  font-family: 'Gohufont';
+  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Apply Gohufont to Notes component */
+.nia-notes-root {
+  font-family: 'Gohufont', monospace;
+}
+
+.nia-notes-root * {
+  font-family: 'Gohufont', monospace;
+}
+
+/* Title input - inline styles handle color; CSS handles remaining overrides */
+.nia-notes-root input[type="text"][placeholder="Untitled"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  -webkit-appearance: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Force Gohufont on book spine titles */
+.book-spine-title {
+  font-family: 'Gohufont', monospace !important;
+}
+
+/* iOS Safari: Ensure editor containers don't create dark artifacts */
+.nia-notes-root .flex.flex-1.flex-col {
+  background: transparent !important;
+  -webkit-appearance: none !important;
+}
+
+/* iOS Safari: Force placeholder to be visible */
+.nia-notes-root input[type="text"][placeholder="Untitled"]::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.4) !important;
+  opacity: 1 !important;
+}
+
+/* ContentEditable title placeholder (replaces input for iOS Safari compatibility) */
+.nia-notes-root [data-placeholder="Untitled"]:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.4) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.4) !important;
+  pointer-events: none;
+}
+
+/* Ensure contentEditable title is visible on iOS Safari */
+.nia-notes-root [contenteditable][data-placeholder="Untitled"] {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* === Magic Glow Effects === */
+
+/* Soft blue glow pulse on content change */
+@keyframes niaMagicGlow {
+  0% {
+    box-shadow: 0 0 0px rgba(100, 150, 255, 0);
+  }
+  30% {
+    box-shadow: 0 0 18px 4px rgba(100, 150, 255, 0.35), 0 0 40px 8px rgba(80, 130, 255, 0.12);
+  }
+  100% {
+    box-shadow: 0 0 0px rgba(100, 150, 255, 0);
+  }
+}
+
+.nia-notes-magic-glow {
+  animation: niaMagicGlow 1.2s ease-out forwards;
+}
+
+/* Shimmer sweep across container */
+@keyframes niaMagicShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.nia-notes-magic-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(100, 150, 255, 0.08) 25%,
+    rgba(150, 200, 255, 0.18) 50%,
+    rgba(100, 150, 255, 0.08) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: niaMagicShimmer 1.4s ease-in-out forwards;
+  border-radius: inherit;
+}
+
+/* Line-by-line fade-in animation for new content */
+@keyframes niaNoteLineFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+    color: rgba(100, 160, 255, 1);
+    text-shadow: 0 0 8px rgba(100, 150, 255, 0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0);
+    color: rgba(100, 160, 255, 0.8);
+    text-shadow: 0 0 4px rgba(100, 150, 255, 0.2);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    color: inherit;
+    text-shadow: none;
+  }
+}
+
+/* Particle canvas overlay */
+.nia-notes-particle-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+/* === Text Shimmer Effect === */
+/* Makes the textarea glow blue as new content appears */
+/* "Like being thought into existence" */
+/* Note: textareas don't support text-shadow on content, so we use background + box-shadow */
+
+@keyframes niaTextareaShimmer {
+  0% {
+    background-color: rgba(100, 150, 255, 0.12);
+    box-shadow: 
+      inset 0 0 20px rgba(100, 150, 255, 0.3),
+      0 0 15px rgba(100, 150, 255, 0.4);
+    color: rgba(120, 200, 255, 1);
+  }
+  20% {
+    background-color: rgba(100, 150, 255, 0.08);
+    box-shadow: 
+      inset 0 0 25px rgba(120, 170, 255, 0.25),
+      0 0 20px rgba(120, 170, 255, 0.35);
+    color: rgba(140, 210, 255, 0.95);
+  }
+  50% {
+    background-color: rgba(100, 150, 255, 0.04);
+    box-shadow: 
+      inset 0 0 15px rgba(140, 190, 255, 0.15),
+      0 0 12px rgba(140, 190, 255, 0.2);
+    color: rgba(160, 220, 255, 0.8);
+  }
+  75% {
+    background-color: rgba(100, 150, 255, 0.01);
+    box-shadow: 
+      inset 0 0 8px rgba(160, 200, 255, 0.08),
+      0 0 6px rgba(160, 200, 255, 0.1);
+    color: inherit;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+    color: inherit;
+  }
+}
+
+/* Apply shimmer to the textarea when active */
+.nia-notes-magic-shimmer textarea {
+  animation: niaTextareaShimmer 1.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  transition: background-color 0.3s ease-out, box-shadow 0.3s ease-out, color 0.3s ease-out;
+}
+
+/* Enhanced glow for the container during shimmer */
+.nia-notes-magic-shimmer {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(100, 150, 255, 0.08) 0%,
+    transparent 70%
+  );
+}
+
+/* === Content Loading States === */
+
+/* Note list loading state */
+.nia-notes-list-loading {
+  position: relative;
+}
+
+.nia-notes-list-loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(100, 150, 255, 0.6),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out infinite;
+  z-index: 10;
+}
+
+/* Note content loading with shimmer */
+.nia-note-content-loading {
+  animation: pearl-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Skeleton for loading note items */
+.nia-note-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.1) 40px,
+    rgba(255, 255, 255, 0.05) 80px
+  );
+  background-size: 600px;
+  animation: pearl-skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 4px;
+  height: 60px;
+  margin-bottom: 8px;
+}
+
+/* Fade-in for newly opened notes */
+.nia-note-view-enter {
+  animation: pearl-fade-scale-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Staggered fade-in for note list */
+.nia-notes-list > * {
+  animation: pearl-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.nia-notes-list > *:nth-child(1) { animation-delay: 0ms; }
+.nia-notes-list > *:nth-child(2) { animation-delay: 50ms; }
+.nia-notes-list > *:nth-child(3) { animation-delay: 100ms; }
+.nia-notes-list > *:nth-child(4) { animation-delay: 150ms; }
+.nia-notes-list > *:nth-child(5) { animation-delay: 200ms; }
+.nia-notes-list > *:nth-child(n+6) { animation-delay: 250ms; }
+
+/* Smooth transitions for note switching */
+.nia-note-transition {
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+

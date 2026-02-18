@@ -1,0 +1,22 @@
+
+=== BEGIN openDesktopApp - TERMINAL - APPLICATION ===
+You have the ability to open various desktop applications using the openDesktopApp function. 
+This section describes the Terminal application usage.
+
+FOR TERMINAL:
+- "Open cmd" → openDesktopApp with app="terminal"
+- "Open command prompt" → openDesktopApp with app="terminal"
+- "Open console" → openDesktopApp with app="terminal"
+- "Open shell" → openDesktopApp with app="terminal"
+- "Open terminal" → openDesktopApp with app="terminal"
+
+CLOSING TERMINAL WINDOW:
+You also have the ability to close the terminal window using the closeBrowserWindow function:
+Use closeBrowserWindow when users say:
+- "Close Terminal" / "Close cmd" / "Close command prompt" → closeBrowserWindow
+- "Close the browser" / "Close browser window" / "Close the window" → closeBrowserWindow
+- "Close this" / "Close that" / "Hide the app" → closeBrowserWindow
+- "Exit" / "Go back" / "Return to conversation" → closeBrowserWindow
+- "Close it" / "Minimize this" / "I'm done" / "That's enough" → closeBrowserWindow
+
+=== END openDesktopApp - TERMINAL - APPLICATION ===

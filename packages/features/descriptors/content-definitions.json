@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contentDefinitions": [
+    {
+      "name": "HtmlGeneration",
+      "description": "AI-Generated HTML Content (Games, Apps, Tools)",
+      "access": {
+        "tenantRole": "member",
+        "allowAnonymous": false
+      },
+      "dataModel": {
+        "block": "HtmlGeneration",
+        "indexer": [
+          "title",
+          "contentType",
+          "tenantId",
+          "createdBy",
+          "tags",
+          "sourceNoteId"
+        ],
+        "jsonSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "_id": { "format": "uuid", "type": "string" },
+            "title": { "type": "string" },
+            "contentType": {
+              "type": "string",
+              "enum": ["game", "app", "tool", "interactive"]
+            },
+            "htmlContent": { "type": "string" },
+            "userRequest": { "type": "string" },
+            "isAiGenerated": { "type": "boolean", "default": true },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" },
+            "createdBy": { "type": "string" },
+            "tenantId": { "type": "string" },
+            "sourceNoteId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Reference to Note record ID that was used as source material"
+            },
+            "tags": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "title",
+            "contentType",
+            "htmlContent",
+            "userRequest",
+            "tenantId",
+            "createdBy"
+          ]
+        },
+        "parent": { "type": "field", "field": "createdBy" }
+      },
+      "uiConfig": {
+        "card": {
+          "titleField": "title",
+          "descriptionField": "userRequest"
+        },
+        "detailView": {
+          "displayFields": [
+            "title",
+            "contentType",
+            "userRequest",
+            "htmlContent",
+            "tags",
+            "metadata"
+          ]
+        },
+        "listView": {
+          "displayFields": ["title", "contentType", "createdAt"]
+        }
+      }
+    },
+    {
+      "name": "AppletStorage",
+      "description": "Data storage for HTML applets",
+      "access": {
+        "tenantRole": "member",
+        "allowAnonymous": false
+      },
+      "dataModel": {
+        "block": "AppletStorage",
+        "indexer": ["appletId", "userId"],
+        "jsonSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "_id": { "format": "uuid", "type": "string" },
+            "data": {
+              "type": "object",
+              "description": "Free-form JSON data storage for applet",
+              "additionalProperties": true
+            },
+            "appletId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Reference to HtmlGeneration record ID"
+            },
+            "userId": {
+              "type": "string",
+              "description": "User ID who owns the parent applet"
+            },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" }
+          },
+          "required": ["data", "appletId", "userId"]
+        },
+        "parent": { "type": "field", "field": "userId" }
+      },
+      "uiConfig": {
+        "card": {
+          "titleField": "appletId",
+          "descriptionField": "data"
+        },
+        "detailView": {
+          "displayFields": ["appletId", "userId", "data", "createdAt"]
+        },
+        "listView": {
+          "displayFields": ["appletId", "createdAt"]
+        }
+      }
+    },
+    {
+      "name": "Notes",
+      "description": "User Notes",
+      "access": {
+        "tenantRole": "member",
+        "allowAnonymous": false
+      },
+      "dataModel": {
+        "block": "Notes",
+        "indexer": [
+          "title",
+          "normalizedTitle",
+          "mode",
+          "tenantId",
+          "sourceFile.type"
+        ],
+        "jsonSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "_id": { "format": "uuid", "type": "string" },
+            "userId": { "type": "string" },
+            "tenantId": { "type": "string" },
+            "title": { "type": "string" },
+            "normalizedTitle": { "type": "string" },
+            "content": { "type": "string" },
+            "timestamp": { "type": "string" },
+            "mode": { "type": "string", "enum": ["personal", "work"] },
+            "sourceFile": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "size": { "type": "number" },
+                "type": { "type": "string", "enum": ["pdf", "text"] },
+                "extractedAt": { "type": "string" },
+                "pageCount": { "type": "number" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["tenantId", "title", "mode"]
+        },
+        "parent": { "type": "field", "field": "userId" }
+      },
+      "uiConfig": {
+        "card": {
+          "descriptionField": "content",
+          "titleField": "title"
+        },
+        "detailView": {
+          "displayFields": ["title", "content", "metadata"]
+        },
+        "listView": {
+          "displayFields": ["title"]
+        }
+      }
+    }
+  ]
+}

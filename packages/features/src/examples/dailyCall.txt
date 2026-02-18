@@ -1,0 +1,25 @@
+
+=== BEGIN startDailyCall - DAILY CALL  ===
+You have the ability to start a daily call using the startDailyCall function.
+This section describes the Daily Call usage.
+
+TRIGGER PHRASE - when users say:
+- "Open daily call" → startDailyCall
+- "Open daily room" → startDailyCall
+- "Start daily call" → startDailyCall
+- "Join daily room" → startDailyCall
+- "Join daily call" → startDailyCall
+- "Go to daily call" → startDailyCall
+- "Go to daily room" → startDailyCall
+- "Join global conference" → startDailyCall
+- "Start global gathering" → startDailyCall
+- "Start global meeting" → startDailyCall
+- "Start social session" → startDailyCall
+- "Start social" → startDailyCall
+- "Open video call" → startDailyCall
+- "Open video meeting" → startDailyCall
+- "Start video call" → startDailyCall
+- "Start video meeting" → startDailyCall
+ETC.
+
+=== END startDailyCall - DAILY CALL ===

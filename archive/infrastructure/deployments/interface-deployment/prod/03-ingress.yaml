@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: interface
+  namespace: interface
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:577124901432:certificate/f0035b60-8eda-40ef-afa3-4611dbbbcc6e  # ACM cert :contentReference[oaicite:0]{index=0}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'      # force HTTP→HTTPS :contentReference[oaicite:1]{index=1}
+    external-dns.alpha.kubernetes.io/hostname: niaxp.io,www.niaxp.io   # Route 53 record hook :contentReference[oaicite:2]{index=2}
+spec:
+  ingressClassName: alb
+  rules:
+  - host: niaxp.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: interface
+            port:
+              number: 80
+  - host: www.niaxp.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: interface
+            port:
+              number: 80

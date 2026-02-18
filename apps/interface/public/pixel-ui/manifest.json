@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "style": "v3-retro",
+  "assets": {
+    "icons": [
+      "bell.png",
+      "book.png",
+      "chat.png",
+      "coin.png",
+      "compass.png",
+      "crown.png",
+      "eye.png",
+      "fire.png",
+      "flag.png",
+      "gem.png",
+      "heart.png",
+      "home.png",
+      "key.png",
+      "lightning.png",
+      "lock.png",
+      "mail.png",
+      "map.png",
+      "music.png",
+      "potion.png",
+      "scroll.png",
+      "search.png",
+      "settings.png",
+      "shield.png",
+      "star.png",
+      "sword.png",
+      "video.png"
+    ],
+    "badges": [
+      "busy.png",
+      "level-up.png",
+      "new.png",
+      "offline.png",
+      "online.png"
+    ],
+    "frames": [
+      "rpg-panel.png",
+      "scroll-frame.png",
+      "simple-border.png"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "name": "nia-postgres-content",
+      "handler": {
+        "postgres": {
+          "connectionString": "postgres://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@${env.POSTGRES_HOST}:${env.POSTGRES_PORT}/${env.POSTGRES_DB}"
+        }
+      }
+    },
+    {
+      "name": "local-schema",
+      "handler": {
+        "graphql": {
+          "schema": "./schema.graphql"
+        }
+      }
+    }
+  ],
+  "additionalTypeDefs": "extend type Query { _dummy: String }",
+  "additionalResolvers": []
+}

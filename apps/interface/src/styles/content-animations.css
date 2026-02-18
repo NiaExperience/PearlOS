@@ -1,0 +1,279 @@
+/**
+ * PearlOS Content Update Animations
+ * Subtle, fast animations for content loading and transitions
+ * Target: 200-300ms duration for polished desktop OS feel
+ */
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   KEYFRAME DEFINITIONS
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Shimmer effect for loading states */
+@keyframes pearl-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Subtle fade-in for new content */
+@keyframes pearl-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade-in with scale for modals/panels */
+@keyframes pearl-fade-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide from left for sidebar items */
+@keyframes pearl-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Slide from right for panels */
+@keyframes pearl-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Subtle pulse for loading indicators */
+@keyframes pearl-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Skeleton shimmer for content placeholders */
+@keyframes pearl-skeleton-shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   UTILITY CLASSES
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Loading shimmer effect */
+.pearl-loading-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out infinite;
+}
+
+.pearl-loading-shimmer--light {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out infinite;
+}
+
+.pearl-loading-shimmer--dark {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Fade-in animations */
+.pearl-fade-in {
+  animation: pearl-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pearl-fade-in--fast {
+  animation: pearl-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pearl-fade-in--slow {
+  animation: pearl-fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pearl-fade-scale-in {
+  animation: pearl-fade-scale-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Slide-in animations */
+.pearl-slide-in-left {
+  animation: pearl-slide-in-left 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pearl-slide-in-right {
+  animation: pearl-slide-in-right 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pulse animation */
+.pearl-pulse {
+  animation: pearl-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SKELETON LOADING STATES
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.pearl-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.1) 40px,
+    rgba(255, 255, 255, 0.05) 80px
+  );
+  background-size: 600px;
+  animation: pearl-skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.pearl-skeleton--text {
+  height: 16px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.pearl-skeleton--heading {
+  height: 24px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  width: 60%;
+}
+
+.pearl-skeleton--paragraph {
+  height: 12px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+}
+
+.pearl-skeleton--circle {
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CONTENT UPDATE STATES
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Container with loading state */
+.pearl-content-loading {
+  position: relative;
+}
+
+.pearl-content-loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(201, 168, 124, 0.5),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out infinite;
+  z-index: 10;
+}
+
+/* Staggered fade-in for lists */
+.pearl-stagger-fade-in > * {
+  animation: pearl-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.pearl-stagger-fade-in > *:nth-child(1) { animation-delay: 0ms; }
+.pearl-stagger-fade-in > *:nth-child(2) { animation-delay: 50ms; }
+.pearl-stagger-fade-in > *:nth-child(3) { animation-delay: 100ms; }
+.pearl-stagger-fade-in > *:nth-child(4) { animation-delay: 150ms; }
+.pearl-stagger-fade-in > *:nth-child(5) { animation-delay: 200ms; }
+.pearl-stagger-fade-in > *:nth-child(n+6) { animation-delay: 250ms; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TRANSITIONS
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Smooth transitions for interactive elements */
+.pearl-transition-fast {
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pearl-transition-base {
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pearl-transition-slow {
+  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Opacity transitions */
+.pearl-transition-opacity {
+  transition: opacity 200ms ease-in-out;
+}
+
+/* Transform transitions */
+.pearl-transition-transform {
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   REDUCED MOTION SUPPORT
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""
+PearlOS Tool CLI — invoke PearlOS bot tools from the command line.
+
+Usage:
+  pearlos-tool list                          # List all available tools
+  pearlos-tool invoke <tool_name> [json]     # Invoke a tool (relay via Daily/WS)
+  pearlos-tool exec <tool_name> [json]       # Execute a tool directly (no Daily room needed)
+  pearlos-tool info <tool_name>              # Show tool details
+
+Examples:
+  pearlos-tool exec bot_create_note '{"title":"Hello","content":"World"}'
+  pearlos-tool exec bot_list_notes
+  pearlos-tool exec bot_replace_note '{"note_id":"...","content":"updated"}'
+  pearlos-tool exec bot_delete_note '{"note_id":"..."}' 
+  pearlos-tool exec bot_search_notes '{"title":"Hello"}'
+  pearlos-tool exec bot_read_current_note '{"note_id":"..."}'
+  pearlos-tool invoke bot_search_youtube_videos '{"query":"lo-fi beats"}'
+  pearlos-tool note-state                        # Get current note open in UI
+
+Environment:
+  GATEWAY_URL    Base URL of bot gateway (default: http://localhost:4444)
+  TENANT_ID      Tenant ID for direct execution (default: from gateway)
+  USER_ID        User ID for direct execution (default: from gateway)
+"""
+
+import json
+import os
+import sys
+import urllib.request
+import urllib.error
+
+GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:4444")
+
+
+def api_call(path, data=None):
+    url = f"{GATEWAY_URL}{path}"
+    if data is not None:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+    else:
+        req = urllib.request.Request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ""
+        return {"ok": False, "error": f"HTTP {e.code}", "detail": body}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_list():
+    result = api_call("/api/tools/list")
+    tools = result.get("tools", [])
+    for t in tools:
+        if t["name"] == "bot_openclaw_task":
+            continue  # skip recursive tool
+        desc = (t.get("description") or "")[:80]
+        print(f"  {t['name']:40s} {desc}")
+    print(f"\n{len(tools)} tools available")
+
+
+def cmd_info(name):
+    result = api_call("/api/tools/list")
+    tools = result.get("tools", [])
+    tool = next((t for t in tools if t["name"] == name), None)
+    if not tool:
+        print(f"Tool not found: {name}")
+        sys.exit(1)
+    print(json.dumps(tool, indent=2))
+
+
+def discover_active_room():
+    """Try to find an active Daily room from the gateway."""
+    room_url = os.getenv("ROOM_URL")
+    if room_url:
+        return room_url
+    try:
+        result = api_call("/api/active-rooms")
+        rooms = result.get("rooms", {})
+        for url, info in rooms.items():
+            if info.get("status") == "running":
+                return url
+        # If no running room, return any room
+        if rooms:
+            return next(iter(rooms))
+    except Exception:
+        pass
+    return None
+
+
+def cmd_invoke(name, params_json=None):
+    """Relay-based invoke (via Daily app-message). Requires active room."""
+    params = json.loads(params_json) if params_json else {}
+    payload = {"tool_name": name, "params": params}
+    room_url = discover_active_room()
+    if room_url:
+        payload["room_url"] = room_url
+    result = api_call("/api/tools/invoke", payload)
+    print(json.dumps(result, indent=2))
+
+
+def cmd_exec(name, params_json=None):
+    """Direct execution against Mesh data layer. No Daily room needed."""
+    params = json.loads(params_json) if params_json else {}
+    payload = {"tool_name": name, "params": params}
+    # Pass optional context from env
+    tenant_id = os.getenv("TENANT_ID")
+    user_id = os.getenv("USER_ID")
+    if tenant_id:
+        payload["tenant_id"] = tenant_id
+    if user_id:
+        payload["user_id"] = user_id
+    result = api_call("/api/tools/execute", payload)
+    print(json.dumps(result, indent=2))
+
+
+def cmd_note_state():
+    """Query the current note state from the bot gateway."""
+    result = api_call("/api/note-state")
+    print(json.dumps(result, indent=2))
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(__doc__)
+        sys.exit(0)
+
+    cmd = args[0]
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "info" and len(args) >= 2:
+        cmd_info(args[1])
+    elif cmd == "invoke" and len(args) >= 2:
+        cmd_invoke(args[1], args[2] if len(args) > 2 else None)
+    elif cmd == "exec" and len(args) >= 2:
+        cmd_exec(args[1], args[2] if len(args) > 2 else None)
+    elif cmd == "note-state":
+        cmd_note_state()
+    else:
+        print(__doc__)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

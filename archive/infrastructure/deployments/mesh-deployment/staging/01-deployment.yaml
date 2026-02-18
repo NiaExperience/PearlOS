@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesh-stg
+  namespace: mesh-stg
+  labels:
+    app: mesh-stg
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: mesh-stg
+  template:
+    metadata:
+      labels:
+        app: mesh-stg
+    spec:
+      containers:
+      - name: web
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/mesh:latest
+        ports:
+        - containerPort: 2000
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 2000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 18
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 2000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 2000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 512Mi
+        envFrom:
+        - secretRef:
+            name: mesh-stg-secret
+        - configMapRef:
+            name: mesh-stg-config

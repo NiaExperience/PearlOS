@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interface-stg
+  namespace: interface-stg
+  labels:
+    app: interface-stg
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: interface-stg
+  template:
+    metadata:
+      labels:
+        app: interface-stg
+    spec:
+      containers:
+      - name: auth-proxy
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+        volumeMounts:
+        - name: nginx-conf
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: basic-auth
+          mountPath: /etc/nginx/auth
+      - name: web
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/interface:latest
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 24
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 180
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 6
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1024Mi
+          limits:
+            memory: 4096Mi
+        envFrom:
+        - secretRef:
+            name: interface-stg-secret
+        - configMapRef:
+            name: interface-stg-config
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: interface-stg-nginx-conf
+      - name: basic-auth
+        secret:
+          secretName: interface-stg-basic-auth

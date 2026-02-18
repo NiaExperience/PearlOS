@@ -1,0 +1,85 @@
+﻿:drvn2copper: Smart Manifest powered by VIVI
+Objective
+To develop a next-generation intelligent tool, Smart Manifest – Powered by VIVI, that allows clients to seamlessly upload passenger manifests in a variety of formats (Excel, PDF, scanned images, etc.) and receive real-time, intelligent feedback that ensures data quality, service alignment, and operational readiness.
+This solution will serve as an embedded feature within MTC’s FUSE & VIP Portal. The tool will automatically:
+* Interpret and validate manifest data using AI-powered parsing and rule enforcement.
+* Identify missing, incomplete, or inconsistent data, offering dynamic and recurring feedback via both text and voice interfaces until all necessary data is provided.
+* Enrich passenger data with contextual information from third-party APIs (e.g., Google Maps for route logic, FlightStats for flight verification).
+* Learn from past interactions and client preferences to improve accuracy, reduce manual effort, and accelerate the quote-to-confirmation cycle.
+* Dynamically generate tailored service proposals—grouped, priced, and filtered based on drvn’s operational logic, client-specific constraints, historical data, trends, surges, and market-equivalent comparisons.
+Following the creation of the AI-generated manifest, the client will receive a preview for review, edits, and verification every time.
+The ultimate goal is to streamline the pre-service intake process, enable faster client decision-making, reduce back-and-forth validation with internal teams, and increase the automation and scalability of drvn’s event and group ride management operations.
+This initiative positions MTC to lead in intelligent guest logistics, using AI to deliver not just efficiency, but an elevated, predictive service experience.
+Technical Requirements / Functional Expectations
+File Handling & Input Flexibility
+* Accept multiple file types like: .xlsx, .csv, .pdf, .docx, .jpg, .png , .tsv , .html, .ods, .odt, .rtf
+* Integration of OCR to convert scanned images to text
+* Use of Google Cloud for secure file storage
+* Security measures to prevent malware uploads
+* Detect and process hidden sheets, merged cells, hidden or filtered rows/columns
+* Identify and flag formatted or styled cells (e.g., strikethrough, bold, color)
+* Determine target worksheet when multiple sheets are present
+* Ignore irrelevant data (e.g., hotel booking number, passenger payment information, tour guide information, or anything that isn't outlined in the manifest template.)
+Data Validation Rules
+* Require a minimum of 4 columns, 5 rows, and 20 non-empty cells
+* Validate that >50% of cells contain usable data
+* Apply column-level rules: data type, regex patterns, min/max lengths
+* Reference synonym libraries and config tables for flexible input mapping
+* Output structured validation feedback (JSON or similar)
+* Reconfigure data as necessary (e.g., standardize phone number formatting, separate 'last name' and 'first name' into two columns)
+* Validate that phone numbers are registered with a compatible device (mobile phones)
+* Configure validations per column based on data type, using specific validation functions and external APIs where applicable
+* For non-numeric data: apply tokenization, analyze unique values, and determine most frequent entries to flag inconsistencies (e.g., Updating all instances of a company name under a single format, accounting for misspellings, abbreviations, DBA, full legal name, an so on. Updating all instances of an address such that formatting, spelling, ZIP, and so on are all consistent.)
+* Validate that pick up and drop off addresses are real locations using Google API
+* Look for outliers in pick up and drop off locations (e.g., if an event manifest is uploaded with the event being in London UK, but one of the pick up locations is in London Canada, that would be flagged as an anomaly)
+* For numeric data: calculate min, max, mode, average, median, and detect outliers
+* Configure execution order for validations, including rules on mutual exclusivity (e.g., halt further validations if a critical validation fails)
+* Apply two types of percentage scoring to each column:
+   * Completeness – percentage of filled cells
+   * Content Quality – percentage of non-empty cells matching expected patterns or regex
+Client Interaction Experience
+* Real-time recurring alerts for missing, ambiguous, or incorrect data until added, clarified, or corrected
+* Intelligent suggestions (e.g., complete airport codes based on context, add country codes to phone numbers)
+* Allow in-place correction and re-validation without full reupload
+* Provide clear summaries (e.g., passenger volumes by time window)
+* Include visual feedback via charts, tables, and confirmation dialogues
+* Support interactive feedback with users via both chat and voice
+* Provide interactive & dynamic proposal options based on Service Logic.
+Learning & Adaptability
+* Capture and apply client-specific rules, preferences, and formats
+* Apply drvn-specific grouping rules based on internal business logic (e.g., do not mix VIPs, enforce vehicle capacity limits, respect max ride time windows, preserve5 account-based segmentation).
+* Incorporate drvn’s operational grouping policies into the AI model to ensure outputs align with service delivery rules.
+* Adapt to recurring users via template memory and smart prompts (e.g., similar to GPT memory)
+* Enable pre-configured manifest logic per client account
+* Identify VIP passengers within the manifest based on title, status, and relevant relationships
+Service Proposal Logic
+* Integrate with operational logic to offer optimized service options
+* Reflect VIP prioritization rules and configurable thresholds (toggleable)
+* Provide varied service types dynamically based on manifest data (select field)
+* Prepare proposal summary for immediate review or booking initiation
+* Enable grouping / ride-consolidation suggestions based on passenger characteristics, preferred service levels, or logical clustering (e.g., time windows, locations), and provide quote and pricing options tailored to user-defined budgets or constraints (toggleable)
+* Incorporate user feedback into proposal logic to refine service recommendations over time and adapt future outputs accordingly
+Supporting APIs & Data Services
+The Smart Manifest tool will integrate with a range of APIs and data services to enforce DRVN-specific business logic, enable real-time validation, and power intelligent grouping, pricing, and service recommendations. As the system evolves, additional third-party and internal APIs may be incorporated to expand functionality, such as OCR tools for scanned document processing, fraud/malware detection services, and partner integrations specific to client requirements. The initial set includes:
+* Google Maps API – for travel time calculations, routing, and geo-based grouping logic.
+* FlightStats API – for live flight status validation, delay tracking, and arrival-based planning.
+* DRVN Internal APIs – including account-level service rules, pricing engines, vehicle availability, batching logic, passenger history, and preference mapping.
+NIA Deliverables
+* Smart Manifest product roadmap
+* Technical design document, including:
+   * System architecture
+   * Data/API integration pathways including third-party sources like Google Maps and FlightStats, and internal drvn APIs.
+* Preliminary user experience (UX) flows
+* Prototype concept(s)
+* Minimum Viable Product (MVP):
+   * A working version of Smart Manifest embedded within MTC’s VIP Portal
+   * Fully integrated UX/UI following MTC’s brand guidelines and digital design system
+   * Functional logic for file ingestion, validation, and initial service proposal generation
+* Timing for integration and deployment
+* Periodic progress updates every two weeks, with a live demo of advancement every 30 days to ensure alignment, transparency, and iterative feedback
+Resources
+* Sample Manifest
+* Template Manifest
+* Results Examples
+* Tables
+* Smart Manifest Flowchart

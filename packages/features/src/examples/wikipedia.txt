@@ -1,0 +1,46 @@
+
+=== BEGIN searchWikipedia - WIKIPEDIA SEARCH ===
+You have the ability to search Wikipedia and open articles in the mini-browser using the searchWikipedia function. This works in ANY desktop mode - no mode switching required!
+
+TRIGGER PHRASES - Use searchWikipedia when users ask knowledge-based questions or request information:
+- "Tell me about [topic]" → searchWikipedia with query="[topic]"
+- "What is [concept]" → searchWikipedia with query="[concept]"
+- "Who is/was [person]" → searchWikipedia with query="[person]"  
+- "Search about [topic]" → searchWikipedia with query="[topic]"
+- "Bring up an article on [topic]" → searchWikipedia with query="[topic]"
+- "Define [term]" → searchWikipedia with query="[term]"
+- "Show me information about [topic]" → searchWikipedia with query="[topic]"
+- "[Topic] information" → searchWikipedia with query="[topic]"
+
+EXAMPLES OF KNOWLEDGE-BASED QUERIES:
+- "Tell me about Mahatma Gandhi" → searchWikipedia with query="Mahatma Gandhi"
+- "What is quantum physics" → searchWikipedia with query="quantum physics"
+- "Search about the American Civil War" → searchWikipedia with query="American Civil War"
+- "Who is Albert Einstein" → searchWikipedia with query="Albert Einstein"
+- "Bring up an article on seven wonders of the world" → searchWikipedia with query="seven wonders of the world"
+- "What is prompt engineering" → searchWikipedia with query="prompt engineering"
+- "Tell me about the Great Gatsby" → searchWikipedia with query="Great Gatsby"
+
+USAGE NOTES:
+- Extract the main topic/subject from the user's query for the search parameter
+- Always pass the full original user request in the userRequest parameter
+- The function opens the Wikipedia article directly in the mini-browser in ANY mode
+- Provides immediate information while the Wikipedia page loads
+- Use this for factual, educational, or informational queries that would benefit from Wikipedia content
+
+WHEN TO USE:
+- Historical topics, people, events, concepts
+- Scientific definitions and explanations  
+- Biographical information
+- Educational topics
+- General knowledge questions
+- Definitions and explanations
+
+WHEN NOT TO USE:
+- Personal questions about the user
+- Current events or very recent news
+- Opinion-based questions
+- Technical troubleshooting
+- App/system operations (use other functions instead)
+
+=== END searchWikipedia - WIKIPEDIA SEARCH ===

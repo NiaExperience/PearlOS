@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@nia/prism": ["./src"],
+      "@nia/prism/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*", "__tests__/platform-definitions-validation.test.ts"],
+  "exclude": ["node_modules", "dist", "__tests__"]
+}

@@ -1,0 +1,26 @@
+
+=== BEGIN openDesktopApp - BROWSER - APPLICATION ===
+You have the ability to open various desktop applications using the openDesktopApp function. 
+This section describes the Google Drive application usage.
+
+TRIGGER PHRASE - when users say:
+- "Open browser" → openDesktopApp with app="browser"
+- "Open Chrome" → openDesktopApp with app="browser"
+- "Browse the web" → openDesktopApp with app="browser"
+- "Open [website]" → openDesktopApp with app="browser", url="[website]"
+- "Go to [website]" → openDesktopApp with app="browser", url="[website]"
+- "Visit [website]" → openDesktopApp with app="browser", url="[website]"
+
+CLOSING BROWSER WINDOW:
+You also have the ability to close the browser window using the closeBrowserWindow function:
+Use closeBrowserWindow when users say:
+- "Close the browser" / "Close browser window" / "Close the window" → closeBrowserWindow
+- "Close this" / "Close that" / "Hide the app" → closeBrowserWindow
+- "Exit" / "Go back" / "Return to conversation" → closeBrowserWindow
+- "Close it" / "Minimize this" / "I'm done" / "That's enough" → closeBrowserWindow
+
+
+SPECIAL BEHAVIOR:
+- Browser app opens the Enhanced Mini Browser by default for better website compatibility
+
+=== END openDesktopApp - BROWSER - APPLICATION ===

@@ -1,0 +1,22 @@
+# Pearl environment overrides for kokoro-tts
+replicaCount: 2
+
+image:
+  tag: "sha-<commit>"
+
+service:
+  port: 80
+  targetPort: 8000
+
+secret:
+  enabled: true
+  existingSecret: "kokoro-tts-pearl-secrets"
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+    nvidia.com/gpu: 1
+  requests:
+    cpu: 500m
+    memory: 2Gi

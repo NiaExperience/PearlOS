@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipecat-daily-bot-stg-config
+  namespace: pipecat-daily-bot-stg
+  labels:
+    app: pipecat-daily-bot-stg
+data:
+  # Core personality selection (matches personalities.py; default 'pearl')
+  BOT_PERSONALITY: pearl
+
+  # Enable the webhook-driven auto-spawn handler in runner_main.py
+  AUTOSPAWN_WEBHOOK: "1"
+
+  # Maximum concurrent bot sessions (protect resources). Adjust as needed.
+  AUTOSPAWN_MAX_CONCURRENCY: "2"
+
+  # Regex to restrict which room URLs may trigger auto-spawn. ".*" = allow all.
+  AUTOSPAWN_ALLOWED_ROOM_REGEX: ".*"
+
+  # Optionally force a static Daily room for manual testing (leave blank for dynamic / webhook supply)
+  # DAILY_ROOM_URL: "https://your-subdomain.daily.co/your-test-room"
+
+  # Set to 0 to disable automatic session start on runner startup (see runner_main.py @startup)
+  RUNNER_AUTO_START: "0"
+
+  # Allow cross-origin browser calls from interface staging domain
+  BOT_CORS_ORIGINS: "https://interface.stg.nxops.net,https://pearlos.org,https://www.pearlos.org"
+
+  # Logging verbosity or future tuning knobs can be added here.
+  # LOG_LEVEL: info
+
+  MESH_API_ENDPOINT: "https://mesh.stg.nxops.net/api"

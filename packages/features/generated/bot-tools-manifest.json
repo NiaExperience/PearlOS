@@ -1,0 +1,1919 @@
+{
+  "version": "1.0.0",
+  "tool_count": 82,
+  "feature_count": 21,
+  "tool_names": [
+    "bot_add_note_content",
+    "bot_adjust_soundtrack_volume",
+    "bot_back_to_notes",
+    "bot_canvas_clear",
+    "bot_canvas_show",
+    "bot_canvas_show_article",
+    "bot_canvas_show_chart",
+    "bot_canvas_show_file",
+    "bot_canvas_show_image",
+    "bot_canvas_show_table",
+    "bot_close_applet_creation_engine",
+    "bot_close_browser_window",
+    "bot_close_calculator",
+    "bot_close_gmail",
+    "bot_close_google_drive",
+    "bot_close_notes",
+    "bot_close_terminal",
+    "bot_close_view",
+    "bot_close_youtube",
+    "bot_create_app_from_description",
+    "bot_create_app_from_note",
+    "bot_create_html_content",
+    "bot_create_note",
+    "bot_delete_note",
+    "bot_delete_profile_metadata",
+    "bot_dismiss_experience",
+    "bot_downgrade_user_access",
+    "bot_download_note",
+    "bot_end_call",
+    "bot_list_notes",
+    "bot_load_html_applet",
+    "bot_maximize_window",
+    "bot_minimize_window",
+    "bot_next_soundtrack_track",
+    "bot_onboarding_complete",
+    "bot_open_browser",
+    "bot_open_calculator",
+    "bot_open_creation_engine",
+    "bot_open_enhanced_browser",
+    "bot_open_gmail",
+    "bot_open_google_drive",
+    "bot_open_note",
+    "bot_open_notes",
+    "bot_open_terminal",
+    "bot_open_youtube",
+    "bot_openclaw_task",
+    "bot_pause_youtube_video",
+    "bot_play_next_youtube_video",
+    "bot_play_soundtrack",
+    "bot_play_youtube_video",
+    "bot_read_current_note",
+    "bot_remove_note_content",
+    "bot_render_experience",
+    "bot_replace_note",
+    "bot_replace_note_content",
+    "bot_reset_window_position",
+    "bot_restore_window",
+    "bot_rollback_app",
+    "bot_save_note",
+    "bot_search_wikipedia",
+    "bot_search_youtube_videos",
+    "bot_set_soundtrack_volume",
+    "bot_set_user_access_level",
+    "bot_share_applet_with_user",
+    "bot_share_note_with_user",
+    "bot_show_share_dialog",
+    "bot_snap_window_left",
+    "bot_snap_window_right",
+    "bot_start_daily_call",
+    "bot_stop_soundtrack",
+    "bot_summon_sprite",
+    "bot_switch_desktop_mode",
+    "bot_switch_note_mode",
+    "bot_think_deeply",
+    "bot_update_html_applet",
+    "bot_update_user_profile",
+    "bot_upgrade_user_access",
+    "bot_wonder_canvas_add",
+    "bot_wonder_canvas_animate",
+    "bot_wonder_canvas_avatar_hint",
+    "bot_wonder_canvas_clear",
+    "bot_wonder_canvas_scene"
+  ],
+  "features": [
+    "assistantSelfClose",
+    "browserAutomation",
+    "calculator",
+    "dailyCall",
+    "experiences",
+    "gmail",
+    "googleDrive",
+    "htmlContent",
+    "maneuverableWindow",
+    "miniBrowser",
+    "notes",
+    "onboarding",
+    "openclawBridge",
+    "resourceSharing",
+    "soundtrack",
+    "summonSpriteTool",
+    "terminal",
+    "userProfile",
+    "wikipedia",
+    "wonderCanvas",
+    "youtube"
+  ],
+  "tools": {
+    "bot_add_note_content": {
+      "name": "bot_add_note_content",
+      "description": "Add new text content to the start or end of note without replacing existing content.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The content to add to the note"
+          },
+          "position": {
+            "type": "string",
+            "description": "Where to add content: 'start', 'end', or 'cursor' (default 'end')",
+            "default": "end"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to add content to. If not provided, adds to the currently active note."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optiona title of the note to modify. If not provided, adds to the currently active note."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_adjust_soundtrack_volume": {
+      "name": "bot_adjust_soundtrack_volume",
+      "description": "Adjust the soundtrack volume relative to current level. Use 'increase' or 'decrease' direction with 0.15 (15%) step size. This affects the base volume used for normal playback and ducking.",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "description": "Direction to adjust volume: 'increase' or 'decrease'",
+            "enum": [
+              "increase",
+              "decrease"
+            ]
+          },
+          "step": {
+            "type": "number",
+            "description": "Step size for adjustment (default 0.15 = 15%)",
+            "default": 0.15,
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        },
+        "required": [
+          "direction"
+        ]
+      },
+      "passthrough": true
+    },
+    "bot_back_to_notes": {
+      "name": "bot_back_to_notes",
+      "description": "Navigate back to the notes list view from the current note.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_canvas_clear": {
+      "name": "bot_canvas_clear",
+      "description": "Clear/dismiss the current canvas content from the user's screen.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_canvas_show": {
+      "name": "bot_canvas_show",
+      "description": "Display content on the user's screen as a Canvas document. Use this to show formatted text, markdown, code snippets, lists, summaries, or any content the user should see visually. Content supports full markdown including headings, lists, code blocks, bold, italic, and links.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title for the document shown on screen"
+          },
+          "content": {
+            "type": "string",
+            "description": "Markdown content to display. Supports headings, lists, code blocks, etc."
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_canvas_show_article": {
+      "name": "bot_canvas_show_article",
+      "description": "Display a news article or web page on the user's screen in a clean, readable format. Pass a URL to scrape, or pass article data directly (headline, body, etc.).",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL of the article to scrape and display"
+          },
+          "headline": {
+            "type": "string",
+            "description": "Article headline (used if providing data directly instead of URL)"
+          },
+          "body": {
+            "type": "string",
+            "description": "Article body in markdown (used if providing data directly)"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source name (e.g., 'The New York Times')"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author name"
+          },
+          "hero_image": {
+            "type": "string",
+            "description": "URL of the hero/header image"
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_canvas_show_chart": {
+      "name": "bot_canvas_show_chart",
+      "description": "Display a chart/graph on the user's screen. Supports line charts (time series), bar charts (categorical data), and pie charts (proportional data). Pass chart data as JSON. The chart renders natively in PearlOS.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title displayed above the chart"
+          },
+          "chart_type": {
+            "type": "string",
+            "enum": [
+              "line",
+              "bar",
+              "pie"
+            ],
+            "description": "Type of chart to render"
+          },
+          "chart_data": {
+            "type": "string",
+            "description": "JSON string with chart data. For line: {\"series\": [{\"name\": \"Sales\", \"data\": [{\"time\": \"Jan\", \"value\": 100}]}]}. For bar: {\"categories\": [\"A\", \"B\"], \"series\": [{\"name\": \"Count\", \"data\": [10, 20]}]}. For pie: {\"segments\": [{\"label\": \"Chrome\", \"value\": 65}]}."
+          }
+        },
+        "required": [
+          "chart_type",
+          "chart_data"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_canvas_show_file": {
+      "name": "bot_canvas_show_file",
+      "description": "Display a file from the workspace on the user's screen. Supports text files (code, markdown, config), images (jpg, png, gif), and videos (mp4, mov, webm). Files are rendered with proper formatting \u2014 code gets syntax highlighting, images display inline, videos play inline.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file to display (absolute or relative to workspace)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional title override. Defaults to the filename."
+          }
+        },
+        "required": [
+          "file_path"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_canvas_show_image": {
+      "name": "bot_canvas_show_image",
+      "description": "Display an image on the user's screen with zoom and pan controls. Supports any image URL (jpg, png, gif, webp). Use pixel_art=true for pixel art (renders with crisp/nearest-neighbor scaling).",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "description": "URL of the image to display"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title/caption for the image"
+          },
+          "caption": {
+            "type": "string",
+            "description": "Caption text shown below the image"
+          },
+          "pixel_art": {
+            "type": "boolean",
+            "description": "Render with nearest-neighbor scaling (for pixel art)"
+          }
+        },
+        "required": [
+          "image_url"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_canvas_show_table": {
+      "name": "bot_canvas_show_table",
+      "description": "Display a data table on the user's screen with sortable columns. Pass column definitions and row data as JSON.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title for the table"
+          },
+          "columns": {
+            "type": "string",
+            "description": "JSON array of column defs: [{\"key\": \"name\", \"label\": \"Name\"}, {\"key\": \"price\", \"label\": \"Price\"}]"
+          },
+          "rows": {
+            "type": "string",
+            "description": "JSON array of row objects: [{\"name\": \"Apple\", \"price\": 1.50}]"
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_close_applet_creation_engine": {
+      "name": "bot_close_applet_creation_engine",
+      "description": "Close the creation engine or content creation tool window. Triggers: \"close creation engine\", \"exit creation engine\", \"close content creator\", \"exit content creator\".",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_close_browser_window": {
+      "name": "bot_close_browser_window",
+      "description": "Close specific apps (Gmail, Calculator, Terminal, Drive, Notes, etc.) or all windows. Use the \"apps\" parameter to specify which apps to close (e.g., [\"gmail\", \"terminal\"]). If no apps specified, closes all windows.",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "apps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail', 'calculator', 'drive']). If not provided, closes all windows."
+        },
+        "request_text": {
+          "type": "string",
+          "description": "Optional raw user request text for context (e.g., 'close terminal and gmail')"
+        }
+      },
+      "passthrough": true
+    },
+    "bot_close_calculator": {
+      "name": "bot_close_calculator",
+      "description": "Close the calculator application. Triggers: \"close calculator\", \"exit calculator\".",
+      "feature_flag": "calculator",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_close_gmail": {
+      "name": "bot_close_gmail",
+      "description": "Close Gmail. Triggers: \"close gmail\", \"exit gmail\".",
+      "feature_flag": "gmail",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_close_google_drive": {
+      "name": "bot_close_google_drive",
+      "description": "Close Google Drive. Triggers: \"close drive\", \"exit drive\".",
+      "feature_flag": "googleDrive",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_close_notes": {
+      "name": "bot_close_notes",
+      "description": "Close the notes application. Triggers: \"close notes\", \"exit notes\", \"close notepad\".",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_close_terminal": {
+      "name": "bot_close_terminal",
+      "description": "Close the terminal application. Triggers: \"close terminal\", \"exit terminal\".",
+      "feature_flag": "terminal",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_close_view": {
+      "name": "bot_close_view",
+      "description": "Close specific apps or the current view. Use the \"apps\" parameter to specify which apps to close (Gmail, Calculator, Terminal, Drive, Notes, etc.). If no apps specified, closes all windows.",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "apps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail', 'calculator']). If not provided, closes all windows."
+        },
+        "request_text": {
+          "type": "string",
+          "description": "Optional raw user request text for context (e.g., 'close terminal and gmail')"
+        }
+      },
+      "passthrough": true
+    },
+    "bot_close_youtube": {
+      "name": "bot_close_youtube",
+      "description": "Close the YouTube player interface. Triggers: \"close youtube\", \"stop video\", \"exit youtube\".",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_create_app_from_description": {
+      "name": "bot_create_app_from_description",
+      "description": "Request AI generation of an HTML applet/game/tool based on a description. DO NOT use for sprite/character requests - use bot_summon_sprite instead for those. The design, theme, gameplay and characters should be based on and informed by your conversation with the user, but their answers should not be directly used in the experience. Make a simple, turn-based, no-sound, 80s arcade style game that is genuinely fun, social, and endlessly generative without feeling like a quiz or therapy. The user should be able to make one move and then send it to someone else to complete or compete. Examples: if the user answers artistically, generate a physics-defying graffiti wall; if the users answers are collaborative, generate a magical wishing tree where others can post and you affirm their wish with a Gen Z phrase; if they answer competitively, generate a hot-seat arcade game where players take turns placing a single token on a glowing board, flipping nearby enemy tiles to their color and instantly changing the score. Think of it like the user is Player 1 who boots a strange arcade machine and sets its internal logic (unknowingly) and when they send it to multiple Player 2s, those players briefly get the joystick and interact with the system before it locks. Player 2s can send with their updates back to Player 1 or forward on to multiple Player 3s. There should be no instructions or text in the gameplay, the interaction must be obvious by the visual design affordance. The payoff for each player must be hilarious to Gen Z audiences and deliver a gorgeous screenshot-able final visual. All visuals must fit on a single standard mobile screen and not require any scrolling. Use this when the user asks you to CREATE a new app, game, or interactive tool. You only need to provide a title and description - the AI will generate the full HTML. This is the PRIMARY tool for creating new HTML content from user requests.\nAVAILABLE LIBRARY TEMPLATES:\nWhen the user's request matches one of these templates, include library_type and library_template_id in your tool call.\n\nTOOL TEMPLATES (library_type: \"tool\"):\n- library_template_id: \"counter_widget_v1\"\n  Name: Counter Widget Starter\n  Description: Simple animated counter with increment/decrement, reset, and persistence hooks.\n\n- library_template_id: \"quick_poll_v1\"\n  Name: Quick Poll (Two Option)\n  Description: Two-option poll with percentages and persistence.\n\n- library_template_id: \"party_pack_poll\"\n  Name: Party Pack: Emoji Vote\n  Description: Emoji-based quick vote with live tally and persistence.\n\n- library_template_id: \"party_pack_score\"\n  Name: Party Pack: Score Keeper\n  Description: Two-team score keeper with quick adjust, reset, and persistence.\n\nGAME TEMPLATES (library_type: \"game\"):\n- library_template_id: \"space_invaders_lite\"\n  Name: Space Invaders Lite\n  Description: Simple version of the arcade classic lane shooter with high-score persistence.\n\n- library_template_id: \"checkers_challenge\"\n  Name: Classic Checkers Challenge\n  Description: Classic checkers game with a polished UI and smooth gameplay, both single player and multi-player modes, with turn-based mechanics / game persistence.\n\n- library_template_id: \"chess_persistent\"\n  Name: Chess (Single/Multiplayer)\n  Description: Lightweight chess move tracker that binds white/black to a user and persists moves via NiaAPI.\n\nIf no template matches the user's request, omit library_type and library_template_id to generate from scratch.",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title/name for the app (provided by user, never inferred)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of what the app should do, its features, visual style, etc."
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Type of HTML content to create: 'game' for games/arcade, 'app' for applications, 'tool' for utilities/widgets, 'interactive' for interactive experiences",
+            "default": "game"
+          },
+          "library_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Library type for template selection. Only provide if using a library template.",
+            "default": "game"
+          },
+          "library_template_id": {
+            "type": "string",
+            "description": "Specific library template ID to use as a starting point. Only provide if user's request is similar an available template."
+          }
+        },
+        "required": [
+          "title",
+          "description"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_create_app_from_note": {
+      "name": "bot_create_app_from_note",
+      "description": "Create an HTML app/game directly from a note's content. Provide either note_id or title (fuzzy search will find the note). The note's content will be used to generate the HTML app. This is a single-step operation that finds the note and creates the app in one tool call.",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "Specific note ID to use (exact match)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Note title to search for (fuzzy search if note_id not provided)"
+          },
+          "app_title": {
+            "type": "string",
+            "description": "Optional custom title for the HTML app. If not provided, uses the note's title."
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Type of HTML content being created"
+          },
+          "user_request": {
+            "type": "string",
+            "description": "User's request that triggered this app creation"
+          }
+        },
+        "required": [
+          "app_title"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_create_html_content": {
+      "name": "bot_create_html_content",
+      "description": "Create a new HTML applet or interactive widget using the provided title and full HTML. Use this ONLY when you already have complete, valid HTML code to provide.",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title for the HTML applet"
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Complete HTML content (single file with embedded CSS/JS)"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Type of HTML content being created"
+          },
+          "user_request": {
+            "type": "string",
+            "description": "Original user request that created this content"
+          },
+          "source_note_id": {
+            "type": "string",
+            "description": "Optional ID of source note if created from note content"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional tags for searchability"
+          }
+        },
+        "required": [
+          "title",
+          "html_content"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_create_note": {
+      "name": "bot_create_note",
+      "description": "Create a brand-new shared note with the provided title and optional initial markdown content.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The title for the new note"
+          },
+          "content": {
+            "type": "string",
+            "description": "Optional initial content for the note (markdown supported). Leave empty or omit for blank note."
+          },
+          "mode": {
+            "type": "string",
+            "description": "The mode for the note: 'personal' (private) or 'work' (public). In a multi-user session, new 'personal' notes will be shared with the current participants, but private for non-participants. Defaults to 'personal' if not specified."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_delete_note": {
+      "name": "bot_delete_note",
+      "description": "Delete a note permanently. Use with caution.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "The (optional) ID of the note to delete. Prefer this, use title only if ID is not known."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the note to delete"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Confirmation flag to prevent accidental deletion",
+            "default": false
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_delete_profile_metadata": {
+      "name": "bot_delete_profile_metadata",
+      "description": "Remove specific fields from the user's profile metadata or clear all metadata. Use when user asks to remove information or when you need to delete outdated/incorrect data. Can delete specific keys or clear everything.",
+      "feature_flag": "userProfile",
+      "parameters": {
+        "user_id": {
+          "type": "string",
+          "description": "User ID to delete metadata for"
+        },
+        "keys_to_delete": {
+          "type": "array",
+          "description": "List of metadata keys to delete. Omit to clear all metadata.",
+          "items": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      },
+      "passthrough": false
+    },
+    "bot_dismiss_experience": {
+      "name": "bot_dismiss_experience",
+      "description": "Dismiss the currently displayed experience from the Stage. Use this when the user is done viewing an experience or wants to return to the default void background.",
+      "feature_flag": "experiences",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_downgrade_user_access": {
+      "name": "bot_downgrade_user_access",
+      "description": "Downgrade a user's access level for the current shared resource (note or applet) to read-only. Use this when the user asks to reduce someone's access, make them a viewer, remove edit access, or restrict their permissions. Examples: 'downgrade Bill to read-only', 'make Sarah a viewer', 'remove John's edit access', 'restrict Alice to view-only'.",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string",
+            "description": "Email address of the user to downgrade"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of the user (used if email not available)"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "applet"
+            ],
+            "description": "Type of resource (note or applet)"
+          },
+          "resource_title": {
+            "type": "string",
+            "description": "Title of the note or applet (optional - if not provided, uses the currently active resource)"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the note or applet (optional - preferred if you have the ID)"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_download_note": {
+      "name": "bot_download_note",
+      "description": "Trigger a download of the note in a specified format (markdown, PDF, etc.).",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "description": "Format to download the note in (e.g. 'markdown', 'text')",
+            "enum": [
+              "markdown",
+              "text"
+            ],
+            "default": "markdown"
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_end_call": {
+      "name": "bot_end_call",
+      "description": "End the active assistant session. User triggers: 'hang up', 'disconnect', 'goodbye', 'talk to you later', 'bye', etc. Use only when the assistant has confirmation to close the session.",
+      "feature_flag": "assistantSelfClose",
+      "parameters": {
+        "reason": {
+          "type": "string",
+          "description": "Optional reason for ending the call; used for logging only."
+        }
+      },
+      "passthrough": false
+    },
+    "bot_list_notes": {
+      "name": "bot_list_notes",
+      "description": "List all available notes for the current tenant, providing titles, modes, and IDs (not full content).",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Maximum number of notes to return (default 50)",
+            "default": 50
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_load_html_applet": {
+      "name": "bot_load_html_applet",
+      "description": "Load an existing HTML applet by ID or search for one by title. Can also search for applets by their source note - provide note_id or note_title to find applets created from that note. Search priority: 1) applet_id, 2) applet title, 3) note_id, 4) note_title (fuzzy match). In multi-user sessions, this will also share the applet with all participants. Use this when the user wants to open or view an existing HTML applet.",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_id": {
+            "type": "string",
+            "description": "ID of the applet to load"
+          },
+          "title": {
+            "type": "string",
+            "description": "Search for applet by its title (fuzzy match)"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Find applet by its source note ID (searches for applets with this sourceNoteId)"
+          },
+          "note_title": {
+            "type": "string",
+            "description": "Find applet by source note title (fuzzy match on note title, then find applets from that note)"
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_maximize_window": {
+      "name": "bot_maximize_window",
+      "description": "Maximize the application window to fill the entire screen.",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_minimize_window": {
+      "name": "bot_minimize_window",
+      "description": "Minimize the application window to the taskbar or dock.",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_next_soundtrack_track": {
+      "name": "bot_next_soundtrack_track",
+      "description": "Skip to the next track in the soundtrack playlist.",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_onboarding_complete": {
+      "name": "bot_onboarding_complete",
+      "description": "CRITICAL: Call this tool IMMEDIATELY when the onboarding flow is finished or if the user asks to skip. This is the ONLY way to exit onboarding mode. Do not just say you are done; you MUST call this function.",
+      "feature_flag": "onboarding",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_open_browser": {
+      "name": "bot_open_browser",
+      "description": "Open a web browser window. Optionally navigate to a specified URL. Triggers: \"open browser\", \"launch browser\", \"open web browser\", \"go to [URL]\".",
+      "feature_flag": "miniBrowser",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "Optional URL to navigate to when opening the browser"
+        }
+      },
+      "passthrough": true
+    },
+    "bot_open_calculator": {
+      "name": "bot_open_calculator",
+      "description": "Open the calculator application.  Triggers: \"do some math\", \"open calculator\", \"load calculator app\", \"open calc\".",
+      "feature_flag": "calculator",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_creation_engine": {
+      "name": "bot_open_creation_engine",
+      "description": "Open the creation engine or content creation tool. Triggers: \"open creation engine\", \"load creation tool\", \"start content creation\", \"create html content\".",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_enhanced_browser": {
+      "name": "bot_open_enhanced_browser",
+      "description": "Open an enhanced browser window with advanced features (dev tools, extensions, etc.).",
+      "feature_flag": "miniBrowser",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "URL to open in the enhanced browser"
+        },
+        "features": {
+          "type": "array",
+          "description": "Optional list of features to enable (devtools, extensions, etc.)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "passthrough": true
+    },
+    "bot_open_gmail": {
+      "name": "bot_open_gmail",
+      "description": "Open Gmail in the application or browser. Triggers: \"open gmail\", \"load gmail app\", \"check email\", \"open email\".",
+      "feature_flag": "gmail",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_google_drive": {
+      "name": "bot_open_google_drive",
+      "description": "Open Google Drive in the application or browser. Triggers: \"open drive\", \"load google drive app\", \"open google drive\", \"open my files\".",
+      "feature_flag": "googleDrive",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_note": {
+      "name": "bot_open_note",
+      "description": "Opens a note (displays in UI). User: 'load my note titled X', 'open note X'.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "The ID of the note to open"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the note to open"
+          }
+        },
+        "required": [
+          ""
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_open_notes": {
+      "name": "bot_open_notes",
+      "description": "Open the Notepad application. Triggers: \"open notes\", \"open notepad\", \"load notes app\", \"open portal\", \"open library\". For opening a SPECIFIC note by name or description, ALWAYS use bot_open_note instead.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_terminal": {
+      "name": "bot_open_terminal",
+      "description": "Open a terminal or command line interface. Triggers: \"open terminal\", \"load terminal app\", \"open command line\", \"open shell\".",
+      "feature_flag": "terminal",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_youtube": {
+      "name": "bot_open_youtube",
+      "description": "Open the YouTube player interface.  Triggers: \"open youtube\", \"load youtube app\", \"open video\", \"play video\". Use bot_search_youtube_videos to search and play videos based on user input.",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_openclaw_task": {
+      "name": "bot_openclaw_task",
+      "description": "Fire-and-forget background task for the OpenClaw AI agent (powered by Claude). Results appear in the PearlOS interface, NOT spoken back to the user. DO NOT use this for Discord/Telegram messaging, web searches, or anything where you need the result spoken back. Use bot_think_deeply instead for those. Only use this for long-running background tasks like: writing code to a file, running multi-step workflows, or heavy analysis that should display in the UI.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "A clear description of the task to delegate to OpenClaw."
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "description": "Task urgency level. Defaults to 'normal'.",
+            "default": "normal"
+          }
+        },
+        "required": [
+          "task"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_pause_youtube_video": {
+      "name": "bot_pause_youtube_video",
+      "description": "Pause the currently playing YouTube video.",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_play_next_youtube_video": {
+      "name": "bot_play_next_youtube_video",
+      "description": "Play the next video in the current YouTube playlist or search results.",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_play_soundtrack": {
+      "name": "bot_play_soundtrack",
+      "description": "Start playing background soundtrack music from the curated collection. The soundtrack plays ambient/instrumental music that automatically ducks during conversation.",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_play_youtube_video": {
+      "name": "bot_play_youtube_video",
+      "description": "Play or resume YouTube video. Optionally provide a video ID/URL to play a specific video, or omit to resume the current paused video.",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "YouTube video ID or full URL. Optional - omit to resume current paused video."
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_read_current_note": {
+      "name": "bot_read_current_note",
+      "description": "Reads the current active note's content. Use this to read the note currently open in the session.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_remove_note_content": {
+      "name": "bot_remove_note_content",
+      "description": "Remove specific text content from the note.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Text pattern to remove from the note"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to remove content from. If not provided, removes from the currently active note."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optiona title of the note to modify. If not provided, adds to the currently active note."
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_render_experience": {
+      "name": "bot_render_experience",
+      "description": "Render an interactive HTML experience on the Stage. Use this to display visual content like clocks, greeting cards, data visualizations, mini-games, or any interactive HTML content. The experience appears full-screen behind Pearl's avatar. Provide complete, self-contained HTML. Optional CSS and JS are injected into the sandboxed iframe. Transition can be 'fade', 'slide', or 'instant'.",
+      "feature_flag": "experiences",
+      "parameters": {
+        "html": {
+          "type": "string",
+          "description": "The HTML content to render. Should be a complete HTML fragment."
+        },
+        "css": {
+          "type": "string",
+          "description": "Optional CSS styles to inject into the experience."
+        },
+        "js": {
+          "type": "string",
+          "description": "Optional JavaScript to execute within the sandboxed experience."
+        },
+        "transition": {
+          "type": "string",
+          "enum": [
+            "fade",
+            "slide",
+            "instant"
+          ],
+          "description": "Transition animation when the experience appears. Defaults to 'fade'."
+        }
+      },
+      "passthrough": true
+    },
+    "bot_replace_note": {
+      "name": "bot_replace_note",
+      "description": "Replace the ENTIRE contents of the note with new markdown. Use this when surgical bot_add_note_content/bot_replace_note_content/bot_remove_note_content is impractical. Ensure you preserve any content that should remain in the note.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The COMPLETE new content for the note in markdown format. Must include ALL items to keep - anything not included will be deleted."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional new title for the note. If provided, the note's title will be updated."
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to update. If not provided, updates the currently active note."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_replace_note_content": {
+      "name": "bot_replace_note_content",
+      "description": "Replace specific text in the note. User: 'change raspberry to blueberry in the note', 'change Bob to Brian in the note'.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The content to write to the note"
+          },
+          "section": {
+            "type": "string",
+            "description": "Optional section identifier where content should be written"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to write to. If not provided, writes to the currently active note."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the note to modify. If not provided, writes to the currently active note."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_reset_window_position": {
+      "name": "bot_reset_window_position",
+      "description": "Reset the window to its default center position and size.",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_restore_window": {
+      "name": "bot_restore_window",
+      "description": "Restore the window to its default center position and size.",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_rollback_app": {
+      "name": "bot_rollback_app",
+      "description": "Revert the currently active applet to its previous version. Use this when the user says 'undo changes', 'rollback', or 'go back to the previous version'. This will restore the HTML content and title from the most recent history entry.",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_id": {
+            "type": "string",
+            "description": "The ID of the applet to rollback"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the applet to rollback (used if ID is not provided)"
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Number of versions to rollback (default: 1)"
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_save_note": {
+      "name": "bot_save_note",
+      "description": "Save the current note's changes to persistent storage.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to save. If not provided, saves the currently active note."
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_search_wikipedia": {
+      "name": "bot_search_wikipedia",
+      "description": "Search Wikipedia for information on ANY topic - people, places, concepts, animals, objects, etc. Use this for any general knowledge question. Returns articles with summaries and opens the article in the browser.",
+      "feature_flag": "wikipedia",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query for Wikipedia"
+          },
+          "sentences": {
+            "type": "number",
+            "description": "Number of sentences to return in summary (default 3)",
+            "default": 3
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_search_youtube_videos": {
+      "name": "bot_search_youtube_videos",
+      "description": "Search for YouTube videos by query and automatically play the top result. Opens the YouTube player with search results.",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query for YouTube videos"
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results to return (default 10)",
+            "default": 10
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_set_soundtrack_volume": {
+      "name": "bot_set_soundtrack_volume",
+      "description": "Set the soundtrack volume to a specific level (0.0 to 1.0, where 0.5 = 50%). This sets the base volume that will be used for normal playback and ducking calculations.",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "volume": {
+            "type": "number",
+            "description": "Volume level from 0.0 to 1.0 (e.g., 0.5 = 50%, 0.3 = 30%, 1.0 = 100%)",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        },
+        "required": [
+          "volume"
+        ]
+      },
+      "passthrough": true
+    },
+    "bot_set_user_access_level": {
+      "name": "bot_set_user_access_level",
+      "description": "Set a user's access level (owner, admin, member, or viewer) for the current shared resource. Use this for precise control when the user specifies an exact role level. For simpler requests like 'upgrade' or 'downgrade', prefer using bot_upgrade_user_access or bot_downgrade_user_access instead.",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "access_level": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "viewer"
+            ],
+            "description": "Access level to grant (owner, admin, member, viewer)"
+          },
+          "user_email": {
+            "type": "string",
+            "description": "Email address of the user to update"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of the user (used if email not available)"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "applet"
+            ],
+            "description": "Type of resource (note or applet)"
+          },
+          "resource_title": {
+            "type": "string",
+            "description": "Title of the note or applet (optional - if not provided, uses the currently active resource)"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the note or applet (optional - preferred if you have the ID)"
+          }
+        },
+        "required": [
+          "access_level",
+          "resource_type"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_share_applet_with_user": {
+      "name": "bot_share_applet_with_user",
+      "description": "Share ownership/access to an HTML applet with another person. Use when user says: 'share my applet with NAME', 'give ACCESS to USER', 'let PERSON see/edit this app'. Accepts user name OR email. Permission: 'read' = view only, 'write' = full edit. Example: 'share calculator with Jane' or 'share with jane@example.com, read access'.",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_search_term": {
+            "type": "string",
+            "description": "Applet title or partial title to search for"
+          },
+          "target_user_email": {
+            "type": "string",
+            "description": "Email address (or partial email) of user to share with"
+          },
+          "target_user_name": {
+            "type": "string",
+            "description": "Name of user to share with (used if email not available)"
+          },
+          "permission_level": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ],
+            "description": "Permission level: 'read' for read-only, 'write' for full edit",
+            "default": "read"
+          }
+        },
+        "required": [
+          "applet_search_term"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_share_note_with_user": {
+      "name": "bot_share_note_with_user",
+      "description": "Share ownership/access to a note with another person. Use when user says: 'share my note with NAME', 'give ACCESS to USER', 'let PERSON see/edit my note'. Accepts user name OR email. Permission: 'read' = view only, 'write' = full edit. Example: 'share space war with Jeffrey Klug' or 'share with bill@niaxp.com, write access'.",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_search_term": {
+            "type": "string",
+            "description": "Note title or partial title to search for"
+          },
+          "target_user_email": {
+            "type": "string",
+            "description": "Email address (or partial email) of user to share with"
+          },
+          "target_user_name": {
+            "type": "string",
+            "description": "Name of user to share with (used if email not available)"
+          },
+          "permission_level": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ],
+            "description": "Permission level: 'read' for read-only, 'write' for full edit",
+            "default": "write"
+          }
+        },
+        "required": [
+          "note_search_term"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_show_share_dialog": {
+      "name": "bot_show_share_dialog",
+      "description": "Popup the share dialog for the current applet. Use when user says 'show share dialog', 'open sharing popup', 'show sharing options'. This only SHOWS the dialog UI - it does NOT share with anyone.",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_snap_window_left": {
+      "name": "bot_snap_window_left",
+      "description": "Snap the window to the left half of the screen.",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_snap_window_right": {
+      "name": "bot_snap_window_right",
+      "description": "Snap the window to the right half of the screen.",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_start_daily_call": {
+      "name": "bot_start_daily_call",
+      "description": "Open the Forum / Social Call video interface. Use this when the user asks to 'open forum', 'open form', 'open social forum', 'open social', 'start a call', 'open daily call', 'start video', etc. The Forum / Social Call will use the pre-configured room (no room name needed).",
+      "feature_flag": "dailyCall",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_stop_soundtrack": {
+      "name": "bot_stop_soundtrack",
+      "description": "Stop the background soundtrack completely.",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_summon_sprite": {
+      "name": "bot_summon_sprite",
+      "description": "Summon a visual AI sprite character from a user-provided description (e.g., 'panda doctor', 'indian driver'). Use when the user asks for a character/persona so the sprite can appear and chat.",
+      "feature_flag": "summonSpriteTool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Character description for the sprite (e.g., 'panda doctor')"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_switch_desktop_mode": {
+      "name": "bot_switch_desktop_mode",
+      "description": "Switch between DESKTOP/background modes. Available modes: \"home\" (home/desktop background), \"work\" (work background with app icons), \"quiet\" (minimal peaceful background), and \"create\" (Creation Engine workspace). When user says \"home mode\" or \"desktop home\", use \"home\". When user says \"work mode\" or \"desktop work\", use \"work\". When user says \"quiet mode\", \"go quiet\", or anything similar, use \"quiet\". When user says \"create mode\", \"creation mode\", \"open create mode\", \"switch to create\", or anything similar about building/creating, use \"create\". IMPORTANT: This is NOT note privacy mode. If the user is talking about Notes/Notepad \"personal\" vs \"work\" visibility, use bot_switch_note_mode instead.",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "The desktop mode to switch to. Valid values: 'home' (home/desktop background), 'work' (work background with app icons - aka workspace), 'quiet' (personal quiet background), or 'create' (Creation Engine workspace). REQUIRED - always provide this parameter.",
+            "enum": [
+              "home",
+              "work",
+              "quiet",
+              "create"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_switch_note_mode": {
+      "name": "bot_switch_note_mode",
+      "description": "Switch the note view between different modes (e.g., 'work' for shared, 'personal' for private).",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "The mode to switch to: 'work' (shared) or 'personal' (private)"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "passthrough": true
+    },
+    "bot_think_deeply": {
+      "name": "bot_think_deeply",
+      "description": "Connect to your full OpenClaw brain for tasks that need results spoken back to the user. This is your gateway to: sending Discord/Telegram messages, web research, file access, deep analysis, and any capability beyond your built-in PearlOS tools. Use this when the user asks you to: send a Discord message, search the web, look something up, do complex reasoning, or anything requiring your OpenClaw backend. The result is returned synchronously and you can speak it back. Examples: 'send a message to #general on Discord saying hello', 'search the web for latest news about X', 'what's in my recent emails'. Do NOT use for simple PearlOS operations (notes, YouTube, calculator) \u2014 use built-in tools for those.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "The question or problem that requires deep thinking."
+          },
+          "context": {
+            "type": "string",
+            "description": "Relevant context from the conversation (optional).",
+            "default": ""
+          }
+        },
+        "required": [
+          "question"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_update_html_applet": {
+      "name": "bot_update_html_applet",
+      "description": "Update an existing HTML applet's metadata or HTML content, identified by its applet_id. If the user wants to update using a note (e.g. 'update with my Space War Tweaks note'), you MUST provide the 'note_title' or 'note_id' parameter so the system can fetch the full content. Do NOT try to summarize the note yourself in the modification_request.",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_id": {
+            "type": "string",
+            "description": "ID of the applet to update"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the applet to update (used if applet_id is not provided)"
+          },
+          "new_title": {
+            "type": "string",
+            "description": "New title for the applet (optional rename)"
+          },
+          "modification_request": {
+            "type": "string",
+            "description": "Natural language description of how to modify the applet (e.g., 'change the background to blue', 'add a score counter'), OR if the user wants you to use a note to help update the applet, put the contents of the note here verbatim."
+          },
+          "note_id": {
+            "type": "string",
+            "description": "The ID of the note to use for the update (if applicable)"
+          },
+          "note_title": {
+            "type": "string",
+            "description": "The title of the note to use for the update (if applicable)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New tags (optional)"
+          }
+        },
+        "required": [
+          "modification_request"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_update_user_profile": {
+      "name": "bot_update_user_profile",
+      "description": "Save or update user profile when learning new information (upsert pattern - works for both new and existing profiles). TRIGGER PHRASES - When user says: 'I like/love/enjoy X' \u2192 save under 'interests'. 'I work at/on X' \u2192 save under 'work'. 'My name is X' \u2192 save under 'name'. 'I'm from X' \u2192 save under 'location'. 'I have X hobby/pet' \u2192 save under 'hobbies' or 'pets'. 'I prefer X' \u2192 save under 'preferences'. 'I've been doing X lately' \u2192 save under 'recent_activities'. EXAMPLES: User says 'I love hiking' \u2192 save {'interests': 'hiking'}. User says 'I work at Microsoft' \u2192 save {'work': 'Microsoft'}. User says 'I have two dogs' \u2192 save {'pets': 'two dogs'}. User says 'I prefer coffee over tea' \u2192 save {'preferences': 'coffee'}. Use descriptive keys like 'interests', 'work', 'hobbies', 'family', 'pets', 'goals', 'preferences', 'recent_projects', 'recent_activities'. Call this IMMEDIATELY after learning something new about the user. Works for both new profiles and existing ones.",
+      "feature_flag": "userProfile",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true,
+        "description": "Profile fields to save or update (e.g., {\"pets\": \"two dogs\", \"interests\": \"hiking\"})"
+      },
+      "passthrough": false
+    },
+    "bot_upgrade_user_access": {
+      "name": "bot_upgrade_user_access",
+      "description": "Upgrade a user's access level for the current shared resource (note or applet) to read-write. Use this when the user asks to give someone more access, make them a writer, editor, collaborator, upgrade their permissions, or let them edit. Examples: 'upgrade Bill to read-write', 'give Sarah edit access', 'make John a collaborator', 'let Alice write to this note'.",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string",
+            "description": "Email address of the user to upgrade"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of the user (used if email not available)"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "applet"
+            ],
+            "description": "Type of resource (note or applet)"
+          },
+          "resource_title": {
+            "type": "string",
+            "description": "Title of the note or applet (optional - if not provided, uses the currently active resource)"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the note or applet (optional - preferred if you have the ID)"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_wonder_canvas_add": {
+      "name": "bot_wonder_canvas_add",
+      "description": "Add HTML content to a Wonder Canvas layer without replacing existing content.",
+      "feature_flag": "wonderCanvas",
+      "parameters": {
+        "html": {
+          "type": "string",
+          "description": "HTML to add."
+        },
+        "layer": {
+          "type": "string",
+          "enum": [
+            "bg",
+            "main",
+            "overlay"
+          ],
+          "description": "Target layer. Default: main."
+        },
+        "position": {
+          "type": "string",
+          "enum": [
+            "append",
+            "prepend"
+          ],
+          "description": "Where to insert. Default: append."
+        }
+      },
+      "passthrough": true
+    },
+    "bot_wonder_canvas_animate": {
+      "name": "bot_wonder_canvas_animate",
+      "description": "Trigger a CSS animation on an element in the Wonder Canvas. Reference elements by CSS selector or element id.",
+      "feature_flag": "wonderCanvas",
+      "parameters": {
+        "selector": {
+          "type": "string",
+          "description": "CSS selector or element id (prefixed with #) to animate."
+        },
+        "animation": {
+          "type": "string",
+          "enum": [
+            "fadeIn",
+            "fadeOut",
+            "slideUp",
+            "bounce",
+            "shake",
+            "pulse"
+          ],
+          "description": "Animation to trigger."
+        }
+      },
+      "passthrough": true
+    },
+    "bot_wonder_canvas_avatar_hint": {
+      "name": "bot_wonder_canvas_avatar_hint",
+      "description": "Send a mood hint to Pearl's avatar so her visual expression matches the Wonder Canvas scene. Use this to coordinate avatar emotion with what's on screen \u2014 e.g., 'dramatic' for a spooky story, 'excited' for a reveal, 'curious' for a mystery.",
+      "feature_flag": "wonderCanvas",
+      "parameters": {
+        "hint": {
+          "type": "string",
+          "enum": [
+            "excited",
+            "curious",
+            "dramatic",
+            "calm"
+          ],
+          "description": "Mood hint for the avatar expression."
+        }
+      },
+      "passthrough": true
+    },
+    "bot_wonder_canvas_clear": {
+      "name": "bot_wonder_canvas_clear",
+      "description": "Clear the Wonder Canvas. Specify a layer to clear just that layer, or omit to clear everything.",
+      "feature_flag": "wonderCanvas",
+      "parameters": {
+        "layer": {
+          "type": "string",
+          "enum": [
+            "bg",
+            "main",
+            "overlay"
+          ],
+          "description": "Layer to clear. Omit to clear all layers."
+        }
+      },
+      "passthrough": true
+    },
+    "bot_wonder_canvas_scene": {
+      "name": "bot_wonder_canvas_scene",
+      "description": "Display an interactive HTML micro-experience on the Wonder Canvas. Push HTML directly \u2014 no AI generation round-trip. Great for stories, choices, quizzes, visual moments, reveals. Add data-action='action_id' to any clickable element; when the user taps it you receive the action_id as a context event. Use the wonder-choice class for styled interactive buttons. Built-in CSS: wonder-fadeIn, wonder-slideUp, wonder-bounce, wonder-shake, wonder-pulse, wonder-glow, wonder-typewriter, wonder-particles-sparkle, wonder-particles-snow, wonder-particles-fireflies. ICONS: Use {{icon:name}} placeholders for inline SVG icons \u2014 they are auto-resolved. Available: tree, cave, tower, mountain, castle, sparkle, run, sword, shield, bow, wand, crystal, gem, potion, scroll, key, chest, heart, star, zap, flame, trophy, coin, dragon, wolf, sun, moon, cloud, arrowUp, arrowDown, arrowLeft, arrowRight, check, x, plus, minus. Add CSS classes: {{icon:star:w-icon--lg w-icon--glow}}. Sizes: w-icon--sm/md/lg/xl. Effects: w-icon--glow, w-icon--spin, w-icon--pulse. Example: <button class='wonder-choice'>{{icon:tree}} Enter Forest</button>. DO NOT use emoji characters \u2014 they render as boxes in the canvas.",
+      "feature_flag": "wonderCanvas",
+      "parameters": {
+        "html": {
+          "type": "string",
+          "description": "HTML content to display. Use data-action='id' on interactive elements. Use {{icon:name}} placeholders for inline SVG icons instead of emoji."
+        },
+        "css": {
+          "type": "string",
+          "description": "Optional extra CSS styles for this scene."
+        },
+        "transition": {
+          "type": "string",
+          "enum": [
+            "fade",
+            "slide-left",
+            "slide-right",
+            "instant",
+            "dissolve"
+          ],
+          "description": "Scene transition animation. Default: fade."
+        },
+        "layer": {
+          "type": "string",
+          "enum": [
+            "bg",
+            "main",
+            "overlay"
+          ],
+          "description": "Which layer to render on. Default: main."
+        }
+      },
+      "passthrough": true
+    }
+  },
+  "by_feature": {
+    "assistantSelfClose": [
+      "bot_end_call"
+    ],
+    "browserAutomation": [
+      "bot_close_browser_window",
+      "bot_close_view",
+      "bot_switch_desktop_mode"
+    ],
+    "calculator": [
+      "bot_close_calculator",
+      "bot_open_calculator"
+    ],
+    "dailyCall": [
+      "bot_start_daily_call"
+    ],
+    "experiences": [
+      "bot_dismiss_experience",
+      "bot_render_experience"
+    ],
+    "gmail": [
+      "bot_close_gmail",
+      "bot_open_gmail"
+    ],
+    "googleDrive": [
+      "bot_close_google_drive",
+      "bot_open_google_drive"
+    ],
+    "htmlContent": [
+      "bot_close_applet_creation_engine",
+      "bot_create_app_from_description",
+      "bot_create_app_from_note",
+      "bot_create_html_content",
+      "bot_load_html_applet",
+      "bot_open_creation_engine",
+      "bot_rollback_app",
+      "bot_update_html_applet"
+    ],
+    "maneuverableWindow": [
+      "bot_maximize_window",
+      "bot_minimize_window",
+      "bot_reset_window_position",
+      "bot_restore_window",
+      "bot_snap_window_left",
+      "bot_snap_window_right"
+    ],
+    "miniBrowser": [
+      "bot_open_browser",
+      "bot_open_enhanced_browser"
+    ],
+    "notes": [
+      "bot_add_note_content",
+      "bot_back_to_notes",
+      "bot_close_notes",
+      "bot_create_note",
+      "bot_delete_note",
+      "bot_download_note",
+      "bot_list_notes",
+      "bot_open_note",
+      "bot_open_notes",
+      "bot_read_current_note",
+      "bot_remove_note_content",
+      "bot_replace_note",
+      "bot_replace_note_content",
+      "bot_save_note",
+      "bot_switch_note_mode"
+    ],
+    "onboarding": [
+      "bot_onboarding_complete"
+    ],
+    "openclawBridge": [
+      "bot_canvas_clear",
+      "bot_canvas_show",
+      "bot_canvas_show_article",
+      "bot_canvas_show_chart",
+      "bot_canvas_show_file",
+      "bot_canvas_show_image",
+      "bot_canvas_show_table",
+      "bot_openclaw_task",
+      "bot_think_deeply"
+    ],
+    "resourceSharing": [
+      "bot_downgrade_user_access",
+      "bot_set_user_access_level",
+      "bot_share_applet_with_user",
+      "bot_share_note_with_user",
+      "bot_show_share_dialog",
+      "bot_upgrade_user_access"
+    ],
+    "soundtrack": [
+      "bot_adjust_soundtrack_volume",
+      "bot_next_soundtrack_track",
+      "bot_play_soundtrack",
+      "bot_set_soundtrack_volume",
+      "bot_stop_soundtrack"
+    ],
+    "summonSpriteTool": [
+      "bot_summon_sprite"
+    ],
+    "terminal": [
+      "bot_close_terminal",
+      "bot_open_terminal"
+    ],
+    "userProfile": [
+      "bot_delete_profile_metadata",
+      "bot_update_user_profile"
+    ],
+    "wikipedia": [
+      "bot_search_wikipedia"
+    ],
+    "wonderCanvas": [
+      "bot_wonder_canvas_add",
+      "bot_wonder_canvas_animate",
+      "bot_wonder_canvas_avatar_hint",
+      "bot_wonder_canvas_clear",
+      "bot_wonder_canvas_scene"
+    ],
+    "youtube": [
+      "bot_close_youtube",
+      "bot_open_youtube",
+      "bot_pause_youtube_video",
+      "bot_play_next_youtube_video",
+      "bot_play_youtube_video",
+      "bot_search_youtube_videos"
+    ]
+  }
+}

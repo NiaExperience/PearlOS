@@ -1,0 +1,182 @@
+# Default values for Redis chart
+replicaCount: 1
+
+image:
+  repository: redis
+  tag: "7.4-alpine"
+  pullPolicy: IfNotPresent
+
+# Redis configuration
+redis:
+  # Use custom config file
+  useConfig: true
+  # Redis port
+  port: 6379
+  # Redis memory limit (should match container memory limit)
+  maxmemory: "512mb"
+  # Memory eviction policy
+  maxmemoryPolicy: "allkeys-lru"
+  
+  loglevel: "notice"
+  timeout: "0"
+  tcpKeepalive: 300
+  maxclients: 10000
+  # Enable persistence
+  persistence:
+    enabled: false
+    size: "2Gi"
+    storageClass: "gp2"
+    accessMode: "ReadWriteOnce"
+    dir: "/data"
+    # RDB snapshots
+    save:
+      - "900 1"     # Save if at least 1 key changed in 900 seconds
+      - "300 10"    # Save if at least 10 keys changed in 300 seconds  
+      - "60 10000"  # Save if at least 10000 keys changed in 60 seconds
+    dbfilename: "dump.rdb"
+    # AOF (Append Only File)
+    aof:
+      enabled: false
+      filename: "appendonly.aof"
+      fsync: "everysec"
+      noAppendfsyncOnRewrite: "no"
+      autoAofRewritePercentage: 100
+      autoAofRewriteMinSize: "64mb"
+
+# Authentication (optional)
+auth:
+  enabled: true
+  # Use REDIS_SHARED_SECRET for authentication
+  # Set auth.enabled: true and provide password via secret
+  existingSecret: "redis-secret"
+  existingSecretPasswordKey: "redis-password"
+  # Alternative: provide password directly (less secure)
+  # password: "your-redis-password"
+
+secret:
+  data: {}
+
+# Environment variables for Redis container
+env: []
+  # Example:
+  # - name: REDIS_AUTH_REQUIRED
+  #   value: "0"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 6379
+  targetPort: 6379
+
+# Resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 768Mi
+  requests:
+    cpu: 100m
+    memory: 384Mi
+
+# Environment configuration
+environment: production
+
+# Namespace configuration
+namespace:
+  name: redis-stg
+  create: true
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automountServiceAccountToken: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Pod configuration
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  runAsGroup: 999
+  fsGroup: 999
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 999
+  capabilities:
+    drop:
+    - ALL
+
+# Persistence (top-level for template compatibility)
+persistence:
+  enabled: false
+  size: "2Gi" 
+  storageClass: "gp2"
+  accessModes:
+    - "ReadWriteOnce"
+  annotations: {}
+
+# Health checks
+livenessProbe:
+  exec:
+    command:
+      - redis-cli
+      - ping
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  exec:
+    command:
+      - redis-cli
+      - ping
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+# Node assignment
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Monitoring
+metrics:
+  enabled: false
+  # serviceMonitor for Prometheus
+  serviceMonitor:
+    enabled: false
+
+# Network policies
+networkPolicy:
+  enabled: false
+  # Allow ingress from specific namespaces
+  allowedNamespaces:
+    - "pipecat-daily-bot-stg"
+    - "interface-stg"

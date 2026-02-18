@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipecat-daily-bot-stg
+  namespace: pipecat-daily-bot-stg
+  labels:
+    app: pipecat-daily-bot-stg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pipecat-daily-bot-stg
+  template:
+    metadata:
+      labels:
+        app: pipecat-daily-bot-stg
+    spec:
+      containers:
+      - name: bot
+        # Image placeholder – replace with your built image tag (e.g. interface uses sha-* style)
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/pipecat-daily-bot:sha-d2744766b173ef9e8af57dc59842f276e40e1407
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4444
+          name: http
+        envFrom:
+        - secretRef:
+            name: pipecat-daily-bot-stg-secret
+        - configMapRef:
+            name: pipecat-daily-bot-stg-config
+        
+        # Explicit single env (others come from secret/configmap)
+        - name: KOKORO_TTS_APPLY_TEXT_NORMALIZATION
+          value: "on"
+        - name: MODE
+          value: "server"  # ensure we run control server exposing /health & /daily/webhook
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4444
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4444
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi

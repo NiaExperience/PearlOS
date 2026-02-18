@@ -1,0 +1,26 @@
+# Secret files - never commit these to git
+*-secrets.yaml
+*-secret.yaml
+secrets/
+.env
+.env.*
+
+# Example files
+*-example.yaml
+*-sample.yaml
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+

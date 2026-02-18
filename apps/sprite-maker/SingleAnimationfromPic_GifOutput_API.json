@@ -1,0 +1,347 @@
+{
+  "732": {
+    "inputs": {
+      "string": "(((MOTION BLUR, CROPPED, OBJECT LEAVE FRAME, OBJECT CROPPING, out of frame, STATIC, IDLE, BORING, SLOW, ZOOM, ZOOMING IN, CHARACTER CROPPING)))"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "NEGATIVE String Literal"
+    }
+  },
+  "813": {
+    "inputs": {
+      "seed": 127686441702740
+    },
+    "class_type": "Seed Generator",
+    "_meta": {
+      "title": "GENERATE CORE SEED"
+    }
+  },
+  "827": {
+    "inputs": {
+      "value": 60
+    },
+    "class_type": "Int",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "828": {
+    "inputs": {
+      "value": 14
+    },
+    "class_type": "Int",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "956": {
+    "inputs": {
+      "string": "You're pixel sprite animator. Transform a brief animation description into a new prompt with a complete and detailed animation description. Your response containins all information for a text-to-video pixel animation model. The prompt should describe the character movement and their unique animation descriptors. NO BACKGROUNDS. style: LucasArts animation. A pixelated sprite character against a CLEAR SHARP white background. No Background objects or animations. CLEAR HEX #FFFFFF BACKGROUND.\n\n\nOutput 1 animation prompt matchiung the user request. 1 animation only. No titles, sections or line separators. Just 5 sentences of raw animation text description."
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "LLM Instructions"
+    }
+  },
+  "970": {
+    "inputs": {
+      "string": "The cat wearing a machine gun strapped to his back dances on his skateboard."
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "Pearl_Input_Single_Animation_Prompt"
+    }
+  },
+  "1003": {
+    "inputs": {
+      "string": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND.\n\n"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "General Sprite/Pixel Character Style Guidance"
+    }
+  },
+  "1033": {
+    "inputs": {
+      "ckpt_name": "wan2.2-rapid-mega-aio-v12.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1062": {
+    "inputs": {
+      "text": [
+        "1426",
+        0
+      ],
+      "clip": [
+        "1033",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "1064": {
+    "inputs": {
+      "seed": [
+        "813",
+        0
+      ],
+      "steps": [
+        "828",
+        0
+      ],
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "1033",
+        0
+      ],
+      "positive": [
+        "1415",
+        0
+      ],
+      "negative": [
+        "1415",
+        1
+      ],
+      "latent_image": [
+        "1415",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "1065": {
+    "inputs": {
+      "text": [
+        "732",
+        0
+      ],
+      "clip": [
+        "1033",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "1067": {
+    "inputs": {
+      "samples": [
+        "1064",
+        0
+      ],
+      "vae": [
+        "1033",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1082": {
+    "inputs": {
+      "system_prompt": "",
+      "user_prompt": "",
+      "temperature": 1,
+      "is_memory": "enable",
+      "is_tools_in_sys_prompt": "disable",
+      "is_locked": "disable",
+      "main_brain": "enable",
+      "max_length": 4096,
+      "imgbb_api_key": "",
+      "conversation_rounds": 100,
+      "historical_record": "",
+      "is_enable": true,
+      "stream": false,
+      "model": [
+        "1083",
+        0
+      ],
+      "system_prompt_input": [
+        "956",
+        0
+      ],
+      "user_prompt_input": [
+        "970",
+        0
+      ]
+    },
+    "class_type": "LLM",
+    "_meta": {
+      "title": "☁️API LLM general link"
+    }
+  },
+  "1083": {
+    "inputs": {
+      "model_name": "mistral",
+      "base_url": "https://25wmgzhsglmhnk-11434.proxy.runpod.net",
+      "api_key": "",
+      "is_ollama": false
+    },
+    "class_type": "LLM_api_loader",
+    "_meta": {
+      "title": "☁️API LLM Loader"
+    }
+  },
+  "1384": {
+    "inputs": {
+      "value": 256
+    },
+    "class_type": "Int",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "1385": {
+    "inputs": {
+      "value": 256
+    },
+    "class_type": "Int",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "1405": {
+    "inputs": {
+      "image": "ComfyUI_temp_abeyr_00001_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "1414": {
+    "inputs": {
+      "num_frames": [
+        "827",
+        0
+      ],
+      "empty_frame_level": 0.5,
+      "start_index": 0,
+      "end_index": -1,
+      "start_image": [
+        "1405",
+        0
+      ],
+      "end_image": [
+        "1405",
+        0
+      ]
+    },
+    "class_type": "WanVideoVACEStartToEndFrame",
+    "_meta": {
+      "title": "WanVideo VACE Start To End Frame"
+    }
+  },
+  "1415": {
+    "inputs": {
+      "width": [
+        "1385",
+        0
+      ],
+      "height": [
+        "1384",
+        0
+      ],
+      "length": [
+        "827",
+        0
+      ],
+      "batch_size": 1,
+      "strength": 1,
+      "positive": [
+        "1062",
+        0
+      ],
+      "negative": [
+        "1065",
+        0
+      ],
+      "vae": [
+        "1033",
+        2
+      ],
+      "control_video": [
+        "1414",
+        0
+      ],
+      "control_masks": [
+        "1414",
+        1
+      ]
+    },
+    "class_type": "WanVaceToVideo",
+    "_meta": {
+      "title": "WanVaceToVideo"
+    }
+  },
+  "1421": {
+    "inputs": {
+      "text_0": "  Animation Description for Pixelated Machine Gun-Wielding Cat Dance on Skateboard:\n1. A pixelated sprite character with emerald eyes, round ears, and a tufted tail dressed in blue jeans dons a machine gun strapped to its back against a sharp CLEAR white background (HEX #FFFFFF).\n2. The cat stands confidently on its skateboard, poised for the dance while an upbeat melody sets the scene for this energetic performance.\n3. In intricate moves inspired by rock 'n' roll music from the 50s, the cat executes fluid turns and twirls as it navigates around its skateboard, exhibiting both agility and panache.\n4. As the dance continues, the cat raises one paw in the air, occasionally firing bursts from its machine gun to inject a touch of rebellious charm into the performance.\n5. The animation concludes with an impressive spin-jump that propels the character across the screen before returning to the starting position, marking the end of another exhilarating skate dance.",
+      "text": [
+        "1082",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss",
+    "_meta": {
+      "title": "Show Text 🐍"
+    }
+  },
+  "1426": {
+    "inputs": {
+      "delimiter": " ",
+      "string1": [
+        "1003",
+        0
+      ],
+      "string2": [
+        "1082",
+        0
+      ]
+    },
+    "class_type": "JoinStrings",
+    "_meta": {
+      "title": "Join Strings"
+    }
+  },
+  "1427": {
+    "inputs": {
+      "frame_rate": 8,
+      "loop_count": 0,
+      "filename_prefix": "AnimateSprite",
+      "format": "image/gif",
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "1067",
+        0
+      ],
+      "vae": [
+        "1033",
+        2
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  }
+}

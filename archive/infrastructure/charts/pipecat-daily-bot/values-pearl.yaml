@@ -1,0 +1,106 @@
+fullnameOverride: pipecat-daily-bot-pearl
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+operator:
+  replicaCount: 3
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      memory: 256Mi
+
+namespace:
+  create: false
+
+image:
+  tag: "sha-75cd63c87111a0782f042ff098f338ff2c88cedf-pearl"
+
+service:
+  headless: true
+  port: 4444
+  targetPort: 4444
+
+gateway:
+  replicaCount: 3
+  probes:
+    port: 4444
+
+ingress:
+  enabled: true
+  className: "alb"
+  hostname: "bot.pearlos.org"
+  certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/9ccd6450-1fda-49ee-91d7-89630c6dded1"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  hosts:
+    - host: bot.pearlos.org
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /daily/webhook
+          pathType: Exact
+
+warmPool:
+  replicaCount: 4
+
+configMap:
+  create: true
+  data:
+    AUTOSPAWN_ALLOWED_ROOM_REGEX: ".*"
+    AUTOSPAWN_MAX_CONCURRENCY: "2"
+    AUTOSPAWN_WEBHOOK: "1"
+    BOT_CONTROL_AUTH_REQUIRED: "1"
+    BOT_CORS_ORIGINS: "https://pearlos.org,https://www.pearlos.org,https://rsvp.pearlos.org"
+    BOT_PACING_INTERVAL_SECONDS: "0"
+    BOT_PARTICIPANT_POLL_ENABLED: "false"
+    BOT_PARTICIPANT_REFRESH_INTERVAL_SECS: "0"
+    BOT_PERSONALITY: "pearl"
+    BOT_SANITIZE_FLOW_PROFILE_FIELDS: "1"
+    DEBUG_BOT: "false"
+    KOKORO_TTS_API_KEY: 5f051b69-f0db-418f-898b-691a16e58e21
+    KOKORO_TTS_BASE_URL: "ws://kokoro-tts-stg.kokoro-tts-stg.svc.cluster.local"
+    KOKORO_TTS_VOICE_ID: am_fenrir
+    KOKORO_TTS_SAMPLE_RATE: "24000"
+    KOKORO_TTS_APPLY_TEXT_NORMALIZATION: "on"
+    MESH_API_ENDPOINT: "https://mesh.pearlos.org/api"
+    MESH_ENDPOINT: "https://mesh.pearlos.org/graphql"
+    REDIS_AUTH_REQUIRED: "true"
+    REDIS_URL: "redis://redis-pearl.redis-pearl.svc.cluster.local:6379"
+    RUNNER_AUTO_START: "0"
+    USE_REDIS: "true"
+    DAILY_ROOM_URL: "https://pearlos.daily.co/pearlprod"
+
+secret:
+  name: pipecat-daily-bot-pearl-secret
+
+labels:
+  legacyAppName: pipecat-daily-bot-pearl
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - pipecat-daily-bot
+          topologyKey: kubernetes.io/hostname

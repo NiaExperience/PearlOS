@@ -1,0 +1,15 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: infra-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/NiaExperience/nia-universal.git
+  ref:
+    branch: staging
+  secretRef:
+    name: flux-system
+  ignore: |
+    /*
+    !/infra/

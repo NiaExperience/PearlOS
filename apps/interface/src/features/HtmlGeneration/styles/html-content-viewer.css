@@ -1,0 +1,19 @@
+.creative-mode-header {
+  font-family: 'Gohufont', monospace;
+}
+
+.creative-mode-header * {
+  font-family: inherit !important;
+  letter-spacing: 0.05em;
+}
+
+.creative-mode-menu {
+  font-family: 'Gohufont', monospace !important;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+.creative-mode-menu * {
+  font-family: inherit !important;
+}
+

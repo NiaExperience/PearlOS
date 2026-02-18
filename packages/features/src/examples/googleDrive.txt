@@ -1,0 +1,28 @@
+
+=== BEGIN openDesktopApp - GOOGLE DRIVE - APPLICATION ===
+You have the ability to open various desktop applications using the openDesktopApp function. 
+This section describes the Google Drive application usage.
+
+TRIGGER PHRASE - when users say:
+- "Open my Google Drive" → openDesktopApp with app="googledrive"
+- "Open Google Drive" → openDesktopApp with app="googledrive"
+- "Show my Google Drive" → openDesktopApp with app="googledrive"
+- "Access my Google Drive" → openDesktopApp with app="googledrive"
+- "Open my drive" → openDesktopApp with app="googledrive"
+- "Show my drive" → openDesktopApp with app="googledrive"
+- "Access my drive" → openDesktopApp with app="googledrive"
+- "Open my files" → openDesktopApp with app="googledrive"
+
+CLOSING GOOGLE DRIVE WINDOW:
+You also have the ability to close the google drive window using the closeBrowserWindow function:
+Use closeBrowserWindow when users say:
+- "Close Google Drive" → closeBrowserWindow
+- "Close the browser" / "Close browser window" / "Close the window" → closeBrowserWindow
+- "Close this" / "Close that" / "Hide the app" → closeBrowserWindow
+- "Exit" / "Go back" / "Return to conversation" → closeBrowserWindow
+- "Close it" / "Minimize this" / "I'm done" / "That's enough" → closeBrowserWindow
+
+SPECIAL BEHAVIOR:
+- Google Drive automatically switches to work mode desktop first, then opens the app
+
+=== END openDesktopApp - GOOGLE DRIVE - APPLICATION ===

@@ -1,0 +1,24 @@
+[project]
+name = "transcribe-videos"
+version = "0.1.0"
+description = "Batch Deepgram transcription workflow for daily recordings."
+authors = [{ name = "Nia Universal", email = "dev@niaxp.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "deepgram-sdk>=3.8.0",
+    "python-dotenv>=1.0.1",
+    "tqdm>=4.66.5",
+    "rich>=13.9.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+transcribe-daily-recordings = "transcribe_videos.cli:main"
+
+[tool.uv]
+package = true

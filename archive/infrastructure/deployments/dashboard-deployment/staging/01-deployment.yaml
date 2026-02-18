@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-stg
+  namespace: dashboard-stg
+  labels:
+    app: dashboard-stg
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: dashboard-stg
+  template:
+    metadata:
+      labels:
+        app: dashboard-stg
+    spec:
+      containers:
+      - name: web
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/dashboard:latest
+        ports:
+        - containerPort: 4000
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 18
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1024Mi
+          limits:
+            memory: 4096Mi
+        envFrom:
+        - secretRef:
+            name: dashboard-stg-secret
+        - configMapRef:
+            name: dashboard-stg-config

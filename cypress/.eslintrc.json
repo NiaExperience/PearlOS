@@ -1,0 +1,24 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": ["eslint:recommended", "plugin:cypress/recommended"],
+  "plugins": ["cypress"],
+  "globals": {
+    "cy": "readonly",
+    "Cypress": "readonly",
+    "describe": "readonly",
+    "it": "readonly",
+    "beforeEach": "readonly",
+    "afterEach": "readonly",
+    "before": "readonly",
+    "after": "readonly",
+    "expect": "readonly",
+    "assert": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-console": "off"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@nia/prism": ["../prism/dist"],
+      "@nia/prism/*": ["../prism/dist/*"]
+    }
+  }
+}

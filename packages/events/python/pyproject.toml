@@ -1,0 +1,18 @@
+[project]
+name = "nia-events"
+version = "0.1.1"
+requires-python = ">=3.10,<4.0"
+description = "Auto-generated event IDs for NIA (Python)"
+authors = [{name = "Nia", email = "dev@niaxp.com"}]
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.urls]
+Homepage = "https://github.com/Niaxp/nia-universal"
+
+[tool.setuptools]
+packages = ["nia_events"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

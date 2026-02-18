@@ -1,0 +1,68 @@
+# Pearl Production values for mesh chart with External Secrets
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - mesh
+          topologyKey: kubernetes.io/hostname
+
+image:
+  tag: "sha-75cd63c87111a0782f042ff098f338ff2c88cedf-pearl"
+
+ingress:
+  certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/ea7a46e1-bc33-4e20-8b03-2e9cc80fa8a7"
+  hostname: "mesh.pearlos.org"
+  hosts:
+    - host: mesh.pearlos.org
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Environment variables (non-sensitive)
+env: {}
+
+configMap:
+  data:
+    FORCE_ENCRYPTION: "true"
+    NODE_ENV: "production"
+    POSTGRES_DB: "niaprod"
+    POSTGRES_HOST: "nia-prod-cluster.cluster-cjiyu8c46p5t.us-east-2.rds.amazonaws.com"
+    POSTGRES_PORT: "5432"
+    REDIS_AUTH_REQUIRED: "true"
+    REDIS_URL: redis://redis-pearl.redis-pearl.svc.cluster.local:6379
+    USE_REDIS: "true"
+
+# Secret management with External Secrets Operator
+secret:
+  enabled: true
+  externalSecret:
+    enabled: false
+    name: ""
+
+# Staging-specific resources
+resources:
+  limits:
+    memory: 384Mi
+  requests:
+    cpu: 100m
+    memory: 192Mi
+

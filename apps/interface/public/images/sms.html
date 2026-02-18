@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Switch to Text Mode</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-blue: #00204E;    /* Seatrade navy */
+      --secondary-blue: #1B355D;  /* Seatrade navy light */
+      --accent-orange: #F15A22;   /* Seatrade sunset */
+      --light-orange: #F15A22;    /* Using sunset instead of lighter orange */
+      --text-light: #ffffff;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+    }
+
+    .container {
+      text-align: center;
+      padding: 32px 40px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      animation: fadeIn 0.5s ease-out;
+      border: 2px solid var(--accent-orange);
+    }
+
+    .message {
+      color: var(--primary-blue);
+      font-size: 20px;
+      line-height: 1.6;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .status {
+      margin-top: 16px;
+      color: var(--accent-orange);
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .loading-dots {
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      background-color: var(--accent-orange);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    .dot:nth-child(2) { 
+      animation-delay: 0.2s; 
+      background-color: var(--light-orange);
+    }
+    
+    .dot:nth-child(3) { 
+      animation-delay: 0.4s;
+      background-color: var(--primary-blue);
+    }
+
+    .logo {
+      margin-bottom: 20px;
+    }
+
+    .logo img {
+      height: 40px;
+      width: auto;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { 
+        transform: scale(0.8); 
+        opacity: 0.5; 
+      }
+      50% { 
+        transform: scale(1.2); 
+        opacity: 1; 
+      }
+    }
+
+    /* Add subtle highlight effect */
+    .container::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, var(--accent-orange), var(--primary-blue));
+      border-radius: 14px;
+      z-index: -1;
+      opacity: 0.1;
+    }
+    
+    .manual-link {
+      margin-top: 20px;
+      display: none;
+    }
+    
+    .manual-link a {
+      display: inline-block;
+      background-color: var(--accent-orange);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+    
+    .manual-link a:hover {
+      background-color: #d14a1a;
+    }
+    
+    .direct-button {
+      margin-top: 20px;
+      display: inline-block;
+      background-color: var(--primary-blue);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background-color 0.3s;
+      cursor: pointer;
+      border: none;
+      font-size: 16px;
+    }
+    
+    .direct-button:hover {
+      background-color: #001a3d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <!-- If you have a Seatrade logo, add it here -->
+      <!-- <img src="/seatrade-logo.png" alt="Seatrade"> -->
+    </div>
+    <p class="message">Launching Messaging Application</p>
+    <div class="status">
+      Please wait
+      <div class="loading-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+    <div class="manual-link">
+      <a href="#" id="sms-link">Open Messaging App</a>
+    </div>
+    
+    <!-- Direct button to open SMS link -->
+    <button id="direct-sms-button" class="direct-button">Switch to Text</button>
+  </div>
+
+  <script>
+    // Function to detect device type
+    function getDeviceType() {
+      const ua = navigator.userAgent;
+      if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+      if (/Mac/i.test(ua)) return 'mac';
+      if (/Android/i.test(ua)) return 'android';
+      return 'other';
+    }
+
+    function getSmsUrl() {
+      const phoneNumber = '+17866736662';
+      const message = 'Hey Nia!';
+      const deviceType = getDeviceType();
+      let smsUrl;
+
+      // Create appropriate URL based on device type
+      if (deviceType === 'ios') {
+        smsUrl = `sms:${phoneNumber}&body=${encodeURIComponent(message)}`;
+      } else if (deviceType === 'mac') {
+        smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
+      } else {
+        smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
+      }
+
+      return smsUrl;
+    }
+
+    // Function to open SMS link
+    function openSMS() {
+      const phoneNumber = '+17866736662';
+      const message = 'Hey Nia!';
+      const deviceType = getDeviceType();
+      
+      let smsUrl = getSmsUrl();
+      
+      // Try multiple methods to open the SMS link
+      const tryOpenSMS = () => {
+        // Method 1: Direct window.location
+        try {
+          window.location.href = smsUrl;
+          return true;
+        } catch (e) {
+          console.error('Method 1 failed:', e);
+        }
+
+        // Method 2: Create and click link
+        try {
+          const link = document.createElement('a');
+          link.href = smsUrl;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return true;
+        } catch (e) {
+          console.error('Method 2 failed:', e);
+        }
+
+        // Method 3: window.open
+        try {
+          window.open(smsUrl, '_self');
+          return true;
+        } catch (e) {
+          console.error('Method 3 failed:', e);
+        }
+
+        return false;
+      };
+
+      // Try to open SMS
+      if (!tryOpenSMS()) {
+        // Show manual link if all methods fail
+        document.querySelector('.manual-link').style.display = 'block';
+        document.getElementById('sms-link').href = smsUrl;
+      }
+    }
+    
+    // Try to open SMS when page loads AND set the redirect timer
+    window.onload = function() {
+      // Attempt to navigate to the SMS URL immediately
+      window.location.href = getSmsUrl();
+
+      // --- START: Added Redirect Logic ---
+      const redirectUrl = 'https://seatrade-jdx.niaxp.ai';
+      const redirectDelay = 10000; // 10 seconds in milliseconds
+
+      setTimeout(function() {
+          console.log(`Redirecting to ${redirectUrl} after ${redirectDelay / 1000} seconds.`);
+          window.location.href = redirectUrl;
+      }, redirectDelay);
+      // --- END: Added Redirect Logic ---
+    };
+    
+    // Add click handler to the manual link (in case initial redirect fails)
+    document.getElementById('sms-link').addEventListener('click', function(e) {
+      e.preventDefault();
+      window.location.href = getSmsUrl();
+    });
+    
+    // Add click handler to the direct button
+    document.getElementById('direct-sms-button').addEventListener('click', function() {
+      window.location.href = getSmsUrl();
+    });
+  </script>
+</body>
+</html>

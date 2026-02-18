@@ -1,0 +1,60 @@
+{
+  "customers": [
+    {
+      "phoneNumber": "61433693454"
+    }
+  ],
+  "purchase": {
+    "openTime": "2025-07-27T11:11:29.947382Z",
+    "transactionId": "Js2tiAzOb7Aw5UujtKn59bbpuaB",
+    "totalAmount": 2550,
+    "totalGeneralDiscount": 0,
+    "orderType": "Square Order",
+    "employee": "MLQHHT3M3WY2Y",
+    "items": [
+      {
+        "name": "Fresh Strawberries",
+        "quantity": 1,
+        "variation_name": "",
+        "grossAmount": 2550,
+        "netAmount": 2550,
+        "lineId": 1,
+        "code": "FVDZTTMR7JQWZIP7QNKHPMV2",
+        "departmentCode": "b56986e0-5875-4287-83c5-d79b7eb65214",
+        "departmentName": "Sweet Pancakes",
+        "tags": [
+          "Variation_Mini",
+          "Modifier_ Vanilla Ice Cream"
+        ]
+      },
+      {
+        "name": "Variation_Mini",
+        "quantity": 1,
+        "variation_name": "",
+        "grossAmount": 0,
+        "netAmount": 0,
+        "lineId": 2,
+        "code": "ZCHQH2TKWTHKRWC4NF7CECZ4",
+        "departmentCode": "ace310fc-371a-4d83-b940-8c426b042d52",
+        "departmentName": "Sweet Pancakes"
+      },
+      {
+        "name": "Modifier_Vanilla Ice Cream",
+        "quantity": 1,
+        "variation_name": "Modifier",
+        "grossAmount": 0,
+        "netAmount": 0,
+        "lineId": 3,
+        "code": "AZHGZE6TLH6HLQDGHBY2E462",
+        "departmentCode": "ded7cd03-3d33-4cf2-8d03-cc004e261692",
+        "departmentName": "Sweet Pancakes"
+      }
+    ],
+    "meansOfPayment": [
+      {
+        "type": "CARD",
+        "amount": 2550
+      }
+    ]
+  }
+}

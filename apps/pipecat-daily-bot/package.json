@@ -1,0 +1,36 @@
+{
+  "name": "pipecat-daily-bot",
+  "version": "1.0.0",
+  "description": "PipeCat Daily POC with bot and UI components",
+  "private": true,
+  "workspaces": [
+    "ui"
+  ],
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "setup:ui": "cd ui && npm run setup",
+    "start:ui": "npm run setup:ui && cd ui && npm start",
+    "start:server": "node scripts/run-bot-server.js",
+    "start:shim": "node scripts/run-kube-shim.js",
+    "dev": "concurrently \"turbo run build --filter=@nia/events\" \"cross-env-shell BOT_RUNNER_MODE=1 USE_REDIS=false \\\"npm run start:server\\\"\" \"npm run start:ui\"",
+    "dev:redis": "concurrently \"turbo run build --filter=@nia/events\" \"cross-env-shell USE_REDIS=true REDIS_URL=redis://localhost:6379 \\\"npm run start:server\\\"\" \"npm run start:ui\"",
+    "start:runner:daily": "cross-env-shell RUNNER_AUTO_START=1 \"node scripts/poetry-run.js run python runner_main.py\"",
+    "start:runner:webrtc": "cross-env-shell \"node scripts/poetry-run.js run python runner_main.py -t webrtc --host 0.0.0.0 --port 7860\"",
+    "install:all": "npm install && cd ui && npm install && cd ../bot && poetry install",
+    "build:ui": "cd ui && npm run build",
+    "generate:tool-manifest": "node scripts/poetry-run.js run python ../scripts/generate_tool_manifest.py",
+    "prebuild": "npm run generate:tool-manifest",
+    "build": "npm run build:ui && node scripts/poetry-run.js install --no-root --only main --no-interaction && node scripts/poetry-run.js run pip install -e ../../../packages/events/python",
+    "test:py": "npm run test",
+    "test": "cd bot && (command -v poetry >/dev/null 2>&1 && poetry install --no-root --only main --no-interaction && poetry run pytest -q || python -m pytest -q)",
+    "clean": "rm -rf node_modules ui/node_modules ui/dist bot/__pycache__ bot/*.pyc bot/.pytest_cache bot/.mypy_cache"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "poetry": "^0.6.29"
+  },
+  "dependencies": {
+    "daily-react-minimal-example": "file:ui"
+  }
+}

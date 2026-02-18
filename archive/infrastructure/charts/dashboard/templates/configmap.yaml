@@ -1,0 +1,12 @@
+{{- if .Values.configMap.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dashboard.fullname" . }}-config
+  namespace: {{ include "dashboard.fullname" . }}
+  labels:
+    {{- include "dashboard.labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.configMap.data | nindent 2 }}
+{{- end }}
+

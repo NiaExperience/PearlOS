@@ -1,0 +1,13 @@
+{
+  "name": "@nia/visual-regression-tests",
+  "private": true,
+  "scripts": {
+    "test": "playwright test --config=playwright.config.ts",
+    "test:wonder-canvas": "playwright test --config=playwright.config.ts test-suites/wonder-canvas.test.ts",
+    "test:core-tools": "playwright test --config=playwright.config.ts test-suites/core-tools.test.ts",
+    "report": "playwright show-report report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}

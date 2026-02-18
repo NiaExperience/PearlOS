@@ -1,0 +1,1650 @@
+{
+  "id": "b0a864ce-1cad-4f67-b53f-d48ab3eecad9",
+  "revision": 0,
+  "last_node_id": 1406,
+  "last_link_id": 1926,
+  "nodes": [
+    {
+      "id": 969,
+      "type": "SetNode",
+      "pos": [
+        -17815.02068611299,
+        2314.3358180215305
+      ],
+      "size": [
+        210,
+        34
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "link": 1251
+        }
+      ],
+      "outputs": [
+        {
+          "name": "*",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Set_prompt",
+      "properties": {
+        "previousName": "",
+        "ue_properties": {
+          "version": "7.0.1",
+          "widget_ue_connectable": {}
+        },
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        "prompt"
+      ],
+      "shape": 1
+    },
+    {
+      "id": 1004,
+      "type": "SetNode",
+      "pos": [
+        -17821.164383734493,
+        2547.3832432542326
+      ],
+      "size": [
+        210,
+        50
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "link": 1301
+        }
+      ],
+      "outputs": [
+        {
+          "name": "*",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Set_pixelguide",
+      "properties": {
+        "previousName": "pixelguide",
+        "ue_properties": {
+          "version": "7.0.1",
+          "widget_ue_connectable": {}
+        },
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        "pixelguide"
+      ],
+      "shape": 1
+    },
+    {
+      "id": 726,
+      "type": "VAEDecode",
+      "pos": [
+        -15094.431352975842,
+        1997.6053315971571
+      ],
+      "size": [
+        140,
+        46
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 904
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 1353
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1323
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "VAEDecode",
+        "ue_properties": {
+          "version": "7.4.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 727,
+      "type": "GetNode",
+      "pos": [
+        -15696.75641558716,
+        2221.5389721450806
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            908
+          ]
+        }
+      ],
+      "title": "Get_seed",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "seed"
+      ],
+      "color": "#1b4669",
+      "bgcolor": "#29699c"
+    },
+    {
+      "id": 713,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -15714.377657286741,
+        2368.0697025710997
+      ],
+      "size": [
+        521.4698486328125,
+        221.990234375
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 1351
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 914
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            891
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "version": "7.4.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 677,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -15718.348069624304,
+        2455.0143086359294
+      ],
+      "size": [
+        516.4884792353921,
+        124.35931322452029
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 1352
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 925
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            892
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "version": "7.4.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 734,
+      "type": "GetNode",
+      "pos": [
+        -16032.784651369999,
+        2452.8130362302654
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            925
+          ]
+        }
+      ],
+      "title": "Get_negativestring",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "negativestring"
+      ],
+      "color": "#1b4669",
+      "bgcolor": "#29699c"
+    },
+    {
+      "id": 1084,
+      "type": "GetNode",
+      "pos": [
+        -17425.40591669464,
+        3106.060750619962
+      ],
+      "size": [
+        210,
+        60
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1455
+          ]
+        }
+      ],
+      "title": "Get_prompt",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "prompt"
+      ]
+    },
+    {
+      "id": 1085,
+      "type": "GetNode",
+      "pos": [
+        -17403.26149624353,
+        3011.3097381069892
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1456
+          ]
+        }
+      ],
+      "title": "Get_instruct",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "instruct"
+      ]
+    },
+    {
+      "id": 1083,
+      "type": "LLM_api_loader",
+      "pos": [
+        -17599.66873358454,
+        2714.5504886788754
+      ],
+      "size": [
+        459.8528682502183,
+        212.23575606397026
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "CUSTOM",
+          "links": [
+            1457
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui_llm_party",
+        "ver": "1.4.1",
+        "Node name for S&R": "LLM_api_loader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        "mistral",
+        "https://25wmgzhsglmhnk-11434.proxy.runpod.net",
+        "",
+        false
+      ]
+    },
+    {
+      "id": 730,
+      "type": "GetNode",
+      "pos": [
+        -16365.089928356087,
+        2253.4009978530885
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            914
+          ]
+        }
+      ],
+      "title": "Get_final prompt",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "final prompt"
+      ]
+    },
+    {
+      "id": 967,
+      "type": "SetNode",
+      "pos": [
+        -17861.51205088194,
+        2716.7792388320963
+      ],
+      "size": [
+        210,
+        34
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "link": 1250
+        }
+      ],
+      "outputs": [
+        {
+          "name": "*",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Set_instruct",
+      "properties": {
+        "previousName": "",
+        "ue_properties": {
+          "version": "7.0.1",
+          "widget_ue_connectable": {}
+        },
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        "instruct"
+      ],
+      "shape": 1
+    },
+    {
+      "id": 733,
+      "type": "SetNode",
+      "pos": [
+        -16978.07438957939,
+        2303.563015588822
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "CONDITIONING",
+          "name": "STRING",
+          "type": "STRING",
+          "link": 924
+        }
+      ],
+      "outputs": [
+        {
+          "label": "*",
+          "name": "*",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "Set_negativestring",
+      "properties": {
+        "previousName": "negativestring",
+        "ue_properties": {
+          "version": "7.5.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "negativestring"
+      ]
+    },
+    {
+      "id": 813,
+      "type": "Seed Generator",
+      "pos": [
+        -17578.893404790797,
+        2503.3434560917185
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            1067
+          ]
+        }
+      ],
+      "title": "GENERATE CORE SEED",
+      "properties": {
+        "cnr_id": "comfy-image-saver",
+        "ver": "65e6903eff274a50f8b5cd768f0f96baf37baea1",
+        "Node name for S&R": "Seed Generator",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        753565826388938,
+        "randomize"
+      ]
+    },
+    {
+      "id": 814,
+      "type": "SetNode",
+      "pos": [
+        -17201.02517534853,
+        2498.5525378917255
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "CONDITIONING",
+          "name": "INT",
+          "type": "INT",
+          "link": 1067
+        }
+      ],
+      "outputs": [
+        {
+          "label": "*",
+          "name": "*",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "Set_seed",
+      "properties": {
+        "previousName": "seed",
+        "ue_properties": {
+          "version": "7.5.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "seed"
+      ],
+      "color": "#1b4669",
+      "bgcolor": "#29699c"
+    },
+    {
+      "id": 1017,
+      "type": "PreviewImage",
+      "pos": [
+        -14831.096897624126,
+        1970.6765602531023
+      ],
+      "size": [
+        525.0908742489555,
+        531.0741328443119
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1323
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.71",
+        "Node name for S&R": "PreviewImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 720,
+      "type": "KSampler",
+      "pos": [
+        -15358.298482787131,
+        1996.5530194821072
+      ],
+      "size": [
+        210,
+        486
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 890
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 891
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 892
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 893
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 908
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            904
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "KSampler",
+        "ue_properties": {
+          "version": "7.4.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        200880922243837,
+        "randomize",
+        12,
+        1.5,
+        "euler_ancestral",
+        "beta",
+        1
+      ]
+    },
+    {
+      "id": 1404,
+      "type": "GetNode",
+      "pos": [
+        -16753.900023870163,
+        2694.875547237915
+      ],
+      "size": [
+        210,
+        60
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1925
+          ]
+        }
+      ],
+      "title": "Get_pixelguide",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "pixelguide"
+      ]
+    },
+    {
+      "id": 963,
+      "type": "SetNode",
+      "pos": [
+        -16128.126575995218,
+        2725.733272522833
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "link": 1924
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1926
+          ]
+        }
+      ],
+      "title": "Set_final prompt",
+      "properties": {
+        "previousName": "",
+        "ue_properties": {
+          "version": "7.0.1",
+          "widget_ue_connectable": {}
+        },
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        "final prompt"
+      ],
+      "shape": 1
+    },
+    {
+      "id": 1082,
+      "type": "LLM",
+      "pos": [
+        -17012.154426852387,
+        2799.1691664160453
+      ],
+      "size": [
+        400,
+        566
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "CUSTOM",
+          "link": 1457
+        },
+        {
+          "name": "system_prompt_input",
+          "shape": 7,
+          "type": "STRING",
+          "link": 1456
+        },
+        {
+          "name": "user_prompt_input",
+          "shape": 7,
+          "type": "STRING",
+          "link": 1455
+        },
+        {
+          "name": "tools",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "file_content",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "images",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "extra_parameters",
+          "shape": 7,
+          "type": "DICT",
+          "link": null
+        },
+        {
+          "name": "user_history",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "img_URL",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "assistant_response",
+          "type": "STRING",
+          "links": [
+            1923
+          ]
+        },
+        {
+          "name": "history",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "tool",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "reasoning_content",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui_llm_party",
+        "ver": "1.4.1",
+        "Node name for S&R": "LLM",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        "",
+        "",
+        0.9,
+        "enable",
+        "disable",
+        "disable",
+        "enable",
+        1920,
+        "",
+        100,
+        "",
+        true,
+        false
+      ]
+    },
+    {
+      "id": 1405,
+      "type": "ShowText|pysssss",
+      "pos": [
+        -15793.960311577433,
+        2774.432161610811
+      ],
+      "size": [
+        537.8439287319634,
+        405.4994446990022
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 1926
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "1.2.5",
+        "Node name for S&R": "ShowText|pysssss",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND. (((50 PX WHITE BORDER AROUND OUTSIDE FRAME)))\n\n A goofy blue pixelated cat stands tall against a clear white backdrop, his body measure 512 pixels in height and 256 pixels in width. The cat's fur is a bright electric blue with playful stripes that run vertically down its body. A pink party hat adorns its head, adding to the character's whimsical appeal. A pink backpack slung over his shoulder holds essential supplies for any adventure. In one hand, the cat holds a machine gun with vibrant orange and black details that shine against his blue fur. He rides a skateboard beneath him, its wheels spinning as he prepares to take off on his next misadventure. The cat's posture is relaxed yet ready for action, a wry smile tugging at the corners of his mouth as he surveys the world around him."
+      ]
+    },
+    {
+      "id": 712,
+      "type": "EmptyLatentImage",
+      "pos": [
+        -16411.831912787977,
+        2413.148977057327
+      ],
+      "size": [
+        277.6024475097656,
+        125.0058822631836
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            893
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.43",
+        "Node name for S&R": "EmptyLatentImage",
+        "ue_properties": {
+          "version": "7.4.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        256,
+        256,
+        1
+      ]
+    },
+    {
+      "id": 721,
+      "type": "Power Lora Loader (rgthree)",
+      "pos": [
+        -16092.27193751809,
+        2023.7980973353174
+      ],
+      "size": [
+        313.02785797640684,
+        166
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "dir": 3,
+          "name": "model",
+          "type": "MODEL",
+          "link": 1349
+        },
+        {
+          "dir": 3,
+          "name": "clip",
+          "type": "CLIP",
+          "link": 1350
+        }
+      ],
+      "outputs": [
+        {
+          "dir": 4,
+          "name": "MODEL",
+          "shape": 3,
+          "type": "MODEL",
+          "links": [
+            890
+          ]
+        },
+        {
+          "dir": 4,
+          "name": "CLIP",
+          "shape": 3,
+          "type": "CLIP",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "rgthree-comfy",
+        "ver": "1.0.2511111955",
+        "Show Strengths": "Single Strength",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        {},
+        {
+          "type": "PowerLoraLoaderHeaderWidget"
+        },
+        {
+          "on": false,
+          "lora": "PIXEL_ART_styleanimationwanlora.safetensors",
+          "strength": 1,
+          "strengthTwo": null
+        },
+        {
+          "on": true,
+          "lora": "z-image-Lucasarts Artstyle - (Trigger is lcsrts gamestyle).safetensors",
+          "strength": 1,
+          "strengthTwo": null
+        },
+        {},
+        ""
+      ]
+    },
+    {
+      "id": 732,
+      "type": "String Literal",
+      "pos": [
+        -17591.215556375402,
+        2305.4402039591832
+      ],
+      "size": [
+        542.9922334469429,
+        97.36132767294464
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            924
+          ]
+        }
+      ],
+      "title": "NEGATIVE String Literal",
+      "properties": {
+        "cnr_id": "comfy-image-saver",
+        "ver": "65e6903eff274a50f8b5cd768f0f96baf37baea1",
+        "Node name for S&R": "String Literal",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.3"
+        }
+      },
+      "widgets_values": [
+        "(((MOTION BLUR, CROPPED, GROUNDSHADOWS, SHADOW ON GROUND, GROUND-SHADOW, BODY CROPPED, CROPPING, PORTRAIT, PFP, PROFILE PICTURE, BACKGROUND, BLACK BACKGROUND, BACKGROUND SCENERY, GROUND, OBJECT LEAVE FRAME, edge overlapping, out of frame, ZOOM, ZOOMING IN)))"
+      ],
+      "color": "#322",
+      "bgcolor": "#533",
+      "shape": 1
+    },
+    {
+      "id": 1403,
+      "type": "AddTextPrefix",
+      "pos": [
+        -16456.11648327085,
+        2766.9162646936925
+      ],
+      "size": [
+        322.11464407130916,
+        91.38065832588518
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "texts",
+          "type": "STRING",
+          "widget": {
+            "name": "texts"
+          },
+          "link": 1923
+        },
+        {
+          "name": "prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "prefix"
+          },
+          "link": 1925
+        }
+      ],
+      "outputs": [
+        {
+          "name": "texts",
+          "type": "STRING",
+          "links": [
+            1924
+          ]
+        }
+      ],
+      "title": "Pixel Style Text prefix",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.5.1",
+        "Node name for S&R": "AddTextPrefix",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        "",
+        ""
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 1003,
+      "type": "String Literal",
+      "pos": [
+        -18481.933759197582,
+        2522.5017860571343
+      ],
+      "size": [
+        559.4884903914935,
+        98.95259392662365
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1301
+          ]
+        }
+      ],
+      "title": "General Sprite/Pixel Character Style Guidance",
+      "properties": {
+        "cnr_id": "comfy-image-saver",
+        "ver": "65e6903eff274a50f8b5cd768f0f96baf37baea1",
+        "Node name for S&R": "String Literal",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.3"
+        }
+      },
+      "widgets_values": [
+        "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND. (((50 PX WHITE BORDER AROUND OUTSIDE FRAME)))\n\n"
+      ],
+      "color": "#232",
+      "bgcolor": "#353",
+      "shape": 1
+    },
+    {
+      "id": 956,
+      "type": "String Literal",
+      "pos": [
+        -18504.04139577259,
+        2687.9741851452814
+      ],
+      "size": [
+        674.8930595387174,
+        394.67821788737365
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1250
+          ]
+        }
+      ],
+      "title": "LLM Instructions",
+      "properties": {
+        "cnr_id": "comfy-image-saver",
+        "ver": "65e6903eff274a50f8b5cd768f0f96baf37baea1",
+        "Node name for S&R": "String Literal",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        "You're pixel sprite character creator. You will create the original master character pose and prompt for ComfyUI that all subsequent images and animations will refer to. This character will be rendered on a clear white background at a resolution of 512 height and 256 width. Make sure to fill the character description with rich and colorful detail. Ensure all relevant information, color, texture, and style is fully explained with nothing left to imagine. Describe body parts, accessories and any important character visual traits. Transform a brief character description into a fully fleshed out new prompt. DO NOT DESCRIBE ANY BACKGROUND OBJECTS OR SCENERY. CLEAR HEX #FFFFFF BACKGROUND only.\n\nExample succesful prompts (do not copy details, for example purposes only):\n<example1>\ninput prompt: \"Indian cyberpunk pirate with bright right hookhand. He has a robot parrot on his shoulder. His eye is covered by a bionic eyepatch. His hand grips an electric saber.\"\ncorrect response: An Indian cyberpunk pirate stands tall and imposing against a backdrop of clear white space, his pixelated form crafted with exquisite precision. The character measures 512 pixels in height and 256 pixels in width, ensuring a detailed yet clean appearance that captures the essence of both cyberpunk aesthetics and Indian cultural influences. Our protagonist's body is decked out in an ornate brass armor, its intricate patterns and designs inspired by rich Indian artistry.  His left eye is concealed by a sleek, bionic eyepatch that blends seamlessly into his cybernetic arm, giving him a menacing yet sophisticated appearance. The armor features subtle highlights and shadows to create depth and realism, with a combination of rough, rusted metal and smooth, polished brass textures that reflect the character's cybernetic nature. A golden band adorns his wrist, encircling it as a testament to his wealth and power. On his left shoulder, our pirate proudly sports an elegant silver mechanical parrot, its metallic feathers shimmering with an ethereal glow. The mechanical parrot perches alertly on his shoulder, watching over him with unwavering vigilance. In his right hand, our pirate grips an electric saber with a vibrant blue energy crackling along its length. The character's posture is powerful and imposing, his foot planted firmly on the ground as he prepares for action. His cybernetic hook hand, a biomechanical pointed grappling hook, rests casually on his hip.\n\n<example2>\ninput prompt: \"A 1940's gangster Santa Claus with a dark red fedora hat, red mobster suit, a red sack of green cash, and a tommy gun in his gloved hand.\"\ncorrect response: \"An iconic 1940's Gangster Santa stands tall against a backdrop of crisp white space, his pixels painstakingly crafted with impeccable precision. The character is rendered at a resolution of 512 pixels height and 256 pixels width to ensure a detailed yet clean appearance that blends the charm of Christmas with the grittiness of a mobster's world. Our protagonist dons a red mobster suit, complete with sharp peaks and creases that reflect the meticulous care taken in his attire. A dark red fedora hat sits atop his head, its brim casting an shadows across his face as he cocks his head to one side. The suit is accessorized with a sash around his waist, adorned with glimmering golden bells that jingle softly every time he moves. A red satchel slung over his shoulder houses his ill-gotten gains – bundles of green cash that spill from the sack's mouth. In his left hand, he holds a sleek tommy gun, its barrel silenced for discretion in the line of work. Each bullet casing slides out with an elegant grace, echoing his unyielding power as a gangster. Our 1940's Gangster Santa's posture exudes confidence and menace, ready to take on any challenges that come his way in the cold winter night. A thick white beard and mustache add a touch of warmth to an otherwise hardened face, hinting at the holiday season that lies just beneath the surface.\"\n\n<example3> input prompt: \"A cartoon squirrel who is also a badass sniper. Sniper Squirrel!\"\ncorrect response: \"An adorable yet deadly cartoon squirrel stands tall and supreme against the backdrop of clear white space, his pixels meticulously crafted to capture breathtaking detail at 512 pixels in height and 256 pixels in width. With an attitude that is both charming and deadly, Sniper Squirrel wears a camouflaged tunic designed to blend seamlessly with every environment, whether it's the dense, verdant forest or the sprawling concrete jungle. His bushy tail is a testament to his squirrel origin and swings behind him as he gears up for action. A wide-brimmed hat adorned with pointed ears and neon accents sits atop his head, accentuating his fierce yet playful persona.A bulletproof vest surrounds Sniper Squirrel's torso for protection during battle, while protective gloves wrapped around nimble paws allow him to maintain a firm grip on his sniper rifle. Protective boots made with reinforced leather are ready for fast movement across any landscape. Sniper Squirrel's weapon of choice is a sleek black steel sniper rifle crafted with intricate details that speak volumes about its precision and power. The gun features a small, red-tinted scope that can be adjusted for the perfect shot, and a sling made of sturdy material ensures easy transport between missions. Sniper Squirrel's posture is intense and focused – eyes peering through his sniper rifle's scope with unwavering determination – as he poises himself for action on the battlefield.\"\n\n\n---\n\n\nWrite only the raw text response, no backgrounds, no additional words. Just pure character visual descriptions."
+      ]
+    },
+    {
+      "id": 970,
+      "type": "String Literal",
+      "pos": [
+        -18485.294179108503,
+        2288.651044033941
+      ],
+      "size": [
+        538.126566541343,
+        131.64886514573664
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            1251
+          ]
+        }
+      ],
+      "title": "Pearl_Input_Prompt",
+      "properties": {
+        "cnr_id": "comfy-image-saver",
+        "ver": "65e6903eff274a50f8b5cd768f0f96baf37baea1",
+        "Node name for S&R": "String Literal",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        "A goofy blue cartoon cat who carries a machine gun and rides a skateboard. The cat is wearing a pink party hat."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 1032,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        -16524.238351602817,
+        2036.5675332247101
+      ],
+      "size": [
+        270,
+        98
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1349
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            1350,
+            1351,
+            1352
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            1353
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.5.1",
+        "Node name for S&R": "CheckpointLoaderSimple",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        "z-image-turbo-bf16-aio.safetensors"
+      ]
+    }
+  ],
+  "links": [
+    [
+      890,
+      721,
+      0,
+      720,
+      0,
+      "MODEL"
+    ],
+    [
+      891,
+      713,
+      0,
+      720,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      892,
+      677,
+      0,
+      720,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      893,
+      712,
+      0,
+      720,
+      3,
+      "LATENT"
+    ],
+    [
+      904,
+      720,
+      0,
+      726,
+      0,
+      "LATENT"
+    ],
+    [
+      908,
+      727,
+      0,
+      720,
+      4,
+      "INT"
+    ],
+    [
+      914,
+      730,
+      0,
+      713,
+      1,
+      "STRING"
+    ],
+    [
+      924,
+      732,
+      0,
+      733,
+      0,
+      "*"
+    ],
+    [
+      925,
+      734,
+      0,
+      677,
+      1,
+      "STRING"
+    ],
+    [
+      1067,
+      813,
+      0,
+      814,
+      0,
+      "*"
+    ],
+    [
+      1250,
+      956,
+      0,
+      967,
+      0,
+      "*"
+    ],
+    [
+      1251,
+      970,
+      0,
+      969,
+      0,
+      "*"
+    ],
+    [
+      1301,
+      1003,
+      0,
+      1004,
+      0,
+      "*"
+    ],
+    [
+      1323,
+      726,
+      0,
+      1017,
+      0,
+      "IMAGE"
+    ],
+    [
+      1349,
+      1032,
+      0,
+      721,
+      0,
+      "MODEL"
+    ],
+    [
+      1350,
+      1032,
+      1,
+      721,
+      1,
+      "CLIP"
+    ],
+    [
+      1351,
+      1032,
+      1,
+      713,
+      0,
+      "CLIP"
+    ],
+    [
+      1352,
+      1032,
+      1,
+      677,
+      0,
+      "CLIP"
+    ],
+    [
+      1353,
+      1032,
+      2,
+      726,
+      1,
+      "VAE"
+    ],
+    [
+      1455,
+      1084,
+      0,
+      1082,
+      2,
+      "STRING"
+    ],
+    [
+      1456,
+      1085,
+      0,
+      1082,
+      1,
+      "STRING"
+    ],
+    [
+      1457,
+      1083,
+      0,
+      1082,
+      0,
+      "CUSTOM"
+    ],
+    [
+      1923,
+      1082,
+      0,
+      1403,
+      0,
+      "STRING"
+    ],
+    [
+      1924,
+      1403,
+      0,
+      963,
+      0,
+      "STRING"
+    ],
+    [
+      1925,
+      1404,
+      0,
+      1403,
+      1,
+      "STRING"
+    ],
+    [
+      1926,
+      963,
+      0,
+      1405,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.1609001209652692,
+      "offset": [
+        16568.330447934368,
+        -1783.3473468363743
+      ]
+    },
+    "frontendVersion": "1.30.6",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "workflowRendererVersion": "LG"
+  },
+  "version": 0.4
+}

@@ -1,0 +1,188 @@
+{
+  "479": {
+    "inputs": {
+      "width": 512,
+      "height": 512,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "Image Size"
+    }
+  },
+  "480": {
+    "inputs": {
+      "samples": [
+        "483",
+        0
+      ],
+      "vae": [
+        "1012",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "483": {
+    "inputs": {
+      "seed": 657601602124025,
+      "steps": 34,
+      "cfg": 2,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "1988",
+        0
+      ],
+      "positive": [
+        "1232",
+        0
+      ],
+      "negative": [
+        "1989",
+        0
+      ],
+      "latent_image": [
+        "479",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "1012": {
+    "inputs": {
+      "ckpt_name": "z-image-turbo-bf16-aio.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1232": {
+    "inputs": {
+      "text": [
+        "2042",
+        0
+      ],
+      "clip": [
+        "1988",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "1988": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": true,
+        "lora": "z-image-Lucasarts Artstyle - (Trigger is lcsrts gamestyle).safetensors",
+        "strength": 1
+      },
+      "➕ Add Lora": "",
+      "model": [
+        "1012",
+        0
+      ],
+      "clip": [
+        "1012",
+        1
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "Power Lora Loader (rgthree)"
+    }
+  },
+  "1989": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "1988",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "2016": {
+    "inputs": {
+      "model": "BiRefNet_toonout",
+      "mask_blur": 0,
+      "mask_offset": -1,
+      "invert_output": false,
+      "refine_foreground": true,
+      "background": "Alpha",
+      "background_color": "#222222",
+      "image": [
+        "480",
+        0
+      ]
+    },
+    "class_type": "BiRefNetRMBG",
+    "_meta": {
+      "title": "BiRefNet Remove Background (RMBG)"
+    }
+  },
+  "2017": {
+    "inputs": {
+      "filename_prefix": "user23789/charicon1",
+      "images": [
+        "2016",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "2040": {
+    "inputs": {
+      "images": [
+        "480",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "2042": {
+    "inputs": {
+      "texts": [
+        "2043",
+        0
+      ],
+      "prefix": "lcsrts gamestyle: Sprite cutout. Gorgeous pixel art game. Clear background #FFFFFF ONLY"
+    },
+    "class_type": "AddTextPrefix",
+    "_meta": {
+      "title": "Pixel Style Text prefix"
+    }
+  },
+  "2043": {
+    "inputs": {
+      "string": "Isometric cozy brown wood with blue trim and wooden frame 2 story small town shop. blue and white awning. A glowing light from within. Sign over front that says \"COUNCIL\"\n"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "String Literal"
+    }
+  }
+}

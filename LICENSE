@@ -1,0 +1,63 @@
+PearlOS Source-Available License (PSAL-NC)
+(Non-Commercial Public License)
+Version 1.3
+Copyright © 2026 Nia Holdings, Inc.
+All rights reserved.
+
+1. Grant of License (Non-Commercial Use)
+Subject to the terms of this License, Nia Holdings, Inc. ("Licensor") hereby grants you ("Licensee") a worldwide, non-exclusive, royalty-free, non-sublicensable, non-transferable right to (i) use, copy, modify, create Derivative Works of and distribute PearlOS and such Derivative Works and (ii) make, have made, use, sell, offer for sale and import PearlOS, where such license applies only to those patent claims licensable to you by Licensor that are necessarily infringed by PearlOS as made available to you by Licensor, in each of (i) and (ii), solely for Non-Commercial Use. Except for the licenses expressly granted to you in this License, Licensor grants you no other licenses or rights in PearlOS or otherwise. If you make any written claim of patent infringement relating to PearlOS, your patent license granted under this Agreement terminates immediately.
+
+2. Definitions
+"PearlOS"
+All software (in source code or object code form), models, agents, frameworks, APIs, SDKs, tooling, documentation, and other assets provided to you by Licensor under this License.
+"Non-Commercial Use"
+Use that is not part of a hosted or managed service and is not primarily intended for or directed toward commercial advantage, revenue generation, or non-production use.
+"Derivative Work"
+Any modification, adaptation, extension, translation, fork, or work based on PearlOS.
+
+3. Restrictions and Obligations
+You will not alter, remove, or obscure any licensing, copyright, trademark, or other notices of Licensor in PearlOS or a Derivative Work. You must ensure that anyone who receives a copy of any part of the PearlOS or a Derivative Work from you also receives a copy of this License.
+
+4. Trademarks
+"PearlOS", "Pearl", and all associated logos, agent identities, branding, and marks are protected trademarks of Licensor.
+This License does not grant any trademark rights. Any forks of PearlOS must use a name that is not confusingly similar to "PearlOS" or "Pearl" and must not misrepresent the source of the fork.
+
+5. Termination
+This License terminates automatically upon violation of its terms.
+Upon termination, Licensee's rights to PearlOS cease immediately, and Licensee must destroy all copies of PearlOS in its possession or control.
+
+6. Disclaimer of Warranty
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, PEARLOS IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO FITNESS FOR A PARTICULAR PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
+
+7. Limitation of Liability
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL LICENSOR OR ITS AFFILIATES BE LIABLE FOR (I) ANY CONSEQUENTIAL, INDIRECT, SPECIAL, MULTIPLE, PUNITIVE OR INCIDENTAL DAMAGES, (INCLUDING WITHOUT LIMITATION, LOST PROFITS, BUSINESS INTERRUPTION OR LOST DATA) OR (II) DAMAGES IN EXCESS OF TEN DOLLARS ($10), ARISING OUT OF THIS LICENSE OR THE USE OF PEARLOS, REGARDLESS OF THE TYPE OF LEGAL CLAIM AND WHETHER LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+Dual-License Notice
+PearlOS is distributed under a dual-license model:
+- Public Non-Commercial License (this document)
+- Commercial License Agreement (separate contract required for commercial use)
+
+Non-Binding Summary (For Convenience Only)
+You can:
+- Use it
+- Modify it
+- Fork it
+- Evolve it
+- Experiment with it
+- Research with it
+- Build with it
+- Learn from it
+- Create culture with it
+
+You cannot:
+- Monetize it
+- Sell it
+- Host it commercially
+- Package it into products
+- Build SaaS on it
+- Use it in business
+- Use it in enterprise
+- Profit from it
+- Extract value from it commercially
+
+Without a commercial license.

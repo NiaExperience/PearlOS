@@ -1,0 +1,73 @@
+# Pearl production overrides for Redis
+environment: production
+replicaCount: 1
+
+image:
+  repository: redis
+  tag: "7.4-alpine"
+  pullPolicy: IfNotPresent
+
+redis:
+  useConfig: true
+  port: 6379
+  maxmemory: "1024mb"
+  maxmemoryPolicy: "allkeys-lru"
+  loglevel: "notice"
+  timeout: 0
+  tcpKeepalive: 300
+  maxclients: 20000
+  args:
+    - "sh"
+    - "-c"
+    - "redis-server /usr/local/etc/redis/redis.conf --requirepass \"$REDIS_PASSWORD\""
+  persistence:
+    enabled: true
+    dir: "/data"
+    save:
+      - "900 1"
+      - "300 10"
+      - "60 10000"
+    dbfilename: "dump.rdb"
+    aof:
+      enabled: false
+
+auth:
+  enabled: true
+  existingSecret: ""
+  existingSecretPasswordKey: "redis-password"
+
+env:
+  - name: REDIS_AUTH_REQUIRED
+    value: "1"
+
+service:
+  type: ClusterIP
+  port: 6379
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1536Mi
+  requests:
+    cpu: 200m
+    memory: 768Mi
+
+namespace:
+  name: redis-pearl
+  create: false
+
+networkPolicy:
+  enabled: true
+  allowedNamespaces:
+    - "pipecat-daily-bot-pearl"
+    - "interface-pearl"
+    - "mesh-pearl"
+    - "dashboard-pearl"
+    - "redis-pearl"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+persistence:
+  enabled: false

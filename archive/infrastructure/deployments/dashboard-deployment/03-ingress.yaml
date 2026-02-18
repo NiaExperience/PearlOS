@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard
+  namespace: dashboard
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:577124901432:certificate/636cdfa0-5c7e-47b8-8c4b-6c3d0ec3fc3f  # ACM cert :contentReference[oaicite:0]{index=0}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'      # force HTTP→HTTPS :contentReference[oaicite:1]{index=1}
+    external-dns.alpha.kubernetes.io/hostname: dashboard.niaxp.io   # Route 53 record hook :contentReference[oaicite:2]{index=2}
+spec:
+  ingressClassName: alb
+  rules:
+  - host: dashboard.niaxp.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dashboard
+            port:
+              number: 80

@@ -1,0 +1,1291 @@
+{
+  "version": "1.0.0",
+  "source": "pipecat-daily-bot",
+  "count": 69,
+  "tools": [
+    {
+      "file": "tools/notes/content.py",
+      "handler": "add_note_content_handler",
+      "name": "bot_add_note_content",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The content to add to the note"
+          },
+          "position": {
+            "type": "string",
+            "description": "Where to add content: 'start', 'end', or 'cursor' (default 'end')",
+            "default": "end"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to add content to. If not provided, adds to the currently active note."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optiona title of the note to modify. If not provided, adds to the currently active note."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "file": "tools/soundtrack_tools.py",
+      "handler": "bot_adjust_soundtrack_volume",
+      "name": "bot_adjust_soundtrack_volume",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "description": "Direction to adjust volume: 'increase' or 'decrease'",
+            "enum": [
+              "increase",
+              "decrease"
+            ]
+          },
+          "step": {
+            "type": "number",
+            "description": "Step size for adjustment (default 0.15 = 15%)",
+            "default": 0.15,
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        },
+        "required": [
+          "direction"
+        ]
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/notes/navigation.py",
+      "handler": "back_to_notes_handler",
+      "name": "bot_back_to_notes",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "file": "tools/openclaw_canvas.py",
+      "handler": "canvas_show_handler",
+      "name": "bot_canvas_show",
+      "description": "Display content on the user's screen as a Canvas document. Use this to show formatted text, markdown, code snippets, lists, summaries, or any content the user should see visually. Content supports full markdown including headings, lists, code blocks, bold, italic, and links.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title for the document shown on screen"
+          },
+          "content": {
+            "type": "string",
+            "description": "Markdown content to display. Supports headings, lists, code blocks, etc."
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ]
+      }
+    },
+    {
+      "file": "tools/openclaw_canvas.py",
+      "handler": "canvas_show_file_handler",
+      "name": "bot_canvas_show_file",
+      "description": "Display a file from the workspace on the user's screen. Supports text files (code, markdown, config), images (jpg, png, gif), and videos (mp4, mov, webm). Files are rendered with proper formatting \u2014 code gets syntax highlighting, images display inline, videos play inline.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file to display (absolute or relative to workspace)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional title override. Defaults to the filename."
+          }
+        },
+        "required": [
+          "file_path"
+        ]
+      }
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_applet_creation_engine",
+      "name": "bot_close_applet_creation_engine",
+      "feature_flag": "htmlContent",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_browser_window",
+      "name": "bot_close_browser_window",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "apps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail', 'drive']). If not provided, closes all windows."
+        },
+        "request_text": {
+          "type": "string",
+          "description": "Optional raw user request text for context (e.g., 'close terminal and gmail')"
+        }
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_gmail",
+      "name": "bot_close_gmail",
+      "feature_flag": "gmail",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_google_drive",
+      "name": "bot_close_google_drive",
+      "feature_flag": "googleDrive",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_notes",
+      "name": "bot_close_notes",
+      "feature_flag": "notes",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_terminal",
+      "name": "bot_close_terminal",
+      "feature_flag": "terminal",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_view",
+      "name": "bot_close_view",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "apps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail']). If not provided, closes all windows."
+        },
+        "request_text": {
+          "type": "string",
+          "description": "Optional raw user request text for context (e.g., 'close terminal and gmail')"
+        }
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_close_youtube",
+      "name": "bot_close_youtube",
+      "feature_flag": "youtube",
+      "passthrough": true
+    },
+    {
+      "file": "tools/html/crud.py",
+      "handler": "create_app_from_description_handler",
+      "name": "bot_create_app_from_description",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title/name for the app (provided by user, never inferred)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of what the app should do, its features, visual style, etc."
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Type of HTML content to create: 'game' for games/arcade, 'app' for applications, 'tool' for utilities/widgets, 'interactive' for interactive experiences",
+            "default": "game"
+          },
+          "library_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Library type for template selection. Only provide if using a library template.",
+            "default": "game"
+          },
+          "library_template_id": {
+            "type": "string",
+            "description": "Specific library template ID to use as a starting point. Only provide if user's request is similar an available template."
+          }
+        },
+        "required": [
+          "title",
+          "description"
+        ]
+      }
+    },
+    {
+      "file": "tools/html/crud.py",
+      "handler": "create_app_from_note_handler",
+      "name": "bot_create_app_from_note",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "Specific note ID to use (exact match)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Note title to search for (fuzzy search if note_id not provided)"
+          },
+          "app_title": {
+            "type": "string",
+            "description": "Optional custom title for the HTML app. If not provided, uses the note's title."
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Type of HTML content being created"
+          },
+          "user_request": {
+            "type": "string",
+            "description": "User's request that triggered this app creation"
+          }
+        },
+        "required": [
+          "app_title"
+        ]
+      }
+    },
+    {
+      "file": "tools/html/crud.py",
+      "handler": "create_html_content_handler",
+      "name": "bot_create_html_content",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title for the HTML applet"
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Complete HTML content (single file with embedded CSS/JS)"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "game",
+              "app",
+              "tool",
+              "interactive"
+            ],
+            "description": "Type of HTML content being created"
+          },
+          "user_request": {
+            "type": "string",
+            "description": "Original user request that created this content"
+          },
+          "source_note_id": {
+            "type": "string",
+            "description": "Optional ID of source note if created from note content"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional tags for searchability"
+          }
+        },
+        "required": [
+          "title",
+          "html_content"
+        ]
+      }
+    },
+    {
+      "file": "tools/notes/crud.py",
+      "handler": "create_note_handler",
+      "name": "bot_create_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The title for the new note"
+          },
+          "content": {
+            "type": "string",
+            "description": "Optional initial content for the note (markdown supported). Leave empty or omit for blank note."
+          },
+          "mode": {
+            "type": "string",
+            "description": "The mode for the note: 'personal' (private) or 'work' (public). In a multi-user session, new 'personal' notes will be shared with the current participants, but private for non-participants. Defaults to 'personal' if not specified."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    },
+    {
+      "file": "tools/notes/crud.py",
+      "handler": "delete_note_handler",
+      "name": "bot_delete_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "The (optional) ID of the note to delete. Prefer this, use title only if ID is not known."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the note to delete"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Confirmation flag to prevent accidental deletion",
+            "default": false
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/profile_tools.py",
+      "handler": "bot_delete_profile_metadata",
+      "name": "bot_delete_profile_metadata",
+      "feature_flag": "userProfile",
+      "parameters": {
+        "user_id": {
+          "type": "string",
+          "description": "User ID to delete metadata for"
+        },
+        "keys_to_delete": {
+          "type": "array",
+          "description": "List of metadata keys to delete. Omit to clear all metadata.",
+          "items": {
+            "type": "string"
+          },
+          "optional": true
+        }
+      }
+    },
+    {
+      "file": "tools/experience_tools.py",
+      "handler": "bot_dismiss_experience",
+      "name": "bot_dismiss_experience",
+      "description": "Dismiss the currently displayed experience from the Stage. Use this when the user is done viewing an experience or wants to return to the default void background.",
+      "feature_flag": "experiences",
+      "passthrough": true
+    },
+    {
+      "file": "tools/sharing/access.py",
+      "handler": "downgrade_user_access_handler",
+      "name": "bot_downgrade_user_access",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string",
+            "description": "Email address of the user to downgrade"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of the user (used if email not available)"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "applet"
+            ],
+            "description": "Type of resource (note or applet)"
+          },
+          "resource_title": {
+            "type": "string",
+            "description": "Title of the note or applet (optional - if not provided, uses the currently active resource)"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the note or applet (optional - preferred if you have the ID)"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      }
+    },
+    {
+      "file": "tools/notes/navigation.py",
+      "handler": "download_note_handler",
+      "name": "bot_download_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "description": "Format to download the note in (e.g. 'markdown', 'text')",
+            "enum": [
+              "markdown",
+              "text"
+            ],
+            "default": "markdown"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/misc_tools.py",
+      "handler": "bot_end_call",
+      "name": "bot_end_call",
+      "feature_flag": "assistantSelfClose",
+      "parameters": {
+        "reason": {
+          "type": "string",
+          "description": "Optional reason for ending the call; used for logging only."
+        }
+      }
+    },
+    {
+      "file": "tools/notes/navigation.py",
+      "handler": "list_notes_handler",
+      "name": "bot_list_notes",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Maximum number of notes to return (default 50)",
+            "default": 50
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/html/navigation.py",
+      "handler": "load_html_applet_handler",
+      "name": "bot_load_html_applet",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_id": {
+            "type": "string",
+            "description": "ID of the applet to load"
+          },
+          "title": {
+            "type": "string",
+            "description": "Search for applet by its title (fuzzy match)"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Find applet by its source note ID (searches for applets with this sourceNoteId)"
+          },
+          "note_title": {
+            "type": "string",
+            "description": "Find applet by source note title (fuzzy match on note title, then find applets from that note)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/window_tools.py",
+      "handler": "bot_maximize_window",
+      "name": "bot_maximize_window",
+      "feature_flag": "maneuverableWindow",
+      "passthrough": true
+    },
+    {
+      "file": "tools/window_tools.py",
+      "handler": "bot_minimize_window",
+      "name": "bot_minimize_window",
+      "feature_flag": "maneuverableWindow",
+      "passthrough": true
+    },
+    {
+      "file": "tools/soundtrack_tools.py",
+      "handler": "bot_next_soundtrack_track",
+      "name": "bot_next_soundtrack_track",
+      "feature_flag": "soundtrack",
+      "passthrough": true
+    },
+    {
+      "file": "tools/onboarding_tools.py",
+      "handler": "bot_onboarding_complete",
+      "name": "bot_onboarding_complete",
+      "feature_flag": "onboarding",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_browser",
+      "name": "bot_open_browser",
+      "feature_flag": "miniBrowser",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "Optional URL to navigate to when opening the browser"
+        }
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_creation_engine",
+      "name": "bot_open_creation_engine",
+      "feature_flag": "htmlContent",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_enhanced_browser",
+      "name": "bot_open_enhanced_browser",
+      "feature_flag": "miniBrowser",
+      "parameters": {
+        "url": {
+          "type": "string",
+          "description": "URL to open in the enhanced browser"
+        },
+        "features": {
+          "type": "array",
+          "description": "Optional list of features to enable (devtools, extensions, etc.)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_gmail",
+      "name": "bot_open_gmail",
+      "feature_flag": "gmail",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_google_drive",
+      "name": "bot_open_google_drive",
+      "feature_flag": "googleDrive",
+      "passthrough": true
+    },
+    {
+      "file": "tools/notes/navigation.py",
+      "handler": "open_note_handler",
+      "name": "bot_open_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "The ID of the note to open"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the note to open"
+          }
+        },
+        "required": [
+          ""
+        ]
+      }
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_notes",
+      "name": "bot_open_notes",
+      "feature_flag": "notes",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_terminal",
+      "name": "bot_open_terminal",
+      "feature_flag": "terminal",
+      "passthrough": true
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_open_youtube",
+      "name": "bot_open_youtube",
+      "feature_flag": "youtube",
+      "passthrough": true
+    },
+    {
+      "file": "tools/openclaw_tools.py",
+      "handler": "bot_openclaw_task",
+      "name": "bot_openclaw_task",
+      "description": "Delegate a complex task to the OpenClaw agent. Use this for tasks that require web research, code execution, file manipulation, multi-step reasoning, or anything beyond your built-in capabilities. The task runs asynchronously \u2014 the user will see results streamed in the interface. Examples: 'research the latest news about X', 'write a Python script that does Y', 'find and summarize Z'.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "A clear description of the task to delegate to OpenClaw."
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "description": "Task urgency level. Defaults to 'normal'.",
+            "default": "normal"
+          }
+        },
+        "required": [
+          "task"
+        ]
+      }
+    },
+    {
+      "file": "tools/youtube_tools.py",
+      "handler": "bot_pause_youtube_video",
+      "name": "bot_pause_youtube_video",
+      "feature_flag": "youtube",
+      "passthrough": true
+    },
+    {
+      "file": "tools/youtube_tools.py",
+      "handler": "bot_play_next_youtube_video",
+      "name": "bot_play_next_youtube_video",
+      "feature_flag": "youtube"
+    },
+    {
+      "file": "tools/soundtrack_tools.py",
+      "handler": "bot_play_soundtrack",
+      "name": "bot_play_soundtrack",
+      "feature_flag": "soundtrack",
+      "passthrough": true
+    },
+    {
+      "file": "tools/youtube_tools.py",
+      "handler": "bot_play_youtube_video",
+      "name": "bot_play_youtube_video",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "description": "YouTube video ID or full URL. Optional - omit to resume current paused video."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/notes/crud.py",
+      "handler": "read_current_note_handler",
+      "name": "bot_read_current_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "file": "tools/notes/content.py",
+      "handler": "remove_note_content_handler",
+      "name": "bot_remove_note_content",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Text pattern to remove from the note"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to remove content from. If not provided, removes from the currently active note."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optiona title of the note to modify. If not provided, adds to the currently active note."
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    },
+    {
+      "file": "tools/experience_tools.py",
+      "handler": "bot_render_experience",
+      "name": "bot_render_experience",
+      "description": "Render an interactive HTML experience on the Stage. Use this to display visual content like clocks, greeting cards, data visualizations, mini-games, or any interactive HTML content. The experience appears full-screen behind Pearl's avatar. Provide complete, self-contained HTML. Optional CSS and JS are injected into the sandboxed iframe. Transition can be 'fade', 'slide', or 'instant'.",
+      "feature_flag": "experiences",
+      "parameters": {
+        "html": {
+          "type": "string",
+          "description": "The HTML content to render. Should be a complete HTML fragment."
+        },
+        "css": {
+          "type": "string",
+          "description": "Optional CSS styles to inject into the experience."
+        },
+        "js": {
+          "type": "string",
+          "description": "Optional JavaScript to execute within the sandboxed experience."
+        },
+        "transition": {
+          "type": "string",
+          "enum": [
+            "fade",
+            "slide",
+            "instant"
+          ],
+          "description": "Transition animation when the experience appears. Defaults to 'fade'."
+        }
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/notes/crud.py",
+      "handler": "replace_note_handler",
+      "name": "bot_replace_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The COMPLETE new content for the note in markdown format. Must include ALL items to keep - anything not included will be deleted."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional new title for the note. If provided, the note's title will be updated."
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to update. If not provided, updates the currently active note."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "file": "tools/notes/content.py",
+      "handler": "replace_note_content_handler",
+      "name": "bot_replace_note_content",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The content to write to the note"
+          },
+          "section": {
+            "type": "string",
+            "description": "Optional section identifier where content should be written"
+          },
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to write to. If not provided, writes to the currently active note."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the note to modify. If not provided, writes to the currently active note."
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    {
+      "file": "tools/window_tools.py",
+      "handler": "bot_reset_window_position",
+      "name": "bot_reset_window_position",
+      "feature_flag": "maneuverableWindow",
+      "passthrough": true
+    },
+    {
+      "file": "tools/window_tools.py",
+      "handler": "bot_restore_window",
+      "name": "bot_restore_window",
+      "feature_flag": "maneuverableWindow",
+      "passthrough": true
+    },
+    {
+      "file": "tools/html/crud.py",
+      "handler": "rollback_app_handler",
+      "name": "bot_rollback_app",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_id": {
+            "type": "string",
+            "description": "The ID of the applet to rollback"
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the applet to rollback (used if ID is not provided)"
+          },
+          "steps": {
+            "type": "integer",
+            "description": "Number of versions to rollback (default: 1)"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/notes/crud.py",
+      "handler": "save_note_handler",
+      "name": "bot_save_note",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "description": "Optional note ID to save. If not provided, saves the currently active note."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "file": "tools/misc_tools.py",
+      "handler": "bot_search_wikipedia",
+      "name": "bot_search_wikipedia",
+      "feature_flag": "wikipedia",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query for Wikipedia"
+          },
+          "sentences": {
+            "type": "number",
+            "description": "Number of sentences to return in summary (default 3)",
+            "default": 3
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "file": "tools/youtube_tools.py",
+      "handler": "bot_search_youtube_videos",
+      "name": "bot_search_youtube_videos",
+      "feature_flag": "youtube",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query for YouTube videos"
+          },
+          "max_results": {
+            "type": "number",
+            "description": "Maximum number of results to return (default 10)",
+            "default": 10
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "file": "tools/soundtrack_tools.py",
+      "handler": "bot_set_soundtrack_volume",
+      "name": "bot_set_soundtrack_volume",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "volume": {
+            "type": "number",
+            "description": "Volume level from 0.0 to 1.0 (e.g., 0.5 = 50%, 0.3 = 30%, 1.0 = 100%)",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        },
+        "required": [
+          "volume"
+        ]
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/sharing/access.py",
+      "handler": "set_user_access_level_handler",
+      "name": "bot_set_user_access_level",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "access_level": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "viewer"
+            ],
+            "description": "Access level to grant (owner, admin, member, viewer)"
+          },
+          "user_email": {
+            "type": "string",
+            "description": "Email address of the user to update"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of the user (used if email not available)"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "applet"
+            ],
+            "description": "Type of resource (note or applet)"
+          },
+          "resource_title": {
+            "type": "string",
+            "description": "Title of the note or applet (optional - if not provided, uses the currently active resource)"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the note or applet (optional - preferred if you have the ID)"
+          }
+        },
+        "required": [
+          "access_level",
+          "resource_type"
+        ]
+      }
+    },
+    {
+      "file": "tools/sharing/access.py",
+      "handler": "share_applet_with_user_handler",
+      "name": "bot_share_applet_with_user",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_search_term": {
+            "type": "string",
+            "description": "Applet title or partial title to search for"
+          },
+          "target_user_email": {
+            "type": "string",
+            "description": "Email address (or partial email) of user to share with"
+          },
+          "target_user_name": {
+            "type": "string",
+            "description": "Name of user to share with (used if email not available)"
+          },
+          "permission_level": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ],
+            "description": "Permission level: 'read' for read-only, 'write' for full edit",
+            "default": "read"
+          }
+        },
+        "required": [
+          "applet_search_term"
+        ]
+      }
+    },
+    {
+      "file": "tools/sharing/notes.py",
+      "handler": "share_note_with_user_handler",
+      "name": "bot_share_note_with_user",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "note_search_term": {
+            "type": "string",
+            "description": "Note title or partial title to search for"
+          },
+          "target_user_email": {
+            "type": "string",
+            "description": "Email address (or partial email) of user to share with"
+          },
+          "target_user_name": {
+            "type": "string",
+            "description": "Name of user to share with (used if email not available)"
+          },
+          "permission_level": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ],
+            "description": "Permission level: 'read' for read-only, 'write' for full edit",
+            "default": "write"
+          }
+        },
+        "required": [
+          "note_search_term"
+        ]
+      }
+    },
+    {
+      "file": "tools/misc_tools.py",
+      "handler": "bot_show_share_dialog",
+      "name": "bot_show_share_dialog",
+      "feature_flag": "resourceSharing",
+      "passthrough": true
+    },
+    {
+      "file": "tools/window_tools.py",
+      "handler": "bot_snap_window_left",
+      "name": "bot_snap_window_left",
+      "feature_flag": "maneuverableWindow",
+      "passthrough": true
+    },
+    {
+      "file": "tools/window_tools.py",
+      "handler": "bot_snap_window_right",
+      "name": "bot_snap_window_right",
+      "feature_flag": "maneuverableWindow",
+      "passthrough": true
+    },
+    {
+      "file": "tools/misc_tools.py",
+      "handler": "bot_start_daily_call",
+      "name": "bot_start_daily_call",
+      "feature_flag": "dailyCall",
+      "passthrough": true
+    },
+    {
+      "file": "tools/soundtrack_tools.py",
+      "handler": "bot_stop_soundtrack",
+      "name": "bot_stop_soundtrack",
+      "feature_flag": "soundtrack",
+      "passthrough": true
+    },
+    {
+      "file": "tools/sprite_tools.py",
+      "handler": "bot_summon_sprite",
+      "name": "bot_summon_sprite",
+      "description": "Summon a visual AI sprite character from a user-provided description (e.g., 'panda doctor', 'indian driver'). Use when the user asks for a character/persona so the sprite can appear and chat.",
+      "feature_flag": "summonSpriteTool",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Character description for the sprite (e.g., 'panda doctor')"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "passthrough": false
+    },
+    {
+      "file": "tools/view_tools.py",
+      "handler": "bot_switch_desktop_mode",
+      "name": "bot_switch_desktop_mode",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "The desktop mode to switch to. Valid values: 'home' (home/desktop background), 'work' (work background with app icons - aka workspace), 'quiet' (personal quiet background), or 'create' (Creation Engine workspace). REQUIRED - always provide this parameter.",
+            "enum": [
+              "home",
+              "work",
+              "quiet",
+              "create"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      }
+    },
+    {
+      "file": "tools/notes/navigation.py",
+      "handler": "switch_note_mode_handler",
+      "name": "bot_switch_note_mode",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "The mode to switch to: 'work' (shared) or 'personal' (private)"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "passthrough": true
+    },
+    {
+      "file": "tools/html/crud.py",
+      "handler": "update_html_applet_handler",
+      "name": "bot_update_html_applet",
+      "feature_flag": "htmlContent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "applet_id": {
+            "type": "string",
+            "description": "ID of the applet to update"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the applet to update (used if applet_id is not provided)"
+          },
+          "new_title": {
+            "type": "string",
+            "description": "New title for the applet (optional rename)"
+          },
+          "modification_request": {
+            "type": "string",
+            "description": "Natural language description of how to modify the applet (e.g., 'change the background to blue', 'add a score counter'), OR if the user wants you to use a note to help update the applet, put the contents of the note here verbatim."
+          },
+          "note_id": {
+            "type": "string",
+            "description": "The ID of the note to use for the update (if applicable)"
+          },
+          "note_title": {
+            "type": "string",
+            "description": "The title of the note to use for the update (if applicable)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New tags (optional)"
+          }
+        },
+        "required": [
+          "modification_request"
+        ]
+      }
+    },
+    {
+      "file": "tools/profile_tools.py",
+      "handler": "bot_update_user_profile",
+      "name": "bot_update_user_profile",
+      "feature_flag": "userProfile",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true,
+        "description": "Profile fields to save or update (e.g., {\"pets\": \"two dogs\", \"interests\": \"hiking\"})"
+      }
+    },
+    {
+      "file": "tools/sharing/access.py",
+      "handler": "upgrade_user_access_handler",
+      "name": "bot_upgrade_user_access",
+      "feature_flag": "resourceSharing",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string",
+            "description": "Email address of the user to upgrade"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "Name of the user (used if email not available)"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "note",
+              "applet"
+            ],
+            "description": "Type of resource (note or applet)"
+          },
+          "resource_title": {
+            "type": "string",
+            "description": "Title of the note or applet (optional - if not provided, uses the currently active resource)"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the note or applet (optional - preferred if you have the ID)"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      }
+    }
+  ]
+}

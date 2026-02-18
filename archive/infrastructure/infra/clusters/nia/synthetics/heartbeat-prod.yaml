@@ -1,0 +1,26 @@
+apiVersion: infra.contrib.fluxcd.io/v1alpha2
+kind: Terraform
+metadata:
+  name: heartbeat-prod
+  namespace: flux-system
+spec:
+  interval: 1h
+  approvePlan: "auto"
+  path: ./infra/terraform/modules/synthetics-canary
+  sourceRef:
+    kind: GitRepository
+    name: infra-repo
+    namespace: flux-system
+  serviceAccountName: tf-runner
+  runnerPodTemplate:
+    spec:
+      env:
+        - name: AWS_REGION
+          value: "us-east-2"
+  vars:
+    - name: canary_name
+      value: "api-heartbeat-prod"
+    - name: targets
+      value: ["https://pearlos.org/health", "https://pearlos.org/health/deep"]
+    - name: schedule_expression
+      value: "rate(5 minutes)"

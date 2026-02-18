@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kokoro-tts.fullname" . }}
+  namespace: {{ include "kokoro-tts.fullname" . }}
+  labels:
+    {{- include "kokoro-tts.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "kokoro-tts.selectorLabels" . | nindent 4 }}

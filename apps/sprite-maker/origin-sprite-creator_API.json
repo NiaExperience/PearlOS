@@ -1,0 +1,264 @@
+{
+  "677": {
+    "inputs": {
+      "text": [
+        "732",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "712": {
+    "inputs": {
+      "width": 256,
+      "height": 256,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "713": {
+    "inputs": {
+      "text": [
+        "1403",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "720": {
+    "inputs": {
+      "seed": [
+        "813",
+        0
+      ],
+      "steps": 12,
+      "cfg": 1.5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "721",
+        0
+      ],
+      "positive": [
+        "713",
+        0
+      ],
+      "negative": [
+        "677",
+        0
+      ],
+      "latent_image": [
+        "712",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "721": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": false,
+        "lora": "PIXEL_ART_styleanimationwanlora.safetensors",
+        "strength": 1
+      },
+      "lora_2": {
+        "on": true,
+        "lora": "z-image-Lucasarts Artstyle - (Trigger is lcsrts gamestyle).safetensors",
+        "strength": 1
+      },
+      "➕ Add Lora": "",
+      "model": [
+        "1032",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "Power Lora Loader (rgthree)"
+    }
+  },
+  "726": {
+    "inputs": {
+      "samples": [
+        "720",
+        0
+      ],
+      "vae": [
+        "1032",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "732": {
+    "inputs": {
+      "string": "(((MOTION BLUR, CROPPED, GROUNDSHADOWS, SHADOW ON GROUND, GROUND-SHADOW, BODY CROPPED, CROPPING, PORTRAIT, PFP, PROFILE PICTURE, BACKGROUND, BLACK BACKGROUND, BACKGROUND SCENERY, GROUND, OBJECT LEAVE FRAME, edge overlapping, out of frame, ZOOM, ZOOMING IN)))"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "NEGATIVE String Literal"
+    }
+  },
+  "813": {
+    "inputs": {
+      "seed": 753565826388938
+    },
+    "class_type": "Seed Generator",
+    "_meta": {
+      "title": "GENERATE CORE SEED"
+    }
+  },
+  "956": {
+    "inputs": {
+      "string": "You're pixel sprite character creator. You will create the original master character pose and prompt for ComfyUI that all subsequent images and animations will refer to. This character will be rendered on a clear white background at a resolution of 512 height and 256 width. Make sure to fill the character description with rich and colorful detail. Ensure all relevant information, color, texture, and style is fully explained with nothing left to imagine. Describe body parts, accessories and any important character visual traits. Transform a brief character description into a fully fleshed out new prompt. DO NOT DESCRIBE ANY BACKGROUND OBJECTS OR SCENERY. CLEAR HEX #FFFFFF BACKGROUND only.\n\nExample succesful prompts (do not copy details, for example purposes only):\n<example1>\ninput prompt: \"Indian cyberpunk pirate with bright right hookhand. He has a robot parrot on his shoulder. His eye is covered by a bionic eyepatch. His hand grips an electric saber.\"\ncorrect response: An Indian cyberpunk pirate stands tall and imposing against a backdrop of clear white space, his pixelated form crafted with exquisite precision. The character measures 512 pixels in height and 256 pixels in width, ensuring a detailed yet clean appearance that captures the essence of both cyberpunk aesthetics and Indian cultural influences. Our protagonist's body is decked out in an ornate brass armor, its intricate patterns and designs inspired by rich Indian artistry.  His left eye is concealed by a sleek, bionic eyepatch that blends seamlessly into his cybernetic arm, giving him a menacing yet sophisticated appearance. The armor features subtle highlights and shadows to create depth and realism, with a combination of rough, rusted metal and smooth, polished brass textures that reflect the character's cybernetic nature. A golden band adorns his wrist, encircling it as a testament to his wealth and power. On his left shoulder, our pirate proudly sports an elegant silver mechanical parrot, its metallic feathers shimmering with an ethereal glow. The mechanical parrot perches alertly on his shoulder, watching over him with unwavering vigilance. In his right hand, our pirate grips an electric saber with a vibrant blue energy crackling along its length. The character's posture is powerful and imposing, his foot planted firmly on the ground as he prepares for action. His cybernetic hook hand, a biomechanical pointed grappling hook, rests casually on his hip.\n\n<example2>\ninput prompt: \"A 1940's gangster Santa Claus with a dark red fedora hat, red mobster suit, a red sack of green cash, and a tommy gun in his gloved hand.\"\ncorrect response: \"An iconic 1940's Gangster Santa stands tall against a backdrop of crisp white space, his pixels painstakingly crafted with impeccable precision. The character is rendered at a resolution of 512 pixels height and 256 pixels width to ensure a detailed yet clean appearance that blends the charm of Christmas with the grittiness of a mobster's world. Our protagonist dons a red mobster suit, complete with sharp peaks and creases that reflect the meticulous care taken in his attire. A dark red fedora hat sits atop his head, its brim casting an shadows across his face as he cocks his head to one side. The suit is accessorized with a sash around his waist, adorned with glimmering golden bells that jingle softly every time he moves. A red satchel slung over his shoulder houses his ill-gotten gains – bundles of green cash that spill from the sack's mouth. In his left hand, he holds a sleek tommy gun, its barrel silenced for discretion in the line of work. Each bullet casing slides out with an elegant grace, echoing his unyielding power as a gangster. Our 1940's Gangster Santa's posture exudes confidence and menace, ready to take on any challenges that come his way in the cold winter night. A thick white beard and mustache add a touch of warmth to an otherwise hardened face, hinting at the holiday season that lies just beneath the surface.\"\n\n<example3> input prompt: \"A cartoon squirrel who is also a badass sniper. Sniper Squirrel!\"\ncorrect response: \"An adorable yet deadly cartoon squirrel stands tall and supreme against the backdrop of clear white space, his pixels meticulously crafted to capture breathtaking detail at 512 pixels in height and 256 pixels in width. With an attitude that is both charming and deadly, Sniper Squirrel wears a camouflaged tunic designed to blend seamlessly with every environment, whether it's the dense, verdant forest or the sprawling concrete jungle. His bushy tail is a testament to his squirrel origin and swings behind him as he gears up for action. A wide-brimmed hat adorned with pointed ears and neon accents sits atop his head, accentuating his fierce yet playful persona.A bulletproof vest surrounds Sniper Squirrel's torso for protection during battle, while protective gloves wrapped around nimble paws allow him to maintain a firm grip on his sniper rifle. Protective boots made with reinforced leather are ready for fast movement across any landscape. Sniper Squirrel's weapon of choice is a sleek black steel sniper rifle crafted with intricate details that speak volumes about its precision and power. The gun features a small, red-tinted scope that can be adjusted for the perfect shot, and a sling made of sturdy material ensures easy transport between missions. Sniper Squirrel's posture is intense and focused – eyes peering through his sniper rifle's scope with unwavering determination – as he poises himself for action on the battlefield.\"\n\n\n---\n\n\nWrite only the raw text response, no backgrounds, no additional words. Just pure character visual descriptions."
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "LLM Instructions"
+    }
+  },
+  "970": {
+    "inputs": {
+      "string": "A goofy blue cartoon cat who carries a machine gun and rides a skateboard. The cat is wearing a pink party hat."
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "Pearl_Input_Prompt"
+    }
+  },
+  "1003": {
+    "inputs": {
+      "string": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND. (((50 PX WHITE BORDER AROUND OUTSIDE FRAME)))\n\n"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "General Sprite/Pixel Character Style Guidance"
+    }
+  },
+  "1017": {
+    "inputs": {
+      "images": [
+        "726",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "1032": {
+    "inputs": {
+      "ckpt_name": "z-image-turbo-bf16-aio.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1082": {
+    "inputs": {
+      "system_prompt": "",
+      "user_prompt": "",
+      "temperature": 0.9,
+      "is_memory": "enable",
+      "is_tools_in_sys_prompt": "disable",
+      "is_locked": "disable",
+      "main_brain": "enable",
+      "max_length": 1920,
+      "imgbb_api_key": "",
+      "conversation_rounds": 100,
+      "historical_record": "",
+      "is_enable": true,
+      "stream": false,
+      "model": [
+        "1083",
+        0
+      ],
+      "system_prompt_input": [
+        "956",
+        0
+      ],
+      "user_prompt_input": [
+        "970",
+        0
+      ]
+    },
+    "class_type": "LLM",
+    "_meta": {
+      "title": "☁️API LLM general link"
+    }
+  },
+  "1083": {
+    "inputs": {
+      "model_name": "mistral",
+      "base_url": "https://25wmgzhsglmhnk-11434.proxy.runpod.net",
+      "api_key": "",
+      "is_ollama": false
+    },
+    "class_type": "LLM_api_loader",
+    "_meta": {
+      "title": "☁️API LLM Loader"
+    }
+  },
+  "1403": {
+    "inputs": {
+      "texts": [
+        "1082",
+        0
+      ],
+      "prefix": [
+        "1003",
+        0
+      ]
+    },
+    "class_type": "AddTextPrefix",
+    "_meta": {
+      "title": "Pixel Style Text prefix"
+    }
+  },
+  "1405": {
+    "inputs": {
+      "text_0": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND. (((50 PX WHITE BORDER AROUND OUTSIDE FRAME)))\n\n A goofy blue pixelated cat stands tall against a clear white backdrop, his body measure 512 pixels in height and 256 pixels in width. The cat's fur is a bright electric blue with playful stripes that run vertically down its body. A pink party hat adorns its head, adding to the character's whimsical appeal. A pink backpack slung over his shoulder holds essential supplies for any adventure. In one hand, the cat holds a machine gun with vibrant orange and black details that shine against his blue fur. He rides a skateboard beneath him, its wheels spinning as he prepares to take off on his next misadventure. The cat's posture is relaxed yet ready for action, a wry smile tugging at the corners of his mouth as he surveys the world around him.",
+      "text": [
+        "1403",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss",
+    "_meta": {
+      "title": "Show Text 🐍"
+    }
+  }
+}

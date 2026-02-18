@@ -1,0 +1,290 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "events": [
+        {
+            "id": "assistant.started",
+            "name": "Assistant Started",
+            "category": "lifecycle"
+        },
+        {
+            "id": "onboarding.complete",
+            "name": "Onboarding Complete",
+            "category": "lifecycle"
+        },
+        {
+            "id": "daily.participant.first.join",
+            "name": "First Participant Joined",
+            "category": "call"
+        },
+        {
+            "id": "daily.call.error",
+            "name": "General Error",
+            "category": "call"
+        },
+        {
+            "id": "daily.participant.join",
+            "name": "Participant Joined",
+            "category": "call"
+        },
+        {
+            "id": "daily.participant.leave",
+            "name": "Participant Left",
+            "category": "call"
+        },
+        {
+            "id": "daily.call.state",
+            "name": "Call State",
+            "category": "call"
+        },
+        {
+            "id": "daily.participants.change",
+            "name": "Participants Change",
+            "category": "call"
+        },
+        {
+            "id": "daily.participant.identity",
+            "name": "Participant Identity",
+            "category": "call"
+        },
+        {
+            "id": "daily.bot.heartbeat",
+            "name": "Bot Heartbeat",
+            "category": "call"
+        },
+        {
+            "id": "bot.session.end",
+            "name": "Bot Session End",
+            "category": "bot"
+        },
+        {
+            "id": "bot.conversation.pacing.beat",
+            "name": "Pacing Beat",
+            "category": "bot"
+        },
+        {
+            "id": "bot.conversation.wrapup",
+            "name": "Conversation Wrapup",
+            "category": "bot"
+        },
+        {
+            "id": "bot.speaking.started",
+            "name": "Bot Speaking Started",
+            "category": "bot"
+        },
+        {
+            "id": "bot.speaking.stopped",
+            "name": "Bot Speaking Stopped",
+            "category": "bot"
+        },
+        {
+            "id": "admin.prompt.message",
+            "name": "Admin Prompt Message",
+            "category": "admin"
+        },
+        {
+            "id": "admin.prompt.response",
+            "name": "Admin Prompt Response",
+            "category": "admin"
+        },
+        {
+            "id": "llm.context.message",
+            "name": "LLM Context Message",
+            "category": "llm"
+        },
+        {
+            "id": "window.minimize",
+            "name": "Window Minimize",
+            "category": "ui"
+        },
+        {
+            "id": "window.maximize",
+            "name": "Window Maximize",
+            "category": "ui"
+        },
+        {
+            "id": "window.restore",
+            "name": "Window Restore",
+            "category": "ui"
+        },
+        {
+            "id": "window.snap.left",
+            "name": "Window Snap Left",
+            "category": "ui"
+        },
+        {
+            "id": "window.snap.right",
+            "name": "Window Snap Right",
+            "category": "ui"
+        },
+        {
+            "id": "window.reset",
+            "name": "Window Reset",
+            "category": "ui"
+        },
+        {
+            "id": "note.open",
+            "name": "Note Opened",
+            "category": "notes"
+        },
+        {
+            "id": "note.close",
+            "name": "Note Closed",
+            "category": "notes"
+        },
+        {
+            "id": "note.updated",
+            "name": "Note Updated",
+            "category": "notes"
+        },
+        {
+            "id": "note.saved",
+            "name": "Note Saved",
+            "category": "notes"
+        },
+        {
+            "id": "note.download",
+            "name": "Note Download",
+            "category": "notes"
+        },
+        {
+            "id": "note.deleted",
+            "name": "Note Deleted",
+            "category": "notes"
+        },
+        {
+            "id": "note.mode.switch",
+            "name": "Note Mode Switched",
+            "category": "notes"
+        },
+        {
+            "id": "notes.refresh",
+            "name": "Notes Refresh",
+            "category": "notes"
+        },
+        {
+            "id": "notes.list",
+            "name": "Notes Listed",
+            "category": "notes"
+        },
+        {
+            "id": "app.open",
+            "name": "App Open",
+            "category": "apps"
+        },
+        {
+            "id": "apps.close",
+            "name": "Apps Close",
+            "category": "apps"
+        },
+        {
+            "id": "browser.open",
+            "name": "Browser Open",
+            "category": "apps"
+        },
+        {
+            "id": "browser.close",
+            "name": "Browser Close",
+            "category": "apps"
+        },
+        {
+            "id": "view.close",
+            "name": "View Close",
+            "category": "ui"
+        },
+        {
+            "id": "desktop.mode.switch",
+            "name": "Desktop Mode Switch",
+            "category": "ui"
+        },
+        {
+            "id": "youtube.search",
+            "name": "YouTube Search",
+            "category": "apps"
+        },
+        {
+            "id": "youtube.play",
+            "name": "YouTube Play",
+            "category": "apps"
+        },
+        {
+            "id": "youtube.pause",
+            "name": "YouTube Pause",
+            "category": "apps"
+        },
+        {
+            "id": "youtube.next",
+            "name": "YouTube Next",
+            "category": "apps"
+        },
+        {
+            "id": "call.start",
+            "name": "Call Start",
+            "category": "call"
+        },
+        {
+            "id": "html.created",
+            "name": "HTML Content Created",
+            "category": "content"
+        },
+        {
+            "id": "html.updated",
+            "name": "HTML Content Updated",
+            "category": "content"
+        },
+        {
+            "id": "html.loaded",
+            "name": "HTML Content Loaded",
+            "category": "content"
+        },
+        {
+            "id": "html.generation.requested",
+            "name": "HTML Generation Requested",
+            "category": "content"
+        },
+        {
+            "id": "html.modification.requested",
+            "name": "HTML Modification Requested",
+            "category": "content"
+        },
+        {
+            "id": "html.rollback.requested",
+            "name": "HTML Rollback Requested",
+            "category": "content"
+        },
+        {
+            "id": "applet.refresh",
+            "name": "Applet Refresh",
+            "category": "applets"
+        },
+        {
+            "id": "applet.open",
+            "name": "Applet Opened",
+            "category": "applets"
+        },
+        {
+            "id": "applet.close",
+            "name": "Applet Closed",
+            "category": "applets"
+        },
+        {
+            "id": "applet.updated",
+            "name": "Applet Updated",
+            "category": "applets"
+        },
+        {
+            "id": "resource.access.changed",
+            "name": "Resource Access Changed",
+            "category": "sharing"
+        },
+        {
+            "id": "applet.share.open",
+            "name": "Applet Share Dialog Opened",
+            "category": "sharing"
+        },
+        {
+            "id": "sprite.summon",
+            "name": "Sprite Summon",
+            "category": "sprites"
+        }
+    ]
+}

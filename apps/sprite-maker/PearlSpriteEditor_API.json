@@ -1,0 +1,210 @@
+{
+  "732": {
+    "inputs": {
+      "string": "(((MOTION BLUR, CROPPED, GROUNDSHADOWS, SHADOW ON GROUND, GROUND-SHADOW, BODY CROPPED, CROPPING, PORTRAIT, PFP, PROFILE PICTURE, BACKGROUND, BORDER, BLACK BACKGROUND, BACKGROUND SCENERY, GROUND, OBJECT LEAVE FRAME, edge overlapping, out of frame, ZOOM, ZOOMING IN)))"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "NEGATIVE String Literal"
+    }
+  },
+  "813": {
+    "inputs": {
+      "seed": 455170767366660
+    },
+    "class_type": "Seed Generator",
+    "_meta": {
+      "title": "GENERATE CORE SEED"
+    }
+  },
+  "970": {
+    "inputs": {
+      "string": "change the color of the backpack to green"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "Pearl_Input_Prompt"
+    }
+  },
+  "1003": {
+    "inputs": {
+      "string": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND.\n\n"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "General Sprite/Pixel Character Style Guidance"
+    }
+  },
+  "1032": {
+    "inputs": {
+      "ckpt_name": "Qwen-Rapid-AIO-SFW-v17.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1407": {
+    "inputs": {
+      "image": "ComfyUI_temp_abeyr_00001_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "1417": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": [
+        "813",
+        0
+      ],
+      "steps": 12,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "1032",
+        0
+      ],
+      "positive": [
+        "1430",
+        0
+      ],
+      "negative": [
+        "1418",
+        0
+      ],
+      "latent_image": [
+        "1423",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "1418": {
+    "inputs": {
+      "prompt": "(((ZOOM, CROP)))",
+      "clip": [
+        "1032",
+        1
+      ],
+      "vae": [
+        "1032",
+        2
+      ],
+      "image1": [
+        "1438",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus"
+    }
+  },
+  "1423": {
+    "inputs": {
+      "pixels": [
+        "1438",
+        0
+      ],
+      "vae": [
+        "1032",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "1427": {
+    "inputs": {
+      "samples": [
+        "1417",
+        0
+      ],
+      "vae": [
+        "1032",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "1430": {
+    "inputs": {
+      "prompt": [
+        "970",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ],
+      "vae": [
+        "1032",
+        2
+      ],
+      "image1": [
+        "1438",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus"
+    }
+  },
+  "1432": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "1437",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "1437": {
+    "inputs": {
+      "size": 256,
+      "method": "LANCZOS",
+      "image": [
+        "1427",
+        0
+      ]
+    },
+    "class_type": "ResizeLongestToNode",
+    "_meta": {
+      "title": "Resize Longest To"
+    }
+  },
+  "1438": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 4,
+      "image": [
+        "1407",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  }
+}

@@ -1,0 +1,3 @@
+venv/
+conversation_history.json
+.env

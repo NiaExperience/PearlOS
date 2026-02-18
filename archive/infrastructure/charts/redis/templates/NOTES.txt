@@ -1,0 +1,79 @@
+1. Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Values.namespace.name }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "redis.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Values.namespace.name }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo redis://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Values.namespace.name }} svc -w {{ include "redis.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Values.namespace.name }} {{ include "redis.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo redis://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  echo "Redis is available at {{ include "redis.fullname" . }}.{{ .Values.namespace.name }}.svc.cluster.local:{{ .Values.service.port }}"
+  kubectl --namespace {{ .Values.namespace.name }} port-forward svc/{{ include "redis.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+{{- end }}
+
+{{- if .Values.auth.enabled }}
+2. Get your Redis password by running:
+  export REDIS_PASSWORD=$(kubectl get secret --namespace {{ .Values.namespace.name }} {{ include "redis.secretName" . }} -o jsonpath="{.data.redis-password}" | base64 -d)
+
+3. Connect to your Redis server:
+{{- if contains "ClusterIP" .Values.service.type }}
+  # From within the cluster:
+  redis-cli -h {{ include "redis.fullname" . }}.{{ .Values.namespace.name }}.svc.cluster.local -p {{ .Values.service.port }} -a $REDIS_PASSWORD
+  
+  # From outside the cluster (after port-forward):
+  redis-cli -h 127.0.0.1 -p {{ .Values.service.port }} -a $REDIS_PASSWORD
+{{- else }}
+  redis-cli -h $SERVICE_IP -p {{ .Values.service.port }} -a $REDIS_PASSWORD
+{{- end }}
+{{- else }}
+2. Connect to your Redis server:
+{{- if contains "ClusterIP" .Values.service.type }}
+  # From within the cluster:
+  redis-cli -h {{ include "redis.fullname" . }}.{{ .Values.namespace.name }}.svc.cluster.local -p {{ .Values.service.port }}
+  
+  # From outside the cluster (after port-forward):
+  redis-cli -h 127.0.0.1 -p {{ .Values.service.port }}
+{{- else }}
+  redis-cli -h $SERVICE_IP -p {{ .Values.service.port }}
+{{- end }}
+{{- end }}
+
+4. Test Redis connectivity from your applications:
+
+For pipecat-daily-bot, add to your ConfigMap:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipecat-daily-bot-config
+  namespace: pipecat-daily-bot-stg
+data:
+  REDIS_HOST: "{{ include "redis.fullname" . }}.{{ .Values.namespace.name }}.svc.cluster.local"
+  REDIS_PORT: "{{ .Values.service.port }}"
+  {{- if .Values.auth.enabled }}
+  REDIS_PASSWORD_SECRET: "{{ include "redis.secretName" . }}"
+  {{- end }}
+```
+
+For interface app, add to your environment:
+```yaml
+env:
+  - name: REDIS_URL
+    value: "redis://{{ if .Values.auth.enabled }}:$(REDIS_PASSWORD)@{{ end }}{{ include "redis.fullname" . }}.{{ .Values.namespace.name }}.svc.cluster.local:{{ .Values.service.port }}"
+  {{- if .Values.auth.enabled }}
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "redis.secretName" . }}
+        key: redis-password
+  {{- end }}
+```
+
+5. Monitor Redis:
+  kubectl --namespace {{ .Values.namespace.name }} logs -f deployment/{{ include "redis.fullname" . }}
+  kubectl --namespace {{ .Values.namespace.name }} get pods -l "app.kubernetes.io/name={{ include "redis.name" . }}"
+
+6. Redis Configuration:
+  kubectl --namespace {{ .Values.namespace.name }} get configmap {{ include "redis.configName" . }} -o yaml

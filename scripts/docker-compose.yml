@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    container_name: ${CONTAINER_NAME:-test-postgres}
+    environment:
+      NEXT_PUBLIC_AWS_S3_BUCKET_NAME: nia-photosbucket
+      NEXT_PUBLIC_AWS_ACCESS_KEY_ID: ${NEXT_PUBLIC_AWS_ACCESS_KEY_ID:-test_key}
+      NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY: ${NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY:-test_secret}
+      NEXT_PUBLIC_AWS_REGION: ${NEXT_PUBLIC_AWS_REGION:-us-east-1}
+      POSTGRES_DB: ${POSTGRES_DB:-testdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@dashboard": ["./src"],
+      "@dashboard/*": ["./src/*"],
+      "@nia/prism": ["../../packages/prism/dist"],
+      "@nia/prism/*": ["../../packages/prism/dist/*"]
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "ignoreDeprecations": "5.0",
+    "incremental": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "lib": ["dom", "dom.iterable", "esnext", "ES2022"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": false,
+    "outDir": "./dist",
+    "plugins": [{ "name": "next" }],
+    "resolveJsonModule": true,
+    "rootDir": "../..",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["jest", "node"],
+    "paths": {
+      "@interface": ["./src"],
+      "@interface/*": ["./src/*"],
+  "@nia/prism": ["../../packages/prism/src", "../../packages/prism/dist"],
+  "@nia/prism/*": ["../../packages/prism/src/*", "../../packages/prism/dist/*"],
+      "@nia/events": ["../../packages/events/dist"],
+      "@nia/events/*": ["../../packages/events/dist/*"],
+      "@migration/*": ["./src/migration/*"],
+      "@migration": ["./src/migration"],
+      "@nia/features": ["../../packages/features/src"],
+      "@nia/features/*": ["../../packages/features/src/*"]
+    },
+    "typeRoots": [
+      "../../node_modules/@types",
+      "./node_modules/@types",
+      "./src/declarations.d.ts",
+      "./node_modules/next-auth/src/core/types"
+    ]
+  },
+  "include": [
+    "__tests__/*.ts",
+    "__tests__/*.tsx",
+    "../../packages/features/src/**/*.ts",
+    "../../packages/features/generated/**/*.json",
+    "../../packages/events/dist/**/*.d.ts",
+    "../../packages/prism/src/**/*.ts",
+    "../../packages/prism/src/**/*.tsx",
+    "../../packages/prism/dist/**/*.d.ts",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/features/*/**/*.ts",
+    "src/features/*/**/*.tsx"
+, "../../packages/prism/__tests__/platform-definitions-validation.test.ts"  ],
+  "exclude": ["node_modules", "dist", ".next", "src/migration/**/*.ts"]
+}

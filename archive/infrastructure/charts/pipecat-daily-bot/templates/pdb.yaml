@@ -1,0 +1,16 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "pipecat-daily-bot.fullname" . }}-gateway
+  namespace: {{ include "pipecat-daily-bot.fullname" . }}
+  labels:
+    {{- include "pipecat-daily-bot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "pipecat-daily-bot.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+{{- end }}

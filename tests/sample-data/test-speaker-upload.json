@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Dr. John Smith",
+    "title": "AI Research Director",
+    "company": "Tech Corp",
+    "photo": "https://example.com/john.jpg",
+    "bio": "Leading AI researcher with 15 years experience"
+  },
+  {
+    "title": "Senior Developer",
+    "company": "StartupXYZ",
+    "bio": "Expert in machine learning applications"
+  },
+  {
+    "name": "Sarah Johnson",
+    "bio": "Blockchain specialist and entrepreneur"
+  }
+] 

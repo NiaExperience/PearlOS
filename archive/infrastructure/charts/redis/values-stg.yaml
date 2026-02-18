@@ -1,0 +1,92 @@
+# Staging-specific overrides for Redis
+environment: staging
+replicaCount: 1
+
+image:
+  repository: redis
+  tag: "7.4-alpine"
+  pullPolicy: IfNotPresent
+
+# Staging Redis configuration
+redis:
+  useConfig: true
+  port: 6379
+  maxmemory: "512mb"
+  maxmemoryPolicy: "allkeys-lru"
+  loglevel: "notice"
+  timeout: 0
+  tcpKeepalive: 300
+  maxclients: 10000
+  # Use command line args for auth to avoid env var expansion issues
+  args:
+    - "sh"
+    - "-c"
+    - "redis-server /usr/local/etc/redis/redis.conf --requirepass \"$REDIS_PASSWORD\""
+  persistence:
+    enabled: false  # Disabled for initial testing
+    size: "5Gi"
+    storageClass: "gp2"
+    accessMode: "ReadWriteOnce"
+
+# Redis authentication for staging
+# Set to true and provide REDIS_SHARED_SECRET for production security
+auth:
+  enabled: true  # Authentication enabled
+  existingSecret: "redis-secret"
+  existingSecretPasswordKey: "redis-password"
+
+# Environment variables for Redis clients
+env:
+  - name: REDIS_AUTH_REQUIRED
+    value: "1"
+
+service:
+  type: ClusterIP
+  port: 6379
+
+# Staging resource allocation
+resources:
+  limits:
+    cpu: 500m
+    memory: 768Mi
+  requests:
+    cpu: 100m
+    memory: 384Mi
+
+# Enable network policies for staging security
+networkPolicy:
+  enabled: true
+  allowedNamespaces:
+    - "pipecat-daily-bot-stg"
+    - "interface-stg"
+    - "redis-stg"
+
+# Health checks optimized for staging
+livenessProbe:
+  exec:
+    command:
+      - redis-cli
+      - ping
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 5
+
+readinessProbe:
+  exec:
+    command:
+      - redis-cli
+      - ping
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Pod disruption budget for staging
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Disable persistence at top level for staging
+persistence:
+  enabled: false

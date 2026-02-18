@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipecat-bot-operator-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pipecat-bot-operator-role
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs", "jobs/status"]
+  verbs: ["create", "get", "list", "watch", "delete"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipecat-bot-operator-binding
+subjects:
+- kind: ServiceAccount
+  name: pipecat-bot-operator-sa
+roleRef:
+  kind: Role
+  name: pipecat-bot-operator-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipecat-daily-bot-operator
+  labels:
+    app: pipecat-daily-bot-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pipecat-daily-bot-operator
+  template:
+    metadata:
+      labels:
+        app: pipecat-daily-bot-operator
+    spec:
+      serviceAccountName: pipecat-bot-operator-sa
+      containers:
+      - name: operator
+        # Image placeholder – replace with your built image tag
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/pipecat-daily-bot:sha-8d32c4a28e06147ec75c0dad00a956f31588c69d
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: pipecat-daily-bot-stg-secret
+        - configMapRef:
+            name: pipecat-daily-bot-stg-config
+        env:
+        - name: MODE
+          value: "operator"
+        - name: KOKORO_TTS_APPLY_TEXT_NORMALIZATION
+          value: "on"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: BOT_IMAGE
+          value: "577124901432.dkr.ecr.us-east-2.amazonaws.com/pipecat-daily-bot:sha-8d32c4a28e06147ec75c0dad00a956f31588c69d"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi

@@ -1,0 +1,7 @@
+USER-SUPPLIED VALUES:
+domainFilters:
+- niaxp.io
+- nxops.net
+policy: upsert-only
+provider: aws
+txtOwnerId: eks-interface

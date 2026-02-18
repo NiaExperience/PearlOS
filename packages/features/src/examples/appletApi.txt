@@ -1,0 +1,265 @@
+CRITICAL REQUIREMENT - API Integration:
+
+You MUST include the following JavaScript code in your HTML to enable data persistence. Copy this EXACTLY into a <script> tag in your HTML document.
+
+=== START OF REQUIRED CODE ===
+
+class NiaAPI {
+  constructor(tenantId = '{{tenantId}}'{{#assistantName}}, assistantName = '{{assistantName}}'{{/assistantName}}) {
+    this.tenantId = tenantId;
+    {{#assistantName}}this.assistantName = assistantName;{{/assistantName}}
+    this.baseURL = '/api/applet-api';
+  }
+
+  async listData(query = {}) {
+    const params = new URLSearchParams({
+      operation: 'list',
+      tenantId: this.tenantId{{#assistantName}},
+      assistantName: this.assistantName{{/assistantName}}
+    });
+    if (Object.keys(query).length) {
+      params.append('query', JSON.stringify(query));
+    }
+    
+    try {
+      const response = await fetch(this.baseURL + '?' + params);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to list data: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result.items || [];
+    } catch (error) {
+      console.error('API Error (listData):', error);
+      throw error;
+    }
+  }
+
+  async getData(dataId) {
+    const params = new URLSearchParams({
+      operation: 'get',
+      tenantId: this.tenantId,
+      dataId: dataId{{#assistantName}},
+      assistantName: this.assistantName{{/assistantName}}
+    });
+    
+    try {
+      const response = await fetch(this.baseURL + '?' + params);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to get data: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result.item;
+    } catch (error) {
+      console.error('API Error (getData):', error);
+      throw error;
+    }
+  }
+
+  async saveData(data) {
+    const params = new URLSearchParams({
+      operation: 'create',
+      tenantId: this.tenantId{{#assistantName}},
+      assistantName: this.assistantName{{/assistantName}}
+    });
+    
+    try {
+      const response = await fetch(this.baseURL + '?' + params, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: data })
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to save data: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result.item;
+    } catch (error) {
+      console.error('API Error (saveData):', error);
+      throw error;
+    }
+  }
+
+  async updateData(dataId, data) {
+    const params = new URLSearchParams({
+      operation: 'update',
+      tenantId: this.tenantId,
+      dataId: dataId{{#assistantName}},
+      assistantName: this.assistantName{{/assistantName}}
+    });
+    
+    try {
+      const response = await fetch(this.baseURL + '?' + params, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: data })
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update data: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result.item;
+    } catch (error) {
+      console.error('API Error (updateData):', error);
+      throw error;
+    }
+  }
+
+  async deleteData(dataId) {
+    const params = new URLSearchParams({
+      operation: 'delete',
+      tenantId: this.tenantId,
+      dataId: dataId{{#assistantName}},
+      assistantName: this.assistantName{{/assistantName}}
+    });
+    
+    try {
+      const response = await fetch(this.baseURL + '?' + params, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete data: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('API Error (deleteData):', error);
+      throw error;
+    }
+  }
+
+  showError(message, error) {
+    console.error(message, error);
+    if (typeof window !== 'undefined' && window.alert) {
+      alert('Error: ' + message);
+    }
+  }
+
+  showLoading(isLoading) {
+    const loader = document.getElementById('api-loader');
+    if (loader) {
+      loader.style.display = isLoading ? 'block' : 'none';
+    }
+  }
+}
+
+const api = new NiaAPI('{{tenantId}}'{{#assistantName}}, '{{assistantName}}'{{/assistantName}});
+
+window.saveData = async function(data) {
+  try {
+    api.showLoading(true);
+    const result = await api.saveData(data);
+    console.log('Data saved successfully:', result);
+    return result;
+  } catch (error) {
+    api.showError('Failed to save data', error);
+    throw error;
+  } finally {
+    api.showLoading(false);
+  }
+};
+
+window.loadData = async function(query = {}) {
+  try {
+    api.showLoading(true);
+    const items = await api.listData(query);
+    console.log('Data loaded successfully:', items);
+    return items;
+  } catch (error) {
+    api.showError('Failed to load data', error);
+    throw error;
+  } finally {
+    api.showLoading(false);
+  }
+};
+
+window.updateData = async function(dataId, data) {
+  try {
+    api.showLoading(true);
+    const result = await api.updateData(dataId, data);
+    console.log('Data updated successfully:', result);
+    return result;
+  } catch (error) {
+    api.showError('Failed to update data', error);
+    throw error;
+  } finally {
+    api.showLoading(false);
+  }
+};
+
+window.deleteData = async function(dataId) {
+  try {
+    api.showLoading(true);
+    const result = await api.deleteData(dataId);
+    console.log('Data deleted successfully:', result);
+    return result;
+  } catch (error) {
+    api.showError('Failed to delete data', error);
+    throw error;
+  } finally {
+    api.showLoading(false);
+  }
+};
+
+=== END OF REQUIRED CODE ===
+
+DATA STORAGE INFORMATION:
+
+Your applet can save and retrieve any JSON data structure you need. The data field can contain any valid JSON object with whatever properties your application requires.
+
+Example data structures:
+- Game state: { score: 100, level: 5, playerName: 'User123', inventory: ['sword', 'shield'] }
+- Todo list: { title: 'My Tasks', items: [{ text: 'Buy milk', done: false }] }
+- User preferences: { theme: 'dark', language: 'en', notifications: true }
+- Form data: { name: 'John', email: 'john@example.com', preferences: {...} }
+
+HOW TO USE THE API IN YOUR APPLICATION:
+
+To save new data:
+  window.saveData({ your: 'data', structure: 'here' })
+
+To load/list all data:
+  window.loadData()
+
+To load data with filters (optional):
+  window.loadData(query)
+  
+  Query supports these operators:
+  - eq: equals                    { fieldName: { eq: 'value' } }
+  - ne: not equals                { fieldName: { ne: 'value' } }
+  - gt: greater than              { fieldName: { gt: 100 } }
+  - gte: greater than or equal    { fieldName: { gte: 100 } }
+  - lt: less than                 { fieldName: { lt: 100 } }
+  - lte: less than or equal       { fieldName: { lte: 100 } }
+  - in: value in array            { fieldName: { in: ['a', 'b'] } }
+  - nin: value not in array       { fieldName: { nin: ['x', 'y'] } }
+  - contains: string contains     { fieldName: { contains: 'text' } }
+  - between: value in range       { fieldName: { between: [1, 10] } }
+  
+  Logical operators:
+  - AND: all conditions must match  { AND: [{ field1: { eq: 'a' } }, { field2: { gt: 5 } }] }
+  - OR: any condition must match    { OR: [{ field1: { eq: 'a' } }, { field2: { eq: 'b' } }] }
+  
+  Examples:
+  window.loadData({ 'data.score': { gt: 50 } })                    // Score > 50
+  window.loadData({ 'data.status': { in: ['active', 'pending'] } }) // Status is active or pending
+  window.loadData({ AND: [{ 'data.level': { gte: 5 } }, { 'data.score': { gt: 100 } }] }) // Multiple conditions
+
+To update existing data:
+  window.updateData(dataId, { updated: 'data' })
+
+To delete data:
+  window.deleteData(dataId)
+
+All API calls return Promises. Use async/await or .then() to handle responses. All API calls automatically include the tenant ID '{{tenantId}}' and are authenticated with the user's session.
+
+IMPLEMENTATION REQUIREMENTS:
+- You MUST include the NiaAPI class and helper functions in a <script> tag
+- Use the window.saveData, window.loadData, window.updateData, and window.deleteData functions
+- Handle loading states and errors appropriately
+- The data parameter can be ANY valid JSON structure - design it to fit your application's needs
+- Each saved data record gets a unique _id that you can use with getData, updateData, and deleteData

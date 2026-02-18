@@ -1,0 +1,217 @@
+{
+  "677": {
+    "inputs": {
+      "text": [
+        "732",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative)"
+    }
+  },
+  "712": {
+    "inputs": {
+      "width": 256,
+      "height": 256,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "713": {
+    "inputs": {
+      "text": [
+        "1403",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive)"
+    }
+  },
+  "720": {
+    "inputs": {
+      "seed": [
+        "813",
+        0
+      ],
+      "steps": 8,
+      "cfg": 1.5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "721",
+        0
+      ],
+      "positive": [
+        "713",
+        0
+      ],
+      "negative": [
+        "677",
+        0
+      ],
+      "latent_image": [
+        "712",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "721": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": true,
+        "lora": "PIXEL_ART_styleanimationwanlora.safetensors",
+        "strength": 0.7
+      },
+      "lora_2": {
+        "on": true,
+        "lora": "z-image-Lucasarts Artstyle - (Trigger is lcsrts gamestyle).safetensors",
+        "strength": 1
+      },
+      "\u2795 Add Lora": "",
+      "model": [
+        "1032",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "Power Lora Loader (rgthree)"
+    }
+  },
+  "726": {
+    "inputs": {
+      "samples": [
+        "720",
+        0
+      ],
+      "vae": [
+        "1032",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "732": {
+    "inputs": {
+      "string": "(((MOTION BLUR, CROPPED, TEXT, WATERMARK, SIGNATURE, BACKGROUND SCENERY, GRADIENT BACKGROUND, COMPLEX BACKGROUND, PHOTOGRAPH, REALISTIC, 3D RENDER, SMOOTH, ANTI-ALIASED, BLURRY, PERSON, CHARACTER, FACE)))"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "NEGATIVE String Literal"
+    }
+  },
+  "813": {
+    "inputs": {
+      "seed": 0
+    },
+    "class_type": "Seed Generator",
+    "_meta": {
+      "title": "GENERATE CORE SEED"
+    }
+  },
+  "970": {
+    "inputs": {
+      "string": "a pixel art home icon"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "Pearl_Input_Prompt"
+    }
+  },
+  "1003": {
+    "inputs": {
+      "string": "Classic 90s PC adventure game pixel art style. Richly detailed sprite icon with vibrant retro colors and gorgeous depth. Sprite cutout on clear background #FFFFFF ONLY. Bold pixel shapes with shading like Monkey Island, Day of the Tentacle, Sam and Max. 16-bit era color palette.\n\n"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "Pixel Art Icon Style Guidance"
+    }
+  },
+  "1017": {
+    "inputs": {
+      "filename_prefix": "pixel-art/icon",
+      "images": [
+        "2016",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "1032": {
+    "inputs": {
+      "ckpt_name": "z-image-turbo-bf16-aio.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1403": {
+    "inputs": {
+      "texts": [
+        "970",
+        0
+      ],
+      "prefix": [
+        "1003",
+        0
+      ]
+    },
+    "class_type": "AddTextPrefix",
+    "_meta": {
+      "title": "Pixel Art Style prefix"
+    }
+  },
+  "2016": {
+    "inputs": {
+      "model": "BiRefNet_toonout",
+      "mask_blur": 0,
+      "mask_offset": -1,
+      "invert_output": false,
+      "refine_foreground": true,
+      "background": "Alpha",
+      "background_color": "#222222",
+      "image": [
+        "726",
+        0
+      ]
+    },
+    "class_type": "BiRefNetRMBG",
+    "_meta": {
+      "title": "BiRefNet Remove Background (RMBG)"
+    }
+  }
+}

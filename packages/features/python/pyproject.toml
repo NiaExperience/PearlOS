@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "nia-content-definitions"
+version = "0.1.0"
+description = "Content definitions for NIA features"
+authors = ["NIA Team"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

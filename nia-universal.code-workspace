@@ -1,0 +1,58 @@
+{
+  "folders": [
+    {
+      "path": ".",
+    },
+  ],
+  "settings": {
+    "jest.debugMode": false,
+    "jest.jestCommandLine": "npm test --",
+    "jest.nodeEnv": {
+      "NODE_ENV": "test",
+    },
+    "jest.runMode": "on-demand",
+    "jest.monitorLongRun": "",
+    "jest.autoEnable": true,
+    "jest.pathToJest": "npm test --",
+    "jest.pathToConfig": "jest.config.mjs",
+    "jest.rootPath": ".",
+    "jest.testNamePattern": "",
+    "jest.testFilePattern": "",
+    // Removed deprecated jest.autoRun & jest.testExplorer settings (using jest.runMode)
+    "koverage.coverageFileNames": ["lcov.merged.info", "lcov.info", "coverage.xml"],
+    "koverage.coverageFilePaths": ["coverage/**"],
+    "testExplorer.useNativeTesting": true,
+    "testExplorer.codeLens": true,
+    "testExplorer.showOnRun": true,
+    "testExplorer.onReload": "retire",
+    "testExplorer.onStart": "reset",
+    "testExplorer.gutterDecoration": true,
+    "testExplorer.sort": "byLocation",
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "never",
+    },
+    // Language-specific default formatters
+    "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[yaml]": { "editor.defaultFormatter": "redhat.vscode-yaml" },
+    "[markdown]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    // Ruff for Python: run organize imports & format via code actions
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll": "always",
+        "source.organizeImports": "always"
+      }
+    },
+    "python.formatting.provider": "black"
+  },
+}

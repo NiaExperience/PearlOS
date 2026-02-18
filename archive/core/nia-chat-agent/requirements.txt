@@ -1,0 +1,16 @@
+groq
+requests
+psutil
+termcolor
+streamlit
+fastapi
+uvicorn
+python-multipart
+python-jose[cryptography]
+passlib
+python-dotenv
+pydantic
+twilio
+fastapi
+pymongo
+

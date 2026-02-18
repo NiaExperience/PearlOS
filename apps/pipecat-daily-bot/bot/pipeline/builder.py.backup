@@ -1,0 +1,1149 @@
+import os
+from typing import Any
+from loguru import logger as base_logger
+
+from core.config import BOT_PID
+from core.context import MultiUserContextAggregator
+from core.transport import set_transport, get_session_user_id_from_participant
+try:
+    from room.state import get_room_tenant_id
+except ImportError:
+    from bot.room.state import get_room_tenant_id
+from monitoring.events import TTSSpeakingEventProcessor
+from flows.registry import register_flow_manager
+
+from tools import toolbox
+from core.config import (
+    BOT_VOICE_SPEED, BOT_VOICE_STABILITY, BOT_VOICE_SIMILARITY_BOOST,
+    BOT_VOICE_STYLE, BOT_VOICE_OPTIMIZE_STREAMING_LATENCY,
+    BOT_TTS_PROVIDER, KOKORO_TTS_API_KEY, KOKORO_TTS_BASE_URL,
+    KOKORO_TTS_VOICE_ID, KOKORO_TTS_MODEL_ID, KOKORO_TTS_LANGUAGE_CODE,
+    KOKORO_TTS_SAMPLE_RATE, KOKORO_TTS_AUTO_MODE,
+    KOKORO_TTS_APPLY_TEXT_NORMALIZATION, KOKORO_TTS_ENABLE_LOGGING,
+    KOKORO_TTS_ENABLE_SSML, KOKORO_TTS_SEED, KOKORO_TTS_INACTIVITY_TIMEOUT,
+    KOKORO_TTS_CHUNK_SCHEDULE, KOKORO_TTS_TRY_TRIGGER_GENERATION
+)
+
+from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, ONBOARDING_NOTE, NOTES_NOTE
+
+def load_workspace_context() -> str:
+    """Load Pearl's identity and context from workspace files.
+    
+    Returns combined context from SOUL.md, IDENTITY.md, USER.md, and activity-log.md
+    to give voice Pearl the same awareness as Discord/webchat Pearl.
+    """
+    workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
+    context_parts = []
+    
+    # Read identity files
+    identity_files = [
+        ("SOUL.md", "Core Identity"),
+        ("IDENTITY.md", "Personal Details"),
+        ("USER.md", "User Context"),
+    ]
+    
+    for filename, label in identity_files:
+        filepath = os.path.join(workspace_root, filename)
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:
+                    context_parts.append(f"## {label}\n{content}")
+        except FileNotFoundError:
+            base_logger.warning(f"[{BOT_PID}] Workspace file not found: {filepath}")
+        except Exception as e:
+            base_logger.error(f"[{BOT_PID}] Error reading {filepath}: {e}")
+    
+    # Read cross-session state file (quick-read shared state)
+    cross_session_path = os.path.join(workspace_root, "memory", "cross-session-state.md")
+    try:
+        with open(cross_session_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if content:
+                context_parts.append(f"## RECENT CONVERSATIONS (from other channels)\nThis is what you (Pearl) have been discussing with Friend in other sessions. Treat this as your own memory.\n\n{content}")
+    except FileNotFoundError:
+        base_logger.warning(f"[{BOT_PID}] Cross-session state not found: {cross_session_path}")
+    except Exception as e:
+        base_logger.error(f"[{BOT_PID}] Error reading cross-session state: {e}")
+    
+    # Read recent activity log for cross-session awareness
+    activity_log_path = os.path.join(workspace_root, "memory", "activity-log.md")
+    try:
+        with open(activity_log_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            # Get last 10 entries for recent context
+            recent_entries = [line.strip() for line in lines if line.strip() and line.startswith('[')][-10:]
+            if recent_entries:
+                context_parts.append(
+                    "## Recent Cross-Session Activity\n" +
+                    "You are the same Pearl across all channels (Discord, webchat, PearlOS voice). " +
+                    "Here's what happened in other sessions recently:\n" +
+                    "\n".join(recent_entries)
+                )
+    except FileNotFoundError:
+        base_logger.warning(f"[{BOT_PID}] Activity log not found: {activity_log_path}")
+    except Exception as e:
+        base_logger.error(f"[{BOT_PID}] Error reading activity log: {e}")
+    
+    # Read today's daily memory file for detailed context
+    from datetime import datetime, timezone
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    daily_memory_path = os.path.join(workspace_root, "memory", f"{today_str}.md")
+    try:
+        with open(daily_memory_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if content:
+                # Limit to last ~2000 chars to avoid blowing up context window
+                if len(content) > 2000:
+                    content = "...\n" + content[-2000:]
+                context_parts.append(f"## Today's Activity Detail ({today_str})\n{content}")
+    except FileNotFoundError:
+        pass  # Normal - no activity yet today
+    except Exception as e:
+        base_logger.error(f"[{BOT_PID}] Error reading daily memory: {e}")
+    
+    # Read MEMORY.md for long-term context (trimmed)
+    memory_path = os.path.join(workspace_root, "MEMORY.md")
+    try:
+        with open(memory_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if lines:
+                # Take last 50 lines to stay within context budget
+                trimmed = lines[-50:]
+                content = "".join(trimmed).strip()
+                if content:
+                    context_parts.append(f"## Long-Term Memory (recent entries)\n{content}")
+    except FileNotFoundError:
+        pass  # Normal - MEMORY.md may not exist yet
+    except Exception as e:
+        base_logger.error(f"[{BOT_PID}] Error reading MEMORY.md: {e}")
+    
+    # Cross-channel identity clarity (concise version for token efficiency)
+    context_parts.append(
+        "## Your Identity Across Channels\n\n"
+        "You are Pearl — the SAME Pearl across PearlOS voice, Discord, Telegram, and webchat.\n"
+        "When Friend mentions 'Discord', that's one of YOUR channels — you ARE the Discord bot.\n\n"
+        "## Voice Session Rules\n\n"
+        "- Only send messages to Discord/Telegram when the user explicitly asks.\n"
+        "- You have full tool access via OpenClaw — web search, messaging, exec, files, everything.\n"
+        "- Never say 'I can't do that' — check your tools first.\n"
+    )
+    
+    return "\n\n".join(context_parts) if context_parts else ""
+
+async def build_pipeline(
+    room_url: str,
+    persona: str,
+    personalityId: str,
+    token: str | None = None,
+    personality_record: Any | None = None,
+    preloaded_prompts: dict[str, str] | None = None,
+    voiceId: str | None = None,
+    modePersonalityVoiceConfig: dict[str, Any] | None = None,
+    supportedFeatures: list[str] | None = None,
+    sessionOverride: dict[str, Any] | None = None,
+    isOnboarding: bool = False,
+):
+    """Build and return (pipeline, task, context_agg, transport, messages, multi_user_aggregator).
+
+    Heavy imports are inside so unit tests for parameter validation can run
+    without needing the pipecat native / network dependencies unless invoked.
+    """
+    logger = base_logger.bind(
+        roomUrl=room_url,
+        sessionId=os.getenv("BOT_SESSION_ID"),
+        userId=os.getenv("BOT_SESSION_USER_ID"),
+        userName=os.getenv("BOT_SESSION_USER_NAME"),
+    )
+    from pipecat.audio.vad.silero import SileroVADAnalyzer
+
+    # Multi-user functionality is now available via direct imports
+    from pipecat.audio.vad.vad_analyzer import VADParams
+    from pipecat.pipeline.pipeline import Pipeline
+    from pipecat.pipeline.task import PipelineParams, PipelineTask
+    from pipecat.services.openai.llm import OpenAILLMService
+    from pipecat.pipeline.service_switcher import ServiceSwitcher, ServiceSwitcherStrategyManual
+
+    # --- OpenClaw LLM subclass ---------------------------------------------------
+    # Thin wrapper around OpenAILLMService that:
+    #   1. Strips `stream_options` (OpenClaw SSE never sends [DONE] with it)
+    #   2. Injects a placeholder user message when only system messages exist
+    #      (Anthropic rejects requests without at least one user message)
+    #   3. Strips None values and unsupported params (service_tier, seed)
+    class _OpenClawLLMService(OpenAILLMService):
+        def build_chat_completion_params(self, context, **kwargs):
+            params = super().build_chat_completion_params(context, **kwargs)
+            params.pop("stream_options", None)
+            params.pop("service_tier", None)
+            params.pop("seed", None)
+            # Strip None values
+            params = {k: v for k, v in params.items() if v is not None}
+            return params
+
+        async def _process_context(self, context):
+            msgs = context.get_messages_for_logging() if hasattr(context, "get_messages_for_logging") else []
+            if msgs and all(m.get("role") == "system" for m in msgs):
+                context.add_message({"role": "user", "content": "[user has joined the conversation]"})
+            await super()._process_context(context)
+    # ---------------------------------------------------------------------------
+    from pipecat.transports.daily.transport import DailyParams, DailyTransport
+    from daily import LogLevel as DailyLogLevel
+    from pipecat.services.openai.llm import OpenAIContextAggregatorPair
+    from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+    
+    from flows import build_flow_manager
+
+    from providers.kokoro import KokoroTTSService
+    from providers.elevenlabs import ElevenLabsTTSService
+    from providers.pocket_tts import PocketTTSService
+    from utils.clause_text_aggregator import ClauseTextAggregator
+
+    try:
+        from filters.silence import SilenceTextFilter
+    except ImportError:
+        from bot.filters.silence import SilenceTextFilter
+
+    try:
+        from filters.tts_text_filter import MarkdownStripFilter
+    except ImportError:
+        from bot.filters.tts_text_filter import MarkdownStripFilter
+        
+    try:
+        from processors.lull import create_lull_processor
+    except ImportError:
+        from bot.processors.lull import create_lull_processor
+
+    try:
+        from processors.tool_narration import ToolNarrationProcessor
+    except ImportError:
+        from bot.processors.tool_narration import ToolNarrationProcessor
+
+    # Allow explicit voice override via env BOT_VOICE_ID; otherwise use personality default
+    voice_id = voiceId or os.getenv("BOT_VOICE_ID")
+    logger.info(
+        f"[{BOT_PID}] Using personality '{personalityId}' as persona '{persona}' with voice_id='{voice_id}'"
+    )
+
+    # Read voice parameters from environment variables using config functions
+    voice_speed = BOT_VOICE_SPEED()
+    voice_stability = BOT_VOICE_STABILITY()
+    voice_similarity_boost = BOT_VOICE_SIMILARITY_BOOST()
+    voice_style = BOT_VOICE_STYLE()
+    voice_optimize_streaming_latency = BOT_VOICE_OPTIMIZE_STREAMING_LATENCY()
+
+    # Apply session override if present (Force mode/personality/voice)
+    if sessionOverride and sessionOverride.get("mode") and modePersonalityVoiceConfig:
+        override_mode = sessionOverride.get("mode")
+        if override_mode in modePersonalityVoiceConfig:
+            logger.info(f"[{BOT_PID}] Applying session override for mode: {override_mode}")
+            mode_config = modePersonalityVoiceConfig[override_mode]
+            
+            if "personaName" in mode_config:
+                persona = mode_config["personaName"]
+            if "personalityId" in mode_config:
+                personalityId = mode_config["personalityId"]
+            
+            if "voice" in mode_config:
+                v_conf = mode_config["voice"]
+                if "voiceId" in v_conf:
+                    voiceId = v_conf["voiceId"]
+                    voice_id = voiceId # Update local var
+                
+                if "speed" in v_conf: voice_speed = v_conf["speed"]
+                if "stability" in v_conf: voice_stability = v_conf["stability"]
+                if "similarityBoost" in v_conf: voice_similarity_boost = v_conf["similarityBoost"]
+                if "style" in v_conf: voice_style = v_conf["style"]
+                if "optimizeStreamingLatency" in v_conf: voice_optimize_streaming_latency = v_conf["optimizeStreamingLatency"]
+
+    # Log voice parameters for debugging
+    voice_params_log = []
+    if voice_speed is not None:
+        voice_params_log.append(f"speed={voice_speed}")
+    if voice_stability is not None:
+        voice_params_log.append(f"stability={voice_stability}")
+    if voice_similarity_boost is not None:
+        voice_params_log.append(f"similarity_boost={voice_similarity_boost}")
+    if voice_style is not None:
+        voice_params_log.append(f"style={voice_style}")
+    if voice_optimize_streaming_latency is not None:
+        voice_params_log.append(f"optimize_streaming_latency={voice_optimize_streaming_latency}")
+
+    if voice_params_log:
+        logger.info(f"[{BOT_PID}] Voice parameters: {', '.join(voice_params_log)}")
+    else:
+        logger.info(f"[{BOT_PID}] No voice parameters provided, using defaults")
+
+    # Read supported features from environment early for pipeline configuration
+    supported_features_env = os.getenv('BOT_SUPPORTED_FEATURES')
+    supported_features_list = supportedFeatures or (supported_features_env.split(',') if supported_features_env else [])
+    
+    use_smart_silence = 'smartSilence' in supported_features_list
+    if use_smart_silence:
+        logger.info(f"[{BOT_PID}] Enabling Smart Silence feature")
+        
+    # Always strip markdown from TTS input to prevent garbled audio.
+    # Markdown formatting (**bold**, *italic*, etc.) causes TTS engines to
+    # produce distorted output. The MarkdownStripFilter runs before synthesis.
+    markdown_filter = MarkdownStripFilter()
+    text_filters = [markdown_filter]
+    if use_smart_silence:
+        text_filters.append(SilenceTextFilter())
+
+    use_lull_detection = 'lullDetection' in supported_features_list
+    lull_timeout_secs = 8.0
+
+    if use_lull_detection:
+        logger.info(f"[{BOT_PID}] Enabling Lull Detection feature")
+        lull_timeout_secs_str = os.getenv("LULL_TIMEOUT_SECS", "10.0")
+        try:
+            lull_timeout_secs = float(lull_timeout_secs_str)
+        except ValueError:
+            logger.warning(f"[{BOT_PID}] Invalid LULL_TIMEOUT_SECS value '{lull_timeout_secs_str}'. Defaulting to 10.0 seconds.")
+            lull_timeout_secs = 10.0
+        logger.info(f"[{BOT_PID}] Lull timeout set to {lull_timeout_secs} seconds.")
+
+    _raw_env = os.getenv("BOT_TTS_PROVIDER")
+    _use_el = os.getenv("USE_ELEVENLABS")
+    tts_provider = BOT_TTS_PROVIDER()
+    logger.info(f"Selected TTS provider: {tts_provider} (raw_env={_raw_env!r}, use_el={_use_el!r})")
+
+    # Helper to create TTS service
+    async def create_tts_service(provider, v_id, v_params=None):
+        v_params = v_params or {}
+        
+        # Helper to get param with fallback to env var (if not in v_params)
+        # Note: v_params keys might be camelCase from frontend, need to map if necessary
+        # But here we assume they match or we handle it.
+        # Actually, let's use the global env vars as defaults if not in v_params
+        
+        def get_p(key, default_val):
+            return v_params.get(key, default_val)
+
+        if provider == "kokoro":
+            base_url = KOKORO_TTS_BASE_URL()
+            # For local Chorus TTS, API key is optional (use dummy value if not provided)
+            is_local = "127.0.0.1" in base_url or "localhost" in base_url or base_url.startswith("ws://127.0.0.1") or base_url.startswith("ws://localhost")
+            api_key = KOKORO_TTS_API_KEY()
+            if not api_key:
+                if is_local:
+                    # Local Chorus doesn't require real API key - use dummy value
+                    api_key = "test-key"
+                    logger.info(f"[{BOT_PID}] Local Chorus detected, using dummy API key")
+                else:
+                    logger.warning(f"[{BOT_PID}] ⚠️  KOKORO_TTS_API_KEY not found. Cannot create Kokoro service.")
+                    return None
+            
+            chunk_schedule = KOKORO_TTS_CHUNK_SCHEDULE()
+            kokoro_params = KokoroTTSService.InputParams(
+                speed=get_p("speed", voice_speed),
+                stability=get_p("stability", voice_stability),
+                similarity_boost=get_p("similarityBoost", voice_similarity_boost),
+                style=get_p("style", voice_style),
+                chunk_length_schedule=list(chunk_schedule) if chunk_schedule else None,
+                try_trigger_generation=KOKORO_TTS_TRY_TRIGGER_GENERATION(),
+            )
+            
+            # Use requested voice_id if provided, else default
+            k_voice = v_id or KOKORO_TTS_VOICE_ID(None)
+            
+            return KokoroTTSService(
+                api_key=api_key,
+                base_url=KOKORO_TTS_BASE_URL(),
+                voice_id=k_voice,
+                model_id=KOKORO_TTS_MODEL_ID(),
+                language_code=KOKORO_TTS_LANGUAGE_CODE(),
+                output_sample_rate=KOKORO_TTS_SAMPLE_RATE(),
+                auto_mode=KOKORO_TTS_AUTO_MODE(),
+                apply_text_normalization=KOKORO_TTS_APPLY_TEXT_NORMALIZATION(),
+                enable_logging=KOKORO_TTS_ENABLE_LOGGING(),
+                enable_ssml_parsing=KOKORO_TTS_ENABLE_SSML(),
+                seed=KOKORO_TTS_SEED(),
+                inactivity_timeout=KOKORO_TTS_INACTIVITY_TIMEOUT(),
+                params=kokoro_params,
+                text_filters=text_filters,
+            )
+        
+        elif provider == "pocket":
+            pocket_url = os.getenv("POCKET_TTS_URL", "http://localhost:8766")
+            pocket_params = PocketTTSService.InputParams(
+                voice_url=v_params.get("voice_url") if v_params else None,
+                speed=float(os.getenv("POCKET_TTS_SPEED", "1.0")),
+            )
+            return PocketTTSService(
+                base_url=pocket_url,
+                sample_rate=24000,
+                params=pocket_params,
+                text_filters=text_filters,
+                text_aggregator=ClauseTextAggregator(),
+            )
+
+        elif provider == "elevenlabs" or provider == "11labs":
+            # ElevenLabs REMOVED from stack — fall back to PocketTTS
+            logger.warning(f"[{BOT_PID}] ⚠️  ElevenLabs requested but DISABLED. Falling back to PocketTTS.")
+            return await create_tts_service("pocket", v_id, v_params)
+        
+        return None
+
+    services = []
+    mode_map = {}
+
+    # Helper to extract config and create service for a specific mode
+    async def create_service_from_mode_config(mode_name, mode_data):
+        # Extract provider and voice ID
+        # The structure is typically mode_data -> voice -> { provider, voiceId, ... }
+        # But we support flat structure or 'config' sub-object for backward compatibility if needed,
+        # though the user indicates 'config' level is removed.
+        
+        voice_config = mode_data.get("voice", {})
+        
+        v_id = voice_config.get("voiceId")
+        
+        # Fallback to direct properties on mode_data
+        if not v_id:
+            v_id = mode_data.get("voiceId")
+
+        # BOT_TTS_PROVIDER env ALWAYS wins over frontend mode config.
+        # This lets us override the DB/frontend provider centrally via .env
+        # (e.g., switching from elevenlabs to pocket without touching the DB).
+        p_provider = tts_provider  # Already resolved from BOT_TTS_PROVIDER()
+        if not p_provider:
+            # Fallback: use mode config provider
+            p_provider = voice_config.get("provider") or mode_data.get("voiceProvider")
+        if not p_provider:
+            p_provider = "kokoro"
+        
+        # Handle aliases
+        if p_provider == "11labs": p_provider = "elevenlabs"
+
+        # Extract voice params
+        v_params = voice_config
+        
+        logger.info(f"[{BOT_PID}] Creating dedicated service for mode '{mode_name}': {p_provider}, voice={v_id}")
+        return await create_tts_service(p_provider, v_id, v_params)
+
+    # Determine initial mode to prioritize it (Index 0)
+    initial_mode_name = None
+    
+    # Priority 0: Session Override
+    if sessionOverride and sessionOverride.get("mode"):
+        initial_mode_name = sessionOverride.get("mode")
+
+    if not initial_mode_name and modePersonalityVoiceConfig:
+        for mode, mode_data in modePersonalityVoiceConfig.items():
+            # Priority 1: Match by personalityId (most reliable)
+            p_id = mode_data.get("personalityId")
+            if personalityId and p_id == personalityId:
+                initial_mode_name = mode
+                break
+                
+            # Priority 2: Match by mode name (if persona matches mode key)
+            if persona and mode == persona.lower():
+                initial_mode_name = mode
+                break
+    
+    if initial_mode_name:
+        logger.info(f"[{BOT_PID}] Initial mode identified: '{initial_mode_name}'")
+        svc = await create_service_from_mode_config(initial_mode_name, modePersonalityVoiceConfig[initial_mode_name])
+        if svc:
+            services.append(svc)
+            mode_map[initial_mode_name] = 0
+
+    # Process all other modes - One Service Per Mode Pattern
+    if modePersonalityVoiceConfig:
+        for mode, mode_data in modePersonalityVoiceConfig.items():
+            if mode == initial_mode_name:
+                continue
+                
+            svc = await create_service_from_mode_config(mode, mode_data)
+            if svc:
+                services.append(svc)
+                mode_map[mode] = len(services) - 1
+
+    # Fallback: If no services created (e.g. no config), create default based on env vars
+    if not services:
+        logger.info(f"[{BOT_PID}] No mode config or services created. Creating default service from env vars.")
+        default_provider = tts_provider # from env
+        default_voice = voice_id # from env
+        svc = await create_tts_service(default_provider, default_voice, {})
+        if svc:
+            services.append(svc)
+
+    # Update speaker sample rate based on the primary (first) service
+    speaker_sample_rate = 16000 # Default
+    if services and isinstance(services[0], KokoroTTSService):
+        speaker_sample_rate = KOKORO_TTS_SAMPLE_RATE()
+    elif services and isinstance(services[0], PocketTTSService):
+        speaker_sample_rate = 24000  # PocketTTS outputs 24kHz
+    elif services and isinstance(services[0], ElevenLabsTTSService):
+        speaker_sample_rate = 16000  # ElevenLabs default
+
+    if not services:
+        logger.error(f"[{BOT_PID}] No TTS services available! Check API keys.")
+        # Fallback to dummy or raise?
+        # For now, let it fail downstream or create a dummy if needed, but raising is better.
+    
+    # Wrap TTS in ServiceSwitcher to allow runtime hot-swapping (e.g. mode changes)
+    logger.info(f"[{BOT_PID}] Wrapping TTS service in ServiceSwitcher with {len(services)} services")
+    tts = ServiceSwitcher(services=services, strategy_type=ServiceSwitcherStrategyManual)
+    
+    # Attach mode map to TTS instance for config listener to use
+    tts.mode_map = mode_map
+    logger.info(f"[{BOT_PID}] Mode map: {mode_map}")
+
+    # Configure failover for all services
+    # We iterate through all created services and attach error handlers if supported
+    for svc_index, svc in enumerate(services):
+        is_eleven = isinstance(svc, ElevenLabsTTSService)
+        is_kokoro = isinstance(svc, KokoroTTSService)
+        
+        if is_eleven and hasattr(svc, 'set_error_handler'):
+            # Define a closure for this specific service instance
+            async def on_elevenlabs_failover(error: Exception, failed_svc=svc):
+                logger.warning(f"[{BOT_PID}] 🚨 Initiating failover from ElevenLabs service due to error: {error}")
+                
+                # Find a fallback service (first non-ElevenLabs)
+                fallback_index = -1
+                fallback_name = "unknown"
+                
+                for i, s in enumerate(services):
+                    # Check if it's NOT an ElevenLabs service
+                    if not isinstance(s, ElevenLabsTTSService):
+                        fallback_index = i
+                        fallback_name = s.__class__.__name__
+                        break
+                
+                if fallback_index >= 0:
+                    logger.info(f"[{BOT_PID}] 🔄 Failing over to service index {fallback_index} ({fallback_name})")
+                    # Switch to the fallback service
+                    await tts.set_service_index(fallback_index)
+                    
+                    # Update mode map to point all ElevenLabs entries to the fallback
+                    if tts.mode_map:
+                        updates = 0
+                        for mode, idx in tts.mode_map.items():
+                            if services[idx] == failed_svc or isinstance(services[idx], ElevenLabsTTSService):
+                                tts.mode_map[mode] = fallback_index
+                                updates += 1
+                        logger.info(f"[{BOT_PID}] Updated {updates} modes in mode_map to use fallback service")
+                else:
+                    logger.error(f"[{BOT_PID}] ❌ No fallback TTS service available! Silence is inevitable.")
+
+            svc.set_error_handler(on_elevenlabs_failover)
+            logger.info(f"[{BOT_PID}] Configured ElevenLabs failover handler for service index {svc_index}")
+
+        elif is_kokoro and hasattr(svc, 'set_error_handler'):
+            # Define a closure for this specific service instance
+            async def on_kokoro_failover(error: Exception, failed_svc=svc):
+                logger.warning(f"[{BOT_PID}] 🚨 Initiating failover from Kokoro service due to error: {error}")
+                
+                # Find a fallback service (first non-Kokoro)
+                fallback_index = -1
+                fallback_name = "unknown"
+                
+                for i, s in enumerate(services):
+                    # Check if it's NOT a Kokoro service
+                    if not isinstance(s, KokoroTTSService):
+                        fallback_index = i
+                        fallback_name = s.__class__.__name__
+                        break
+                
+                if fallback_index >= 0:
+                    logger.info(f"[{BOT_PID}] 🔄 Failing over to service index {fallback_index} ({fallback_name})")
+                    # Switch to the fallback service
+                    await tts.set_service_index(fallback_index)
+                    
+                    # Update mode map to point all Kokoro entries to the fallback
+                    if tts.mode_map:
+                        updates = 0
+                        for mode, idx in tts.mode_map.items():
+                            if services[idx] == failed_svc or isinstance(services[idx], KokoroTTSService):
+                                tts.mode_map[mode] = fallback_index
+                                updates += 1
+                        logger.info(f"[{BOT_PID}] Updated {updates} modes in mode_map to use fallback service")
+                else:
+                    logger.error(f"[{BOT_PID}] ❌ No fallback TTS service available! Silence is inevitable.")
+
+            svc.set_error_handler(on_kokoro_failover)
+            logger.info(f"[{BOT_PID}] Configured Kokoro failover handler for service index {svc_index}")
+
+    # Register toolbox tools for collaborative features
+    logger.info(f'[{BOT_PID}] Composing toolbox registrations...')
+    forwarder_ref = {'instance': None}
+    toolbox_bundle: toolbox.ToolboxBundle | None = None
+
+    # Create context lookup callables for HTML tools
+    def get_tenant_id_for_html():
+        return get_room_tenant_id(room_url)
+    
+    def get_user_id_for_html():
+        """Get user_id for HTML content creation from first non-bot participant."""
+        logger.info(f"[{BOT_PID}] [html_tools] get_user_id_for_html called")
+        
+        # Check environment override first (for testing)
+        if hasattr(os, 'environ') and 'BOT_SESSION_USER_ID' in os.environ:
+            env_user_id = os.environ.get('BOT_SESSION_USER_ID')
+            logger.info(f"[{BOT_PID}] [html_tools] Using environment override user_id: {env_user_id}")
+            return env_user_id
+        
+        # Get the first non-bot participant and extract their sessionUserId
+        try:
+            # Use the helper from core.transport
+            # Note: get_session_user_id_from_participant already uses the global transport
+            # But here we need to iterate participants, so we need the transport instance
+            # However, transport is not yet created/assigned to global!
+            # Wait, transport is created LATER in this function.
+            # But get_user_id_for_html is a callback called LATER (when tool is invoked).
+            # So by the time it's called, transport will be created and assigned.
+            # But we need to make sure get_session_user_id_from_participant uses the global _transport
+            # which we set at the end of this function.
+            
+            # We can implement the logic here using the helper
+            from core.transport import get_transport, get_participants_from_transport
+            transport = get_transport()
+            
+            if not transport:
+                logger.warning(f"[{BOT_PID}] [html_tools] No transport available to get participants")
+                return None
+            
+            logger.info(f"[{BOT_PID}] [html_tools] Transport available, getting participants")
+            
+            participants = get_participants_from_transport(transport)
+            
+            if not isinstance(participants, dict):
+                logger.warning(f"[{BOT_PID}] [html_tools] Invalid participants data type: {type(participants)}")
+                return None
+            
+            logger.info(f"[{BOT_PID}] [html_tools] Found {len(participants)} participants: {list(participants.keys())}")
+            
+            # Find first non-bot participant with sessionUserId
+            for participant_id, _ in participants.items():
+                logger.info(f"[{BOT_PID}] [html_tools] Checking participant: {participant_id}")
+                
+                if participant_id == 'local':  # Skip the bot itself
+                    logger.info(f"[{BOT_PID}] [html_tools] Skipping local bot participant")
+                    continue
+                
+                # Try to get sessionUserId from participant metadata
+                logger.info(f"[{BOT_PID}] [html_tools] Attempting to get sessionUserId for participant {participant_id}")
+                session_user_id = get_session_user_id_from_participant(participant_id)
+                
+                if session_user_id:
+                    logger.info(f"[{BOT_PID}] [html_tools] Found user_id={session_user_id} from participant {participant_id}")
+                    return session_user_id
+                else:
+                    logger.warning(f"[{BOT_PID}] [html_tools] No sessionUserId found for participant {participant_id}")
+            
+            logger.warning(f"[{BOT_PID}] [html_tools] No participants with sessionUserId found")
+            return None
+        except Exception as e:
+            logger.error(f"[{BOT_PID}] [html_tools] Error getting user_id: {e}", exc_info=True)
+            return None
+
+    try:
+        # Read supported features from environment if available
+        supported_features_env = os.getenv('BOT_SUPPORTED_FEATURES')
+        # Use argument if provided, else env var
+        features_to_use = supportedFeatures or (supported_features_env.split(',') if supported_features_env else None)
+        
+        if features_to_use:
+            logger.info(f"[{BOT_PID}] [toolbox] Tool filtering enabled for features: {features_to_use}")
+        
+        toolbox_bundle = await toolbox.prepare_toolbox(
+            room_url=room_url,
+            forwarder_ref=forwarder_ref,
+            preloaded_prompts=preloaded_prompts,
+            get_tenant_id=get_tenant_id_for_html,
+            get_user_id=get_user_id_for_html,
+            supported_features=features_to_use,
+        )
+        logger.info(
+            f"[{BOT_PID}] [toolbox] Prepared %d tool schemas for registration" % len(toolbox_bundle.schemas),
+        )
+    except Exception as exc:
+        logger.warning(f'[{BOT_PID}] [toolbox] Failed to prepare toolbox (non-fatal): %s' % exc)
+        toolbox_bundle = None
+
+    tools_schema = toolbox_bundle.tools_schema if toolbox_bundle else None
+
+    # ============================================================================
+    # A/B Testing: Model Selection Factory
+    # ============================================================================
+    def get_llm_config(model_selection: str):
+        """Factory function to return LLM configuration based on selection.
+        
+        Returns:
+            dict: Configuration dict with 'api_key', 'model', and optional 'base_url'
+        """
+        if model_selection == "minimax-m2.5":
+            minimax_api_key = os.getenv("MINIMAX_API_KEY")
+            if not minimax_api_key:
+                raise ValueError("MINIMAX_API_KEY is required for minimax-m2.5")
+            return {
+                "api_key": minimax_api_key,
+                "model": "MiniMax-M2.5",  # Base model (works with all Coding Plans)
+                "base_url": "https://api.minimax.io/v1",
+            }
+                
+        elif model_selection == "llama-4-scout":
+            groq_api_key = os.getenv("GROQ_API_KEY")
+            if not groq_api_key:
+                raise ValueError("GROQ_API_KEY is required for llama-4-scout")
+            return {
+                "api_key": groq_api_key,
+                "model": "llama-4-scout",
+                "base_url": "https://api.groq.com/openai/v1",
+            }
+                
+        elif model_selection == "llama-3.3-70b":
+            groq_api_key = os.getenv("GROQ_API_KEY")
+            if not groq_api_key:
+                raise ValueError("GROQ_API_KEY is required for llama-3.3-70b")
+            return {
+                "api_key": groq_api_key,
+                "model": "llama-3.3-70b-versatile",
+                "base_url": "https://api.groq.com/openai/v1",
+            }
+                
+        elif model_selection == "deepseek-chat":
+            deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not deepseek_api_key:
+                raise ValueError("DEEPSEEK_API_KEY is required for deepseek-chat")
+            return {
+                "api_key": deepseek_api_key,
+                "model": "deepseek-chat",
+                "base_url": "https://api.deepseek.com/v1",
+            }
+                
+        elif model_selection == "hermes-4-70b":
+            openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+            if not openrouter_api_key:
+                raise ValueError("OPENROUTER_API_KEY is required for hermes-4-70b")
+            return {
+                "api_key": openrouter_api_key,
+                "model": "nousresearch/hermes-4-70b",
+                "base_url": "https://openrouter.ai/api/v1",
+            }
+                
+        else:  # default to gpt-4o-mini
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not openai_api_key:
+                raise ValueError("OPENAI_API_KEY is required for gpt-4o-mini")
+            return {
+                "api_key": openai_api_key,
+                "model": "gpt-4o-mini",
+                "base_url": None,  # Use default OpenAI endpoint
+            }
+
+    if toolbox_bundle and toolbox_bundle.schemas:
+        # CRITICAL FIX: Move profile tools to the FRONT of the list
+        # gpt-4o-mini has limited "tool attention" - tools at the top get more weight
+        profile_schemas = [s for s in toolbox_bundle.schemas if 'profile' in s.name.lower()]
+        other_schemas = [s for s in toolbox_bundle.schemas if 'profile' not in s.name.lower()]
+        # Notes tools are also high-value and should be near the top to improve tool selection.
+        notes_schemas = [s for s in other_schemas if 'note' in s.name.lower() or 'notes' in s.name.lower()]
+        non_notes_other = [s for s in other_schemas if s not in notes_schemas]
+        toolbox_bundle.schemas = profile_schemas + notes_schemas + non_notes_other
+        
+        logger.info(
+            f'[{BOT_PID}] Tool schemas being passed to OpenAI: %d tools (profile tools prioritized)' % len(toolbox_bundle.schemas),
+        )
+        # Log profile tools specifically to verify descriptions
+        for schema in toolbox_bundle.schemas:
+            name = getattr(schema, 'name', '<unknown>')
+            description = getattr(schema, 'description', '') or ''
+            if 'profile' in name.lower():
+                logger.info(f'[{BOT_PID}]   - {name}: {description}')
+
+    # --- LLM mode: Check for OPENCLAW_SESSION mode first ---
+    bot_llm_mode = os.getenv("BOT_LLM_MODE", "").lower()
+    use_openclaw_session = (bot_llm_mode == "openclaw_session")
+
+    if use_openclaw_session:
+        logger.info(f'[{BOT_PID}] 🧠 OPENCLAW_SESSION MODE: All inference delegated to OpenClaw Gateway (no local tools)')
+
+    # --- LLM backend selection ---
+    llm = None  # Will be set below unless OPENCLAW_SESSION mode
+
+    # When OPENCLAW_SESSION mode is active, skip ALL legacy LLM setup.
+    use_openclaw = bool(os.getenv("OPENCLAW_API_URL"))
+    use_hybrid = os.getenv("BOT_HYBRID_LLM", "true" if use_openclaw else "false").lower() in ("true", "1", "yes")
+    model_selection = os.getenv("BOT_MODEL_SELECTION", "gpt-4o-mini")
+    hybrid_model = os.getenv("BOT_HYBRID_PRIMARY_MODEL", model_selection)
+    use_sonnet_primary = os.getenv("BOT_USE_SONNET_PRIMARY", "true").lower() in ("true", "1", "yes")
+
+    if use_openclaw_session:
+        # Create a stub LLM for FlowManager/context-aggregator compatibility.
+        # Actual inference is handled by OpenClawSessionProcessor in the pipeline.
+        openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
+        openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
+        sonnet_model = os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514")
+        llm = _OpenClawLLMService(
+            api_key=openclaw_key,
+            model=sonnet_model,
+            base_url=openclaw_url,
+        )
+        logger.info(f'[{BOT_PID}] ⏭️ Created stub LLM for FlowManager compat (OPENCLAW_SESSION mode — inference via OpenClawSessionProcessor)')
+    elif use_hybrid and use_openclaw and use_sonnet_primary:
+        # SONNET PRIMARY: Use Claude Sonnet via OpenClaw proxy for high-quality responses
+        sonnet_model = os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514")
+        openclaw_url = os.getenv("OPENCLAW_API_URL")
+        openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
+        logger.info(f'[{BOT_PID}] 🧠 SONNET PRIMARY MODE: LLM = {sonnet_model} via OpenClaw (high quality, ~5-10s latency)')
+        try:
+            llm = _OpenClawLLMService(
+                api_key=openclaw_key,
+                model=sonnet_model,
+                base_url=openclaw_url,
+            )
+            logger.info(f'[{BOT_PID}] ✅ Sonnet primary LLM initialized via OpenClaw proxy')
+            logger.info(f'[{BOT_PID}] 💡 All inference routes through Sonnet for demo quality')
+        except Exception as e:
+            logger.error(f'[{BOT_PID}] ❌ CRITICAL: Failed to initialize Sonnet primary LLM: {e}')
+            raise
+    elif use_hybrid and use_openclaw:
+        # HYBRID: Fast local LLM for tool decisions, OpenClaw for complex tasks via bridge
+        logger.info(f'[{BOT_PID}] 🚀 HYBRID MODE: Primary LLM = {model_selection} (fast), OpenClaw available via bridge tool')
+        try:
+            # Use the model selection factory
+            llm_config = get_llm_config(model_selection)
+            llm_kwargs = {
+                "api_key": llm_config["api_key"],
+                "model": llm_config["model"],
+                "tools": tools_schema,
+            }
+            # Add base_url if using alternative provider (Groq, OpenRouter)
+            if llm_config["base_url"]:
+                llm_kwargs["base_url"] = llm_config["base_url"]
+            
+            llm = OpenAILLMService(**llm_kwargs)
+            logger.info(f'[{BOT_PID}] ✅ Hybrid primary LLM ({llm_config["model"]}) initialized — tool calls will be sub-second')
+            logger.info(f'[{BOT_PID}] 💡 Complex tasks route to OpenClaw via bot_openclaw_task bridge tool')
+        except Exception as e:
+            logger.error(f'[{BOT_PID}] ❌ CRITICAL: Failed to initialize hybrid primary LLM: {e}')
+            raise
+    elif use_openclaw:
+        # OPENCLAW-ONLY: All inference through OpenClaw (high latency)
+        openclaw_url = os.getenv("OPENCLAW_API_URL")
+        openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
+        logger.info(f'[{BOT_PID}] 🔗 Using OpenClaw backend at {openclaw_url} (non-hybrid — expect higher latency)')
+        try:
+            llm = _OpenClawLLMService(
+                api_key=openclaw_key,
+                model="anthropic/claude-sonnet-4-20250514",
+                base_url=openclaw_url,
+            )
+            logger.info(f'[{BOT_PID}] ✅ OpenClaw LLM initialized successfully')
+        except Exception as e:
+            logger.error(f'[{BOT_PID}] ❌ CRITICAL: Failed to initialize OpenClaw LLM: {e}')
+            raise
+    else:
+        logger.info(f'[{BOT_PID}] Initializing OpenAILLMService (direct) with model: {model_selection}...')
+        try:
+            # Use the model selection factory
+            llm_config = get_llm_config(model_selection)
+            llm_kwargs = {
+                "api_key": llm_config["api_key"],
+                "model": llm_config["model"],
+                "tools": tools_schema,
+            }
+            # Add base_url if using alternative provider (Groq, OpenRouter)
+            if llm_config["base_url"]:
+                llm_kwargs["base_url"] = llm_config["base_url"]
+            
+            llm = OpenAILLMService(**llm_kwargs)
+            logger.info(f'[{BOT_PID}] ✅ OpenAILLMService initialized successfully with {llm_config["model"]}')
+        except Exception as e:
+            logger.error(f'[{BOT_PID}] ❌ CRITICAL: Failed to initialize OpenAILLMService: {e}')
+            raise
+
+    logger.info(f'[{BOT_PID}] LLM adapter type: %s' % type(llm._adapter).__name__)
+    logger.info(f'[{BOT_PID}] LLM has tools attribute: %s' % hasattr(llm, 'tools'))
+    if hasattr(llm, '_tools'):
+        logger.info(f'[{BOT_PID}] LLM._tools: %s' % llm._tools)
+
+    if not use_openclaw_session and toolbox_bundle and toolbox_bundle.registrations:
+        for registration in toolbox_bundle.registrations:
+            llm.register_function(
+                registration.name,
+                registration.handler,
+                cancel_on_interruption=registration.cancel_on_interruption,
+            )
+        logger.info(
+            f'[{BOT_PID}] Successfully registered %d toolbox functions with LLM' % len(toolbox_bundle.registrations)
+        )
+    else:
+        logger.warning(f'[{BOT_PID}] No toolbox registrations available; continuing without functions')
+
+    if not personality_record:
+        logger.info(f'[{BOT_PID}] No personality record found for "{personalityId}".')
+
+    logger.info(f'[{BOT_PID}] Preparing prompt for persona "{persona}"...')
+    prompt: str | None = personality_record.get('primaryPrompt') if personality_record else None
+    if prompt:
+        logger.info(
+            f"[{BOT_PID}] Using prompt from personality record '{personality_record.get('name')}' (len={len(prompt)})."
+        )
+    else:
+        logger.error(f'[{BOT_PID}] No primaryPrompt found in personality record for "{personalityId}".')
+        prompt = 'I am a helpful conversationalist.'  # fallback
+
+    # TODO: we may be in a 1:1 or multi-user scenario; adjust prompt accordingly
+    # Multi-user instruction appended to prompt
+    multi_user_note = MULTI_USER_NOTE
+
+    smart_silence_note = SMART_SILENCE_NOTE if use_smart_silence else ""
+    
+    onboarding_note = ONBOARDING_NOTE if isOnboarding else ""
+    notes_note = NOTES_NOTE if 'notes' in supported_features_list else ""
+    
+    # Load workspace context (identity + cross-session awareness)
+    workspace_context = load_workspace_context()
+    logger.info(f'[{BOT_PID}] Loaded workspace context (len={len(workspace_context)})')
+    
+    # Build tool awareness note
+    tool_awareness_note = ""
+    if tools_schema:
+        # ToolsSchema is an object, not a list - just note tools are available
+        tool_awareness_note = (
+            "## Your Capabilities\n\n"
+            "You have access to 71+ PearlOS tools including:\n"
+            "- Notes (create, read, update, delete, list, open)\n"
+            "- YouTube (search, play, pause, next)\n"
+            "- Window management (minimize, maximize, snap, restore)\n"
+            "- Discord messaging (via message tool)\n"
+            "- HTML/applet creation\n"
+            "- Soundtracks, calculator, browser, terminal, and more\n\n"
+            "You are NOT limited. You have full tool access. When asked if you can do something, "
+            "check your available tools rather than assuming you cannot."
+        )
+
+    # Voice-to-OpenClaw bridge instruction
+    openclaw_bridge_note = ""
+    if use_openclaw:
+        openclaw_bridge_note = (
+            "## OpenClaw Bridge Tools\n\n"
+            "You have two OpenClaw bridge tools. Choose carefully:\n\n"
+            "**bot_think_deeply** (PREFERRED for most OpenClaw tasks):\n"
+            "- Use for Discord/Telegram messaging, web research, anything conversational\n"
+            "- Results are spoken aloud via TTS — write clean natural sentences, no formatting\n"
+            "- This connects synchronously to your full OpenClaw brain (Claude with all tools)\n\n"
+            "**bot_openclaw_task** (RARE — background only):\n"
+            "- ONLY for long-running background tasks that display results in the PearlOS UI\n"
+            "- Results are NOT spoken back — the user sees them on screen\n\n"
+            "When in doubt, use bot_think_deeply."
+        )
+
+    # Phase 3B.2 - Compose system prompt with workspace context and tool awareness
+    # Tools are registered via the OpenAI function calling API, but we add awareness note
+    # so Pearl knows what she can do (prevents "I can't do that" responses when she can)
+    
+    # In openclaw_session mode, OpenClaw's agent system provides its own tool surface
+    # (exec, web_search, message, pearlos skill, etc.) — don't inject Pipecat tool notes
+    if use_openclaw_session:
+        tool_awareness_note = ""
+        openclaw_bridge_note = ""
+
+    system_content_parts = [
+        workspace_context,  # Identity + cross-session context
+        "",  # blank line separator
+        prompt,  # Personality-specific instructions
+        "",  # blank line separator
+        tool_awareness_note,  # Tool capability awareness (skipped in openclaw_session mode)
+        openclaw_bridge_note,  # Voice-to-OpenClaw bridge guidance (skipped in openclaw_session mode)
+        multi_user_note,
+        smart_silence_note,
+        onboarding_note,
+        notes_note,
+    ]
+    system_content = "\n".join(part for part in system_content_parts if part)
+
+    # Separate personality prompt from conversation messages
+    personality_message = {"role": "system", "content": system_content}
+
+    # Start with personality message only
+    # Conversation messages will be managed by the queue
+    messages: list[dict[str, Any]] = [personality_message]
+
+    logger.info(f'[{BOT_PID}] Initializing OpenAILLMContext and aggregator...')
+    # CRITICAL: Pass tools to context so they're sent to OpenAI API
+    context = OpenAILLMContext(messages, tools=tools_schema)
+    
+    # Store original tools for restoration after flow resets  
+    context._original_tools = tools_schema
+    
+    logger.info(f'[{BOT_PID}] OpenAILLMContext created with tools: {context.tools is not None}')
+    if context.tools:
+        logger.info(f'[{BOT_PID}] Tools payload structure: {type(context.tools)}')
+        logger.info(f'[{BOT_PID}] Tools payload value: {context.tools}')  # Log actual tools being sent
+    
+    # CRITICAL: Set the LLM adapter on the context so tools get converted properly
+    context.set_llm_adapter(llm.get_llm_adapter())
+    logger.info(f'[{BOT_PID}] LLM adapter set on context - tools will be converted to OpenAI format')
+    logger.info(f'[{BOT_PID}] Context tools after adapter set: {type(context.tools)}')
+
+    # Create our custom multi-user context aggregator, but preserve public API shape
+    multi_user_aggregator = MultiUserContextAggregator(context)
+    context_agg = OpenAIContextAggregatorPair(
+        _user=multi_user_aggregator, _assistant=llm.create_context_aggregator(context).assistant()
+    )
+
+    # Expose aggregator for callers (e.g., run_pipeline_session event handlers)
+    try:
+        context_agg._multi_user_agg = multi_user_aggregator
+    except Exception:
+        logger.warning(f'[{BOT_PID}] Failed to attach multi_user_aggregator to context_agg (non-fatal)')
+
+    logger.info(f'[{BOT_PID}] Initializing DailyTransport for room: {room_url} ...')
+    try:
+        transport = DailyTransport(
+            room_url,
+            token,
+            persona.capitalize(),
+            DailyParams(
+                audio_in_enabled=True,
+                audio_out_enabled=True,
+                camera_out_enabled=False,
+                audio_in_user_tracks=False,
+                audio_out_sample_rate=speaker_sample_rate,
+                audio_out_10ms_chunks=20,  # 200ms buffer — prevents crackling from underruns
+                # Enable Daily's built-in transcription service
+                transcription_enabled=True,
+                vad_analyzer=SileroVADAnalyzer(
+                    params=VADParams(
+                        confidence=0.5,
+                        start_secs=0.5,
+                        stop_secs=0.5,
+                        min_volume=0.1,
+                    )
+                ),
+            ),
+        )
+    except Exception as e:
+        logger.error(f'[{BOT_PID}] CRITICAL: Failed to initialize DailyTransport: {e}')
+        raise
+    
+    # Store transport globally for participant metadata access
+    set_transport(transport)
+    
+    # Reduce Daily transport logs; fallback gracefully if enum is different.
+    logger.info(f'[{BOT_PID}] Initializing transport logs...')
+    try:
+        lvl = (
+            getattr(DailyLogLevel, 'Error', None)
+            or getattr(DailyLogLevel, 'ERROR', None)
+            or DailyLogLevel.Info
+        )
+        transport.set_log_level(lvl)
+    except Exception:
+        try:
+            transport.set_log_level(DailyLogLevel.Info)
+        except Exception:
+            pass
+
+    logger.info(f'[{BOT_PID}] Initializing Pipeline...')
+    
+    # Create TTS speaking event monitor
+    tts_monitor_factory = TTSSpeakingEventProcessor(room_url)
+    tts_speaking_monitor = tts_monitor_factory.create_processor()
+    logger.info(f'[{BOT_PID}] [tts-monitor] Created TTS speaking event monitor for lipsync')
+    
+    # Construct pipeline processors step-by-step for better readability and robustness
+    pipeline_processors = [transport.input()]
+    
+    if use_lull_detection:
+        user_idle = create_lull_processor(messages, lull_timeout_secs)
+        pipeline_processors.append(user_idle)
+        logger.info(f"[{BOT_PID}] Added UserIdleProcessor to pipeline")
+
+    # Tool narration: emits filler phrases while tools execute to prevent dead air
+    tool_narration = ToolNarrationProcessor(
+        initial_delay=1.0,   # Reduced from 2.5s — faster filler to avoid dead air
+        repeat_interval=3.0, # Reduced from 4.0s — more frequent updates during long tool runs
+    )
+    logger.info(f"[{BOT_PID}] Created ToolNarrationProcessor for voice gap filling")
+
+    if use_openclaw_session:
+        # OPENCLAW_SESSION mode: use OpenClawSessionProcessor instead of LLM + local tools
+        from processors.openclaw_session import OpenClawSessionProcessor
+
+        # In openclaw_session mode, OpenClaw's agent system provides its own system
+        # prompt (AGENTS.md, SOUL.md, skills, workspace context). We only send
+        # voice-specific rules that OpenClaw doesn't know about.
+        oc_system_prompt = (
+            "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
+            "You are speaking aloud via text-to-speech in a PearlOS voice session.\n"
+            "The user is talking to you through their browser with a microphone.\n"
+            "Follow these rules strictly:\n"
+            "- Keep responses SHORT: 1-3 sentences for conversation, max 5 for complex answers.\n"
+            "- NO markdown, NO emoji, NO bullet lists, NO numbered lists, NO hyphens.\n"
+            "- Write in plain spoken English, as if talking to a friend.\n"
+            "- When using tools, narrate briefly: 'Opening your notes' not 'I will now execute bot_open_notes'.\n"
+            "- When a tool changes what's on screen, describe what the user will see.\n"
+            "- Never read out URLs, code blocks, or technical identifiers.\n"
+            "- Use the pearlos skill and pearlos-tool CLI for all PearlOS desktop actions.\n"
+            "- You have FULL tool access: notes, YouTube, soundtracks, windows, apps, sprites, Discord messaging, web search, file operations, and more.\n"
+            "- If the user asks you to do something, DO IT. Don't say you can't.\n"
+        )
+
+        openclaw_processor = OpenClawSessionProcessor(
+            system_prompt=oc_system_prompt,
+        )
+        logger.info(f'[{BOT_PID}] Created OpenClawSessionProcessor for pipeline')
+
+        pipeline_processors.extend([
+            context_agg.user(),  # User responses from Daily transcription
+            openclaw_processor,  # OpenClaw streaming completions (replaces llm + tools)
+            tts,  # Text-to-speech
+            tts_speaking_monitor,  # Monitor TTS frames and emit speaking events
+            transport.output(),  # Transport bot output
+            context_agg.assistant(),  # Assistant spoken responses
+        ])
+    else:
+        pipeline_processors.extend([
+            context_agg.user(),  # User responses from Daily transcription
+            llm,  # LLM processing
+            tool_narration,  # Emit narration during tool execution (prevents dead air)
+            tts,  # Text-to-speech
+            tts_speaking_monitor,  # Monitor TTS frames and emit speaking events
+            transport.output(),  # Transport bot output
+            context_agg.assistant(),  # Assistant spoken responses
+        ])
+
+    pipeline = Pipeline(pipeline_processors)
+
+    logger.info(f'[{BOT_PID}] Initializing PipelineTask...')
+    task = PipelineTask(
+        pipeline,
+        params=PipelineParams(
+            enable_metrics=True,
+            enable_usage_metrics=True,
+            report_only_initial_ttfb=True,
+        ),
+    )
+
+    flow_manager = build_flow_manager(
+        task=task,
+        llm=llm,
+        context_aggregator=context_agg,
+        transport=transport,
+    )
+
+    try:
+        register_flow_manager(room_url, flow_manager)
+    except Exception as exc:
+        logger.warning(f'[{BOT_PID}] [flow-registry] Failed to register FlowManager: {exc}')
+
+    logger.info(f'[{BOT_PID}] Done building pipeline')
+    return (
+        pipeline,
+        task,
+        context_agg,
+        transport,
+        messages,
+        multi_user_aggregator,
+        context,
+        personality_message,
+        flow_manager,
+        forwarder_ref,
+        tts,  # Return TTS service for runtime config updates
+    )

@@ -1,0 +1,31 @@
+/* ============================================================
+   Wonder Canvas — Real-time interactive display layer
+   Fills the Stage area. Pearl's sprite floats above this canvas
+   (avatar z-index 500 > canvas z-index 1).
+   ============================================================ */
+
+.wonder-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* Stage content layer — sprite hides itself via JS when canvas is active */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.wonder-canvas--active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.wonder-canvas--inactive {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wonder-canvas__frame {
+  border: none;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}

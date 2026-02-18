@@ -1,0 +1,12 @@
+{{- if .Values.configMap.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mesh.fullname" . }}-config
+  namespace: {{ include "mesh.fullname" . }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.configMap.data | nindent 2 }}
+{{- end }}
+

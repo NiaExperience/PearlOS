@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot-warm-pool
+  labels:
+    app: bot-warm-pool
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: bot-warm-pool
+  template:
+    metadata:
+      labels:
+        app: bot-warm-pool
+    spec:
+      containers:
+      - name: bot
+        # This image placeholder matches the pattern in Tiltfile's load_patched_yaml
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/nia-pipecat-bot:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: pipecat-daily-bot-stg-secret
+        - configMapRef:
+            name: pipecat-daily-bot-stg-config
+        env:
+        - name: MODE
+          value: "runner"
+        - name: RUNNER_AUTO_START
+          value: "0"
+        - name: RUNNER_PORT
+          value: "8080"
+        - name: KOKORO_TTS_APPLY_TEXT_NORMALIZATION
+          value: "on"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

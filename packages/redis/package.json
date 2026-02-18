@@ -1,0 +1,41 @@
+{
+  "name": "@nia/redis",
+  "version": "1.0.0",
+  "description": "Redis client abstraction and messaging services for NIA Universal",
+  "main": "dist/simple.js",
+  "types": "dist/simple.d.ts",
+  "scripts": {
+    "build": "npm run build:simple",
+    "build:simple": "tsc -p tsconfig.simple.json",
+    "build:full": "tsc -p tsconfig.json",
+    "build:watch": "tsc -p tsconfig.json --watch",
+    "dev": "npm run build:watch",
+    "clean": "rm -rf dist",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "ioredis": "^5.3.2",
+    "@nia/events": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "eslint": "^8.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Niaxp/nia-universal",
+    "directory": "packages/redis"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

@@ -1,0 +1,6 @@
+screenshots/
+report/
+report.html
+test-results/
+node_modules/
+dist/

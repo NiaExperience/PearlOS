@@ -1,0 +1,197 @@
+{
+  "677": {
+    "inputs": {
+      "text": [
+        "732",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "712": {
+    "inputs": {
+      "width": 256,
+      "height": 256,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "713": {
+    "inputs": {
+      "text": [
+        "1403",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "720": {
+    "inputs": {
+      "seed": [
+        "813",
+        0
+      ],
+      "steps": 12,
+      "cfg": 1.5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "721",
+        0
+      ],
+      "positive": [
+        "713",
+        0
+      ],
+      "negative": [
+        "677",
+        0
+      ],
+      "latent_image": [
+        "712",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "721": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": false,
+        "lora": "PIXEL_ART_styleanimationwanlora.safetensors",
+        "strength": 1
+      },
+      "lora_2": {
+        "on": true,
+        "lora": "z-image-Lucasarts Artstyle - (Trigger is lcsrts gamestyle).safetensors",
+        "strength": 1
+      },
+      "➕ Add Lora": "",
+      "model": [
+        "1032",
+        0
+      ],
+      "clip": [
+        "1032",
+        1
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "Power Lora Loader (rgthree)"
+    }
+  },
+  "726": {
+    "inputs": {
+      "samples": [
+        "720",
+        0
+      ],
+      "vae": [
+        "1032",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "732": {
+    "inputs": {
+      "string": "(((MOTION BLUR, CROPPED, GROUNDSHADOWS, SHADOW ON GROUND, GROUND-SHADOW, BODY CROPPED, CROPPING, PORTRAIT, PFP, PROFILE PICTURE, BACKGROUND, BLACK BACKGROUND, BACKGROUND SCENERY, GROUND, OBJECT LEAVE FRAME, edge overlapping, out of frame, ZOOM, ZOOMING IN)))"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "NEGATIVE String Literal"
+    }
+  },
+  "813": {
+    "inputs": {
+      "seed": 753565826388938
+    },
+    "class_type": "Seed Generator",
+    "_meta": {
+      "title": "GENERATE CORE SEED"
+    }
+  },
+  "970": {
+    "inputs": {
+      "string": "A goofy blue cartoon cat who carries a machine gun and rides a skateboard. The cat is wearing a pink party hat."
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "Pearl_Input_Prompt"
+    }
+  },
+  "1003": {
+    "inputs": {
+      "string": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND. (((50 PX WHITE BORDER AROUND OUTSIDE FRAME)))\n\n"
+    },
+    "class_type": "String Literal",
+    "_meta": {
+      "title": "General Sprite/Pixel Character Style Guidance"
+    }
+  },
+  "1017": {
+    "inputs": {
+      "images": [
+        "726",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "1032": {
+    "inputs": {
+      "ckpt_name": "z-image-turbo-bf16-aio.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "1403": {
+    "inputs": {
+      "texts": [
+        "970",
+        0
+      ],
+      "prefix": [
+        "1003",
+        0
+      ]
+    },
+    "class_type": "AddTextPrefix",
+    "_meta": {
+      "title": "Pixel Style Text prefix"
+    }
+  }
+}

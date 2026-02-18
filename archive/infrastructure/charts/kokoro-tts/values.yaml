@@ -1,0 +1,68 @@
+# Default values for kokoro-tts chart
+replicaCount: 1
+
+image:
+  repository: 577124901432.dkr.ecr.us-east-2.amazonaws.com/kokoro-tts
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+resources:
+  limits:
+    memory: 2Gi
+    nvidia.com/gpu: 1
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations:
+  - key: "nvidia.com/gpu"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+affinity: {}
+
+# Environment configuration
+env:
+  LOG_LEVEL: "info"
+  ORT_PROVIDERS: "CUDAExecutionProvider,CPUExecutionProvider"
+
+# ConfigMap data (optional)
+configMap:
+  data:
+    KOKORO_MODEL_PATH: "/app/assets/kokoro-v1.0.onnx"
+    KOKORO_VOICES_PATH: "/app/assets/voices-v1.0.bin"
+
+# Secret management - choose one approach:
+secret:
+  enabled: true
+  existingSecret: "kokoro-tts-secrets"
+  data: {}
+
+# readiness and liveness probe configuration
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    path: /healthz
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 2

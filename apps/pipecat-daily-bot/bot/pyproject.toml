@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "bot"
+version = "0.1.0"
+description = "Pipecat Daily bot runtime"
+authors = ["Bill Booth <bill@niaxp.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+pipecat-ai = {version = "^0.0.97", extras=["daily","elevenlabs","openai","silero","runner"]}
+python-dotenv = ">=1.1.1,<2.0.0"
+aiohttp = ">=3.13.3,<4.0.0"
+fastapi = "0.121.3"
+uvicorn = ">=0.30.0,<1.0.0"
+redis = {version = ">=4.2.0", extras = ["hiredis"]}
+kubernetes = "^31.0.0"
+nia-events = { path = "../../../packages/events/python", develop = true }
+pipecat-ai-flows = "^0.0.21"
+requests = "^2.32.5"
+nia-content-definitions = {path = "../../../packages/features/python"}
+nia-library-templates = {path = "../../../packages/features/python/nia_library_templates", develop = true}
+fakeredis = "^2.32.1"
+urllib3 = ">=2.6.3"  # Fix CVE-2026-21441
+"jaraco.context" = "^6.1.0"
+starlette = ">=0.49.1"
+daily-python = "^0.22.0"
+websockets = ">=14.2"
+onnxruntime = ">=1.20.1"
+openai-guardrails = "^0.2.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3.0,<9.0.0"
+pytest-asyncio = ">=0.23.0,<0.24.0"
+pytest-cov = "^5.0.0"
+typing-extensions = ">=4.12.0,<5.0.0"
+black = ">=24.0.0,<25.0.0"
+flake8 = ">=7.0.0,<8.0.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+skip-string-normalization = true
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
+exclude = [".venv", "venv", "build", "dist", "node_modules"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--cov=.",
+    "--cov-report=term-missing",
+    "--cov-report=xml:coverage/coverage.xml",
+    "--cov-report=html:coverage/htmlcov",
+    "--cov-report=lcov:coverage/lcov.info"
+]
+markers = [
+    "asyncio: mark test as async",
+    "integration: mark test as integration test (requires live services)",
+]
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "**/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

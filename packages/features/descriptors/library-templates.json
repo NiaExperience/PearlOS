@@ -1,0 +1,54 @@
+{
+  "$schema": "./library-templates.schema.json",
+  "templates": [
+    {
+      "id": "counter_widget_v1",
+      "libraryType": "tool",
+      "name": "Counter Widget Starter",
+      "description": "Simple animated counter with increment/decrement, reset, and persistence hooks.",
+      "tags": ["counter", "widget", "persisted"]
+    },
+    {
+      "id": "quick_poll_v1",
+      "libraryType": "tool",
+      "name": "Quick Poll (Two Option)",
+      "description": "Two-option poll with percentages and persistence.",
+      "tags": ["poll", "vote", "persisted"]
+    },
+    {
+      "id": "party_pack_poll",
+      "libraryType": "tool",
+      "name": "Party Pack: Emoji Vote",
+      "description": "Emoji-based quick vote with live tally and persistence.",
+      "tags": ["poll", "emoji", "fun", "persisted"]
+    },
+    {
+      "id": "party_pack_score",
+      "libraryType": "tool",
+      "name": "Party Pack: Score Keeper",
+      "description": "Two-team score keeper with quick adjust, reset, and persistence.",
+      "tags": ["score", "teams", "game", "persisted"]
+    },
+    {
+      "id": "space_invaders_lite",
+      "libraryType": "game",
+      "name": "Space Invaders Lite",
+      "description": "Simple version of the arcade classic lane shooter with high-score persistence.",
+      "tags": ["game", "shooter", "arcade", "persisted"]
+    },
+    {
+      "id": "checkers_challenge",
+      "libraryType": "game",
+      "name": "Classic Checkers Challenge",
+      "description": "Classic checkers game with a polished UI and smooth gameplay, both single player and multi-player modes, with turn-based mechanics / game persistence.",
+      "tags": ["game", "board", "strategy", "classic"]
+    },
+    {
+      "id": "chess_persistent",
+      "libraryType": "game",
+      "name": "Chess (Single/Multiplayer)",
+      "description": "Lightweight chess move tracker that binds white/black to a user and persists moves via NiaAPI.",
+      "tags": ["game", "chess", "board", "persisted"]
+    }
+  ]
+}

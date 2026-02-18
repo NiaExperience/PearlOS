@@ -1,0 +1,803 @@
+# Tiltfile for Nia Universal
+#
+# Prerequisites:
+# 1. Install Tilt: https://docs.tilt.dev/install.html
+# 2. Install Colima: brew install colima
+# 3. Start Colima: colima start nia-dev --kubernetes --cpu 4 --memory 8
+# 4. Start the registry
+#    docker run -d -p 5000:5000 --restart=always \
+#      -v $HOME/.local-registry:/var/lib/registry \
+#      --name registry registry:2
+# 5. Run: tilt up
+
+reg = os.getenv("TILT_DEFAULT_REGISTRY", "")
+enable_live_updates = os.getenv("ENABLE_LIVE_UPDATES", "true") == "true"
+# Set TILT_PROD_MODE=true to run interface/dashboard as production builds (no Fast Refresh/HMR)
+# Useful for debugging issues caused by HMR component remounting
+prod_mode = os.getenv("TILT_PROD_MODE", "false") == "true"
+ctx = k8s_context()
+
+# Align image registry with the active cluster. If TILT_DEFAULT_REGISTRY is set, use it.
+# Otherwise, on Colima we default to the local registry at localhost:5000 so image pulls
+# don’t hang after export when the cluster can’t see the Docker daemon store.
+if reg:
+  default_registry(reg)
+elif ctx and ctx.startswith("colima"):
+  default_registry("localhost:7000")
+
+allow_k8s_contexts([
+  'colima-nia-dev',
+  'k3d-nia-dev',
+  'minikube',
+  'kind-nia-dev',
+  'docker-desktop',
+  'microk8s'
+])
+
+# Limit concurrent updates to prevent OOM on local dev
+update_settings(max_parallel_updates=3)
+
+# Ignore noisy local artifacts so Tilt doesn’t retrigger on build caches
+watch_settings(ignore=[
+  '**/.git/**',
+  '**/node_modules/**',
+  '**/.turbo/**',
+  '**/.next/**',
+  '**/dist/**',
+  '**/build/**',
+  '**/coverage/**',
+  '**/.cache/**',
+  '**/.parcel-cache/**',
+  '**/.swc/**',
+  '**/.vite/**',
+  'packages/events/python/nia_events.egg-info/**',
+  'packages/features/tsconfig.tsbuildinfo',
+  'cypress/videos/**',
+  'cypress/screenshots/**',
+])
+
+# --- Shared web base (interface + dashboard) ---
+docker_build(
+  'nia-web-base',
+  '.',
+  dockerfile='apps/web-base/Dockerfile',
+  # Limit rebuild triggers to base and dependency manifests; avoid app restarts on script tweaks
+  only=[
+    'apps/web-base',
+    'apps/interface/package.json',
+    'apps/dashboard/package.json',
+    'packages',
+    'package.json',
+    'package-lock.json',
+    'tsconfig.json',
+    'scripts/setup-env.mjs',
+    '.npmrc',
+  ],
+  ignore=[
+    '**/.turbo',
+    '**/.next',
+    '**/dist',
+    '**/build',
+    '**/coverage',
+    '**/node_modules',
+    'cypress/videos',
+    'cypress/screenshots',
+    'packages/features/python',
+  ],
+)
+
+# Manual image prune helper (shows in Tilt UI)
+local_resource(
+  'prune-images',
+  cmd='docker image prune -f',
+  allow_parallel=True,
+  trigger_mode=TRIGGER_MODE_MANUAL,
+  labels=['ops']
+)
+
+# Helper to load env file
+def load_env(path):
+  env = {}
+  content = str(read_file(path, default=""))
+  for line in content.splitlines():
+    line = line.strip()
+    if not line or line.startswith('#'):
+      continue
+    parts = line.split('=', 1)
+    if len(parts) == 2:
+      key = parts[0].strip()
+      value = parts[1].strip()
+      # Remove quotes if present
+      if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+        value = value[1:-1]
+      env[key] = value
+  return env
+
+# Load root env (.env.local or .env)
+env = load_env('.env.local')
+if not env:
+  env = load_env('.env')
+
+# Load pipecat bot env from app directory, fallback to root env if absent
+bot_env = load_env('apps/pipecat-daily-bot/.env.local')
+if not bot_env:
+  bot_env = load_env('apps/pipecat-daily-bot/.env')
+if not bot_env:
+  bot_env = env
+
+# Backfill any missing bot keys from root env so required secrets resolve even if absent in bot .env
+for k, v in env.items():
+  if k not in bot_env:
+    bot_env[k] = v
+
+def get_env(key):
+  val = env.get(key)
+  if not val:
+    fail("Missing required environment variable: " + key)
+  return val
+
+def get_bot_env(key):
+  # Prefer bot env, but fall back to root env for shared secrets/keys
+  val = bot_env.get(key)
+  if not val:
+    val = env.get(key)
+  if not val:
+    fail("Missing required bot environment variable: " + key)
+  return val
+
+# --- 1. Infrastructure (Redis & Postgres) ---
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:alpine
+        ports:
+        - containerPort: 6379
+        command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pipecat-daily-bot-stg-secret
+              key: REDIS_SHARED_SECRET
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-testdb
+  labels:
+    app: postgres-testdb
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: postgres-testdb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-testdb
+spec:
+  serviceName: "postgres-testdb"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-testdb
+  template:
+    metadata:
+      labels:
+        app: postgres-testdb
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:latest
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "testdb"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+"""))
+
+k8s_resource('redis', 
+    port_forwards='6379:6379', 
+    labels=['ext'])
+k8s_resource(
+    'postgres-testdb',
+    port_forwards='5432:5432',
+    labels=['ext']
+)
+
+
+# --- 2. Config & Secrets (Global) ---
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pipecat-daily-bot-stg-secret
+stringData:
+  BOT_CONTROL_SHARED_SECRET: "{BOT_CONTROL_SHARED_SECRET}"
+  DAILY_API_KEY: "{DAILY_API_KEY}"
+  DEEPGRAM_API_KEY: "{DEEPGRAM_API_KEY}"
+  ELEVENLABS_API_KEY: "{ELEVENLABS_API_KEY}"
+  ELEVENLABS_VOICE_ID: "{ELEVENLABS_VOICE_ID}"
+  MESH_SHARED_SECRET: "{MESH_SHARED_SECRET}"
+  OPENAI_API_KEY: "{OPENAI_API_KEY}"
+  REDIS_SHARED_SECRET: "{REDIS_SHARED_SECRET}"
+  YOUTUBE_API_KEY: "{YOUTUBE_API_KEY}"
+  BOT_TTS_PROVIDER: "{BOT_TTS_PROVIDER}"
+  KOKORO_TTS_API_KEY: "{KOKORO_TTS_API_KEY}"
+""".format(
+  BOT_CONTROL_SHARED_SECRET=get_bot_env('BOT_CONTROL_SHARED_SECRET'),
+  DAILY_API_KEY=get_bot_env('DAILY_API_KEY'),
+  DEEPGRAM_API_KEY=get_bot_env('DEEPGRAM_API_KEY'),
+  ELEVENLABS_API_KEY=get_bot_env('ELEVENLABS_API_KEY'),
+  ELEVENLABS_VOICE_ID=get_bot_env('ELEVENLABS_VOICE_ID'),
+  MESH_SHARED_SECRET=get_bot_env('MESH_SHARED_SECRET'),
+  OPENAI_API_KEY=get_bot_env('OPENAI_API_KEY'),
+  REDIS_SHARED_SECRET=get_bot_env('REDIS_SHARED_SECRET'),
+  YOUTUBE_API_KEY=get_bot_env('YOUTUBE_API_KEY'),
+  BOT_TTS_PROVIDER=bot_env.get('BOT_TTS_PROVIDER', 'kokoro'),
+  KOKORO_TTS_API_KEY=get_bot_env('KOKORO_TTS_API_KEY')
+)))
+k8s_yaml(blob("""
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipecat-daily-bot-stg-config
+data:
+  DAILY_API_URL: "https://api.daily.co/v1"
+  DAILY_DOMAIN: "pearlos"
+  DEBUG_BOT: "{DEBUG_BOT}"
+  PYTHON_DEBUG_LEVEL: "{PYTHON_DEBUG_LEVEL}"
+  MESH_API_ENDPOINT: "http://mesh-stg/api"
+  MESH_ENDPOINT: "http://mesh-stg/graphql"
+  REDIS_AUTH_REQUIRED: "true"
+  REDIS_URL: "{REDIS_URL}"
+  USE_REDIS: "true"
+  BOT_RUNNER_MODE: "1"
+  BOT_TTS_PROVIDER: "{BOT_TTS_PROVIDER}"
+  KOKORO_TTS_BASE_URL: "ws://chorus-tts-kokoro-tts:80"
+  KOKORO_TTS_VOICE_ID: "am_fenrir"
+  KOKORO_TTS_SAMPLE_RATE: "24000"
+""".format(
+  REDIS_URL=get_bot_env('REDIS_URL'),
+  BOT_TTS_PROVIDER=bot_env.get('BOT_TTS_PROVIDER', 'kokoro'),
+  DEBUG_BOT=bot_env.get('DEBUG_BOT', 'false'),
+  PYTHON_DEBUG_LEVEL=bot_env.get('PYTHON_DEBUG_LEVEL', 'info')
+)))
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mesh-stg-secret
+stringData:
+  POSTGRES_PASSWORD: "{POSTGRES_PASSWORD}"
+  MESH_SHARED_SECRET: "{MESH_SHARED_SECRET}"
+  BOT_CONTROL_SHARED_SECRET: "{BOT_CONTROL_SHARED_SECRET}"
+  REDIS_PASSWORD: "{REDIS_PASSWORD}"
+""".format(
+  POSTGRES_PASSWORD=get_env('POSTGRES_PASSWORD'),
+  MESH_SHARED_SECRET=get_env('MESH_SHARED_SECRET'),
+  BOT_CONTROL_SHARED_SECRET=get_env('BOT_CONTROL_SHARED_SECRET'),
+  REDIS_PASSWORD=get_env('REDIS_SHARED_SECRET')
+)))
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mesh-stg-config
+data:
+  POSTGRES_HOST: "postgres-testdb"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "postgres"
+  POSTGRES_DB: "testdb"
+  PORT: "2000"
+  REDIS_AUTH_REQUIRED: "true"
+  REDIS_URL: "{REDIS_URL}"
+  USE_REDIS: "true"
+""".format(
+  REDIS_URL=get_env('REDIS_URL')
+)))
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Secret
+metadata:
+  name: interface-stg-secret
+stringData:
+  ANTHROPIC_API_KEY: "{ANTHROPIC_API_KEY}"
+  BOT_CONTROL_SHARED_SECRET: "{BOT_CONTROL_SHARED_SECRET}"
+  DAILY_API_KEY: "{DAILY_API_KEY}"
+  GEMINI_API_KEY: "{GEMINI_API_KEY}"
+  GOOGLE_INTERFACE_CLIENT_ID: "{GOOGLE_INTERFACE_CLIENT_ID}"
+  GOOGLE_INTERFACE_CLIENT_SECRET: "{GOOGLE_INTERFACE_CLIENT_SECRET}"
+  GROQ_API_KEY_SECONDARY: "{GROQ_API_KEY_SECONDARY}"
+  GROQ_API_KEY: "{GROQ_API_KEY}"
+  MESH_SHARED_SECRET: "{MESH_SHARED_SECRET}"
+  NEXTAUTH_SECRET: "{NEXTAUTH_SECRET}"
+  OPENAI_API_KEY: "{OPENAI_API_KEY}"
+  REDIS_SHARED_SECRET: "{REDIS_SHARED_SECRET}"
+  TOKEN_ENCRYPTION_KEY: "{TOKEN_ENCRYPTION_KEY}"
+  YOUTUBE_API_KEY: "{YOUTUBE_API_KEY}"
+""".format(
+  ANTHROPIC_API_KEY=get_env('ANTHROPIC_API_KEY'),
+  BOT_CONTROL_SHARED_SECRET=get_env('BOT_CONTROL_SHARED_SECRET'),
+  DAILY_API_KEY=get_env('DAILY_API_KEY'),
+  GEMINI_API_KEY=get_env('GEMINI_API_KEY'),
+  GOOGLE_INTERFACE_CLIENT_ID=get_env('GOOGLE_INTERFACE_CLIENT_ID'),
+  GOOGLE_INTERFACE_CLIENT_SECRET=get_env('GOOGLE_INTERFACE_CLIENT_SECRET'),
+  GROQ_API_KEY_SECONDARY=get_env('GROQ_API_KEY_SECONDARY'),
+  GROQ_API_KEY=get_env('GROQ_API_KEY'),
+  MESH_SHARED_SECRET=get_env('MESH_SHARED_SECRET'),
+  NEXTAUTH_SECRET=get_env('NEXTAUTH_SECRET'),
+  OPENAI_API_KEY=get_env('OPENAI_API_KEY'),
+  REDIS_SHARED_SECRET=get_env('REDIS_SHARED_SECRET'),
+  TOKEN_ENCRYPTION_KEY=get_env('TOKEN_ENCRYPTION_KEY'),
+  YOUTUBE_API_KEY=get_env('YOUTUBE_API_KEY')
+)))
+
+# --- Daily Room Setup ---
+# Ensure a dev room exists for this machine and get its URL
+daily_room_url = str(local(
+  'node scripts/ensure-daily-room.js',
+  env={'DAILY_API_KEY': get_env('DAILY_API_KEY')}
+)).strip()
+
+# If the script fails or returns empty (it shouldn't), fallback or fail
+if not daily_room_url:
+   fail("Could not ensure Daily dev room. Check DAILY_API_KEY.")
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: interface-stg-config
+data:
+  BOT_CONTROL_AUTH_REQUIRED: "1"
+  BOT_CONTROL_BASE_URL: "http://pipecat-daily-bot-stg:4444"
+  MESH_ENDPOINT: "http://mesh-stg/graphql"
+  NEXT_PUBLIC_API_URL: "http://localhost:3000"
+  REDIS_AUTH_REQUIRED: "true"
+  REDIS_URL: "{REDIS_URL}"
+  USE_REDIS: "true"
+  LOG_LEVEL: "{LOG_LEVEL}"
+  NEXT_PUBLIC_DAILY_ROOM_URL: "{}"
+  NEXT_PUBLIC_POSTHOG_PROXY_HOST: "{NEXT_PUBLIC_POSTHOG_PROXY_HOST}"
+  NEXT_PUBLIC_POSTHOG_KEY: "{NEXT_PUBLIC_POSTHOG_KEY}"
+  PEARLOS_ONLY: "{PEARLOS_ONLY}"
+  COMFYUI_BASE_URL: "{COMFYUI_BASE_URL}"
+  SPRITE_CHAT_LLM_URL: "{SPRITE_CHAT_LLM_URL}"
+""".format(
+  daily_room_url,
+  NEXT_PUBLIC_POSTHOG_PROXY_HOST=get_env('NEXT_PUBLIC_POSTHOG_PROXY_HOST'),
+  NEXT_PUBLIC_POSTHOG_KEY=get_env('NEXT_PUBLIC_POSTHOG_KEY'),
+  REDIS_URL=get_env('REDIS_URL'),
+  LOG_LEVEL=env.get('LOG_LEVEL', 'info'),
+  PEARLOS_ONLY=get_env('PEARLOS_ONLY'),
+  COMFYUI_BASE_URL=env.get('COMFYUI_BASE_URL', 'https://w316dns7qh0rah-8188.proxy.runpod.net/'),
+  SPRITE_CHAT_LLM_URL=env.get('SPRITE_CHAT_LLM_URL', 'https://25wmgzhsglmhnk-11434.proxy.runpod.net/')
+)))
+  
+k8s_yaml(blob("""
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: interface-stg-nginx-conf
+data:
+  nginx.conf: |
+    events {}
+    http {
+      server {
+        listen 8080;
+        location / {
+          proxy_pass http://localhost:3000;
+        }
+      }
+    }
+"""))
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Secret
+metadata:
+  name: interface-stg-basic-auth
+stringData:
+  auth: "user:pass"
+"""))
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dashboard-stg-secret
+stringData:
+  NEXTAUTH_SECRET: "{NEXTAUTH_SECRET}"
+  GOOGLE_DASHBOARD_CLIENT_ID: "{GOOGLE_DASHBOARD_CLIENT_ID}"
+  GOOGLE_DASHBOARD_CLIENT_SECRET: "{GOOGLE_DASHBOARD_CLIENT_SECRET}"
+  MESH_SHARED_SECRET: "{MESH_SHARED_SECRET}"
+  TOKEN_ENCRYPTION_KEY: "{TOKEN_ENCRYPTION_KEY}"
+  OPENAI_API_KEY: "{OPENAI_API_KEY}"
+  ELEVENLABS_API_KEY: "{ELEVENLABS_API_KEY}"
+  KOKORO_TTS_API_KEY: "{KOKORO_TTS_API_KEY}"
+""".format(
+  NEXTAUTH_SECRET=get_env('NEXTAUTH_SECRET'),
+  GOOGLE_DASHBOARD_CLIENT_ID=get_env('GOOGLE_DASHBOARD_CLIENT_ID'),
+  GOOGLE_DASHBOARD_CLIENT_SECRET=get_env('GOOGLE_DASHBOARD_CLIENT_SECRET'),
+  MESH_SHARED_SECRET=get_env('MESH_SHARED_SECRET'),
+  TOKEN_ENCRYPTION_KEY=get_env('TOKEN_ENCRYPTION_KEY'),
+  OPENAI_API_KEY=get_env('OPENAI_API_KEY'),
+  ELEVENLABS_API_KEY=env.get('ELEVENLABS_API_KEY', ''),
+  KOKORO_TTS_API_KEY=env.get('KOKORO_TTS_API_KEY','')
+)))
+
+k8s_yaml(blob("""
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-stg-config
+data:
+  NEXT_PUBLIC_API_URL: "http://localhost:4000"
+  MESH_ENDPOINT: "http://mesh-stg/graphql"
+  KOKORO_TTS_BASE_URL: "ws://chorus-tts-kokoro-tts:80"
+""".format()))
+
+# Group operational configs/secrets under an ops-labeled resource
+k8s_resource(
+    new_name='configs',
+    objects=[
+        'pipecat-daily-bot-stg-secret',
+        'pipecat-daily-bot-stg-config',
+        'mesh-stg-secret',
+        'mesh-stg-config',
+        'interface-stg-secret',
+        'interface-stg-config',
+        'interface-stg-nginx-conf',
+        'interface-stg-basic-auth',
+        'dashboard-stg-secret',
+        'dashboard-stg-config',
+        'chorus-tts-kokoro-tts-config'
+    ],
+    labels=['ops']
+)
+
+# Helper to patch YAMLs to use local images and remove namespace
+def load_patched_yaml(path, new_image, replicas=None):
+    # Replace ECR image with local image name
+    # Also remove namespace lines so everything deploys to default namespace
+    # We use sed to replace the specific ECR prefix to avoid false positives
+    # And remove 'namespace: ...' lines (handling variable whitespace)
+    # UPDATED: Replace the image URL anywhere (including env vars), not just in 'image:' field
+    sed_cmd = 'sed -e "s|577124901432.dkr.ecr.us-east-2.amazonaws.com/[^[:space:]\\"]*|{}|g" -e "/^[[:space:]]*namespace:/d"'.format(new_image)
+
+    if replicas:
+        sed_cmd += ' -e "s|replicas: [0-9]*|replicas: {}|g"'.format(replicas)
+
+    cmd = '{} {}'.format(sed_cmd, path)
+    return local(cmd)
+
+# --- 3. Pipecat Bot ---
+docker_build(
+    'nia-pipecat-bot',
+    '.',
+    dockerfile='apps/pipecat-daily-bot/Dockerfile',
+    only=[
+        'apps/pipecat-daily-bot',
+        'packages/events',
+        'packages/features'
+    ],
+    ignore=[
+      '.git',
+      '.codacy',
+      '.codacy/**',
+        '**/__pycache__',
+        '**/.pytest_cache',
+        '**/.venv',
+        '**/venv',
+        'apps/pipecat-daily-bot/.turbo',
+        'apps/pipecat-daily-bot/bot/coverage',
+        'apps/pipecat-daily-bot/bot/.coverage',
+        'apps/pipecat-daily-bot/bot/tests',
+        'apps/pipecat-daily-bot/ui',
+        'apps/pipecat-daily-bot/deployment',
+        'packages/features/scripts',
+    ],
+    live_update=[
+        sync('apps/pipecat-daily-bot/bot', '/app/apps/pipecat-daily-bot/bot'),
+        # restart_container() is deprecated for K8s, so we manually kill PID 1 to force a restart
+        run('python -c "import os, signal; os.kill(1, signal.SIGTERM)"')
+    ] if enable_live_updates else []
+)
+
+k8s_yaml(load_patched_yaml('apps/pipecat-daily-bot/deployment/staging/02-service.yaml', 'nia-pipecat-bot'))
+k8s_yaml(load_patched_yaml('apps/pipecat-daily-bot/deployment/staging/04-operator.yaml', 'nia-pipecat-bot'))
+k8s_yaml(load_patched_yaml('apps/pipecat-daily-bot/deployment/staging/05-gateway.yaml', 'nia-pipecat-bot'))
+k8s_yaml(load_patched_yaml('apps/pipecat-daily-bot/deployment/staging/07-warm-pool.yaml', 'nia-pipecat-bot', replicas=2))
+
+# Removed old deployment to avoid conflict with operator
+# k8s_resource('pipecat-daily-bot-stg', ...)
+
+k8s_resource(
+    'pipecat-daily-bot-stg',
+    new_name='bot-gateway',
+    port_forwards='4444:4444',
+    resource_deps=['redis', 'configs'],
+    labels=['services']
+)
+
+k8s_resource(
+    'pipecat-daily-bot-operator',
+    new_name='bot-operator',
+    objects=[
+        'pipecat-bot-operator-sa',
+        'pipecat-bot-operator-role',
+        'pipecat-bot-operator-binding'
+    ],
+    resource_deps=['redis', 'bot-gateway', 'mesh', 'configs'],
+    labels=['services']
+)
+
+
+k8s_resource(
+    'bot-warm-pool',
+    resource_deps=['redis', 'mesh', 'configs'],
+    labels=['services']
+)
+
+# --- 4. Mesh ---
+docker_build(
+    'nia-mesh',
+    '.',
+    dockerfile='apps/mesh/Dockerfile',
+    build_args={
+        'NEXT_PUBLIC_API_URL': 'http://localhost:3000'
+    },
+    only=[
+        'apps/mesh',
+        'packages/prism',
+        'package.json',
+        'package-lock.json',
+        '.npmrc',
+        'tsconfig.json',
+        'scripts/setup-env.mjs'
+    ],
+    ignore=[
+      '.git',
+        '.codacy',
+        '.codacy/**',
+      '**/.turbo',
+        'apps/mesh/.turbo',
+        'apps/mesh/dist',
+        'apps/mesh/.next',
+        'apps/mesh/deployment',
+        '**/node_modules',
+        'packages/prism/.turbo',
+        'packages/prism/dist',
+        'packages/features/scripts',
+        'packages/features/python'
+    ]
+)
+
+k8s_yaml(load_patched_yaml('apps/mesh/deployment/staging/01-deployment.yaml', 'nia-mesh'))
+k8s_yaml(load_patched_yaml('apps/mesh/deployment/staging/02-service.yaml', 'nia-mesh'))
+
+k8s_resource(
+    'mesh-stg',
+    new_name='mesh',
+    port_forwards=['2000:2000'],
+    resource_deps=['postgres-testdb', 'redis', 'configs'],
+    labels=['services']
+)
+
+# --- 5. Interface ---
+# In prod_mode, build the full production image (runner target) without live updates
+# This eliminates Fast Refresh/HMR which can cause component remounting issues
+interface_target = 'runner' if prod_mode else 'dev'
+interface_live_update = [] if prod_mode else (
+    [
+        sync('apps/interface/src', '/app/apps/interface/src'),
+        sync('apps/interface/public', '/app/apps/interface/public'),
+        sync('packages', '/app/packages'),
+    ] if enable_live_updates else []
+)
+
+docker_build(
+    'nia-interface',
+    '.',
+    dockerfile='apps/interface/Dockerfile',
+    target=interface_target,
+    build_args={
+    'WEB_BASE_IMAGE': 'nia-web-base',
+        'NEXT_PUBLIC_API_URL': 'http://localhost:3000',
+        'NEXT_PUBLIC_BOT_CONTROL_BASE_URL': 'http://localhost:4444',
+        'NEXT_PUBLIC_DAILY_ROOM_URL': daily_room_url,
+        # Add other public env vars here if needed for local dev
+    },
+    only=[
+        'apps/interface',
+        'apps/sprite-maker',
+        'packages',
+        'package.json',
+        'package-lock.json',
+        'tsconfig.json',
+        'scripts/setup-env.mjs',
+        '.npmrc',
+    ],
+    ignore=[
+      '.git',
+        '.codacy',
+        '.codacy/**',
+      '**/.turbo',
+        'apps/interface/.turbo',
+        'apps/interface/.next',
+        'apps/interface/deployment',
+        '**/node_modules',
+        'packages/events/.turbo',
+        'packages/events/dist',
+        'packages/features/.turbo',
+        'packages/features/dist',
+        'packages/prism/.turbo',
+        'packages/prism/dist',
+        'packages/features/scripts',
+        'packages/redis/.turbo',
+        'packages/features/python',
+    ],
+    live_update=interface_live_update
+)
+
+k8s_yaml(load_patched_yaml('apps/interface/deployment/staging/01-deployment.yaml', 'nia-interface'))
+k8s_yaml(load_patched_yaml('apps/interface/deployment/staging/02-service.yaml', 'nia-interface'))
+
+k8s_resource(
+    'interface-stg',
+    new_name='interface',
+    port_forwards=['3000:3000', '8080:8080'],
+  resource_deps=['mesh', 'redis', 'configs', 'bot-gateway'],
+  labels=['services']
+)
+
+# --- 6. Dashboard ---
+docker_build(
+    'nia-dashboard',
+    '.',
+    dockerfile='apps/dashboard/Dockerfile',
+    target='dev',
+    build_args={
+    'WEB_BASE_IMAGE': 'nia-web-base',
+        'NEXT_PUBLIC_API_URL': 'http://localhost:4000'
+    },
+    only=[
+        'apps/dashboard',
+        'packages',
+        'package.json',
+        'package-lock.json',
+        'tsconfig.json',
+        'scripts/setup-env.mjs',
+        '.npmrc',
+    ],
+    ignore=[
+      '.git',
+        '.codacy',
+        '.codacy/**',
+      '**/.turbo',
+        'apps/dashboard/.turbo',
+        'apps/dashboard/.next',
+        'apps/dashboard/deployment',
+        '**/node_modules',
+        'packages/events/.turbo',
+        'packages/events/dist',
+        'packages/features/.turbo',
+        'packages/features/dist',
+        'packages/prism/.turbo',
+        'packages/prism/dist',
+        'packages/features/scripts',
+        'packages/redis/.turbo',
+        'packages/features/python',
+    ],
+      live_update=[
+        sync('apps/dashboard/src', '/app/apps/dashboard/src'),
+        sync('apps/dashboard/public', '/app/apps/dashboard/public'),
+        sync('apps/dashboard/scripts', '/app/apps/dashboard/scripts'),
+        sync('packages', '/app/packages'),
+      ] if enable_live_updates else []
+)
+
+k8s_yaml(load_patched_yaml('apps/dashboard/deployment/staging/01-deployment.yaml', 'nia-dashboard'))
+k8s_yaml(load_patched_yaml('apps/dashboard/deployment/staging/02-service.yaml', 'nia-dashboard'))
+
+k8s_resource(
+    'dashboard-stg',
+    new_name='dashboard',
+    port_forwards=['4000:4000'],
+  resource_deps=['mesh', 'redis', 'configs'],
+  labels=['services']
+)
+
+# --- 7. Chorus TTS ---
+docker_build(
+    'nia-chorus-tts',
+    'apps/chorus-tts',
+    build_args={
+        'USE_GPU': 'false'
+    },
+    ignore=[
+        '**/__pycache__',
+        '**/.pytest_cache',
+        '**/.venv',
+        '**/venv',
+    ],
+    live_update=[
+        sync('apps/chorus-tts/chorus_tts', '/app/chorus_tts'),
+        sync('apps/chorus-tts/main.py', '/app/main.py'),
+    ] if enable_live_updates else []
+)
+
+k8s_yaml(local("""
+    helm template chorus-tts charts/kokoro-tts \
+        --namespace default \
+        --set image.repository=nia-chorus-tts \
+        --set image.tag=latest \
+        --set resources.limits."nvidia\\.com/gpu"=0 \
+        --set resources.requests."nvidia\\.com/gpu"=0 \
+        --set tolerations=null \
+        --set secret.enabled=false \
+        --set env.API_KEYS="test-key" \
+        --set env.ORT_PROVIDERS="CPUExecutionProvider" | \
+    sed 's/namespace: .*chorus-tts.*/namespace: default/'
+"""))
+
+k8s_resource(
+    'chorus-tts-kokoro-tts',
+    new_name='chorus-tts',
+    port_forwards=['8000:8000'],
+    resource_deps=['configs'],
+    labels=['ext']
+)
+

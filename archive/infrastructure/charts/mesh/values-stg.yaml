@@ -1,0 +1,43 @@
+# Staging values for mesh chart
+replicaCount: 1
+
+image:
+  tag: sha-2a08aa17ff7c9a90c77d176e3d64f50044c69367-stg-20349259385
+
+selector:
+  useLegacyAppLabel: true
+  legacyAppLabel: mesh-stg
+
+namespace:
+  create: false
+
+ingress:
+  hostname: mesh.stg.nxops.net
+  hosts:
+    - host: mesh.stg.nxops.net
+      paths:
+        - path: /
+          pathType: Prefix
+
+env: {}
+
+configMap:
+  data:
+    FORCE_ENCRYPTION: "true"
+    NODE_ENV: production
+    POSTGRES_DB: niadev
+    POSTGRES_HOST: nia-dev.cluster-cjiyu8c46p5t.us-east-2.rds.amazonaws.com
+    POSTGRES_PORT: "5432"
+    REDIS_AUTH_REQUIRED: "true"
+    REDIS_URL: "redis://redis-stg.redis-stg.svc.cluster.local:6379"
+    USE_REDIS: "true"
+
+secret:
+  enabled: true
+
+resources:
+  limits:
+    memory: 1Gi
+  requests:
+    cpu: "1"
+    memory: 512Mi

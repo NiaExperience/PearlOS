@@ -1,0 +1,16 @@
+apiVersion: v2
+name: kokoro-tts
+description: Nia Universal Kokoro TTS Service
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - nia
+  - kokoro
+  - tts
+home: https://github.com/your-org/nia-universal
+sources:
+  - https://github.com/your-org/nia-universal
+maintainers:
+  - name: Nia Team
+    email: team@nia.com

@@ -1,0 +1,231 @@
+NiaXP: The Next Generation of Hospitality  
+Design Document & System Overview  
+Revision Date: **May 4ᵗʰ 2025**
+
+____________________________________________________________
+
+# I. Introduction
+
+## 1.1 Overview (What's New?)
+Since the original January 2025 draft, NiaXP has graduated from private-beta to **general availability** across three hospitality brands and two international conference chains.  The core mission remains unchanged—seamless, AI-powered guest engagement—but the platform now offers:
+
+* **Multimodal AR Companion** – experimental augmented-reality overlay for way-finding and social prompts (Vercel Edge Function + WebXR).
+* **Gen-2 Voice Models** – upgraded to ElevenLabs "Project Iris" voices with emotional inflection and 50 % lower latency, plus optional Kokoro/Chorus voices for branded accents.
+* **Unified Data Mesh** – MongoDB Atlas ➜ Snowflake connector enabling real-time analytics and cross-property insights.
+* **ISO 27001 certification path** – security controls aligned with the 2025 audit checklist.
+
+### 1.1.1 Multimodal AR Companion
+The AR Companion bridges the physical and digital realms, overlaying contextual guidance directly in a guest's field of view:
+
+* **User Stories** –
+  * As a conference attendee, I want floating arrows that guide me from the entrance to my next session room so that I never feel lost.
+  * As a hotel guest, I want pop-up info panels on artwork and amenities to enrich my stay.
+* **Tech Stack** – WebXR + Three.js running inside a PWA, driven by Vercel Edge Functions that stream location-aware prompts.  Latency budget: < 120 ms.
+* **Privacy** – Opt-in proximity beacons (BLE) hashed on-device; no raw coordinates stored server-side.
+* **KPIs** – % of guests completing at least one AR interaction; median navigation success time.
+
+### 1.1.2 Gen-2 Voice Models
+Upgrade to ElevenLabs "Project Iris" delivers near-human intonation and sentiment detection, while the new Kokoro/Chorus integration provides an alternative catalog of American and British voices for hospitality partners:
+
+* **Latency** – Streamed chunks start within 180 ms (previously ~350 ms).
+* **Expressiveness** – 9 emotional presets (neutral, enthusiastic, empathetic…); A/B testing shows +18 % perceived naturalness.
+* **Fallback** – Automatic downgrade to Gen-1 if regional bandwidth < 1 Mbps; Kokoro sessions automatically revert to ElevenLabs if credentials are unavailable.
+
+### 1.1.3 Unified Data Mesh
+Real-time analytics across properties with zero ETL windows:
+
+* **Flow** – MongoDB Atlas → Kafka Connect → Snowflake Streams; dbt models materialise hotel, event and POS facts.
+* **Use Cases** – Cross-property up-sell insights, fraud detection on loyalty points, multi-venue heat-map of AR clicks.
+* **Governance** – Column-level lineage captured via OpenMetadata; supports Data Privacy Impact Assessments (DPIA).
+
+### 1.1.4 ISO 27001 Certification Path
+Security posture has been aligned with ISO 27001:2022 controls:
+
+* **Annex A Mapping** – Implemented A.9.4 (Access Control), A.12.6 (Vulnerability Management), A.13.2 (Information Transfer).
+* **Artifacts** – Statement of Applicability (SoA), Risk Treatment Plan (RTP) stored in secure Confluence space.
+* **Timeline** – External audit kickoff ▸ May 30 2025; expected certification ▸ Sep 15 2025.
+
+## 1.2 Purpose & Vision (2025 Refresh)
+NiaXP envisions hospitality venues where every interaction—concierge, networking, dining—is orchestrated by empathetic AI that *anticipates* needs rather than merely responding.  In this revision we emphasise:
+
+* **Proactive Contextualization** – dynamic prompts shaped by event agenda, local weather and guest calendar.
+* **Edge-First Latency Targets** – <150 ms round-trip for voice, 95-percentile.
+* **Sustainability** – carbon-aware routing of compute workloads.
+
+### 1.2.1 Purpose in 2025-2026 Context
+Our overarching purpose is to **erase friction** from guest journeys in complex hospitality environments by becoming the invisible connective tissue between disparate systems (PMS, POS, CRM, IOT).  The May release reinforces this by:
+
+* Unifying voice, text, and AR under a single identity layer powered by Passkey authentication.
+* Delivering "anticipatory assistance" that triggers before the guest asks—e.g.
+  * sending a multilingual welcome prompt when a traveller's flight status hits *Arrived*.
+  * pre-ordering an elevator to the lobby when a guest's phone leaves their room.
+
+### 1.2.2 Vision Pillars
+| Pillar | Description | 2025-Q4 Metric |
+|--------|-------------|----------------|
+| **Seamlessness** | Channel-agnostic continuity with stateful context IDs. | < 1 context loss per 10K sessions |
+| **Empathy** | Emotion-aware responses leveraging voice sentiment & text sentiment fusion. | ≥ 4.5/5 avg satisfaction |
+| **Inclusivity** | On-device translation for low-connectivity regions. | Support 6 languages |
+| **Responsibility** | Privacy-by-design & carbon-aware compute placement. | < 100 gCO₂e / session |
+
+### 1.2.3 Guiding Principles
+1. **User First** – design for non-technical guests; zero-learning-curve.
+2. **Fail Softly** – graceful degradation (e.g. SMS fallback when WebRTC fails).
+3. **Explainability** – surface "why" behind recommendations.
+4. **Iterate Fast, Safely** – feature flags + staged rollouts via Vercel.
+
+## 1.3 2025 Objectives Snapshot
+| ID | Objective | Target Date | Owner | KPI & Baseline |
+|----|-----------|-------------|-------|----------------|
+| OBJ-01 | Sub-5-second onboarding from QR scan to first response | Q3 2025 | DX | Median onboarding 7.8s → **5s** |
+| OBJ-02 | 3-language real-time translation (EN⇄ES⇄FR) | Q4 2025 | AI | BLEU 18 → **25** |
+| OBJ-03 | 100 K concurrent voice sessions | Q1 2026 | Platform | Current capacity 12 K → **100 K** |
+| OBJ-04 | Carbon neutrality for compute workloads | Q4 2025 | Sustainability | Offsets covering 0 % → **100 %** |
+
+### 1.3.1 Workstream Mapping
+* **DX** – QR deep-link optimisations, edge pre-push assets.
+* **AI** – On-device Whisper v4, caching translator.
+* **Platform** – WebTransport fan-out clusters, pressure test @ 80 K.
+* **Sustainability** – Green-compute scheduler, RECs procurement.
+
+## 1.4 Scope Changes (Detail)
+* **Versatility – Cruise Lines**
+  * New embarkation flow integrates with MarineX PMS; muster drill reminders via AR overlay.
+* **Multimodal Interaction – WebAR Pilot**
+  * Pilot at *Nova Expo Madrid* in July; success metric: > 30 % attendees scan at least one AR marker.
+* **Integration – Oracle Opera PMS Adapter**
+  * Bi-directional sync of folio charges, housekeeping status.
+* **Extensibility – Plugin SDK (Beta)**
+  * JavaScript sandbox with capability-based access to guest profile & messaging bus.
+* **Out of Scope**
+  * VR immersion features postponed to 2026 pending hardware adoption rates.
+
+____________________________________________________________
+
+# II. User-Experience Flow (Enhancements)
+
+1. **Smart-Entry** – NFC badge tap auto-loads web companion in guest language.
+2. **Mode Handoff** – live switch between AR overlay ↔ voice call while retaining context ID.
+3. **Ambient Tips** – push subtle recommendations when guest lingers near a venue hotspot (privacy-safe BLE beacons).
+4. **Sustain & Conclude** – 48-hour post-event lingering window with automated wrap-ups.
+
+### 2.1 Smart-Entry (NFC Onboarding)
+**Goal:** Reduce first-touch friction to <5 seconds from scan to response.
+
+* **User Journey** –
+  1. Guest taps NFC badge or scans QR → Browser opens `https://<event>.niaxp.ai?token=XYZ`.
+  2. Edge middleware resolves token → fetches guest locale + profile stub.
+  3. PWA shell installs silently; first assistant greeting rendered in target language.
+* **Tech Notes** –
+  * One-time Passkey created via WebAuthn for future auth.
+  * Locale fallback chain: NFC token locale → device locale → event default.
+  * Offline asset pack (logo, CSS, fonts) pre-cached via `serviceWorker.preloadRoute()`.
+* **Metrics & Alerts** – Grafana dashboard: `smart_entry_latency_p50`, error ratio, enrolment abandonment.
+
+### 2.2 Mode Handoff (Context Preservation)
+**Scenario:** Guest viewing AR overlay opts to switch to voice while walking.
+
+* **State Graph** –
+  ```mermaid
+  stateDiagram-v2
+    [*] --> AR
+    AR --> Voice: Voice button tap
+    Voice --> AR: Resume AR
+  ```
+* **Implementation** –
+  * Context object (`ctxId`, lastMsg, persona) stored in Redis ⟂ 30 min TTL.
+  * `handoff()` API issues WebRTC token + resumes conversation history.
+  * 96 % success rate in beta; goal ≥ 99 %.
+
+### 2.3 Ambient Tips (Contextual Nudges)
+**Function:** Deliver just-in-time micro-prompts without being intrusive.
+
+* **Trigger Sources** – BLE beacon proximity, schedule gaps, POS spend patterns.
+* **ML Model** – Gradient-boosted ranking model selecting top-3 candidate tips.
+* **Privacy Guards** –
+  * Device-side filtering of location granularity to 5 m buckets.
+  * Guests can pause tips via settings → "Do Not Disturb".
+
+### 2.4 Sustain & Conclude (Extended Engagement)
+**Aftercare Window:** 48 h post checkout/event end.
+
+* **Engagement Types** –
+  * `thank_you_summary` (sent 2 h after leave signal).
+  * `connection_followup` (matches exchanged contacts).
+  * `promo_offer` (AI-selected promotion; CPM goals apply).
+* **Closure Logic** – Conversation archived if no guest reply within 48 h or on explicit `!done` message.
+* **Compliance** – SMS/Email communications respect GDPR "right to object"; unsubscribe link auto-appended.
+
+____________________________________________________________
+
+# III. Feature Additions (Jan → May)
+
+## 3.1 AI-Powered Socialisation v2
+* Fine-tuned Llama 3-70B-Instruct on 12 M anonymised networking dialogues ⇒ 13 % better match relevance.
+
+## 3.2 Event Customisation
+* YAML-driven **Theme Packs** allow ops teams to pre-load industry jargon & visuals.
+
+## 3.3 Hospitality Modules
+* **Express Check-out** via WhatsApp & Apple Pay.
+* **Spa-Bot** upsells treatments based on guest stress-level inferred from sentiment & wearables.
+
+... (additional sections mirrored from January doc, with bullet-level deltas noted)
+
+____________________________________________________________
+
+# IV. Technical Architecture Update
+
+```
+┌─────────────────────────────────────────────┐
+│         Next.js (App Router)                │
+│  • Edge Middleware      • React Server Comp │
+└──────────────┬──────────────────────────────┘
+               │
+        Vercel Edge Functions (API Layer)
+               │
+       gRPC-Web (voice) / HTTPS-JSON (text)
+               │
+        Orchestrator (Go v1.23)  ➜  LLM Router
+               │                        │
+      STT ↔ LLM ↔ TTS             Plugin SDK
+               │
+           Data Mesh (Mongo ↔ Snowflake)
+```
+
+Major changes:
+* Switched **WebSockets** to **WebTransport** for voice streaming.
+* Adopted **OpenTelemetry** traces across micro-services.
+
+____________________________________________________________
+
+# V. Deployment & Ops
+* **Blue-Green on Vercel + Fly.io** for zero-downtime Go services.
+* **GH Actions Matrix** tests Node 18/20 & Go 1.22/1.23.
+* **Terraform v2** modules manage multi-region Mongo Atlas & Twilio.
+
+____________________________________________________________
+
+# VI. Security & Compliance (Delta)
+* SOC 2 Type II audit scheduled July 2025.
+* Implemented **Field-Level Encryption** for PII in Mongo.
+* Continuous SCA via Snyk.
+
+____________________________________________________________
+
+# VII. Roadmap Highlights
+| Quarter | Milestone | Owner |
+|---------|-----------|-------|
+| Q2 2025 | Edge E2E encryption for WebTransport | SecOps |
+| Q3 2025 | Multi-tenant RBAC dashboard | Platform |
+| Q4 2025 | AI-generated 3-D venue maps | R&D |
+
+____________________________________________________________
+
+# VIII. Appendix
+* **Change Log** – full diff between Jan & May releases stored in `/docs/changelogs/2025-05-04.md`.
+* **Glossary** – new acronyms: WT (WebTransport), FL-Enc (Field-Level Encryption), DM (Data Mesh).
+
+____________________________________________________________
+
+© 2025 NiaXP Inc.  Confidential & Proprietary. 

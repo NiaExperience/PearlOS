@@ -1,0 +1,3943 @@
+/* Daily Call feature styles */
+/* Scoped under .nia-daily-call-root to avoid leaking styles */
+
+/* Import fonts for username labels only */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&display=swap');
+
+/* Custom Koffins font */
+@font-face {
+  font-family: 'Koffins';
+  src: url('/fonts/koffins.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Ensure browser window properly contains DailyCall content */
+.nia-daily-call-root {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden !important;
+  container-type: inline-size;
+  /* Create a new stacking context and containing block */
+  isolation: isolate;
+  transform: translateZ(0);
+  /* Ensure absolute children are clipped */
+  clip-path: inset(0 0 0 0);
+}
+
+.nia-daily-call-root .daily-call-view {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  /* Allow children (like the grid) to manage their own scrolling */
+  min-height: 0;
+  transition: width 0.25s ease, height 0.25s ease, padding 0.25s ease;
+  position: relative;
+  /* Ensure panels are clipped within this container */
+  clip-path: inset(0);
+}
+
+/* Daily Prebuilt Container */
+.nia-daily-call-root .daily-prebuilt-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+/* Bottom Toolbar - Ultra Transparent Glassmorphism Style */
+.nia-daily-call-root .bottom-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 16px 28px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  height: auto;
+  z-index: 100;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Hover effect for toolbar container */
+.nia-daily-call-root .bottom-toolbar:hover {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 6px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Autohide states for bottom toolbar */
+.nia-daily-call-root .bottom-toolbar.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.nia-daily-call-root .bottom-toolbar.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+  pointer-events: none;
+}
+
+.nia-daily-call-root .toolbar-section {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.nia-daily-call-root .left-section {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.nia-daily-call-root .center-section {
+  flex: 2;
+  justify-content: center;
+  gap: 12px;
+}
+
+.nia-daily-call-root .right-section {
+  flex: 1;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Quick actions panel (mobile) */
+@media (max-width: 1024px) {
+  .quick-actions-panel {
+    position: absolute;
+    bottom: 80px;
+    right: 16px;
+    background: transparent; /* transparent container */
+    border: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    border-radius: 12px;
+    padding: 0; /* no background padding */
+    z-index: 120;
+    box-shadow: none;
+    backdrop-filter: none;
+    /* Slight inset to avoid overlapping the rounded HUD edge */
+    margin-right: 4px;
+  }
+  .quick-actions-grid {
+    display: grid;
+    grid-template-columns: 52px; /* 1 column */
+    grid-auto-rows: 52px;        /* 4 rows (or more) */
+    gap: 4px;
+    align-items: center;
+    justify-items: center;
+  }
+  .quick-actions-panel .toolbar-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    background: rgba(17, 24, 39, 0.85); /* semi-transparent dark tile */
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .quick-actions-panel .toolbar-btn.btn-secondary:hover {
+    background: rgba(75,85,99,0.95);
+  }
+
+  /* Autohide states for mobile quick panel */
+  .quick-actions-panel.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .quick-actions-panel.hidden {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+  }
+  .quick-toggle-btn .chevron-icon {
+    transition: transform 0.2s ease;
+  }
+  .quick-toggle-btn .chevron-icon.open {
+    transform: rotate(90deg);
+  }
+}
+
+/* Toolbar Buttons - Glassmorphism Style */
+.nia-daily-call-root .toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-active {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 16px rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-muted {
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: white;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-sharing {
+  background: rgba(34, 197, 94, 0.3);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: white;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(34, 197, 94, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-recording {
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: white;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: recording-glass-pulse 2s infinite;
+}
+
+@keyframes recording-glass-pulse {
+  0%, 100% { 
+    background: rgba(239, 68, 68, 0.3);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      0 0 16px rgba(239, 68, 68, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  50% { 
+    background: rgba(239, 68, 68, 0.5);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      0 0 24px rgba(239, 68, 68, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+}
+
+.nia-daily-call-root .toolbar-btn.btn-danger {
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: white;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.7);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-secondary {
+  background: rgba(107, 114, 128, 0.3);
+  border: 1px solid rgba(107, 114, 128, 0.5);
+  color: rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .toolbar-btn.btn-secondary:hover {
+  background: rgba(107, 114, 128, 0.4);
+  border-color: rgba(107, 114, 128, 0.7);
+  color: white;
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.nia-daily-call-root .btn-icon svg {
+  width: 42px;
+  height: 42px;
+  fill: currentColor;
+}
+
+.nia-daily-call-root .btn-icon img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+/* Center the prejoin layout while preserving original sizing elsewhere */
+.nia-daily-call-root .daily-call-view.prejoin-align {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  padding: 40px 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* Tighten vertical spacing in prejoin to remove excess blank area */
+.nia-daily-call-root .daily-call-view.prejoin-align .prejoin-container {
+  padding: 32px;
+  gap: 24px;
+  margin: 0;
+  transform: none;
+  position: relative;
+}
+.nia-daily-call-root .daily-call-view.prejoin-align .prejoin-header { 
+  margin-top: 0; 
+  margin-bottom: 16px;
+}
+
+
+/* Root container (reverted) */
+.nia-daily-call-root { 
+  width: 100%; 
+  height: 100%; 
+  display: flex;
+  flex-direction: column;
+}
+
+.nia-daily-call-root .daily-call-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.nia-daily-call-root .prejoin-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  /* Allow natural height so vertical centering in parent works */
+  height: auto;
+  gap: 24px;
+  padding: 32px;
+  position: relative;
+  max-width: 420px;
+  width: 100%;
+}
+
+
+.nia-daily-call-root .prejoin-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.nia-daily-call-root .prejoin-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%);
+  border-radius: 20px;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.nia-daily-call-root .prejoin-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+}
+
+.nia-daily-call-root .prejoin-subtitle {
+  font-size: 1.1rem;
+  color: #9ca3af;
+  font-weight: 400;
+  margin: 0;
+}
+
+.nia-daily-call-root .prejoin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.nia-daily-call-root .prejoin-form label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #e5e7eb;
+  margin-bottom: 8px;
+}
+
+.nia-daily-call-root .prejoin-input {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid #374151;
+  background-color: rgba(55, 65, 81, 0.5);
+  color: white;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.nia-daily-call-root .prejoin-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.nia-daily-call-root .prejoin-button {
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nia-daily-call-root .prejoin-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+.nia-daily-call-root .prejoin-button:disabled {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.nia-daily-call-root .prejoin-cancel-button {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 2px solid #374151;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.nia-daily-call-root .prejoin-cancel-button:hover {
+  border-color: #6b7280;
+  color: #d1d5db;
+  background: rgba(55, 65, 81, 0.2);
+}
+
+/* Mobile specific tweaks */
+@media (max-width: 640px) {
+  .nia-daily-call-root .prejoin-container {
+    padding: 20px 16px 24px;
+    gap: 16px;
+    justify-content: flex-start;
+    width: 100%;
+    height: auto;
+    max-width: none;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+  }
+  .nia-daily-call-root .prejoin-header { margin-bottom: 4px; }
+  .nia-daily-call-root .prejoin-title { font-size: 1.6rem; }
+  .nia-daily-call-root .prejoin-subtitle { font-size: 0.9rem; }
+  .nia-daily-call-root .prejoin-form { max-width: 100%; }
+  .nia-daily-call-root .prejoin-input { font-size: 0.9rem; padding: 10px 14px; }
+  .nia-daily-call-root .prejoin-button { width: 100%; font-size: 0.95rem; padding: 12px 14px; }
+}
+
+.nia-daily-call-root .error-message {
+  color: #ff4d4d;
+  font-weight: bold;
+}
+
+.nia-daily-call-root .call-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex-grow: 1;
+  position: relative;
+}
+
+.nia-daily-call-root .call-room-name {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 20px;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .participants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  flex-grow: 1;
+  overflow-y: auto;
+  justify-items: center;
+  align-content: start;
+  min-height: 400px;
+}
+
+/* Empty State */
+.nia-daily-call-root .no-participants {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+  font-size: 1.1rem;
+  text-align: center;
+  gap: 16px;
+}
+
+.nia-daily-call-root .no-participants-icon {
+  font-size: 4rem;
+  opacity: 0.5;
+}
+
+.nia-daily-call-root .no-participants-text {
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+/* Video Tile Styling - Purple Gradient Glassmorphism Theme */
+.nia-daily-call-root .tile-container {
+  position: relative;
+  width: 100%;
+  height: 100%; /* fill grid cell */
+  min-width: 0; /* Allow shrinking below content size */
+  min-height: 0; /* Allow shrinking below content size */
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: unset; /* Remove aspect ratio constraint for adaptive sizing */
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: clamp(12px, 2vmin, 20px);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 2px solid transparent;
+  box-sizing: border-box;
+  /* Subtle purple gradient border with Gaussian blur effect */
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+    linear-gradient(135deg, 
+      rgba(147, 51, 234, 0.2) 0%, 
+      rgba(79, 70, 229, 0.15) 25%, 
+      rgba(139, 92, 246, 0.18) 50%, 
+      rgba(168, 85, 247, 0.15) 75%, 
+      rgba(196, 181, 253, 0.1) 100%);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  filter: drop-shadow(0 0 4px rgba(147, 51, 234, 0.15));
+}
+
+.nia-daily-call-root .tile-container:hover {
+  transform: scale(1.03) translateY(-2px);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  /* Subtle purple gradient on hover */
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+    linear-gradient(135deg, 
+      rgba(147, 51, 234, 0.3) 0%, 
+      rgba(79, 70, 229, 0.25) 25%, 
+      rgba(139, 92, 246, 0.28) 50%, 
+      rgba(168, 85, 247, 0.25) 75%, 
+      rgba(196, 181, 253, 0.2) 100%);
+  filter: drop-shadow(0 0 6px rgba(147, 51, 234, 0.25));
+}
+
+.nia-daily-call-root .tile-container.speaking {
+  background: rgba(34, 197, 94, 0.08);
+  border: 2px solid transparent;
+  transform: scale(1.03) translateY(-2px);
+  animation: speaking-glass-glow 2s ease-in-out infinite alternate;
+  /* Subtle purple gradient border for speaking state */
+  background-image: 
+    linear-gradient(rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.08)),
+    linear-gradient(135deg, 
+      rgba(147, 51, 234, 0.4) 0%, 
+      rgba(79, 70, 229, 0.3) 25%, 
+      rgba(139, 92, 246, 0.35) 50%, 
+      rgba(168, 85, 247, 0.3) 75%, 
+      rgba(196, 181, 253, 0.25) 100%);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  filter: drop-shadow(0 0 8px rgba(147, 51, 234, 0.3));
+}
+
+@keyframes speaking-glass-glow {
+  0% {
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      0 0 20px rgba(34, 197, 94, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-color: rgba(34, 197, 94, 0.4);
+  }
+  100% {
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.4),
+      0 0 30px rgba(34, 197, 94, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-color: rgba(34, 197, 94, 0.6);
+  }
+}
+
+/* Top Controls Container */
+.nia-daily-call-root .top-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: auto; /* Remove fixed height */
+  pointer-events: none; /* Allow clicks to pass through container */
+  z-index: 10;
+}
+
+.nia-daily-call-root .top-controls.visible {
+  opacity: 1;
+}
+
+.nia-daily-call-root .top-controls.hidden {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Participant Count Badge */
+.nia-daily-call-root .participant-count-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  pointer-events: auto; /* Re-enable pointer events for the badge itself */
+}
+
+.nia-daily-call-root .sharing-indicator {
+  position: absolute;
+  top: 16px;
+  right: 120px; /* Adjusted to not overlap with participant badge */
+  background: rgba(34, 197, 94, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(34, 197, 94, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  pointer-events: auto; /* Re-enable pointer events for the indicator itself */
+}
+
+.nia-daily-call-root .tile-container video,
+.nia-daily-call-root .tile-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Maintains aspect ratio, crops if needed to avoid stretching */
+  object-position: center; /* Center the video content */
+  border-radius: clamp(8px, 1.5vmin, 16px);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Remove borders and decorative elements when video is present */
+.nia-daily-call-root .tile-container:has(video),
+.nia-daily-call-root .tile-container:has(.tile-video),
+.nia-daily-call-root .tile-container.has-video {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.nia-daily-call-root .tile-container:has(video)::before,
+.nia-daily-call-root .tile-container:has(.tile-video)::before,
+.nia-daily-call-root .tile-container.has-video::before {
+  display: none !important;
+}
+
+.nia-daily-call-root .placeholder-video {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 12px;
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.nia-daily-call-root .placeholder-video::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
+.nia-daily-call-root .placeholder-video > * {
+  position: relative;
+  z-index: 1;
+}
+
+.nia-daily-call-root .avatar-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(249, 115, 22, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+
+.nia-daily-call-root .username-label {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px) scale(0.8);
+  background: rgba(59, 130, 246, 0.4);
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-family: 'Koffins', 'Playfair Display', 'Cinzel', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: white;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  max-width: calc(100% - 16px);
+  white-space: normal;
+  overflow: visible;
+  text-align: center;
+  letter-spacing: 2.5px;
+  line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+/* Username label visibility states */
+.nia-daily-call-root .username-label.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+  filter: blur(0px);
+  box-shadow: 
+    0 8px 32px rgba(59, 130, 246, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .username-label.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(30px) scale(0.7);
+  pointer-events: none;
+  filter: blur(3px);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Enhanced animation keyframes for smoother effects */
+@keyframes usernameSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px) scale(0.8);
+    filter: blur(2px);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(-50%) translateY(-2px) scale(1.02);
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes usernameSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    filter: blur(0px);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translateX(-50%) translateY(15px) scale(0.85);
+    filter: blur(1.5px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(30px) scale(0.7);
+    filter: blur(3px);
+  }
+}
+
+/* Apply enhanced animations */
+.nia-daily-call-root .username-label.visible {
+  animation: usernameSlideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.nia-daily-call-root .username-label.hidden {
+  animation: usernameSlideOut 0.6s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+.nia-daily-call-root .username-label.speaking-label {
+  background: rgba(34, 197, 94, 0.3);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(34, 197, 94, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: white;
+  font-weight: 600;
+  transform: scale(1.05);
+}
+
+/* Muted microphone indicator */
+.nia-daily-call-root .muted-indicator {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  background: rgba(220, 38, 38, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border: 1px solid rgba(220, 38, 38, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(220, 38, 38, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  z-index: 3;
+  transition: all 0.3s ease;
+}
+
+.nia-daily-call-root .muted-indicator svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nia-daily-call-root .muted-indicator img {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.nia-daily-call-root .muted-indicator:hover {
+  background: rgba(220, 38, 38, 0.4);
+  transform: scale(1.1);
+  border-color: rgba(220, 38, 38, 0.7);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    0 0 16px rgba(220, 38, 38, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Screen sharing indicator */
+.nia-daily-call-root .screen-share-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(59, 130, 246, 0.3);
+  color: white;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  z-index: 10;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.nia-daily-call-root .screen-share-indicator svg {
+  display: block;
+}
+
+.nia-daily-call-root .screen-share-indicator img {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Chat Notification Badge */
+.nia-daily-call-root .notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 4px;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 0 2px rgba(15, 23, 42, 1);
+  animation: notification-pulse 2s infinite;
+  z-index: 100;
+}
+
+.nia-daily-call-root .notification-badge.mobile {
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 9px;
+}
+
+/* Notification pulse animation */
+@keyframes notification-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.3),
+      0 0 0 2px rgba(15, 23, 42, 1),
+      0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 
+      0 2px 6px rgba(0, 0, 0, 0.4),
+      0 0 0 2px rgba(15, 23, 42, 1),
+      0 0 0 4px rgba(239, 68, 68, 0.3);
+  }
+}
+
+/* Button with notification styling */
+.nia-daily-call-root .toolbar-btn.has-notification {
+  position: relative;
+  overflow: visible;
+}
+
+/* Ensure button parent elements don't clip the badge */
+.nia-daily-call-root .toolbar-section.center-section {
+  overflow: visible;
+}
+
+.nia-daily-call-root .bottom-toolbar {
+  overflow: visible;
+}
+
+/* Ensure container elements don't clip notifications */
+.nia-daily-call-root .daily-prebuilt-container {
+  overflow: visible;
+}
+
+/* Additional enhancement for notification badge positioning */
+.nia-daily-call-root .toolbar-btn[style*="position: relative"] .notification-badge {
+  position: absolute !important;
+}
+
+.nia-daily-call-root .toolbar-btn.has-notification:not(.btn-active) {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.nia-daily-call-root .toolbar-btn.has-notification:not(.btn-active):hover {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* Chat Content Filter Notification */
+.nia-daily-call-root .chat-filter-notification {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(239, 68, 68, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.8);
+  border-radius: 8px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  z-index: 1000;
+  animation: filter-notification-slide 0.3s ease-out;
+  backdrop-filter: blur(4px);
+}
+
+.nia-daily-call-root .filter-notification-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.nia-daily-call-root .filter-icon {
+  font-size: 14px;
+}
+
+.nia-daily-call-root .filter-message {
+  white-space: nowrap;
+}
+
+/* Filter notification animation */
+@keyframes filter-notification-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.nia-daily-call-root .screen-share-indicator:hover {
+  background: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.7);
+  transform: scale(1.05);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    0 0 16px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Screen share video styling */
+.nia-daily-call-root .tile-video.screen-share {
+  object-fit: contain; /* Don't crop screen content */
+  background: transparent; /* Transparent background for letterboxing */
+}
+
+/* Screen share icon in username label */
+.nia-daily-call-root .screen-share-icon {
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+/* Enhanced Call Component Styles - Elegant Design without Blur */
+.nia-daily-call-root .Call {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  /* Force hardware acceleration for smooth performance */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* ELEGANT DESIGN: No blur effects - using gradients, shadows, and solid colors */
+
+/* Main container with elegant gradient background */
+.nia-daily-call-root .Call {
+  background: linear-gradient(135deg, 
+    rgba(15, 23, 42, 0.95) 0%, 
+    rgba(30, 41, 59, 0.9) 25%, 
+    rgba(51, 65, 85, 0.85) 50%, 
+    rgba(71, 85, 105, 0.9) 75%, 
+    rgba(100, 116, 139, 0.95) 100%);
+  box-shadow: 
+    inset 0 0 50px rgba(0, 0, 0, 0.3),
+    0 0 100px rgba(15, 23, 42, 0.5);
+}
+
+.nia-daily-call-root .Call.fullscreen {
+  background: linear-gradient(135deg, 
+    rgba(15, 23, 42, 0.98) 0%, 
+    rgba(30, 41, 59, 0.95) 25%, 
+    rgba(51, 65, 85, 0.9) 50%, 
+    rgba(71, 85, 105, 0.95) 75%, 
+    rgba(100, 116, 139, 0.98) 100%);
+  box-shadow: 
+    inset 0 0 80px rgba(0, 0, 0, 0.4),
+    0 0 150px rgba(15, 23, 42, 0.6);
+}
+
+/* Elegant tile containers with gradient borders */
+.nia-daily-call-root .tile-container {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.1) 50%, 
+    rgba(255, 255, 255, 0.15) 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+
+.nia-daily-call-root .tile-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(135deg, 
+    rgba(147, 51, 234, 0.4) 0%, 
+    rgba(79, 70, 229, 0.3) 25%, 
+    rgba(139, 92, 246, 0.35) 50%, 
+    rgba(168, 85, 247, 0.3) 75%, 
+    rgba(196, 181, 253, 0.4) 100%);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: xor;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  z-index: -1;
+}
+
+.nia-daily-call-root .tile-container.speaking {
+  background: linear-gradient(135deg, 
+    rgba(34, 197, 94, 0.2) 0%, 
+    rgba(34, 197, 94, 0.15) 50%, 
+    rgba(34, 197, 94, 0.2) 100%);
+  box-shadow: 
+    0 0 30px rgba(34, 197, 94, 0.4),
+    inset 0 0 20px rgba(34, 197, 94, 0.1);
+}
+
+.nia-daily-call-root .tile-container.speaking::before {
+  background: linear-gradient(135deg, 
+    rgba(34, 197, 94, 0.6) 0%, 
+    rgba(34, 197, 94, 0.4) 25%, 
+    rgba(34, 197, 94, 0.5) 50%, 
+    rgba(34, 197, 94, 0.4) 75%, 
+    rgba(34, 197, 94, 0.6) 100%);
+}
+
+/* Elegant daily-call-view */
+.nia-daily-call-root .daily-call-view {
+  background: linear-gradient(135deg, 
+    rgba(15, 23, 42, 0.8) 0%, 
+    rgba(30, 41, 59, 0.7) 50%, 
+    rgba(51, 65, 85, 0.8) 100%);
+  box-shadow: 
+    inset 0 0 30px rgba(0, 0, 0, 0.2),
+    0 0 50px rgba(15, 23, 42, 0.3);
+}
+
+/* Elegant bottom toolbar */
+.nia-daily-call-root .bottom-toolbar {
+  background: linear-gradient(135deg, 
+    rgba(0, 0, 0, 0.7) 0%, 
+    rgba(0, 0, 0, 0.5) 50%, 
+    rgba(0, 0, 0, 0.7) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+
+/* Mobile-specific: Use solid backgrounds for better performance and clarity */
+@media (max-width: 1024px) {
+  /* Force override all background styles on mobile */
+  .nia-daily-call-root * {
+    background-image: none !important;
+  }
+  /* Main call container - solid dark grey - HIGH SPECIFICITY */
+  .nia-daily-call-root .Call,
+  .nia-daily-call-root .Call.prebuilt-style {
+    background: #1e293b !important; /* Solid slate-800 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    box-shadow: 
+      inset 0 0 50px rgba(0, 0, 0, 0.3),
+      0 0 100px rgba(0, 0, 0, 0.5) !important;
+  }
+  
+  .nia-daily-call-root .Call.fullscreen,
+  .nia-daily-call-root .Call.fullscreen.prebuilt-style {
+    background: #0f172a !important; /* Solid slate-900 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    box-shadow: 
+      inset 0 0 80px rgba(0, 0, 0, 0.4),
+      0 0 150px rgba(0, 0, 0, 0.6) !important;
+  }
+  
+  /* Daily call view - solid grey */
+  .nia-daily-call-root .daily-call-view {
+    background: #334155 !important; /* Solid slate-700 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    box-shadow: 
+      inset 0 0 30px rgba(0, 0, 0, 0.2),
+      0 0 50px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  /* Tile containers - solid backgrounds */
+  .nia-daily-call-root .tile-container {
+    background: #475569 !important; /* Solid slate-600 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    border: 2px solid #64748b !important; /* Solid slate-500 border */
+  }
+  
+  .nia-daily-call-root .tile-container.speaking {
+    background: #059669 !important; /* Solid emerald-600 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    border: 2px solid #10b981 !important; /* Solid emerald-500 border */
+    box-shadow: 
+      0 0 30px rgba(5, 150, 105, 0.4),
+      inset 0 0 20px rgba(16, 185, 129, 0.1) !important;
+  }
+  
+  /* Bottom toolbar - solid dark */
+  .nia-daily-call-root .bottom-toolbar {
+    background: #0f172a !important; /* Solid slate-900 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    border: 1px solid #334155 !important; /* Solid slate-700 border */
+  }
+  
+  
+  /* Remove all gradient effects on mobile */
+  .nia-daily-call-root .tile-container::before {
+    display: none !important;
+  }
+  
+  /* Button styles for mobile */
+  .nia-daily-call-root .bottom-toolbar button {
+    background: #334155 !important; /* Solid slate-700 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    border: 1px solid #475569 !important; /* Solid slate-600 border */
+  }
+  
+  .nia-daily-call-root .bottom-toolbar button:hover {
+    background: #475569 !important; /* Solid slate-600 */
+    background-image: none !important; /* Remove any gradient backgrounds */
+    border-color: #64748b !important; /* Solid slate-500 border */
+  }
+}
+
+
+/* Elegant hover effects for tiles */
+.nia-daily-call-root .tile-container:hover {
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 20px rgba(147, 51, 234, 0.3);
+}
+
+.nia-daily-call-root .tile-container:hover::before {
+  background: linear-gradient(135deg, 
+    rgba(147, 51, 234, 0.6) 0%, 
+    rgba(79, 70, 229, 0.5) 25%, 
+    rgba(139, 92, 246, 0.55) 50%, 
+    rgba(168, 85, 247, 0.5) 75%, 
+    rgba(196, 181, 253, 0.6) 100%);
+}
+
+/* Elegant animations */
+@keyframes elegant-glow {
+  0% {
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 20px rgba(147, 51, 234, 0.2);
+  }
+  100% {
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 0 30px rgba(147, 51, 234, 0.4);
+  }
+}
+
+.nia-daily-call-root .tile-container.speaking {
+  animation: elegant-glow 2s ease-in-out infinite alternate;
+}
+
+/* Elegant button styles */
+.nia-daily-call-root .bottom-toolbar button {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 50%, 
+    rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.nia-daily-call-root .bottom-toolbar button:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    rgba(255, 255, 255, 0.15) 50%, 
+    rgba(255, 255, 255, 0.2) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.nia-daily-call-root .bottom-toolbar button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.nia-daily-call-root .Call.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: transparent;
+  /* Subtle purple glass glow effect for fullscreen */
+  box-shadow: 
+    inset 0 0 30px rgba(147, 51, 234, 0.05),
+    0 0 60px rgba(147, 51, 234, 0.03);
+}
+
+/* Top Controls */
+.nia-daily-call-root .top-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  z-index: 50;
+  pointer-events: auto;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Autohide states for top controls */
+.nia-daily-call-root .top-controls.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nia-daily-call-root .top-controls.hidden {
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+}
+
+
+/* Video Area */
+.nia-daily-call-root .video-area-main {
+  flex: 1;
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+  /* Allow inner grid to become the scrolling area */
+  min-height: 0;
+}
+
+/* Call Header */
+.nia-daily-call-root .call-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 60px;
+}
+
+.nia-daily-call-root .call-room-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nia-daily-call-root .call-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.nia-daily-call-root .participant-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nia-daily-call-root .screen-share-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+/* Video Area */
+.nia-daily-call-root .video-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Layout Styles */
+.nia-daily-call-root .tiles {
+  flex: 1;
+  display: flex;
+  padding: 8px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-right: max(8px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-left: max(8px, env(safe-area-inset-left));
+  gap: 16px;
+  overflow: hidden;
+}
+
+/* Grid Layout - With scrolling support */
+.nia-daily-call-root .tiles.grid-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+
+/* Participants container - handles the actual grid */
+.nia-daily-call-root .tiles.grid-layout .participants-container {
+  display: grid;
+  grid-template-columns: repeat(var(--columns, 2), 1fr);
+  grid-template-rows: repeat(var(--rows, 2), 1fr);
+  gap: 0;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-items: center;
+  padding: 0;
+  box-sizing: border-box;
+  align-content: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Desktop: For 4 or fewer participants, fill available space adaptively */
+@media (min-width: 1025px) {
+  .nia-daily-call-root .tiles.grid-layout.few-participants {
+    display: flex;
+    align-items: center; /* Center the grid container vertically */
+    justify-content: center; /* Center the grid container horizontally */
+    height: 100%; /* Take full height of parent */
+  }
+  
+  .nia-daily-call-root .tiles.grid-layout.few-participants .participants-container {
+    /* Fill width completely, maintain reasonable height */
+    gap: 0; /* Remove all gaps to fill space completely */
+    padding: 0; /* Remove padding to maximize space usage */
+    width: 100% !important; /* Force full width */
+    height: auto; /* Let height be determined by content */
+    grid-template-columns: repeat(var(--columns, 2), 1fr); /* Equal width columns */
+    grid-template-rows: auto; /* Let rows size naturally */
+    align-items: center; /* Center tiles vertically in their cells */
+    justify-items: stretch; /* Stretch tiles to fill grid cell width */
+  }
+  
+  .nia-daily-call-root .tiles.grid-layout.few-participants .tile-container {
+    aspect-ratio: 4/3 !important; /* Maintain 4:3 aspect ratio */
+    width: 100% !important; /* Fill grid cell width completely */
+    height: auto; /* Let height maintain aspect ratio */
+    min-width: unset; /* Remove minimum constraints */
+    max-width: unset; /* Remove maximum constraints */
+    min-height: unset; /* Remove minimum constraints */
+    max-height: unset; /* Remove maximum constraints */
+  }
+
+  /* Desktop (>=1025px): Special handling for 2-row layouts (3-4 participants) */
+  .nia-daily-call-root
+    .tiles.grid-layout.few-participants[style*="--rows: 2"] {
+    align-items: stretch;
+  }
+
+  .nia-daily-call-root
+    .tiles.grid-layout.few-participants[style*="--rows: 2"]
+    .participants-container {
+    height: 100%;
+    grid-template-rows: repeat(var(--rows, 2), minmax(0, 1fr));
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .nia-daily-call-root
+    .tiles.grid-layout.few-participants[style*="--rows: 2"]
+    .tile-container {
+    aspect-ratio: auto !important;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+}
+
+/* Scrollable grid when there are too many participants */
+.nia-daily-call-root .tiles.grid-layout.scrollable .participants-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.nia-daily-call-root .tiles.grid-layout.scrollable .participants-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nia-daily-call-root .tiles.grid-layout.scrollable .participants-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nia-daily-call-root .tiles.grid-layout.scrollable .participants-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.nia-daily-call-root .tiles.grid-layout.scrollable .participants-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Scroll indicator */
+.nia-daily-call-root .tiles.grid-layout .scroll-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 0.8rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.nia-daily-call-root .tiles.grid-layout .scroll-indicator .participant-count {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.nia-daily-call-root .tiles.grid-layout .scroll-indicator .scroll-hint {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  text-align: center;
+}
+
+/* Fullscreen mode: Use extra horizontal space for more participants */
+.nia-daily-call-root .Call.fullscreen .tiles.grid-layout .participants-container {
+  /* In fullscreen, allow more columns while maintaining tile sizes */
+  justify-content: center;
+  gap: 0; /* Remove gaps for space-filling layout */
+  padding: 0; /* Remove padding for space-filling layout */
+}
+
+/* Mobile-only: Fill entire space adaptively without fixed aspect ratio */
+@media (max-width: 1024px) {
+  .nia-daily-call-root .tiles.grid-layout .participants-container {
+    /* Fill all available space - no fixed sizes or aspect ratio constraints */
+    grid-template-columns: repeat(var(--columns, 2), 1fr);
+    grid-template-rows: repeat(var(--rows, 2), 1fr);
+    gap: 0; /* Remove all gaps to fill space completely */
+    height: 100%;
+    width: 100%;
+  }
+
+  /* SPECIFIC OVERRIDE for 2 participants on mobile - FORCE 1x2 layout (stacked vertically) */
+  .nia-daily-call-root .tiles.grid-layout[style*="--total-participants: 2"] .participants-container {
+    grid-template-columns: 1fr !important; /* Force 1 column */
+    grid-template-rows: 1fr 1fr !important; /* Force 2 rows (stacked) */
+  }
+
+  /* Mobile scrollable state */
+  .nia-daily-call-root .tiles.grid-layout.scrollable .participants-container {
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-content: start;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Mobile non-scrollable state */
+  .nia-daily-call-root .tiles.grid-layout:not(.scrollable) .participants-container {
+    overflow: hidden;
+    align-content: center;
+  }
+
+  /* Mobile-specific username label adjustments */
+  .nia-daily-call-root .username-label {
+    max-width: calc(100% - 24px);
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Speaker Layout */
+.nia-daily-call-root .tiles.speaker-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+
+.nia-daily-call-root .main-speaker {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.nia-daily-call-root .speaker-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 180px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1);
+}
+
+/* Professional scrollbar styling for speaker sidebar */
+.nia-daily-call-root .speaker-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.nia-daily-call-root .speaker-sidebar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.nia-daily-call-root .speaker-sidebar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .speaker-sidebar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
+}
+
+/* Sidebar Layout */
+.nia-daily-call-root .tiles.sidebar-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+
+.nia-daily-call-root .sidebar-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.nia-daily-call-root .sidebar-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 160px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1);
+}
+
+/* Professional scrollbar styling for sidebar strip */
+.nia-daily-call-root .sidebar-strip::-webkit-scrollbar {
+  width: 8px;
+}
+
+.nia-daily-call-root .sidebar-strip::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.nia-daily-call-root .sidebar-strip::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .sidebar-strip::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
+}
+
+/* Layout Controls */
+.nia-daily-call-root .layout-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .layout-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.nia-daily-call-root .layout-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(55, 65, 81, 0.3);
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 60px;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .layout-btn:hover {
+  background: rgba(75, 85, 99, 0.4);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .layout-btn.active {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: white;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .layout-icon {
+  font-size: 1.2rem;
+}
+
+.nia-daily-call-root .layout-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Call Controls Container - Glassmorphism */
+.nia-daily-call-root .call-controls-container {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 -4px 16px rgba(0, 0, 0, 0.3);
+}
+
+
+/* Enhanced Control Buttons - Glassmorphism */
+.nia-daily-call-root .control-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  min-width: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.nia-daily-call-root .control-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.nia-daily-call-root .control-button:hover::before {
+  left: 100%;
+}
+
+.nia-daily-call-root .control-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.nia-daily-call-root .control-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+
+.nia-daily-call-root .control-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .control-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nia-daily-call-root .control-button.disabled {
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .control-button.active {
+  background: rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(16, 185, 129, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .more-button {
+  background: rgba(107, 114, 128, 0.6);
+}
+
+.nia-daily-call-root .leave-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.3);
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  min-width: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.nia-daily-call-root .leave-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.nia-daily-call-root .leave-button:hover::before {
+  left: 100%;
+}
+
+.nia-daily-call-root .leave-button:hover {
+  background: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.7);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .leave-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* More Controls Panel - Glassmorphism */
+.nia-daily-call-root .more-controls-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 12px;
+  z-index: 100;
+}
+
+.nia-daily-call-root .more-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  min-width: 200px;
+}
+
+.nia-daily-call-root .more-control-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .more-control-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: white;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .more-icon {
+  font-size: 1.2rem;
+}
+
+.nia-daily-call-root .more-label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Connection Status */
+.nia-daily-call-root .connection-status {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.nia-daily-call-root .connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+
+.nia-daily-call-root .connection-bars {
+  display: flex;
+  gap: 2px;
+  align-items: end;
+}
+
+.nia-daily-call-root .connection-bars .bar {
+  width: 3px;
+  background: #6b7280;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+.nia-daily-call-root .connection-bars .bar:nth-child(1) { height: 6px; }
+.nia-daily-call-root .connection-bars .bar:nth-child(2) { height: 10px; }
+.nia-daily-call-root .connection-bars .bar:nth-child(3) { height: 14px; }
+
+.nia-daily-call-root .connection-indicator.good .bar {
+  background: #10b981;
+}
+
+.nia-daily-call-root .connection-indicator.fair .bar:nth-child(1),
+.nia-daily-call-root .connection-indicator.fair .bar:nth-child(2) {
+  background: #f59e0b;
+}
+
+.nia-daily-call-root .connection-indicator.poor .bar:nth-child(1) {
+  background: #ef4444;
+}
+
+/* Enhanced Tile Styles */
+.nia-daily-call-root .tile-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+/* Resume Audio Button - Glassmorphism */
+.nia-daily-call-root .resume-audio-btn {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .resume-audio-btn:hover {
+  background: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.7);
+  transform: scale(1.05);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    0 0 16px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .speaking-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 16px;
+  pointer-events: none;
+}
+
+.nia-daily-call-root .speaking-pulse {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid #10b981;
+  border-radius: 18px;
+  animation: speaking-pulse 1.5s ease-in-out infinite;
+}
+
+.nia-daily-call-root .avatar-text {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.nia-daily-call-root .audio-indicator {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  align-items: end;
+}
+
+.nia-daily-call-root .audio-wave {
+  width: 3px;
+  background: #10b981;
+  border-radius: 1px;
+  animation: audio-wave 1s ease-in-out infinite alternate;
+}
+
+.nia-daily-call-root .audio-wave:nth-child(1) {
+  height: 8px;
+  animation-delay: 0s;
+}
+
+.nia-daily-call-root .audio-wave:nth-child(2) {
+  height: 12px;
+  animation-delay: 0.2s;
+}
+
+.nia-daily-call-root .audio-wave:nth-child(3) {
+  height: 6px;
+  animation-delay: 0.4s;
+}
+
+@keyframes audio-wave {
+  0% { height: 4px; opacity: 0.5; }
+  100% { height: 16px; opacity: 1; }
+}
+
+.nia-daily-call-root .username-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.nia-daily-call-root .speaking-icon {
+  font-size: 0.8rem;
+  animation: speaking-bounce 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes speaking-bounce {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+
+.nia-daily-call-root .username-text {
+  flex: 1;
+  text-align: center;
+}
+
+/* Tile Layout Modes */
+.nia-daily-call-root .speaker-main-tile {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.nia-daily-call-root .speaker-small-tile {
+  width: 100%;
+  aspect-ratio: 4/3;
+  flex-shrink: 0;
+}
+
+/* Make sidebar video tiles smaller during screen sharing */
+.nia-daily-call-root .Call.screen-sharing-active .speaker-small-tile {
+  width: 80% !important;
+  aspect-ratio: 16/9 !important;
+  max-height: 100px !important;
+  margin: 0 auto !important;
+}
+
+/* Fallback: Make all sidebar tiles smaller in speaker mode */
+.nia-daily-call-root .Call.speaker-mode .speaker-small-tile {
+  width: 80% !important;
+  aspect-ratio: 16/9 !important;
+  max-height: 100px !important;
+  margin: 0 auto !important;
+}
+
+.nia-daily-call-root .sidebar-main-tile {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.nia-daily-call-root .sidebar-small-tile {
+  width: 80%;
+  aspect-ratio: 16/9;
+  max-height: 100px;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .nia-daily-call-root .tiles.speaker-layout,
+  .nia-daily-call-root .tiles.sidebar-layout {
+    flex-direction: column;
+  }
+  
+  .nia-daily-call-root .speaker-sidebar,
+  .nia-daily-call-root .sidebar-strip {
+    width: 100%;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 200px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Mobile vertical scrollbar styling */
+  .nia-daily-call-root .speaker-sidebar::-webkit-scrollbar,
+  .nia-daily-call-root .sidebar-strip::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .nia-daily-call-root .speaker-sidebar::-webkit-scrollbar-track,
+  .nia-daily-call-root .sidebar-strip::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+  
+  .nia-daily-call-root .speaker-sidebar::-webkit-scrollbar-thumb,
+  .nia-daily-call-root .sidebar-strip::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .nia-daily-call-root .speaker-sidebar::-webkit-scrollbar-thumb:hover,
+  .nia-daily-call-root .sidebar-strip::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
+  }
+  
+  .nia-daily-call-root .main-speaker,
+  .nia-daily-call-root .sidebar-main {
+    height: calc(100% - 220px);
+  }
+  
+  .nia-daily-call-root .bottom-toolbar {
+    padding: 8px 16px;
+    height: 70px;
+  }
+  
+  .nia-daily-call-root .toolbar-btn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .nia-daily-call-root .center-section {
+    gap: 8px;
+  }
+  
+  .nia-daily-call-root .video-area-main {
+    padding: 0; /* Remove padding to fill all available space */
+  }
+  
+  .nia-daily-call-root .tiles.grid-layout {
+    gap: 0; /* Remove all gaps to fill space completely */
+    padding: 0; /* Remove padding to maximize space usage */
+  }
+  
+  .nia-daily-call-root .tile-container {
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    aspect-ratio: unset !important; /* Remove aspect ratio constraint to fill available space */
+    height: 100% !important; /* Force full height */
+    width: 100% !important; /* Force full width */
+  }
+  
+  .nia-daily-call-root .participant-count-badge,
+  .nia-daily-call-root .sharing-indicator {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nia-daily-call-root .bottom-toolbar {
+    padding: 6px 12px;
+    height: 60px;
+  }
+  
+  .nia-daily-call-root .toolbar-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .nia-daily-call-root .btn-icon svg,
+  .nia-daily-call-root .btn-icon img {
+    width: 34px;
+    height: 34px;
+  }
+  
+  .nia-daily-call-root .center-section {
+    gap: 6px;
+  }
+  
+  .nia-daily-call-root .right-section {
+    gap: 8px;
+  }
+  
+  .nia-daily-call-root .video-area-main {
+    padding: 0; /* Remove padding to fill all available space */
+  }
+  
+  .nia-daily-call-root .tiles.grid-layout {
+    gap: 0; /* Remove all gaps to fill space completely */
+  }
+
+  /* Tighter quick actions on very small screens */
+  .quick-actions-panel {
+    bottom: 72px;
+    right: 10px;
+  }
+  .quick-actions-grid {
+    grid-template-columns: 46px;
+    grid-auto-rows: 46px;
+    gap: 4px;
+  }
+  .quick-actions-panel .toolbar-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+  }
+  .quick-actions-panel .btn-icon svg,
+  .quick-actions-panel .btn-icon img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* Chat Component Styles - Glassmorphism Design */
+.chat-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 35%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    -4px 0 24px rgba(0, 0, 0, 0.4),
+    inset 1px 0 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-sizing: border-box;
+  overflow: hidden;
+  /* Ensure it stays within browser window bounds */
+  contain: layout style paint;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+
+.chat-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.chat-close-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.chat-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+    gap: 12px;
+}
+
+.chat-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-message.local {
+  align-items: flex-end;
+}
+
+.chat-message.remote {
+  align-items: flex-start;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.message-sender {
+  font-weight: 500;
+}
+
+.message-time {
+  opacity: 0.7;
+}
+
+.message-text {
+  background: rgba(55, 65, 81, 0.8);
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  max-width: 280px;
+  word-wrap: break-word;
+  color: white;
+}
+
+.chat-message.local .message-text {
+  background: rgba(59, 130, 246, 0.8);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.remote .message-text {
+  border-bottom-left-radius: 4px;
+}
+
+.chat-input-area {
+  padding: 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+}
+
+.chat-input-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: white;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.chat-input::placeholder {
+  color: #9ca3af;
+}
+
+.chat-send-btn {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  border-radius: 10px;
+  padding: 10px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.chat-send-btn:hover {
+  background: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.7);
+  transform: scale(1.05);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.chat-send-btn:disabled {
+  background: rgba(107, 114, 128, 0.5);
+  cursor: not-allowed;
+}
+
+.chat-input-hint {
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Admin Controls Styles */
+.admin-controls {
+  background: rgba(139, 92, 246, 0.1);
+  border-top: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 12px 16px;
+  margin: 0;
+  box-shadow: inset 0 1px 0 rgba(139, 92, 246, 0.2);
+}
+
+.admin-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-group-label {
+  font-weight: 500;
+  color: #e5e7eb;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+
+.radio-options {
+  display: flex;
+  gap: 12px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  color: white;
+}
+
+.radio-option:hover:not(.disabled) {
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.radio-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabled-indicator {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.radio-input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio-input:disabled {
+  cursor: not-allowed;
+}
+
+.radio-label {
+  user-select: none;
+  font-weight: 400;
+}
+
+/* Admin mode send button styling */
+.chat-send-btn.admin-mode {
+  background: rgba(139, 92, 246, 0.3);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(139, 92, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.chat-send-btn.admin-mode:hover {
+  background: rgba(139, 92, 246, 0.4);
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(139, 92, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Mobile Chat Styles */
+@media (max-width: 1024px) {
+  .chat-overlay {
+    width: 100%;
+    left: auto;
+    right: 0;
+  }
+  
+  .message-text {
+    max-width: calc(100vw - 80px);
+  }
+}
+
+/* Participants Panel Styles - Glassmorphism Design */
+.participants-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: 240px;
+  max-width: 25%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    -4px 0 24px rgba(0, 0, 0, 0.4),
+    inset 1px 0 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.participants-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+}
+
+.participants-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  position: relative;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.participants-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+}
+
+.participants-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.participants-close-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.participants-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.participants-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.participants-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.participants-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.participants-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.participants-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.participant-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.participant-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.participant-initial {
+  text-transform: uppercase;
+}
+
+.participant-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.participant-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.participant-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-indicator {
+  opacity: 0.5;
+  transition: all 0.15s ease;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-indicator svg {
+  width: 18px;
+  height: 18px;
+}
+
+.status-indicator img {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.status-indicator.active {
+  opacity: 0.9;
+  color: #10b981;
+}
+
+.status-indicator.inactive {
+  opacity: 0.25;
+  color: #ef4444;
+}
+
+/* Mobile responsive styles for participants panel */
+@media (max-width: 1024px) {
+  .participants-overlay {
+    width: 100%;
+    max-width: 100%;
+    right: 0;
+    left: auto;
+  }
+  
+  .participants-content {
+    padding: 8px 12px;
+  }
+  
+  .participant-item {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .participant-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 0.75rem;
+  }
+  
+  .participant-name {
+    font-size: 0.75rem;
+  }
+  
+  .status-indicator {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .status-indicator svg,
+  .status-indicator img {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Settings panel mobile styles */
+  .settings-overlay {
+    width: 100%;
+    max-width: 100%;
+    right: 0;
+    left: 0;
+  }
+  
+  .settings-content {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  
+  .settings-section {
+    gap: 6px;
+  }
+  
+  .settings-section h4 {
+    font-size: 0.7rem;
+  }
+  
+  .device-select {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+  
+  .background-option {
+    padding: 6px 8px;
+    font-size: 0.7rem;
+  }
+}
+
+/* ==========================================
+   Admin Kick UI Styles
+   ========================================== */
+
+.participant-admin-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.kick-button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  opacity: 0.6;
+}
+
+.kick-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  opacity: 1;
+}
+
+.kick-button.active {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  opacity: 1;
+}
+
+.kick-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.kick-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(20, 20, 20, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 160px;
+  z-index: 1000;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: kickMenuSlide 0.15s ease;
+}
+
+@keyframes kickMenuSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kick-menu-header {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+
+.kick-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.kick-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.kick-menu-item.danger {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.kick-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.kick-menu-item.cancel {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+.kick-menu-item.cancel:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Mobile responsive for kick UI */
+@media (max-width: 1024px) {
+  .kick-button {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+  
+  .kick-menu {
+    min-width: 180px;
+  }
+  
+  .kick-menu-item {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Settings Panel Styles - Glassmorphism Design */
+.settings-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 260px;
+  max-width: 28%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    -4px 0 24px rgba(0, 0, 0, 0.4),
+    inset 1px 0 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.settings-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  position: relative;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.settings-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #9ca3af;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.settings-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  transform: scale(1.05);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settings-section h4 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.device-select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.device-select:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.device-select option {
+  background: rgba(0, 0, 0, 0.8);
+  color: #ffffff;
+  padding: 8px 12px;
+  border: none;
+}
+
+.device-select option:checked {
+  background: rgba(59, 130, 246, 0.4);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.loading-devices {
+  color: #9ca3af;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 8px;
+}
+
+.background-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.background-option {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-align: center;
+  position: relative;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.background-option:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.02);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.background-option.active {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.background-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nia-daily-call-root .applying-background {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 8px;
+}
+
+.nia-daily-call-root .refresh-devices-btn {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  border-radius: 10px;
+  padding: 10px 16px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  align-self: flex-start;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 0 8px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .refresh-devices-btn:hover {
+  background: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.7);
+  transform: scale(1.05);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .refresh-devices-btn:disabled {
+  background: rgba(107, 114, 128, 0.5);
+  cursor: not-allowed;
+}
+
+/* Responsive Panels for Different Browser Window States */
+
+/* When browser window is in left/right snap mode (smaller width) */
+@container (max-width: 900px) {
+  .participants-overlay {
+    width: 280px;
+    max-width: 40%;
+  }
+  
+  .chat-overlay {
+    width: 250px;
+    max-width: 40%;
+  }
+  
+  .settings-overlay {
+    width: 280px;
+    max-width: 45%;
+  }
+}
+
+/* When browser window is very narrow (mobile or heavily constrained) */
+@container (max-width: 600px) {
+  .participants-overlay,
+  .chat-overlay,
+  .settings-overlay {
+    width: 100%;
+    max-width: 100%;
+    left: auto;
+    right: 0;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Optimize settings panel for smaller heights to avoid scrolling */
+@container (max-height: 700px) {
+  .settings-content {
+    gap: 16px;
+    padding: 16px 20px;
+  }
+  
+  .settings-section {
+    gap: 10px;
+  }
+  
+  .settings-section h4 {
+    font-size: 0.8rem;
+  }
+  
+  .device-select {
+    padding: 10px 14px;
+    font-size: 0.8rem;
+  }
+  
+  .background-option {
+    padding: 10px 12px;
+    font-size: 0.75rem;
+  }
+  
+  .settings-header {
+    padding: 16px 20px 12px 20px;
+  }
+}
+
+/* Adaptive video grid for different window states */
+@container (max-width: 1200px) {
+  .nia-daily-call-root .tiles.grid-layout {
+    gap: 0; /* Remove gaps for space-filling layout */
+    padding: 0; /* Remove padding for space-filling layout */
+  }
+  
+  .nia-daily-call-root .tile-container {
+    border-radius: clamp(4px, 0.8vmin, 10px);
+  }
+}
+
+@container (max-width: 800px) {
+  .nia-daily-call-root .tiles.grid-layout {
+    gap: 0; /* Remove gaps for space-filling layout */
+    padding: 0; /* Remove padding for space-filling layout */
+  }
+  
+  .nia-daily-call-root .video-area-main {
+    padding: 0; /* Remove padding to fill all available space */
+  }
+}
+
+@container (max-width: 600px) {
+  .nia-daily-call-root .tiles.grid-layout {
+    gap: 0; /* Remove gaps for space-filling layout */
+    padding: 0; /* Remove padding for space-filling layout */
+  }
+  
+  .nia-daily-call-root .tile-container {
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Global panel constraints to prevent overflow */
+/* Desktop panel containment - only apply to non-mobile */
+@media (min-width: 1025px) {
+  .chat-overlay,
+  .settings-overlay {
+    /* Ensure panels are always contained within their parent */
+    max-width: min(350px, calc(100% - 10px), 35%) !important;
+    min-width: 200px;
+    right: 0;
+    left: auto;
+    /* Force strict containment */
+    overflow: hidden;
+    will-change: transform;
+  }
+}
+
+/* Mobile Panel Styles - Centered Modal Design */
+@media (max-width: 1024px) {
+  /* Chat Overlay - Centered Modal */
+  .chat-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 88vw !important;
+    max-width: 440px !important;
+    height: 55vh;
+    max-height: 480px;
+    min-height: 400px;
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0;
+    visibility: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 20px 40px -8px rgba(0, 0, 0, 0.7),
+      0 8px 16px -4px rgba(0, 0, 0, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.98) 0%,
+      rgba(30, 41, 59, 0.98) 50%,
+      rgba(15, 23, 42, 0.98) 100%
+    );
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+  }
+  
+  /* Participants Overlay - Centered Modal */
+  .participants-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 86vw !important;
+    max-width: 420px !important;
+    height: 50vh;
+    max-height: 400px;
+    min-height: 320px;
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0;
+    visibility: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 20px 40px -8px rgba(0, 0, 0, 0.7),
+      0 8px 16px -4px rgba(0, 0, 0, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.98) 0%,
+      rgba(30, 41, 59, 0.98) 50%,
+      rgba(15, 23, 42, 0.98) 100%
+    );
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+  }
+  
+  /* Settings Overlay - Centered Modal */
+  .settings-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 88vw !important;
+    max-width: 440px !important;
+    height: 60vh;
+    max-height: 520px;
+    min-height: 450px;
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0;
+    visibility: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 20px 40px -8px rgba(0, 0, 0, 0.7),
+      0 8px 16px -4px rgba(0, 0, 0, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.98) 0%,
+      rgba(30, 41, 59, 0.98) 50%,
+      rgba(15, 23, 42, 0.98) 100%
+    );
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+  }
+  
+  /* Show panels when visible */
+  .chat-overlay.visible,
+  .participants-overlay.visible,
+  .settings-overlay.visible {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  /* Modal backdrop for mobile panels */
+  .chat-overlay::before,
+  .participants-overlay::before,
+  .settings-overlay::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(0, 0, 0, 0.7) 0%,
+      rgba(15, 23, 42, 0.8) 50%,
+      rgba(0, 0, 0, 0.7) 100%
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .chat-overlay.visible::before,
+  .participants-overlay.visible::before,
+  .settings-overlay.visible::before {
+    opacity: 1;
+  }
+  
+  /* Adjust panel content for mobile - Professional Layout */
+  .chat-container,
+  .participants-container,
+  .settings-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  .chat-header,
+  .participants-header,
+  .settings-header {
+    flex-shrink: 0;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  .chat-header h3,
+  .participants-header h3,
+  .settings-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.95);
+  }
+  
+  .chat-messages,
+  .participants-content,
+  .settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 18px;
+  }
+  
+  .chat-input-area {
+    flex-shrink: 0;
+    padding: 14px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  .background-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .chat-overlay {
+    width: 92vw !important;
+    height: 50vh !important;
+    max-height: 420px !important;
+    min-height: 350px !important;
+  }
+  
+  .participants-overlay {
+    width: 90vw !important;
+    height: 45vh !important;
+    max-height: 360px !important;
+    min-height: 280px !important;
+  }
+  
+  .settings-overlay {
+    width: 92vw !important;
+    height: 55vh !important;
+    max-height: 460px !important;
+    min-height: 380px !important;
+  }
+  
+  .chat-header h3,
+  .participants-header h3,
+  .settings-header h3 {
+    font-size: 0.95rem;
+  }
+  
+  .chat-header,
+  .participants-header,
+  .settings-header {
+    padding: 12px 16px;
+  }
+  
+  .chat-messages,
+  .participants-content,
+  .settings-content {
+    padding: 10px 16px;
+  }
+  
+  .chat-input-area {
+    padding: 12px 16px;
+  }
+  
+  /* Improve touch targets on mobile */
+  .chat-close-btn,
+  .participants-close-btn,
+  .settings-close-btn {
+    min-width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+  }
+  
+  .chat-close-btn:hover,
+  .participants-close-btn:hover,
+  .settings-close-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* Add smooth animations for better UX */
+@media (max-width: 1024px) {
+  .chat-overlay,
+  .participants-overlay,
+  .settings-overlay {
+    /* Improve animation performance */
+    will-change: transform, opacity;
+  }
+  
+  /* Ensure smooth scrolling in panels */
+  .chat-messages,
+  .participants-content,
+  .settings-content {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Add subtle entrance animation */
+  @keyframes modalSlideIn {
+    from {
+      transform: translate(-50%, -50%) scale(0.9);
+      opacity: 0;
+    }
+    to {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+  }
+  
+  .chat-overlay.visible,
+  .participants-overlay.visible,
+  .settings-overlay.visible {
+    animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* SIDEBAR VIDEO TILES FIX - Make right side video tiles smaller */
+.speaker-small-tile {
+  width: 80% !important;
+  aspect-ratio: 16/9 !important;
+  max-height: 100px !important;
+  margin: 0 auto !important;
+}
+
+/* Alternative selector for sidebar tiles */
+[class*="speaker-small-tile"] {
+  width: 80% !important;
+  aspect-ratio: 16/9 !important;
+  max-height: 100px !important;
+  margin: 0 auto !important;
+}
+
+/* Pearl bot specific styling for transparent background */
+.nia-daily-call-root .tile-container.pearl-bot {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: 
+    0 8px 32px rgba(147, 51, 234, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.nia-daily-call-root .tile-container.pearl-bot:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: 
+    0 12px 40px rgba(147, 51, 234, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Pearl bot username label - same styling as normal participants but higher z-index */
+.nia-daily-call-root .username-label.pearl-bot-label {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px) scale(0.8);
+  background: rgba(59, 130, 246, 0.4);
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-family: 'Koffins', 'Playfair Display', 'Cinzel', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: white;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  max-width: calc(100% - 16px);
+  white-space: normal;
+  overflow: visible;
+  text-align: center;
+  letter-spacing: 2.5px;
+  line-height: 1.5;
+  z-index: 15; /* Higher than Rive avatar overlay (z-index: 10) */
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+/* Pearl bot username label visibility states */
+.nia-daily-call-root .username-label.pearl-bot-label.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  pointer-events: auto;
+  filter: blur(0px);
+  box-shadow: 
+    0 8px 32px rgba(59, 130, 246, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.nia-daily-call-root .username-label.pearl-bot-label.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(30px) scale(0.7);
+  pointer-events: none;
+  filter: blur(3px);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Apply enhanced animations to Pearl bot labels */
+.nia-daily-call-root .username-label.pearl-bot-label.visible {
+  animation: usernameSlideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.nia-daily-call-root .username-label.pearl-bot-label.hidden {
+  animation: usernameSlideOut 0.6s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+.nia-daily-call-root .username-label.pearl-bot-label.speaking-label {
+  background: rgba(34, 197, 94, 0.3);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(34, 197, 94, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: white;
+  font-weight: 600;
+  transform: translateX(-50%) scale(1.05);
+  z-index: 15; /* Higher than Rive avatar overlay */
+}
+
+/* Mobile-specific adjustments for Pearl bot username label */
+@media (max-width: 1024px) {
+  .nia-daily-call-root .username-label.pearl-bot-label {
+    max-width: calc(100% - 24px);
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 15;
+  }
+}
+

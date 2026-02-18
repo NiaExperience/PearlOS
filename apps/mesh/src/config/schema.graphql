@@ -1,0 +1,165 @@
+scalar JSON
+
+type NotionModel {
+  id: Int
+  block_id: String!
+  page_id: String
+  parent_id: String
+  type: String!
+  content: JSON!
+  indexer: JSON
+  order: Int
+  version: String
+  parentData: NotionModel
+}
+
+input NotionModelInput {
+  page_id: String
+  parent_id: String
+  type: String!
+  content: JSON!
+  indexer: JSON
+  order: Int
+  version: String
+}
+
+input StringFilter {
+  eq: String
+  ne: String
+  in: [String!]
+  like: String
+  OR: [String!]
+  AND: [String!]
+  contains: String
+  startsWith: String
+  endsWith: String
+}
+
+input IntFilter {
+  eq: Int
+  ne: Int
+  gt: Int
+  gte: Int
+  lt: Int
+  lte: Int
+  in: [Int!]
+}
+
+input JSONStringFilter {
+  eq: String
+  equals: String
+  ne: String
+  like: String
+  contains: String
+  startsWith: String
+  endsWith: String
+}
+
+input JSONNumberFilter {
+  eq: Float
+  equals: Float
+  ne: Float
+  gt: Float
+  gte: Float
+  lt: Float
+  lte: Float
+  in: [Float!]
+}
+
+input JSONBooleanFilter {
+  eq: Boolean
+  equals: Boolean
+  ne: Boolean
+}
+
+input JSONTypedFilter {
+  string: JSONStringFilter
+  number: JSONNumberFilter
+  boolean: JSONBooleanFilter
+  isNull: Boolean
+}
+
+input JSONFilter {
+  path: String!
+
+  # Basic equality
+  eq: JSON
+  equals: JSON       # backwards-compatibility alias
+  ne: JSON
+
+  # Postgres containment
+  contains: JSON
+  containedBy: JSON
+
+  # Array operations
+  hasKey: String
+  hasAnyKeys: [String!]
+  hasAllKeys: [String!]
+
+  has: JSON
+  hasSome: [JSON!]
+  hasEvery: [JSON!]
+  hasNone: [JSON!]
+
+  # Typed filtering: string/number/bool/null comparisons
+  typed: JSONTypedFilter
+
+  # Recursive NOT
+  not: JSONFilter
+}
+
+input JSONBFilter {
+  path: String!
+  eq: JSON
+  ne: JSON
+  gt: Float
+  gte: Float
+  lt: Float
+  lte: Float
+  in: [JSON!]
+  contains: JSON
+}
+
+input NotionModelFilter {
+  id: IntFilter
+  block_id: StringFilter
+  page_id: StringFilter
+  parent_id: StringFilter
+  type: StringFilter
+  content: StringFilter
+  contentJsonb: JSONBFilter
+  indexer: JSONFilter
+  order: IntFilter
+  version: StringFilter
+  OR: [NotionModelFilter!]
+  AND: [NotionModelFilter!]
+}
+
+input OrderByInput {
+  field: String!
+  direction: OrderDirection!
+}
+
+enum OrderDirection {
+  ASC
+  DESC
+}
+
+type Query {
+  notionModel(
+    where: NotionModelFilter
+    orderBy: [OrderByInput!]
+    limit: Int
+    offset: Int
+  ): [NotionModel!]!
+  
+  notionModelByPageId(page_id: String!): NotionModel
+}
+
+type Mutation {
+  createNotionModel(input: NotionModelInput!): NotionModel!
+  bulkCreateNotionModel(inputs: [NotionModelInput!]!): [NotionModel!]!
+  updateNotionModel(block_id: String!, input: NotionModelInput!): NotionModel
+  replaceNotionModel(block_id: String!, input: NotionModelInput!): NotionModel
+  deleteNotionModel(block_id: String!): Boolean!
+}

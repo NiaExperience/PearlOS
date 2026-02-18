@@ -1,0 +1,17 @@
+apiVersion: v2
+name: redis
+description: Redis server for NIA Universal admin messaging
+type: application
+version: 0.1.0
+appVersion: "7.4"
+keywords:
+  - redis
+  - cache
+  - messaging
+  - nia
+home: https://github.com/NiaExperience/nia-universal
+sources:
+  - https://github.com/NiaExperience/nia-universal
+maintainers:
+  - name: Nia Team
+    email: team@nia.com

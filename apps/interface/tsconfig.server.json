@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "es2017",
+    "lib": ["es2017"],
+    "isolatedModules": false,
+    "noEmit": false
+  },
+  "include": ["src/postgres/**/*.ts"]
+}

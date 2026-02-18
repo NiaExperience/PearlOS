@@ -1,0 +1,291 @@
+/* ═══════════════════════════════════════════════════════════════
+   PIXEL UI — PearlOS Pixel Art Design System
+   Classic RPG UI meets modern web
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Pixel-Perfect Rendering ───────────────────────────────── */
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+.pixel-art-1x { width: var(--pixel-size, 32px); height: var(--pixel-size, 32px); }
+.pixel-art-2x { width: calc(var(--pixel-size, 32px) * 2); height: calc(var(--pixel-size, 32px) * 2); }
+.pixel-art-4x { width: calc(var(--pixel-size, 32px) * 4); height: calc(var(--pixel-size, 32px) * 4); }
+.pixel-art-8x { width: calc(var(--pixel-size, 32px) * 8); height: calc(var(--pixel-size, 32px) * 8); }
+
+/* ── Pixel Button ──────────────────────────────────────────── */
+.pixel-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 12px;
+  color: #e2e8f0;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.3) 0%, rgba(67, 56, 202, 0.4) 100%);
+  backdrop-filter: blur(12px);
+  border: 2px solid rgba(129, 140, 248, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.pixel-btn:hover {
+  background: linear-gradient(180deg, rgba(129, 140, 248, 0.4) 0%, rgba(99, 102, 241, 0.5) 100%);
+  border-color: rgba(165, 180, 252, 0.7);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.pixel-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.pixel-btn-sm { padding: 4px 8px; font-size: 10px; }
+.pixel-btn-lg { padding: 12px 24px; font-size: 14px; }
+
+.pixel-btn-success {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.3) 0%, rgba(22, 163, 74, 0.4) 100%);
+  border-color: rgba(74, 222, 128, 0.5);
+}
+
+.pixel-btn-danger {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.4) 100%);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+/* ── Pixel Border / Frame ──────────────────────────────────── */
+.pixel-frame {
+  position: relative;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
+  border: 2px solid rgba(129, 140, 248, 0.3);
+  box-shadow:
+    inset 0 0 20px rgba(99, 102, 241, 0.05),
+    0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.pixel-frame::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(129, 140, 248, 0.15);
+  pointer-events: none;
+}
+
+.pixel-frame-glow {
+  box-shadow:
+    inset 0 0 20px rgba(99, 102, 241, 0.1),
+    0 0 30px rgba(99, 102, 241, 0.15),
+    0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Pixel Panel (Glass + Pixel border) ────────────────────── */
+.pixel-panel {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 27, 75, 0.6) 100%);
+  backdrop-filter: blur(20px);
+  border: 2px solid rgba(129, 140, 248, 0.25);
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Pixel Divider ─────────────────────────────────────────── */
+.pixel-divider {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(129, 140, 248, 0.5) 20%,
+    rgba(129, 140, 248, 0.5) 80%,
+    transparent 100%
+  );
+  margin: 16px 0;
+}
+
+.pixel-divider-ornate {
+  height: 8px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 6px,
+      rgba(129, 140, 248, 0.4) 6px,
+      rgba(129, 140, 248, 0.4) 8px
+    );
+  margin: 16px 0;
+}
+
+/* ── Pixel Badge ───────────────────────────────────────────── */
+.pixel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 8px;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+}
+
+.pixel-badge-online { color: #4ade80; border-color: rgba(74, 222, 128, 0.4); background: rgba(34, 197, 94, 0.15); }
+.pixel-badge-offline { color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); background: rgba(100, 116, 139, 0.15); }
+.pixel-badge-busy { color: #f87171; border-color: rgba(248, 113, 113, 0.4); background: rgba(239, 68, 68, 0.15); }
+.pixel-badge-away { color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); background: rgba(245, 158, 11, 0.15); }
+
+/* ── Animations ────────────────────────────────────────────── */
+@keyframes pixel-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pixel-blink {
+  0%, 90%, 100% { opacity: 1; }
+  95% { opacity: 0; }
+}
+
+@keyframes pixel-sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+
+@keyframes pixel-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(129, 140, 248, 0); }
+}
+
+@keyframes pixel-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(1deg); }
+  75% { transform: translateY(2px) rotate(-1deg); }
+}
+
+@keyframes pixel-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.animate-bob { animation: pixel-bob 2s ease-in-out infinite; }
+.animate-blink { animation: pixel-blink 3s ease-in-out infinite; }
+.animate-sparkle { animation: pixel-sparkle 1.5s ease-in-out infinite; }
+.animate-pulse { animation: pixel-pulse 2s ease-in-out infinite; }
+.animate-float { animation: pixel-float 3s ease-in-out infinite; }
+.animate-shake { animation: pixel-shake 0.5s ease-in-out; }
+
+/* Stagger sparkle animations for groups */
+.animate-sparkle:nth-child(2) { animation-delay: 0.3s; }
+.animate-sparkle:nth-child(3) { animation-delay: 0.6s; }
+.animate-sparkle:nth-child(4) { animation-delay: 0.9s; }
+
+/* ── Pixel Grid Background ─────────────────────────────────── */
+.pixel-grid-bg {
+  background-image:
+    linear-gradient(rgba(129, 140, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(129, 140, 248, 0.05) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* ── Icon Container ────────────────────────────────────────── */
+.pixel-icon-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: transform 0.15s ease;
+}
+
+.pixel-icon-container:hover {
+  transform: scale(1.1);
+}
+
+.pixel-icon-container img {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* ── Pixel Tooltip ─────────────────────────────────────────── */
+.pixel-tooltip {
+  position: relative;
+}
+
+.pixel-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 8px;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  margin-bottom: 4px;
+}
+
+.pixel-tooltip:hover::after {
+  opacity: 1;
+}
+
+/* ── Pixel Scrollbar ───────────────────────────────────────── */
+.pixel-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pixel-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.pixel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+}
+
+.pixel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(129, 140, 248, 0.5);
+}
+
+/* ── Treasure Chest Open Effect ────────────────────────────── */
+@keyframes chest-open {
+  0% { transform: scale(0.8) rotate(-5deg); opacity: 0; }
+  50% { transform: scale(1.05) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.animate-chest-open {
+  animation: chest-open 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── Loading Shimmer ───────────────────────────────────────── */
+@keyframes pixel-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.pixel-loading {
+  background: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.1) 25%,
+    rgba(129, 140, 248, 0.2) 50%,
+    rgba(99, 102, 241, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: pixel-shimmer 1.5s ease-in-out infinite;
+}

@@ -1,0 +1,11 @@
+{{- if .Values.configMap.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kokoro-tts.fullname" . }}-config
+  namespace: {{ include "kokoro-tts.fullname" . }}
+  labels:
+    {{- include "kokoro-tts.labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.configMap.data | nindent 2 }}
+{{- end }}

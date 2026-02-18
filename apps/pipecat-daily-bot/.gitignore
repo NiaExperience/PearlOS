@@ -1,0 +1,8 @@
+.env
+ui/dist
+node_modules
+.parcel-cache
+bot/__pycache__
+__pycache__
+bot/.pytest_cache
+

@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pipecat-daily-bot.fullname" . }}-operator
+  namespace: {{ include "pipecat-daily-bot.fullname" . }}
+  labels:
+    {{- include "pipecat-daily-bot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+spec:
+  progressDeadlineSeconds: 600
+  replicas: {{ .Values.operator.replicaCount }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      {{- include "pipecat-daily-bot.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: operator
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "pipecat-daily-bot.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: operator
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "pipecat-daily-bot.fullname" . }}-operator
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if or .Values.secret.name (and .Values.configMap.create (not (empty .Values.configMap.data))) (.Values.configMap.existingName) }}
+          envFrom:
+            {{- if .Values.secret.name }}
+            - secretRef:
+                name: {{ .Values.secret.name }}
+            {{- end }}
+            {{- if .Values.configMap.existingName }}
+            - configMapRef:
+                name: {{ .Values.configMap.existingName }}
+            {{- else if and .Values.configMap.create (not (empty .Values.configMap.data)) }}
+            - configMapRef:
+                name: {{ include "pipecat-daily-bot.fullname" . }}-config
+            {{- end }}
+          {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: BOT_IMAGE
+              value: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range $key, $value := .Values.operator.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.operator.resources | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

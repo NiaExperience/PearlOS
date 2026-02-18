@@ -1,0 +1,14 @@
+<!DOCTYPE html><html><head><style>
+body{background:#1a0e2e;margin:0;padding:20px;font-family:monospace;color:#faf8f5}
+h1{text-align:center;font-size:24px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,80px);gap:16px;justify-content:center;padding:20px}
+.item{text-align:center;font-size:11px;color:#d4c0e8}
+.item img{width:64px;height:64px;image-rendering:pixelated;background:#2a1845;border-radius:4px;padding:4px}
+</style></head><body>
+<h1>🎮 PearlOS Pixel Art Icon Library</h1>
+<div class="grid" id="g"></div>
+<script>
+const icons=["bell","book","chat","coin","compass","crown","eye","fire","flag","gem","heart","home","key","lightning","lock","mail","map","music","potion","scroll","search","settings","shield","star","sword","video"];
+const g=document.getElementById('g');
+icons.forEach(n=>{const d=document.createElement('div');d.className='item';d.innerHTML=`<img src="/pixel-ui/icons/${n}.png"><br>${n}`;g.appendChild(d)});
+</script></body></html>

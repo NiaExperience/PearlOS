@@ -1,0 +1,38 @@
+image:
+  tag: "sha-2a08aa17ff7c9a90c77d176e3d64f50044c69367-stg-20349259365"
+
+resources:
+  limits:
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/31631297-ebae-4598-9d7a-6cad7953bc44"
+
+ingress:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: dashboard.stg.nxops.net
+  hosts:
+    - host: dashboard.stg.nxops.net
+      paths:
+        - path: /
+          pathType: Prefix
+
+configMap:
+  data:
+    AWS_REGION: "us-east-2"
+    AWS_SDK_LOAD_CONFIG: "1"
+    CHORUS_TTS_URL: "wss://chorus-tts.stg.nxops.net"
+    EMAIL_FROM: "admin@pearlos.org"
+    EMAIL_REQUIRE_SES: "true"
+    FORCE_ENCRYPTION: "true"
+    INTERFACE_BASE_URL: "https://interface.stg.nxops.net"
+    MESH_ENDPOINT: "https://mesh.stg.nxops.net/graphql"
+    NEXTAUTH_DASHBOARD_URL: "https://dashboard.stg.nxops.net"
+    NEXTAUTH_URL: "https://dashboard.stg.nxops.net"
+    NEXT_PUBLIC_API_URL: "https://dashboard.stg.nxops.net"
+    NEXT_PUBLIC_INTERFACE_BASE_URL: "https://interface.stg.nxops.net"
+    NEXT_PUBLIC_VAPI_API_URL: "https://west-api.vapi.ai/"
+    NODE_ENV: "production"
+    RESET_TOKEN_PERSISTENCE: "enabled"

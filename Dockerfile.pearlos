@@ -1,0 +1,102 @@
+# PearlOS Distribution Image
+# Multi-stage build for fast spin-up of PearlOS instances
+#
+# Usage:
+#   docker build -f Dockerfile.pearlos -t pearlos:latest .
+#   docker run -p 3000:3000 -p 4444:4444 -p 8766:8766 --env-file .env.production pearlos:latest
+#
+# Required env vars (pass via --env-file or -e):
+#   DAILY_API_KEY, DAILY_ROOM_URL
+#   DEEPGRAM_API_KEY
+#   ANTHROPIC_API_KEY (or OPENCLAW_API_KEY + OPENCLAW_API_URL)
+#   MONGODB_URI
+#   NEXTAUTH_SECRET, NEXTAUTH_URL
+
+FROM node:22-bookworm AS base
+
+# System deps
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip python3-venv \
+    ffmpeg curl git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+
+WORKDIR /app
+
+# ---- Dependencies layer (cached) ----
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/ ./packages/
+COPY apps/interface/package.json ./apps/interface/package.json
+COPY apps/mesh/package.json ./apps/mesh/package.json
+COPY apps/pipecat-daily-bot/requirements.txt ./apps/pipecat-daily-bot/requirements.txt
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Python deps for bot
+RUN python3 -m venv /app/venv
+COPY apps/pipecat-daily-bot/requirements.txt /tmp/bot-requirements.txt
+RUN /app/venv/bin/pip install -r /tmp/bot-requirements.txt
+
+# ---- Build layer ----
+FROM deps AS build
+COPY . .
+RUN pnpm -F @nia/interface build || echo "Build warning (non-fatal)"
+
+# ---- PocketTTS ----
+FROM base AS tts
+RUN pip3 install pocket-tts || pip3 install --break-system-packages pocket-tts
+
+# ---- Runtime ----
+FROM base AS runtime
+
+# Copy node_modules + built app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/venv ./venv
+COPY --from=build /app ./
+COPY --from=tts /usr/local/bin/pocket-tts /usr/local/bin/pocket-tts
+COPY --from=tts /usr/local/lib/python3*/dist-packages /usr/local/lib/python3.11/dist-packages
+
+# Copy pearlos-tool CLI
+COPY apps/pearlos-mcp-server/pearlos-tool /usr/local/bin/pearlos-tool
+RUN chmod +x /usr/local/bin/pearlos-tool
+
+# Startup script
+COPY <<'ENTRYPOINT' /app/start-pearlos.sh
+#!/bin/bash
+set -e
+
+echo "🐙 Starting PearlOS..."
+
+# Start PocketTTS (voice)
+echo "  → PocketTTS (Azelma) on :8766"
+nohup pocket-tts serve --voice azelma --port 8766 --host 0.0.0.0 > /tmp/pocket_tts.log 2>&1 &
+
+# Start Mesh (GraphQL gateway)
+if [ -d "apps/mesh" ]; then
+  echo "  → Mesh on :2000"
+  cd apps/mesh && nohup npx ts-node --transpile-only src/server.ts > /tmp/mesh.log 2>&1 &
+  cd /app
+fi
+
+# Start Bot Gateway (Pipecat)
+echo "  → Bot Gateway on :4444"
+cd apps/pipecat-daily-bot/bot
+USE_ELEVENLABS=false BOT_TTS_PROVIDER=pocket \
+  nohup /app/venv/bin/uvicorn bot_gateway:app --host 0.0.0.0 --port 4444 > /tmp/bot_gateway.log 2>&1 &
+cd /app
+
+# Start Next.js (main UI)
+echo "  → Next.js on :3000"
+cd apps/interface
+exec npx next start -p 3000
+ENTRYPOINT
+RUN chmod +x /app/start-pearlos.sh
+
+EXPOSE 3000 4444 8766 2000
+
+HEALTHCHECK --interval=30s --timeout=5s \
+  CMD curl -sf http://localhost:3000/pearlos || exit 1
+
+CMD ["/app/start-pearlos.sh"]

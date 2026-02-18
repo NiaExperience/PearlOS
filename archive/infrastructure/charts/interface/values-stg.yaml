@@ -1,0 +1,30 @@
+ingress:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: interface.stg.nxops.net
+  hosts:
+    - host: interface.stg.nxops.net
+      paths:
+        - path: /
+          pathType: Prefix
+
+image:
+  tag: "sha-2a08aa17ff7c9a90c77d176e3d64f50044c69367-stg-20349259371"
+
+configMap:
+  data:
+    BOT_AUTO_JOIN: "true"
+    BOT_CONTROL_AUTH_REQUIRED: "1"
+    DEBUG_HTML: "true"
+    FORCE_ENCRYPTION: "true"
+    MESH_ENDPOINT: "https://mesh.stg.nxops.net/graphql"
+    NEXTAUTH_INTERFACE_URL: "https://interface.stg.nxops.net"
+    NEXTAUTH_URL: "https://interface.stg.nxops.net"
+    NEXT_PUBLIC_API_URL: "https://interface.stg.nxops.net"
+    NEXT_PUBLIC_BOT_AUTO_JOIN: "true"
+    NEXT_PUBLIC_DAILY_ROOM_URL: "https://pearlos.daily.co/sUdXUVtuT0HFbSQRvdsE"
+    NEXT_PUBLIC_VAPI_API_URL: "https://west-api.vapi.ai/"
+    NODE_ENV: "production"
+    AWS_REGION: "us-east-2"
+    REDIS_AUTH_REQUIRED: "true"
+    REDIS_URL: redis://redis-stg.redis-stg.svc.cluster.local:6379
+    USE_REDIS: "true"

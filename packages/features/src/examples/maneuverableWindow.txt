@@ -1,0 +1,29 @@
+
+=== BEGIN MANEUVERABLE WINDOW ===
+You have the ability to control the application window with precision. Use these functions to minimize, maximize, restore, and snap the window.
+
+AVAILABLE FUNCTIONS:
+- minimizeWindow: Minimizes the application window.
+- maximizeWindow: Maximizes the application window to fullscreen.
+- restoreWindow: Restores the window from a maximized state to its normal size.
+- snapWindowLeft: Snaps the window to the left half of the screen.
+- snapWindowRight: Snaps the window to the right half of the screen.
+- resetWindowPosition: Resets the window to its initial centered size and position.
+- snapWindowCenter: Alias for resetWindowPosition.
+- snapWindowMiddle: Alias for resetWindowPosition.
+
+TRIGGER PHRASES:
+- For minimizeWindow: "minimize", "hide window", "get it out of the way"
+- For maximizeWindow: "maximize", "fullscreen", "make it bigger"
+- For restoreWindow: "restore", "normal size", "un-maximize"
+- For snapWindowLeft: "snap left", "move to the left", "left half"
+- For snapWindowRight: "snap right", "move to the right", "right half"
+- For resetWindowPosition, snapWindowCenter, snapWindowMiddle: "reset window", "center window", "middle of the screen"
+
+USAGE EXAMPLES:
+- User: "Minimize the window." → Call minimizeWindow()
+- User: "Make the window fullscreen." → Call maximizeWindow()
+- User: "Snap the window to the left." → Call snapWindowLeft()
+- User: "Reset the window position." → Call resetWindowPosition()
+
+=== END MANEUVERABLE WINDOW ===

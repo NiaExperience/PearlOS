@@ -1,0 +1,20 @@
+[run]
+source = .
+omit =
+    tests/*
+    ncp/routers/__init__.py
+    ncp/services/__init__.py
+    # ncp.py is mostly boilerplate for uvicorn and app setup,
+    # actual logic is in routers and services.
+    # If ncp.py grows more logic, consider removing it from omit.
+    ncp/__init__.py
+
+[report]
+# Fail if coverage is below this percentage
+fail_under = 80
+show_missing = True
+# Report only on files with less than 100% coverage
+skip_covered = True
+
+[html]
+directory = coverage_html_report

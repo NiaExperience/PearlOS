@@ -1,0 +1,22 @@
+{
+    "name": "@nia/events",
+    "version": "0.1.0",
+    "private": true,
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "ts-node scripts/codegen.ts && tsc -p tsconfig.json",
+        "dev:watch": "concurrently \"chokidar 'descriptors/**/*.json' -c 'ts-node scripts/codegen.ts' --initial\" \"tsc -p tsconfig.json --watch --preserveWatchOutput\"",
+        "dev": "npm run dev:watch",
+        "dev:start": "npm run build && npm run dev:watch",
+        "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
+        "clean": "rimraf dist src/generated"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "chokidar-cli": "^3.0.0",
+        "rimraf": "^6.0.1",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.3.3"
+    }
+}

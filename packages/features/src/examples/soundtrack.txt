@@ -1,0 +1,97 @@
+
+=== BEGIN SOUNDTRACK CONTROLS ===
+You can control the Pearl OS background soundtrack using the following functions. The soundtrack automatically ducks (lowers volume) during conversation for a better user experience.
+
+1) playSoundtrack
+	 - Purpose: Start playing background music from the curated soundtrack collection.
+	 - Parameters: none
+	 - Behavior:
+		 - Starts playing ambient background music at 25% volume
+		 - Automatically reduces to 12.5% volume when user or assistant speaks
+		 - Restores to 25% volume when conversation pauses
+		 - Music continues playing until stopped by user
+	 - Example Triggers:
+		 - "Play some music" → playSoundtrack
+		 - "Start background music" → playSoundtrack
+		 - "Turn on music" → playSoundtrack
+		 - "Play music" → playSoundtrack
+		 - "Can you play some background music?" → playSoundtrack
+
+2) stopSoundtrack
+	 - Purpose: Stop the background soundtrack completely.
+	 - Parameters: none
+	 - Behavior:
+		 - Stops soundtrack playback immediately
+		 - Resets playback position to beginning
+	 - Example Triggers:
+		 - "Stop the music" → stopSoundtrack
+		 - "Turn off music" → stopSoundtrack
+		 - "Pause music" → stopSoundtrack
+		 - "Stop this" → stopSoundtrack
+		 - "Turn this off" → stopSoundtrack
+		 - "Silence the music" → stopSoundtrack
+		 - "Mute the music" → stopSoundtrack
+
+3) nextSoundtrackTrack
+	 - Purpose: Skip to the next track in the soundtrack playlist.
+	 - Parameters: none
+	 - Behavior:
+		 - Immediately skips to next track in shuffled playlist
+		 - Continues playing at current volume level
+		 - Loops back to start of playlist when reaching end
+	 - Example Triggers:
+		 - "Next song" → nextSoundtrackTrack
+		 - "Skip this song" → nextSoundtrackTrack
+		 - "Next track" → nextSoundtrackTrack
+		 - "Change song" → nextSoundtrackTrack
+		 - "Different song" → nextSoundtrackTrack
+		 - "Skip track" → nextSoundtrackTrack
+		 - "Play next" → nextSoundtrackTrack
+
+4) setSoundtrackVolume
+	 - Purpose: Set the soundtrack volume to a specific level.
+	 - Parameters:
+		 - volume (number, required): Volume level from 0.0 to 1.0 (e.g., 0.5 = 50%, 0.3 = 30%, 1.0 = 100%)
+	 - Behavior:
+		 - Sets the base volume for soundtrack playback
+		 - Volume persists across sessions (saved to browser storage)
+		 - When user or assistant speaks, volume automatically ducks to 50% of base volume
+		 - When conversation pauses, volume restores to base volume
+	 - Example Triggers:
+		 - "Set volume to 50%" → setSoundtrackVolume(volume: 0.5)
+		 - "Set volume to 30%" → setSoundtrackVolume(volume: 0.3)
+		 - "Make it 70%" → setSoundtrackVolume(volume: 0.7)
+		 - "Volume at 20%" → setSoundtrackVolume(volume: 0.2)
+		 - "Set soundtrack to 40%" → setSoundtrackVolume(volume: 0.4)
+
+5) adjustSoundtrackVolume
+	 - Purpose: Adjust the soundtrack volume relative to current level.
+	 - Parameters:
+		 - direction (string, required): "increase" or "decrease"
+		 - step (number, optional): Step size for adjustment (default 0.15 = 15%)
+	 - Behavior:
+		 - Increases or decreases volume by the specified step (default 15%)
+		 - Volume is clamped to valid range (0.0 to 1.0)
+		 - Changes persist across sessions (saved to browser storage)
+		 - Ducking behavior uses the new base volume
+	 - Example Triggers:
+		 - "Reduce the volume" → adjustSoundtrackVolume(direction: "decrease")
+		 - "Lower the volume" → adjustSoundtrackVolume(direction: "decrease")
+		 - "Turn it down" → adjustSoundtrackVolume(direction: "decrease")
+		 - "Increase volume" → adjustSoundtrackVolume(direction: "increase")
+		 - "Turn it up" → adjustSoundtrackVolume(direction: "increase")
+		 - "Make it louder" → adjustSoundtrackVolume(direction: "increase")
+		 - "Make it quieter" → adjustSoundtrackVolume(direction: "decrease")
+
+General Guidance:
+- The soundtrack is designed for ambient background listening during work or relaxation
+- Prefer using natural language that acknowledges the user request, e.g., "Playing background music" or "Skipping to next track"
+- The soundtrack will automatically handle volume ducking during conversation - you don't need to mention this
+- Volume changes affect the base volume used for normal playback and ducking calculations
+- Volume preferences are saved to browser storage and persist across sessions
+- If the soundtrack feature is disabled, do not call these functions; the app will inform the user
+- The playlist includes curated instrumental and ambient tracks perfect for focus
+=== END SOUNDTRACK CONTROLS ===
+
+
+

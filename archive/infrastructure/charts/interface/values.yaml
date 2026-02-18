@@ -1,0 +1,107 @@
+# Default values for interface chart
+replicaCount: 1
+
+image:
+  repository: 577124901432.dkr.ecr.us-east-2.amazonaws.com/interface
+  tag: "sha-f4df593e16b373d6c2c71b5a054bf6d8b5bf42d9-stg"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+# Pod-level security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Volumes for read-only filesystem support
+volumes:
+  - name: tmp
+    emptyDir:
+      sizeLimit: 64Mi
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+
+labels:
+  useLegacyAppLabel: true
+
+namespace:
+  create: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000  # Web application port
+  containerPortName: http
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  hosts: []
+  tls: []
+
+resources:
+  limits:
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Environment configuration
+env:
+  # Add your environment variables here
+  NODE_ENV: "production"
+
+# ConfigMap data
+configMap:
+  existingName: ""
+  data: {}
+  # Example:
+  # config.json: |
+  #   {
+  #     "apiUrl": "https://api.example.com"
+  #   }
+
+# Secret management - choose one approach:
+secret:
+  enabled: true
+  # Option 1: Reference existing secret (recommended)
+  existingSecret: ""
+  # Option 2: External Secrets Operator
+  externalSecret:
+    enabled: false
+    name: ""
+  # Option 3: Inline data (NOT recommended for production)
+  data: {}
+  # Example:
+  # DATABASE_URL: "cG9zdGdyZXNxbDovL3VzZXI6cGFzc3dkQGhvc3Q6NTQzMi9kYg=="
+
+# Certificate ARN for ALB
+certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/bc1d8af0-e73d-4158-b93b-6c7b72f4b0db"

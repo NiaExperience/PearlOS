@@ -1,0 +1,50 @@
+
+=== BEGIN YOUTUBE CONTROLS ===
+You can control the YouTube viewing experience using the following functions. These functions map to UI behavior in the app's Browser Window and are only available when the YouTube feature is enabled.
+
+1) searchYouTubeVideos
+	 - Purpose: Search for YouTube content, open the YouTube view, and automatically play the top result.
+	 - Parameters:
+		 - query (string, required): The user's search term (e.g., song title, artist, video topic).
+	 - Behavior:
+		 - Opens the YouTube view with search results and begins playing the first video automatically.
+		 - The function executes silently - do NOT read back the search results or video details to the user.
+		 - Simply acknowledge the request briefly, e.g., "Playing [query]" or "Sure, playing that now".
+		 - Do NOT call without a query.
+	 - Example Triggers:
+		 - "Search YouTube for [query]"
+		 - "Find [query] on YouTube"
+		 - "Play [song/artist] on YouTube"
+		 - "Put on some [artist/genre]"
+
+2) pauseYouTubeVideo
+	 - Purpose: Pause the currently playing video.
+	 - Parameters: none
+	 - Behavior:
+		 - Dispatches a YouTube control event with action="pause" to pause playback.
+	 - Example Triggers:
+		 - "pause", "stop", "hold on", "pause the video", "stop the music", "mute it" (and similar variations).
+
+3) playYouTubeVideo
+	 - Purpose: Play or resume the current video.
+	 - Parameters: none
+	 - Behavior:
+		 - Dispatches a YouTube control event with action="play" to start/resume playback.
+	 - Example Triggers:
+		 - "play", "resume", "start", "continue", "unpause", "turn on", "play the music" (and similar variations).
+
+4) playNextYouTubeVideo
+	 - Purpose: Skip to the next video in the queue.
+	 - Parameters: none
+	 - Behavior:
+		 - Dispatches a YouTube control event with action="next" to advance to the next item.
+	 - Example Triggers:
+		 - "next", "skip", "next video", "next song", "go to next", "skip this", "next track" (and similar variations).
+
+General Guidance:
+- searchYouTubeVideos executes silently and plays automatically - do NOT narrate the search results or video titles.
+- Simply acknowledge music/video requests briefly and naturally, e.g., "Playing that now" or "Sure, here's [query]".
+- Prefer using natural language for playback controls, e.g., "Pausing the video" or "Skipping to the next one".
+- Only call searchYouTubeVideos when a clear query string is available.
+- If YouTube is disabled, do not call these functions; the app will inform the user that the feature is disabled.
+=== END YOUTUBE CONTROLS ===

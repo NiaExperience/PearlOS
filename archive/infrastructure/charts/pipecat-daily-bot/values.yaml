@@ -1,0 +1,125 @@
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: 577124901432.dkr.ecr.us-east-2.amazonaws.com/pipecat-daily-bot
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+
+namespace:
+  create: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+autoscaling: {}
+podDisruptionBudget: {}
+affinity: {}
+
+service:
+  type: ClusterIP
+  port: 4444
+  targetPort: 4444
+  headless: true
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+# Shared environment variables
+env:
+  # Common env vars can go here
+
+gateway:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  env:
+    MODE: gateway
+  probes:
+    port: http
+
+ingress:
+  enabled: false
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  certificateArn: ""
+  hostname: ""
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+operator:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  env:
+    MODE: operator
+
+warmPool:
+  enabled: true
+  replicaCount: 5
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  env:
+    MODE: runner
+    RUNNER_AUTO_START: "0"
+    RUNNER_PORT: "8080"
+
+configMap:
+  create: true
+  existingName: ""
+  data: {}
+
+# Optional secret containing environment variables to override ConfigMap defaults
+# (create with `kubectl create secret generic <name> --from-env-file=.env`)
+envOverrideSecret: ""
+
+secret:
+  name: pipecat-daily-bot-secret
+labels:
+  useLegacyAppLabel: true
+  legacyAppName: ""
+
+probes:
+  port: http

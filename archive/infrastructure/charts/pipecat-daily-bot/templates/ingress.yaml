@@ -1,0 +1,50 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "pipecat-daily-bot.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- $certificateArn := default .Values.certificateArn .Values.ingress.certificateArn -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ include "pipecat-daily-bot.fullname" . }}
+  labels:
+    {{- include "pipecat-daily-bot.labels" . | nindent 4 }}
+  {{- $hostname := .Values.ingress.hostname }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+    {{- if $certificateArn }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ $certificateArn | quote }}
+    {{- end }}
+    {{- if $hostname }}
+    external-dns.alpha.kubernetes.io/hostname: {{ $hostname | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+{{- end }}

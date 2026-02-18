@@ -1,0 +1,56 @@
+@startuml
+entity "User Page" {
+  + page_id
+  --
+  blocks:
+  * type: user
+  * content: {email, name, ...}
+}
+
+entity "Tenant Page" {
+  + page_id
+  --
+  blocks:
+  * type: tenant
+  * content: {name, domain, ...}
+}
+
+entity "Organization Page" {
+  + page_id
+  --
+  blocks:
+  * type: organization
+  * content: {tenantId, name, ...}
+}
+
+entity "UserTenantRole Page" {
+  + page_id
+  --
+  blocks:
+  * type: user_tenant_role
+  * content: {userId, tenantId, role, ...}
+}
+
+entity "UserOrganizationRole Page" {
+  + page_id
+  --
+  blocks:
+  * type: user_organization_role
+  * content: {userId, organizationId, role, ...}
+}
+
+entity "Account Page" {
+  + page_id
+  --
+  blocks:
+  * type: account
+  * content: {userId, provider, ...}
+}
+
+"User Page" ||--o{ "Account Page" : referenced by userId
+"User Page" ||--o{ "UserTenantRole Page" : referenced by userId
+"User Page" ||--o{ "UserOrganizationRole Page" : referenced by userId
+"Tenant Page" ||--o{ "Organization Page" : referenced by tenantId
+"Tenant Page" ||--o{ "UserTenantRole Page" : referenced by tenantId
+"Organization Page" ||--o{ "UserOrganizationRole Page" : referenced by organizationId
+@enduml

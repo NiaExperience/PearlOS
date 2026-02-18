@@ -1,0 +1,59 @@
+# values-external-dns.yaml
+# https://chatgpt.com/c/69091050-2414-832d-95a1-669b345e5cad
+# Target chart: external-dns/external-dns  (upstream)
+# Image pinned to match your current app version (0.17.0).
+image:
+  registry: registry.k8s.io
+  repository: external-dns/external-dns
+  tag: v0.17.0
+
+provider:
+  name: aws
+
+# You already have a ServiceAccount named "external-dns" (with IRSA).
+# Keep Helm from recreating it; we’ll reuse the existing one.
+serviceAccount:
+  create: false
+  name: external-dns
+  # If you ever need Helm to manage the SA, flip create: true and add:
+  # annotations:
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::577124901432:role/ExternalDNSRole
+
+# Mirrors your env in the Deployment
+extraEnvVars:
+  - name: AWS_DEFAULT_REGION
+    value: us-east-1
+  - name: AWS_STS_REGIONAL_ENDPOINTS
+    value: regional
+
+# From your args
+domainFilters:
+  - niaxp.io
+  - nxops.net
+  - pearlos.org
+
+sources:
+  - service
+  - ingress
+
+txtOwnerId: eks-interface
+policy: upsert-only
+registry: txt
+interval: 1m
+
+# Extra flags you had
+extraArgs:
+  - --aws-batch-change-size=1000
+  - --aws-api-retries=3
+  # NOTE: you had --aws-zone-type= (empty). Omit it; empty adds no value.
+
+# Carry over your requests/limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+    ephemeralStorage: 50Mi
+  limits:
+    cpu: 150m
+    memory: 192Mi
+    ephemeralStorage: 2Gi

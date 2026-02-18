@@ -1,0 +1,72 @@
+fullnameOverride: pipecat-daily-bot-stg
+
+namespace:
+  create: false
+
+image:
+  tag: "sha-f4df593e16b373d6c2c71b5a054bf6d8b5bf42d9-stg"
+
+service:
+  headless: true
+  port: 4444
+  targetPort: 4444
+
+configMap:
+  create: true
+  existingName: ""
+  data:
+    AUTOSPAWN_ALLOWED_ROOM_REGEX: ".*"
+    AUTOSPAWN_MAX_CONCURRENCY: "2"
+    AUTOSPAWN_WEBHOOK: "1"
+    BOT_CONTROL_AUTH_REQUIRED: "1"
+    BOT_CORS_ORIGINS: "https://interface.stg.nxops.net"
+    BOT_PACING_INTERVAL_SECONDS: "0"
+    BOT_PARTICIPANT_POLL_ENABLED: "false"
+    BOT_PARTICIPANT_REFRESH_INTERVAL_SECS: "0"
+    BOT_PERSONALITY: "pearl"
+    BOT_SANITIZE_FLOW_PROFILE_FIELDS: "1"
+    DEBUG_BOT: "false"
+    KOKORO_TTS_API_KEY: 5f051b69-f0db-418f-898b-691a16e58e21
+    KOKORO_TTS_BASE_URL: ws://kokoro-tts-stg.kokoro-tts-stg.svc.cluster.local
+    KOKORO_TTS_VOICE_ID: am_fenrir
+    KOKORO_TTS_SAMPLE_RATE: "24000"
+    KOKORO_TTS_APPLY_TEXT_NORMALIZATION: "on"
+    MESH_API_ENDPOINT: "https://mesh.stg.nxops.net/api"
+    MESH_ENDPOINT: "https://mesh.stg.nxops.net/graphql"
+    REDIS_AUTH_REQUIRED: "true"
+    REDIS_URL: "redis://redis-stg.redis-stg.svc.cluster.local:6379"
+    RUNNER_AUTO_START: "0"
+    USE_REDIS: "true"
+
+secret:
+  name: pipecat-daily-bot-stg-secret
+
+labels:
+  legacyAppName: pipecat-daily-bot-stg
+
+probes:
+  port: 4444
+
+ingress:
+  enabled: true
+  className: "alb"
+  hostname: "bot.stg.nxops.net"
+  certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/017acd67-0b7b-43f8-9b1d-ea6b1b85a6ba"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  hosts:
+    - host: bot.stg.nxops.net
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /daily/webhook
+          pathType: Exact
+
+warmPool:
+  replicaCount: 4

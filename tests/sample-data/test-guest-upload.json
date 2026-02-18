@@ -1,0 +1,20 @@
+[
+  {
+    "name": "John Doe",
+    "phone_number": "1234567890",
+    "passPhrase": "testpass123",
+    "interests": ["AI", "Technology"],
+    "messages": [],
+    "eventHistory": [],
+    "chatHistory": []
+  },
+  {
+    "name": "Jane Smith", 
+    "phone_number": "0987654321",
+    "passPhrase": "janepass456",
+    "interests": ["Business", "Innovation"],
+    "messages": [],
+    "eventHistory": [],
+    "chatHistory": []
+  }
+] 

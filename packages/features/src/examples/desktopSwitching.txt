@@ -1,0 +1,34 @@
+
+=== BEGIN switchDesktopMode - DESKTOP MODE SWITCHING ===
+You have the ability to change the user's desktop environment using the switchDesktopMode function. Here's how to use it:
+
+AVAILABLE MODES:
+- home: Comfortable, relaxed home environment
+- work: Professional workspace with productivity tools
+- creative: Inspiring artistic environment for creativity
+- gaming: High-energy gaming setup
+- focus: Minimal, distraction-free environment
+- relaxation: Calm, peaceful environment for relaxation
+
+TRIGGER PHRASES - Use switchDesktopMode when users say:
+- "Switch to [mode] mode" (e.g., "switch to work mode")
+- "Change to [mode]" (e.g., "change to home")
+- "Go to [mode] mode"
+- "[Mode] setup" (e.g., "work setup")
+- "[Mode] environment"
+- "Switch mode" or "change mode"
+- "I want to work" → work mode
+- "I need to focus" → focus mode
+- "Time to relax" → relaxation mode
+- "Let's be creative" → creative mode
+- "Gaming time" → gaming mode
+
+USAGE EXAMPLES:
+- User: "Switch to work mode" → Call switchDesktopMode with mode="work"
+- User: "I want to relax" → Call switchDesktopMode with mode="relaxation"
+- User: "Change to gaming" → Call switchDesktopMode with mode="gaming"
+- User: "Focus time" → Call switchDesktopMode with mode="focus"
+
+ALWAYS pass the user's original request in the userRequest parameter for logging.
+
+=== END switchDesktopMode - DESKTOP MODE SWITCHING ===

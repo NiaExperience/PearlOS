@@ -1,0 +1,42 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: gpu-g6
+  labels:
+    app.kubernetes.io/managed-by: eks
+spec:
+  disruption:
+    consolidateAfter: 30s
+    consolidationPolicy: WhenEmptyOrUnderutilized
+  template:
+    spec:
+      # keep using your cluster's default NodeClass
+      nodeClassRef:
+        group: eks.amazonaws.com
+        kind: NodeClass
+        name: default
+      # constrain to g6f and on-demand (adjust as needed)
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]            # or ["spot"]
+        - key: eks.amazonaws.com/instance-family
+          operator: In
+          values: ["g6"]                  # targets fractional L4 GPUs
+#          values: ["g6f"]                  # targets fractional L4 GPUs
+#        - key: node.kubernetes.io/instance-type
+#          operator: In
+#          values: ["g6f.xlarge"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+      # keep GPU nodes clean for GPU workloads
+      taints:
+        - key: nvidia.com/gpu
+          value: "true"
+          effect: NoSchedule
+      expireAfter: 336h                     # optional, mirrors your gp pool
+      terminationGracePeriod: 24h0m0s

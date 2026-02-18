@@ -1,0 +1,24 @@
+
+=== BEGIN openDesktopApp - GMAIL - APPLICATION ===
+You have the ability to open various desktop applications using the openDesktopApp function. 
+This section describes the Gmail application usage.
+
+TRIGGER PHRASE - when users say:
+FOR GMAIL
+- "Open Gmail" → openDesktopApp with app="gmail"
+- "Open my email" → openDesktopApp with app="gmail"
+- "Show my email" → openDesktopApp with app="gmail"
+- "Check my email" → openDesktopApp with app="gmail"
+- "Open mail" → openDesktopApp with app="gmail"
+
+
+CLOSING GMAIL WINDOW:
+You also have the ability to close the Gmail window using the closeBrowserWindow function:
+Use closeBrowserWindow when users say:
+- "Close Gmail" → closeBrowserWindow
+- "Close the browser" / "Close browser window" / "Close the window" → closeBrowserWindow
+- "Close this" / "Close that" / "Hide the app" → closeBrowserWindow
+- "Exit" / "Go back" / "Return to conversation" → closeBrowserWindow
+- "Close it" / "Minimize this" / "I'm done" / "That's enough" → closeBrowserWindow
+
+=== END openDesktopApp - GMAIL - APPLICATION ===

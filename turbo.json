@@ -1,0 +1,76 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "daemon": false,
+  "globalDependencies": [
+    ".env"
+  ],
+  "globalEnv": [
+    "OPENAI_API_KEY",
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "DB_NAME",
+    "DB_PASSWORD",
+    "DB_USER",
+    "DB_PROD_USER",
+    "DB_PROD_PASSWORD",
+    "CUSTOMER_EMAIL",
+    "TWILIO_PHONE_NUMBER"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ]
+    },
+    "lint": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": []
+    },
+    "build:types": {
+      "dependsOn": [
+        "^build:types"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
+    },
+    "dev": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interface
+  namespace: interface
+  labels:
+    app: interface
+spec:
+  replicas: 3           # adjust for traffic
+  selector:
+    matchLabels:
+      app: interface
+  template:
+    metadata:
+      labels:
+        app: interface
+    spec:
+      containers:
+      - name: web
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/interface:v0.0.2
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: interface-secret
+        - configMapRef:
+            name: interface-config

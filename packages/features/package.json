@@ -1,0 +1,22 @@
+{
+    "name": "@nia/features",
+    "version": "0.1.0",
+    "private": true,
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "prebuild": "rimraf \"src/**/*.js\" \"src/**/*.js.map\" --glob",
+        "build": "ts-node scripts/codegen.ts && tsc -p tsconfig.json",
+        "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
+        "clean": "rimraf dist src/generated python/nia_bot_tools python/nia_library_templates python/example_bot_tools_usage.py"
+    },
+    "dependencies": {
+        "@nia/prism": "*",
+        "pipecat-daily-bot": "*"
+    },
+    "devDependencies": {
+        "rimraf": "^6.0.1",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.3.3"
+    }
+}

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: interface
+  namespace: interface
+  labels:
+    app: interface
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+  selector:
+    app: interface

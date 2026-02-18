@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "redis.configName" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "redis.labels" . | nindent 4 }}
+data:
+  redis.conf: |
+    # Redis Configuration for {{ .Values.environment | upper }} Environment
+    # Generated from Helm chart
+    
+    # Basic Configuration
+    port {{ .Values.redis.port }}
+    bind 0.0.0.0
+    protected-mode {{ if .Values.auth.enabled }}yes{{ else }}no{{ end }}
+    
+    # Authentication
+    # Password set via command line --requirepass when auth is enabled
+    
+    # Memory and Performance
+    maxmemory {{ .Values.redis.maxmemory }}
+    maxmemory-policy {{ .Values.redis.maxmemoryPolicy }}
+    
+    # Logging
+    loglevel {{ .Values.redis.loglevel }}
+    logfile ""
+    
+    # Persistence
+    {{- if .Values.redis.persistence.enabled }}
+    save {{ join " " .Values.redis.persistence.save }}
+    dbfilename {{ .Values.redis.persistence.dbfilename }}
+    dir {{ .Values.redis.persistence.dir }}
+    
+    # AOF Persistence
+    {{- if .Values.redis.persistence.aof.enabled }}
+    appendonly yes
+    appendfilename {{ .Values.redis.persistence.aof.filename }}
+    appendfsync {{ .Values.redis.persistence.aof.fsync }}
+    no-appendfsync-on-rewrite {{ .Values.redis.persistence.aof.noAppendfsyncOnRewrite }}
+    auto-aof-rewrite-percentage {{ .Values.redis.persistence.aof.autoAofRewritePercentage }}
+    auto-aof-rewrite-min-size {{ .Values.redis.persistence.aof.autoAofRewriteMinSize }}
+    {{- end }}
+    {{- else }}
+    save ""
+    appendonly no
+    {{- end }}
+    
+    # Network and Timeouts  
+    timeout {{ .Values.redis.timeout }}
+    tcp-keepalive {{ .Values.redis.tcpKeepalive }}
+    
+    # Client limits
+    maxclients {{ .Values.redis.maxclients }}
+    
+    # Security
+    {{- if .Values.redis.renameCommands }}
+    {{- range $old, $new := .Values.redis.renameCommands }}
+    rename-command {{ $old }} {{ $new }}
+    {{- end }}
+    {{- end }}
+    
+    # Additional configuration
+    {{- if .Values.redis.additionalConfig }}
+    {{- .Values.redis.additionalConfig | nindent 4 }}
+    {{- end }}

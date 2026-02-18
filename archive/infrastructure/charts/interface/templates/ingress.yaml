@@ -1,0 +1,61 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "interface.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- $certificateArn := default .Values.certificateArn .Values.ingress.certificateArn -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ $fullName }}
+  labels:
+    {{- include "interface.labels" . | nindent 4 }}
+  annotations:
+    {{- $annotations := dict }}
+    {{- $_ := set $annotations "kubernetes.io/ingress.class" "alb" }}
+    {{- $_ := set $annotations "alb.ingress.kubernetes.io/scheme" "internet-facing" }}
+    {{- $_ := set $annotations "alb.ingress.kubernetes.io/target-type" "ip" }}
+    {{- $_ := set $annotations "alb.ingress.kubernetes.io/listen-ports" `[{"HTTP":80},{"HTTPS":443}]` }}
+    {{- $_ := set $annotations "alb.ingress.kubernetes.io/ssl-redirect" "443" }}
+    {{- $_ := set $annotations "alb.ingress.kubernetes.io/healthcheck-path" "/health" }}
+    {{- if $certificateArn }}
+    {{- $_ := set $annotations "alb.ingress.kubernetes.io/certificate-arn" $certificateArn }}
+    {{- end }}
+    {{- if .Values.ingress.hostname }}
+    {{- $_ := set $annotations "external-dns.alpha.kubernetes.io/hostname" .Values.ingress.hostname }}
+    {{- end }}
+    {{- if .Values.ingress.annotations }}
+    {{- $annotations = merge $annotations .Values.ingress.annotations }}
+    {{- end }}
+    {{- toYaml $annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.ingress.rules }}
+    {{- toYaml .Values.ingress.rules | nindent 4 }}
+    {{- else }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+    {{- end }}
+{{- end }}

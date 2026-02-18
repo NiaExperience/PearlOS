@@ -1,0 +1,89 @@
+# Staging values for dashboard chart
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - dashboard
+          topologyKey: kubernetes.io/hostname
+
+image:
+  tag: "sha-75cd63c87111a0782f042ff098f338ff2c88cedf-pearl"
+
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-2:577124901432:certificate/ed6ef8f8-18ca-4d65-b65b-a15cb55c5ee9"
+    external-dns.alpha.kubernetes.io/hostname: dashboard.pearlos.org
+  hostname: dashboard.pearlos.org
+  certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/76588b6b-4dd1-4503-bfe5-0f46fd4d0ee0"
+  hosts:
+    - host: dashboard.pearlos.org
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Staging-specific environment variables
+env: {}
+
+configMap:
+  data:
+    CHORUS_TTS_URL: "wss://chorus-tts.pearlos.org"
+    FORCE_ENCRYPTION: "true"
+    MESH_ENDPOINT: "https://mesh.pearlos.org/graphql"
+    NEXTAUTH_DASHBOARD_URL: "https://dashboard.pearlos.org"
+    NEXTAUTH_URL: "https://dashboard.pearlos.org"
+    NODE_ENV: "production"
+    INTERFACE_BASE_URL: "https://pearlos.org"
+    NEXT_PUBLIC_INTERFACE_BASE_URL: "https://pearlos.org"
+    # Add standard vars inferred from staging/defaults
+    AWS_REGION: "us-east-2"
+    AWS_SDK_LOAD_CONFIG: "1"
+    EMAIL_FROM: "admin@pearlos.org"
+    EMAIL_REQUIRE_SES: "true"
+    NEXT_PUBLIC_API_URL: "https://dashboard.pearlos.org"
+    NEXT_PUBLIC_VAPI_API_URL: "https://west-api.vapi.ai/"
+    RESET_TOKEN_PERSISTENCE: "enabled"
+    POSTGRES_HOST: "nia-prod-cluster.cluster-cjiyu8c46p5t.us-east-2.rds.amazonaws.com"
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: "niaprod"
+
+secret:
+  enabled: true
+  externalSecret:
+    enabled: false
+    name: ""
+
+labels:
+  useLegacyAppLabel: false
+
+# Staging-specific resources
+resources:
+  limits:
+    memory: 512Mi
+  requests:
+    cpu: 150m
+    memory: 256Mi
+

@@ -1,0 +1,103 @@
+# Example: Using External Secrets Operator
+# This file shows how to configure the interface chart to use External Secrets Operator
+# for fetching secrets from AWS Secrets Manager, HashiCorp Vault, etc.
+
+replicaCount: 3
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - interface
+          topologyKey: kubernetes.io/hostname
+
+image:
+  tag: "sha-75cd63c87111a0782f042ff098f338ff2c88cedf-pearl"
+
+service:
+  targetPort: 3000
+
+certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/f1c65495-e771-4014-9dbb-b0e15f3cc5c1"
+
+ingress:
+  hostname: "pearlos.org,www.pearlos.org"
+  certificateArn: "arn:aws:acm:us-east-2:577124901432:certificate/f1c65495-e771-4014-9dbb-b0e15f3cc5c1"
+  rules:
+    # Redirect rule for naked domain root
+    - host: pearlos.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: interface-pearl
+                port:
+                  number: 80
+
+    # Keep existing www rule
+    - host: www.pearlos.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: interface-pearl
+                port:
+                  number: 80
+
+# Environment variables
+env: null
+
+configMap:
+  existingName: ""
+  data:
+    BOT_AUTO_JOIN: "true"
+    BOT_CONTROL_AUTH_REQUIRED: "1"
+    DEBUG_HTML: "true"
+    FORCE_ENCRYPTION: "true"
+    MESH_ENDPOINT: "https://mesh.pearlos.org/graphql"
+    NEXTAUTH_INTERFACE_URL: "https://pearlos.org"
+    NEXTAUTH_URL: "https://pearlos.org"
+    NEXT_PUBLIC_API_URL: "https://pearlos.org"
+    NEXT_PUBLIC_BOT_AUTO_JOIN: "true"
+    NEXT_PUBLIC_DAILY_ROOM_URL: "https://pearlos.daily.co/pearlprod"
+    NEXT_PUBLIC_VAPI_API_URL: "https://west-api.vapi.ai/"
+    NODE_ENV: "production"
+    REDIS_URL: "redis://redis-pearl.redis-pearl.svc.cluster.local:6379"
+    REDIS_AUTH_REQUIRED: "true"
+    USE_REDIS: "true"
+    POSTGRES_HOST: "nia-prod-cluster.cluster-cjiyu8c46p5t.us-east-2.rds.amazonaws.com"
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: "niaprod"
+    PEARLOS_ONLY: "true"
+    AWS_REGION: "us-east-2"
+
+labels:
+  useLegacyAppLabel: false
+
+# Secret configuration using External Secrets Operator
+secret:
+  enabled: true
+  # Use External Secrets Operator to fetch from AWS Secrets Manager
+  externalSecret:
+    enabled: false
+    name: ""

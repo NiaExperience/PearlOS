@@ -1,0 +1,278 @@
+/**
+ * NotesViewNext Component Styles
+ * Streaming renderer with subtle animations for content updates
+ */
+
+@import url('../../../styles/content-animations.css');
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   STREAMING CONTAINER
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.nn-streaming-container {
+  position: relative;
+  padding: 1rem;
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Content update glow */
+.nn-content-glow {
+  position: relative;
+  background: radial-gradient(
+    ellipse at center top,
+    rgba(100, 150, 255, 0.06) 0%,
+    transparent 50%
+  );
+}
+
+/* Content appended state */
+.nn-content-appended {
+  animation: pearl-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Content modified state */
+.nn-content-modified {
+  animation: pearl-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Content removed state */
+.nn-content-removed {
+  opacity: 0.8;
+  transition: opacity 200ms ease-out;
+}
+
+/* Top border shimmer for active updates */
+.nn-content-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(100, 150, 255, 0.5),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   LINE ANIMATIONS
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* New line fade-in with subtle highlight */
+.nn-line-new {
+  animation: nn-line-appear 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+@keyframes nn-line-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+    color: rgba(100, 160, 255, 1);
+    background: rgba(100, 150, 255, 0.08);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+    color: inherit;
+    background: rgba(100, 150, 255, 0.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    color: inherit;
+    background: transparent;
+  }
+}
+
+/* Modified line pulse */
+.nn-line-modified {
+  animation: nn-line-modify 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes nn-line-modify {
+  0% {
+    background: rgba(201, 168, 124, 0.15);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MARKDOWN ELEMENTS
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.nn-h1, .nn-h2, .nn-h3, .nn-h4, .nn-h5, .nn-h6 {
+  transition: color 200ms ease-out, background 200ms ease-out;
+  padding: 0.25rem 0;
+  border-radius: 4px;
+}
+
+.nn-p, .nn-li {
+  transition: color 200ms ease-out, background 200ms ease-out;
+  padding: 0.125rem 0;
+  border-radius: 2px;
+}
+
+.nn-blockquote {
+  transition: all 200ms ease-out;
+  padding-left: 1rem;
+  border-left: 3px solid rgba(100, 150, 255, 0.3);
+}
+
+.nn-ul, .nn-ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.nn-code-inline {
+  padding: 0.125rem 0.375rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.nn-code-block {
+  display: block;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.9em;
+}
+
+.nn-pre {
+  margin: 1rem 0;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 0;
+}
+
+.nn-table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.nn-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.nn-th, .nn-td {
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nn-th {
+  background: rgba(100, 150, 255, 0.1);
+  font-weight: 600;
+}
+
+.nn-hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 2rem 0;
+}
+
+.nn-a {
+  color: rgba(100, 150, 255, 1);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(100, 150, 255, 0.3);
+  transition: border-color 200ms ease;
+}
+
+.nn-a:hover {
+  border-bottom-color: rgba(100, 150, 255, 1);
+}
+
+.nn-strong {
+  font-weight: 600;
+}
+
+.nn-em {
+  font-style: italic;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   LOADING & CURSOR
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.nn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.5);
+  animation: pearl-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.nn-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: rgba(100, 150, 255, 1);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: nn-cursor-blink 1s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(100, 150, 255, 0.5);
+  border-radius: 1px;
+}
+
+@keyframes nn-cursor-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SCROLL ANCHOR
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.nn-scroll-anchor {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DOCUMENT CONTENT CONTAINER
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.nn-doc-content {
+  position: relative;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  animation: pearl-fade-in 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Loading state for document content */
+.nn-doc-content--loading {
+  position: relative;
+}
+
+.nn-doc-content--loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(100, 150, 255, 0.6),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: pearl-shimmer 1.5s ease-in-out infinite;
+  z-index: 100;
+}

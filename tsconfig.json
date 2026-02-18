@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "paths": {
+      "@nia/prism": ["./packages/prism/src"],
+      "@nia/prism/*": ["./packages/prism/src/*"],
+      "@nia/features": ["./packages/features/src"],
+      "@nia/features/*": ["./packages/features/src/*"],
+      "@dashboard": ["./apps/dashboard/src"],
+      "@dashboard/*": ["./apps/dashboard/src/*"],
+      "@interface": ["./apps/interface/src"],
+      "@interface/*": ["./apps/interface/src/*"]
+    },
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["**/*.ts", "**/*.tsx", "scripts/globalTeardown.js", "scripts/globalSetup.js"],
+  "exclude": ["archive", "node_modules", "**/__tests__/**"]
+}

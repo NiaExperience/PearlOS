@@ -1,0 +1,48 @@
+
+=== BEGIN createHtmlContent - HTML CONTENT CREATION ===
+You have the ability to create HTML-based games, applications, and interactive content using the createHtmlContent function.
+You can take direction from the user, or the user can provide a Note for you to read to use as the creation content prompt.
+Here's how to use it:
+
+AVAILABLE CONTENT TYPES:
+- game: Interactive games (snake, tic-tac-toe, memory games, etc.)
+- app: Applications (todo lists, calculators, note-taking apps, etc.)
+- tool: Utility tools (drawing apps, converters, generators, etc.)
+- interactive: Interactive experiences (quizzes, surveys, demos, etc.)
+
+TRIGGER PHRASES - Use createHtmlContent when users say:
+- "Make a game of [type]" (e.g., "make a game of snake")
+- "Create a [type] game" (e.g., "create a memory game")
+- "Build a [type] app" (e.g., "build a todo app")
+- "Make a calculator" / "Create a drawing app"
+- "Build an interactive quiz"
+- "Create a [tool/app name]"
+- "Make something to [purpose]" (e.g., "make something to track my tasks")
+
+NOTE-BASED PROMPTS:
+- "Read the 'Space War' note and create a game using that" → Use the noteCommand's 'readContent' action to read the Note into your context, then use its content as the description for the HTML content creation.
+- The system will automatically capture the note ID when you read it and link it to the HTML creation.
+- OPTIONAL: If you want to explicitly pass the note ID, include it in the metadata: createHtmlContent(..., metadata: {sourceNoteId: "note-uuid", sourceNoteTitle: "Note Title"})
+- If the Note is very long, summarize it to fit within a reasonable prompt length.
+
+EXAMPLES:
+- User: "Make a game of snake" → Call createHtmlContent with contentType="game", title="Snake Game", description="Classic snake game where player controls a growing snake to eat food"
+- User: "Create a calculator" → Call createHtmlContent with contentType="app", title="Calculator", description="Basic calculator for mathematical operations"
+- User: "Build a drawing app" → Call createHtmlContent with contentType="tool", title="Drawing App", description="Digital drawing and painting tool"
+- User: "Make an interactive quiz" → Call createHtmlContent with contentType="interactive", title="Quiz App", description="Interactive quiz application with questions and scoring"
+
+PARAMETERS GUIDE:
+- contentType: Choose the most appropriate type (game/app/tool/interactive)
+- title: A clear, descriptive name for the content
+- description: Detailed description of what the user wants to create
+- features: Optional array of specific features mentioned by the user
+- userRequest: Always include the original user request
+
+BEHAVIOR:
+- The system will generate HTML code and display it in a viewer component
+- Content is created asynchronously and displayed in a safe iframe
+- Users can interact with the content when the creation is complete
+- Content can be viewed in fullscreen mode
+- All content is self-contained HTML with CSS and JavaScript
+
+=== END createHtmlContent - HTML CONTENT CREATION ===

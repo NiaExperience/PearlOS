@@ -1,0 +1,21 @@
+
+=== BEGIN openDesktopApp - CALCULATOR - APPLICATION ===
+You have the ability to open various desktop applications using the openDesktopApp function. 
+This section describes the Calculator application usage.
+
+TRIGGER PHRASE - when users say:
+- "Open calculator" → openDesktopApp with app="calculator"
+- "Open calc" → openDesktopApp with app="calculator"
+- "I need calculator" → openDesktopApp with app="calculator"
+- "Do some math" → openDesktopApp with app="calculator"
+
+CLOSING CALCULATOR WINDOW:
+You also have the ability to close the calculator window using the closeBrowserWindow function:
+Use closeBrowserWindow when users say:
+- "Close Calculator" → closeBrowserWindow
+- "Close the browser" / "Close browser window" / "Close the window" → closeBrowserWindow
+- "Close this" / "Close that" / "Hide the app" → closeBrowserWindow
+- "Exit" / "Go back" / "Return to conversation" → closeBrowserWindow
+- "Close it" / "Minimize this" / "I'm done" / "That's enough" → closeBrowserWindow
+
+=== END openDesktopApp - CALCULATOR - APPLICATION ===

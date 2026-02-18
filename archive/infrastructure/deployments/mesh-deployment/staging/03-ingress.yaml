@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mesh-stg
+  namespace: mesh-stg
+  labels:
+    app: mesh-stg
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:577124901432:certificate/bc1d8af0-e73d-4158-b93b-6c7b72f4b0db
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    external-dns.alpha.kubernetes.io/hostname: mesh.stg.nxops.net
+spec:
+  ingressClassName: alb
+  rules:
+  - host: mesh.stg.nxops.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mesh-stg
+            port:
+              number: 80

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional App Template</title>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* CSS Custom Properties for Theming */
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #64748b;
+            --accent: #f59e0b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --background: #ffffff;
+            --surface: #f8fafc;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #0f172a;
+                --surface: #1e293b;
+                --border: #334155;
+                --text: #f1f5f9;
+                --text-light: #94a3b8;
+            }
+        }
+
+        /* Main Layout */
+        .app-container {
+            display: grid;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Desktop Layout */
+        @media (min-width: 768px) {
+            .app-container {
+                grid-template-columns: 300px 1fr;
+            }
+            
+            .sidebar {
+                display: block;
+            }
+            
+            .main-content {
+                display: flex;
+                flex-direction: column;
+            }
+        }
+
+        /* Mobile Layout */
+        @media (max-width: 767px) {
+            .app-container {
+                grid-template-rows: auto 1fr;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+            
+            .mobile-header {
+                display: flex;
+            }
+        }
+
+        /* Header */
+        .header {
+            background: var(--background);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+        }
+
+        .mobile-header {
+            display: none;
+            background: var(--background);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: var(--text);
+            text-decoration: none;
+            transition: background-color 0.2s;
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-item:hover {
+            background: var(--border);
+        }
+
+        .sidebar-item.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+            overflow: hidden;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        /* Cards and Components */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-outline:hover {
+            background: var(--surface);
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--background);
+            color: var(--text);
+            font-size: 0.875rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Grid Layouts */
+        .grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .grid-cols-1 {
+            grid-template-columns: 1fr;
+        }
+
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid-cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        @media (max-width: 768px) {
+            .grid-cols-2,
+            .grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utilities */
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .gap-4 {
+            gap: 1rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+        }
+
+        .font-semibold {
+            font-weight: 600;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem;
+        }
+
+        .p-4 {
+            padding: 1rem;
+        }
+
+        /* Responsive Typography */
+        .responsive-text {
+            font-size: clamp(1rem, 2.5vw, 1.5rem);
+        }
+
+        /* Loading States */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Navigation</h3>
+                <a href="#" class="sidebar-item active">
+                    <span>🏠</span>
+                    Dashboard
+                </a>
+                <a href="#" class="sidebar-item">
+                    <span>📊</span>
+                    Analytics
+                </a>
+                <a href="#" class="sidebar-item">
+                    <span>⚙️</span>
+                    Settings
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Quick Actions</h3>
+                <a href="#" class="sidebar-item">
+                    <span>➕</span>
+                    Add New
+                </a>
+                <a href="#" class="sidebar-item">
+                    <span>📤</span>
+                    Export
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Mobile Header -->
+            <div class="mobile-header">
+                <h1 class="header-title">Professional App</h1>
+                <button class="btn btn-outline" onclick="toggleSidebar()">
+                    <span>☰</span>
+                </button>
+            </div>
+
+            <!-- Desktop Header -->
+            <header class="header">
+                <h1 class="header-title">Professional App Template</h1>
+                <div class="header-actions">
+                    <button class="btn btn-outline">Settings</button>
+                    <button class="btn btn-primary">New Item</button>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Card 1 -->
+                    <div class="card">
+                        <h3 class="card-title">Welcome</h3>
+                        <p class="text-sm text-light mb-4">
+                            This is a professional app template with responsive design and modern UI patterns.
+                        </p>
+                        <button class="btn btn-primary">Get Started</button>
+                    </div>
+
+                    <!-- Card 2 -->
+                    <div class="card">
+                        <h3 class="card-title">Features</h3>
+                        <ul class="text-sm text-light">
+                            <li>✅ Responsive design</li>
+                            <li>✅ Professional layout</li>
+                            <li>✅ Dynamic dimensions</li>
+                            <li>✅ Modern UI patterns</li>
+                        </ul>
+                    </div>
+
+                    <!-- Card 3 -->
+                    <div class="card">
+                        <h3 class="card-title">Quick Form</h3>
+                        <form>
+                            <div class="form-group">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="form-input" placeholder="Enter your name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-input" placeholder="Enter your email">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Submit</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.style.display = sidebar.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // Responsive behavior
+        function handleResize() {
+            const sidebar = document.querySelector('.sidebar');
+            if (window.innerWidth >= 768) {
+                sidebar.style.display = 'block';
+            } else {
+                sidebar.style.display = 'none';
+            }
+        }
+
+        // Initialize
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Example functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const logger = window.logger || { info: () => {} };
+            logger.info('Professional app template loaded');
+            
+            // Add click handlers for sidebar items
+            document.querySelectorAll('.sidebar-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Remove active class from all items
+                    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+                    
+                    // Add active class to clicked item
+                    this.classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pipecat-daily-bot-stg
+  namespace: pipecat-daily-bot-stg
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # Standalone ALB for the bot: no group.name annotation so it won't attach to interface ALB.
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    # Updated ACM certificate ARN (includes bot.stg.nxops.net)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:577124901432:certificate/017acd67-0b7b-43f8-9b1d-ea6b1b85a6ba
+    # Enforce modern TLS policy
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    external-dns.alpha.kubernetes.io/hostname: bot.stg.nxops.net
+spec:
+  ingressClassName: alb
+  rules:
+  - host: bot.stg.nxops.net
+    http:
+      paths:
+      # Control server root endpoints (/join, /sessions/*, /health)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pipecat-daily-bot-stg
+            port:
+              number: 4444
+      - path: /daily/webhook
+        pathType: Exact
+        backend:
+          service:
+            name: pipecat-daily-bot-stg
+            port:
+              number: 4444

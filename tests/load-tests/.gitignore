@@ -1,0 +1,14 @@
+# JMeter Load Test specific files
+results/
+report_*/
+*.jtl
+*.log
+jmeter-test-config.json
+tenant-id.csv
+
+# API server files
+api-server/node_modules/
+api-server.log
+start-api-server.sh
+temp/
+!worker.js

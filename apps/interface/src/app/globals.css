@@ -1,0 +1,1013 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  overflow: hidden; /* Prevent scrollbars — PearlOS is a fixed viewport app */
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  /* font-family: "Cal Sans"; */
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #000000 !important; /* lock PearlOS canvas to dark even if theme is light */
+  
+  /* iOS safe area support */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* TEMP: Disable all CSS animations to test audio crackling hypothesis.
+   Remove this block once we confirm whether animations cause audio static. */
+.smoke-particle,
+.water-ripple,
+.water-shimmer,
+.water-sparkle,
+.pixel-particle {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+
+    --radius: 0.5rem;
+
+    /* Nia */
+    --nia-light-blue: #0097B2;
+    --nia-navy: #1F497D;
+
+    /* SeaTrade */
+    --scg-sunset: #FF7F00;
+    --scg-navy: #0d374a;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Disable focus outlines globally to prevent visual tab navigation indicators */
+  *:focus {
+    outline: none !important;
+  }
+
+  *:focus-visible {
+    outline: none !important;
+  }
+}
+
+/* Login Page Styles */
+.login-shell {
+  min-height: 100dvh !important; /* Use dynamic viewport height for mobile */
+  width: 100% !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  overflow: hidden !important;
+  color: #f5f5ff !important;
+  font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  z-index: 1 !important;
+}
+
+/* Prevent FOUC - ensure background is always visible */
+body:has(.login-shell) {
+  background: #05030f !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Ensure login shell is visible immediately */
+.login-shell,
+.login-shell * {
+  visibility: visible !important;
+}
+
+/* CSS-only animated background */
+.animated-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 30% -10%, rgba(243, 104, 224, 0.35), transparent),
+    radial-gradient(circle at 70% 110%, rgba(0, 210, 211, 0.25), transparent),
+    #05030f;
+  overflow: hidden;
+}
+
+.animated-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  background-image: 
+    radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(95, 39, 205, 0.4), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(84, 160, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(0, 210, 211, 0.4), transparent);
+  background-repeat: repeat;
+  background-size: 150px 150px;
+  animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+}
+
+/* Override any body background when login shell is active */
+body:has(.login-shell),
+html:has(.login-shell) {
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Ensure no other elements override the background, except the container and inputs */
+.login-shell *:not(.login-container):not(.form-input) {
+  background-color: transparent !important;
+}
+
+/* Force container width to be applied */
+.login-container,
+div.login-container,
+[class*="login-container"] {
+  width: min(100%, 450px) !important;
+  max-width: 450px !important;
+}
+
+/* Custom input styling - completely bypass form library */
+.custom-input {
+  width: 100% !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  background-color: rgba(0, 0, 0, 0.9) !important;
+  color: #f5f5ff !important;
+  border: 1px solid rgba(132, 90, 255, 0.2) !important;
+  border-radius: 12px !important;
+  outline: none !important;
+  font-size: 0.9rem !important;
+  font-family: inherit !important;
+  padding: 0.75rem 1rem !important;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.custom-input:focus {
+  border-color: rgba(84, 160, 255, 0.65) !important;
+  box-shadow: 0 14px 30px rgba(84, 160, 255, 0.22) !important;
+  background: rgba(0, 0, 0, 0.95) !important;
+  background-color: rgba(0, 0, 0, 0.95) !important;
+}
+
+.custom-input:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+
+.custom-input::placeholder {
+  color: rgba(232, 227, 255, 0.44) !important;
+}
+
+/* Error message styling */
+.error-message {
+  color: #ff6b6b !important;
+  font-size: 0.8rem !important;
+  margin-top: 0.25rem !important;
+}
+
+/* Fix placeholder styling for dark inputs */
+input::placeholder {
+  color: rgba(232, 227, 255, 0.44) !important;
+  opacity: 1 !important;
+}
+
+input::-webkit-input-placeholder {
+  color: rgba(232, 227, 255, 0.44) !important;
+  opacity: 1 !important;
+}
+
+input::-moz-placeholder {
+  color: rgba(232, 227, 255, 0.44) !important;
+  opacity: 1 !important;
+}
+
+input:-ms-input-placeholder {
+  color: rgba(232, 227, 255, 0.44) !important;
+  opacity: 1 !important;
+}
+
+/* Nuclear option - force input styling with maximum specificity */
+.login-shell input[type="email"],
+.login-shell input[type="password"],
+.login-container input[type="email"],
+.login-container input[type="password"],
+.login-content-layer input[type="email"],
+.login-content-layer input[type="password"],
+div.login-container input[type="email"],
+div.login-container input[type="password"],
+.login-form input[type="email"],
+.login-form input[type="password"] {
+  background: #1a1a1a !important;
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(132, 90, 255, 0.2) !important;
+  border-radius: 12px !important;
+  outline: none !important;
+  font-size: 0.9rem !important;
+  font-family: inherit !important;
+  padding: 0.75rem 1rem !important;
+  box-sizing: border-box !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 100% !important;
+}
+
+/* Override any Tailwind or framework styles */
+input[type="email"],
+input[type="password"],
+input {
+  background: #1a1a1a !important;
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+/* Force override any global styles */
+* input[type="email"],
+* input[type="password"] {
+  background: #1a1a1a !important;
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+/* CSS Custom Properties for consistent theming */
+:root {
+  --login-input-bg: #1a1a1a;
+  --login-input-color: #ffffff;
+  --login-input-border: none;
+  --login-input-radius: 12px;
+  --login-input-padding: 0.75rem 1rem;
+}
+
+/* Ultra-specific override for login page inputs - using CSS custom properties */
+body .login-shell .login-container .login-form .form-group div input[type="email"],
+body .login-shell .login-container .login-form .form-group div input[type="password"],
+.login-shell input[type="email"],
+.login-shell input[type="password"] {
+  background: var(--login-input-bg) !important;
+  background-color: var(--login-input-bg) !important;
+  color: var(--login-input-color) !important;
+  border: var(--login-input-border) !important;
+  border-radius: var(--login-input-radius) !important;
+  padding: var(--login-input-padding) !important;
+  font-size: 0.9rem !important;
+  font-family: inherit !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+}
+
+/* Force wrapper divs to have dark background */
+body .login-shell .login-container .login-form .form-group > div,
+.login-shell .form-group > div {
+  background: var(--login-input-bg) !important;
+  background-color: var(--login-input-bg) !important;
+  border: var(--login-input-border) !important;
+  border-radius: var(--login-input-radius) !important;
+  padding: 0 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+/* Override any framework-specific input styling */
+[data-radix-input],
+[data-sonner],
+input[data-testid],
+input[aria-invalid] {
+  background: var(--login-input-bg) !important;
+  background-color: var(--login-input-bg) !important;
+  color: var(--login-input-color) !important;
+  border: var(--login-input-border) !important;
+}
+
+/* Ultra-specific targeting for our custom class */
+.login-input-field,
+input.login-input-field,
+.login-shell .login-input-field,
+.login-container .login-input-field,
+.login-form .login-input-field,
+.form-group .login-input-field {
+  background: var(--login-input-bg) !important;
+  background-color: var(--login-input-bg) !important;
+  color: var(--login-input-color) !important;
+  border: var(--login-input-border) !important;
+  border-radius: var(--login-input-radius) !important;
+  padding: var(--login-input-padding) !important;
+  font-size: 0.9rem !important;
+  font-family: inherit !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+}
+
+/* Force the wrapper divs to have the right background */
+.login-shell .form-group > div {
+  background: var(--login-input-bg) !important;
+  background-color: var(--login-input-bg) !important;
+  border: var(--login-input-border) !important;
+  border-radius: var(--login-input-radius) !important;
+  padding: 0 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+/* NUCLEAR OPTION - Maximum specificity override */
+html body .login-shell .login-container .login-form .form-group div input.login-input-field[type="email"],
+html body .login-shell .login-container .login-form .form-group div input.login-input-field[type="password"] {
+  background: #1a1a1a !important;
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.9rem !important;
+  font-family: inherit !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  -webkit-box-shadow: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: box-shadow 0.3s ease, border 0.3s ease !important;
+}
+
+/* Focus effect for input fields */
+html body .login-shell .login-container .login-form .form-group div input.login-input-field[type="email"]:focus,
+html body .login-shell .login-container .login-form .form-group div input.login-input-field[type="password"]:focus,
+.login-input-field:focus {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Focus effect for wrapper divs */
+html body .login-shell .login-container .login-form .form-group div:focus-within {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  border: none !important;
+}
+
+
+.back-to-home-button {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(18, 16, 32, 0.8);
+  border: 1px solid rgba(132, 90, 255, 0.3);
+  border-radius: 12px;
+  color: #f5f5ff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+
+.back-to-home-button:hover:not(:disabled) {
+  background: rgba(18, 16, 32, 0.9);
+  border-color: rgba(84, 160, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.back-to-home-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-content-layer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: clamp(2rem, 6vw, 4rem) clamp(1.5rem, 6vw, 5rem);
+  backdrop-filter: blur(12px);
+}
+
+.login-container {
+  /* Main container styling */
+  background: rgba(18, 16, 32, 0.55) !important;
+  border: 1px solid rgba(132, 90, 255, 0.2);
+  box-shadow: 0 24px 55px rgba(69, 40, 125, 0.2);
+  border-radius: 28px;
+  padding: 1.5rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px); /* Safari support */
+  width: min(100%, 450px) !important;
+  max-width: 450px !important;
+  
+  /* Layout */
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  
+  /* Positioning */
+  position: relative;
+  z-index: 2;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.login-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(90deg, #ff1744 0%, #e91e63 25%, #9c27b0 50%, #3f51b5 75%, #00bcd4 100%);
+  filter: brightness(0.99);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.login-description {
+  font-size: 0.9rem;
+  color: rgba(210, 204, 235, 0.65);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(239, 232, 255, 0.9);
+  margin-bottom: 0.25rem;
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 1px solid rgba(132, 90, 255, 0.2);
+  border-radius: 12px;
+  outline: none;
+  color: #f5f5ff !important;
+  font-size: 0.9rem;
+  font-family: inherit;
+  padding: 0.75rem 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+
+.form-input:focus {
+  border-color: rgba(84, 160, 255, 0.65);
+  box-shadow: 0 14px 30px rgba(84, 160, 255, 0.22);
+  background: rgba(7, 5, 18, 0.85);
+}
+
+.form-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: rgba(232, 227, 255, 0.44);
+}
+
+.password-input-container {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(232, 227, 255, 0.6);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  transition: color 0.3s ease;
+}
+
+.password-toggle:hover:not(:disabled) {
+  color: rgba(84, 160, 255, 0.8);
+}
+
+.password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.invite-utilities {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.invite-button,
+.forgot-password-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(132, 90, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(232, 227, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+
+.invite-button:hover:not(:disabled),
+.forgot-password-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(84, 160, 255, 0.4);
+}
+
+.invite-button:disabled,
+.forgot-password-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: linear-gradient(120deg, #5f27cd 0%, #00d2d3 110%);
+  color: rgba(9, 15, 27, 0.9);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.login-button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 18px 35px rgba(0, 210, 211, 0.35);
+}
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+.login-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.9rem;
+  background: rgba(19, 16, 38, 0.78);
+  border-radius: 999px;
+  border: 1px solid rgba(138, 100, 255, 0.35);
+  box-shadow: 0 22px 40px rgba(74, 44, 138, 0.32);
+  font-size: 0.82rem;
+  color: rgba(237, 230, 255, 0.8);
+  backdrop-filter: blur(18px);
+  margin-top: 0.5rem;
+}
+
+.login-error__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, #f368e0, #5f27cd);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.login-divider {
+  position: relative;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.login-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(132, 90, 255, 0.2);
+}
+
+.login-divider span {
+  background: rgba(18, 16, 32, 0.8);
+  padding: 0 1rem;
+  color: rgba(210, 204, 235, 0.65);
+  font-size: 0.85rem;
+  position: relative;
+  z-index: 1;
+}
+
+.google-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(132, 90, 255, 0.2);
+  border-radius: 12px;
+  color: #f5f5ff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+
+.google-login-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(84, 160, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.google-login-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.guest-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(132, 90, 255, 0.2);
+  border-radius: 12px;
+  color: #f5f5ff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+
+.guest-login-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(84, 160, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.guest-login-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.back-to-assistant-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(132, 90, 255, 0.2);
+  border-radius: 12px;
+  color: #f5f5ff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+  margin-top: 1rem;
+}
+
+.back-to-assistant-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(84, 160, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.back-to-assistant-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-warning {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  background: rgba(255, 193, 7, 0.1);
+  color: rgba(255, 193, 7, 0.9);
+  font-size: 0.85rem;
+  text-align: center;
+  backdrop-filter: blur(12px);
+}
+
+.login-footer {
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(210, 204, 235, 0.65);
+  margin: 0.75rem 0 0 0;
+  line-height: 1.5;
+}
+
+.login-link {
+  color: rgba(84, 160, 255, 0.8);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.login-link:hover {
+  color: rgba(84, 160, 255, 1);
+  text-decoration: underline;
+}
+
+/* Error Screen Styles */
+.error-container {
+  background: rgba(7, 5, 18, 0.7) !important;
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  box-shadow: 0 24px 55px rgba(255, 69, 58, 0.2);
+  border-radius: 28px;
+  padding: 2rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  width: min(100%, 400px);
+  max-width: 400px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.error-header {
+  margin-bottom: 2rem;
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  color: #ff6b6b;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.error-description {
+  font-size: 0.9rem;
+  color: rgba(210, 204, 235, 0.8);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.retry-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: linear-gradient(120deg, #5f27cd 0%, #00d2d3 110%);
+  color: rgba(9, 15, 27, 0.9);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.retry-button:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 18px 35px rgba(0, 210, 211, 0.35);
+}
+
+.contact-info {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(132, 90, 255, 0.2);
+}
+
+.contact-info p {
+  font-size: 0.85rem;
+  color: rgba(210, 204, 235, 0.7);
+  margin: 0 0 0.5rem 0;
+}
+
+.contact-link {
+  color: rgba(84, 160, 255, 0.8);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.contact-link:hover {
+  color: rgba(84, 160, 255, 1);
+  text-decoration: underline;
+}
+
+/* For older browser support */
+@supports not (backdrop-filter: blur(14px)) {
+  .login-container {
+    background: rgba(18, 16, 32, 0.85);
+  }
+  
+  .error-container {
+    background: rgba(7, 5, 18, 0.85) !important;
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 720px) {
+  .back-to-home-button {
+    top: 1rem;
+    left: 1rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .login-container {
+    padding: 2rem 1.5rem;
+    margin: 1rem;
+    border-radius: 24px;
+  }
+  
+  .login-title {
+    font-size: 1.75rem;
+  }
+  
+  .form-input {
+    padding: 0.7rem 0.9rem;
+  }
+  
+  .login-button,
+  .google-login-button,
+  .guest-login-button,
+  .back-to-assistant-button {
+    padding: 0.7rem 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell *,
+  .login-shell *::before,
+  .login-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,51 @@
+# Ruff configuration for the apps/ncp project
+# See https://docs.astral.sh/ruff/configuration/ for all options
+
+# Assume Python 3.10 based on your previous logs.
+# Adjust if your project's minimum Python version is different.
+target-version = "py310"
+
+# Set the line length. 88 is a common default (used by Black).
+line-length = 88
+
+# Enable a broad set of rules by default.
+# E, W: pycodestyle errors and warnings
+# F: Pyflakes (e.g., unused imports, undefined names)
+# I: isort (import sorting)
+# UP: pyupgrade (helps modernize Python code)
+# B: flake8-bugbear (finds potential bugs and design problems)
+# A: flake8-builtins (checks for shadowing builtins)
+# C4: flake8-comprehensions (helps write more idiomatic comprehensions)
+# SIM: flake8-simplify (helps simplify code)
+# RUF: Ruff-specific rules
+# TYP: flake8-typing-imports and other typing related rules
+# C90: McCabe cyclomatic complexity
+
+# You can ignore specific rules globally if needed.
+# For example, if you have a legitimate reason for a long line:
+# ignore = ["E501"]
+
+# Configure the linter.
+[lint]
+  select = ["E", "W", "F", "I", "UP", "B", "A", "C4", "SIM", "RUF", "TYP", "C90"]
+  # You can add specific configurations for linters here.
+  # For example, for isort:
+  [lint.isort]
+    # If you have local modules that should be treated as first-party
+    # known-first-party = ["my_app_module"]
+  
+  # Configure flake8-mccabe (complexity checks)
+  [lint.mccabe]
+    # Default is 10, adjust as needed for your project.
+    max-complexity = 10
+
+# Configure the formatter (Ruff's built-in auto-formatter).
+[format]
+  # Use double quotes for strings.
+  quote-style = "double"
+  # Use spaces for indentation.
+  indent-style = "space"
+  # Whether to skip adding a trailing comma if a statement fits on one line.
+  # skip-magic-trailing-comma = false # Default
+  # The line ending style.
+  # line-ending = "auto" # Default

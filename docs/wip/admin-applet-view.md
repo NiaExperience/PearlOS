@@ -1,0 +1,2 @@
+
+In the HtmlGenerationViewer, we have a special Admin-only dropdown which allows us to load applets from other users.  Ensure we're adhering to the 'other user' and not forcing queries to use session.user.id.  Other workflows may provide the user as the session.user.id, but once the userId is in the workflow, it should be honored from reqest to return in all paths.

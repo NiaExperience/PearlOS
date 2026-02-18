@@ -1,0 +1,353 @@
+/* ============================================================
+   VoiceInputBox — Vacuum Tube Aesthetic
+   ============================================================ */
+
+/* Overlay backdrop */
+.voice-input-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 5, 20, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: vt-overlay-in 0.3s ease-out;
+}
+
+@keyframes vt-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.voice-input-overlay.closing {
+  animation: vt-overlay-out 0.6s ease-in forwards;
+}
+
+@keyframes vt-overlay-out {
+  to { opacity: 0; }
+}
+
+/* ---- Tube Container ---- */
+.vacuum-tube {
+  position: relative;
+  width: min(380px, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: vt-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes vt-slide-up {
+  from { opacity: 0; transform: translateY(40px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.vacuum-tube.cooling {
+  animation: vt-cool-down 0.6s ease-in forwards;
+}
+
+@keyframes vt-cool-down {
+  0%   { filter: brightness(1); transform: scale(1); }
+  50%  { filter: brightness(0.6) saturate(0.3); }
+  100% { filter: brightness(0.2) saturate(0); transform: scale(0.95) translateY(20px); opacity: 0; }
+}
+
+/* ---- Glass Bulb (top rounded portion) ---- */
+.vt-bulb {
+  position: relative;
+  width: 100%;
+  border-radius: 50% 50% 8px 8px / 30% 30% 0 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(232, 93, 38, 0.08) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(40, 25, 60, 0.85) 0%, rgba(15, 8, 32, 0.95) 100%);
+  border: 1.5px solid rgba(232, 93, 38, 0.2);
+  border-bottom: none;
+  padding: 32px 24px 20px;
+  box-shadow:
+    /* inner warm glow */
+    inset 0 0 40px rgba(232, 93, 38, 0.06),
+    inset 0 0 80px rgba(232, 93, 38, 0.03),
+    /* outer ambient */
+    0 0 30px rgba(232, 93, 38, 0.08),
+    0 0 60px rgba(232, 93, 38, 0.04);
+  overflow: hidden;
+}
+
+/* Filament glow — pulsing warm light inside the bulb */
+.vt-bulb::before {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  width: 60%;
+  height: 40%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(232, 93, 38, 0.12) 0%, transparent 70%);
+  animation: vt-filament-pulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes vt-filament-pulse {
+  0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 1;   transform: translateX(-50%) scale(1.05); }
+}
+
+/* Glass reflection highlight */
+.vt-bulb::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 15%;
+  width: 35%;
+  height: 25%;
+  border-radius: 50%;
+  background: linear-gradient(160deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ---- Header inside bulb ---- */
+.vt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.vt-title {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #E85D26;
+  text-shadow: 0 0 12px rgba(232, 93, 38, 0.4);
+}
+
+.vt-close-btn {
+  appearance: none;
+  background: rgba(232, 93, 38, 0.1);
+  border: 1px solid rgba(232, 93, 38, 0.25);
+  border-radius: 4px;
+  color: #d4c0e8;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+
+.vt-close-btn:hover {
+  background: rgba(232, 93, 38, 0.2);
+  color: #faf8f5;
+}
+
+/* ---- Textarea ---- */
+.vt-textarea {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 100px;
+  max-height: 200px;
+  resize: vertical;
+  background: rgba(10, 5, 20, 0.6);
+  border: 1px solid rgba(232, 93, 38, 0.18);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #faf8f5;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.vt-textarea::placeholder {
+  color: rgba(212, 192, 232, 0.35);
+}
+
+.vt-textarea:focus {
+  border-color: rgba(232, 93, 38, 0.4);
+  box-shadow: 0 0 16px rgba(232, 93, 38, 0.1), inset 0 0 12px rgba(232, 93, 38, 0.04);
+}
+
+/* ---- File Drop Zone ---- */
+.vt-dropzone {
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1.5px dashed rgba(232, 93, 38, 0.22);
+  border-radius: 6px;
+  background: rgba(10, 5, 20, 0.35);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: rgba(212, 192, 232, 0.5);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+.vt-dropzone:hover,
+.vt-dropzone.drag-over {
+  border-color: rgba(232, 93, 38, 0.45);
+  background: rgba(232, 93, 38, 0.05);
+  color: #d4c0e8;
+}
+
+.vt-dropzone-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.vt-file-name {
+  margin-top: 6px;
+  color: #E85D26;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* ---- Metal Base (flat bottom with pins) ---- */
+.vt-base {
+  width: 100%;
+  background: linear-gradient(180deg, #2a1845 0%, #1a0e2e 40%, #0f0820 100%);
+  border: 1.5px solid rgba(232, 93, 38, 0.15);
+  border-top: 1px solid rgba(232, 93, 38, 0.1);
+  border-radius: 0 0 8px 8px;
+  padding: 16px 24px 20px;
+  position: relative;
+}
+
+/* Chrome rim between bulb and base */
+.vt-base::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(200, 180, 160, 0.25) 20%,
+    rgba(200, 180, 160, 0.4) 50%,
+    rgba(200, 180, 160, 0.25) 80%,
+    transparent 100%
+  );
+}
+
+/* ---- Send Button ---- */
+.vt-send-btn {
+  appearance: none;
+  width: 100%;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #E85D26 0%, #c94d1e 100%);
+  border: none;
+  border-radius: 6px;
+  color: #faf8f5;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow:
+    0 2px 8px rgba(232, 93, 38, 0.25),
+    0 0 20px rgba(232, 93, 38, 0.08);
+}
+
+.vt-send-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f06830 0%, #E85D26 100%);
+  box-shadow:
+    0 3px 12px rgba(232, 93, 38, 0.35),
+    0 0 30px rgba(232, 93, 38, 0.12);
+}
+
+.vt-send-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.vt-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Pins at bottom ---- */
+.vt-pins {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.vt-pin {
+  width: 6px;
+  height: 14px;
+  border-radius: 1px 1px 2px 2px;
+  background: linear-gradient(180deg, rgba(180, 160, 140, 0.5) 0%, rgba(120, 100, 80, 0.3) 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* ---- Trigger Button (for embedding near voice controls) ---- */
+.vt-trigger-btn {
+  appearance: none;
+  background: rgba(232, 93, 38, 0.1);
+  border: 1px solid rgba(232, 93, 38, 0.2);
+  border-radius: 6px;
+  color: #E85D26;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.vt-trigger-btn:hover {
+  background: rgba(232, 93, 38, 0.18);
+  box-shadow: 0 0 14px rgba(232, 93, 38, 0.15);
+}
+
+.vt-trigger-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.vt-trigger-btn:hover::after {
+  border-color: rgba(232, 93, 38, 0.15);
+}
+
+/* ---- Mobile adjustments ---- */
+@media (max-width: 480px) {
+  .vacuum-tube {
+    width: 96vw;
+  }
+
+  .vt-bulb {
+    padding: 24px 16px 16px;
+  }
+
+  .vt-base {
+    padding: 14px 16px 18px;
+  }
+}
+
+/* ---- Keyboard-aware positioning for iOS ---- */
+.voice-input-overlay.keyboard-open {
+  align-items: flex-start;
+  padding-top: 10vh;
+}

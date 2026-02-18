@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: dashboard
+  labels:
+    app: dashboard
+spec:
+  replicas: 3           # adjust for traffic
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+      - name: web
+        image: 577124901432.dkr.ecr.us-east-2.amazonaws.com/dashboard:v0.0.1
+        ports:
+        - containerPort: 4000
+        envFrom:
+        - secretRef:
+            name: dashboard-secret

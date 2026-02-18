@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipecat-daily-bot-stg
+  labels:
+    app: pipecat-daily-bot-stg
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: pipecat-daily-bot-stg
+  template:
+    metadata:
+      labels:
+        app: pipecat-daily-bot-stg
+    spec:
+      containers:
+      - name: gateway
+        image: nia-pipecat-bot
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: pipecat-daily-bot-stg-secret
+        - configMapRef:
+            name: pipecat-daily-bot-stg-config
+        env:
+        - name: MODE
+          value: "gateway"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
