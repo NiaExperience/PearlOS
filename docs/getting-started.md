@@ -84,13 +84,13 @@ PearlOS is a monorepo with several interconnected services:
 | Mesh | 2000 | GraphQL API for data and state |
 | PocketTTS | 8766 | Text to speech engine |
 
-For the full architecture breakdown, see [ARCHITECTURE.md](../ARCHITECTURE.md).
+For the full architecture breakdown, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## What's Next?
 
 - Explore the desktop: try Notes, YouTube, Calculator, and Wonder Canvas
 - Check out the [CONTRIBUTING.md](../CONTRIBUTING.md) guide if you want to contribute
-- Read [ARCHITECTURE.md](../ARCHITECTURE.md) to understand how the pieces fit together
+- Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand how the pieces fit together
 - Join the community and say hello!
 
 ## Troubleshooting

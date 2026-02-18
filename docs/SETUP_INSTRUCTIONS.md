@@ -414,7 +414,7 @@ If you're stuck:
 1. **Check the logs** - Look for error messages in the terminal
 2. **Review this guide** - Make sure you followed all steps
 3. **Check the README.md** - For more detailed information
-4. **Check ARCHITECTURE.md** - For technical details
+4. **Check docs/ARCHITECTURE.md** - For technical details
 
 ---
 
@@ -471,8 +471,8 @@ npm run lint                           # Check code quality
 Once everything is working:
 
 1. **Explore the Interface** - Try different features
-2. **Read the Developer Guide** - `DEVELOPER_GUIDE.md` for building features
-3. **Check the Architecture** - `ARCHITECTURE.md` for system design
+2. **Read the Developer Guide** - `docs/DEVELOPER_GUIDE.md` for building features
+3. **Check the Architecture** - `docs/ARCHITECTURE.md` for system design
 4. **Review Features** - `apps/interface/src/features/` to see available features
 
 ---

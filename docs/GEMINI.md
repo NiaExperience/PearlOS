@@ -97,10 +97,10 @@ Features live in `apps/interface/src/features/<FeatureName>/` and must follow th
 - **PRs:** Update `PR_DOC.md` (ephemeral) with detailed stats and risk analysis before requesting a PR.
 
 ### Documentation References
-- **Architecture:** `ARCHITECTURE.md` (Deep dive into layers).
+- **Architecture:** `docs/ARCHITECTURE.md` (Deep dive into layers).
 - **Protocol:** `docs/ai-assistant-protocol.md` (Mandatory rules).
-- **Workflow:** `CLAUDE.md` (Quick reference for AI agents).
-- **Agent Specifics:** `AGENTS.md`.
+- **Workflow:** `docs/CLAUDE.md` (Quick reference for AI agents).
+- **Agent Specifics:** `docs/AGENTS.md`.
 
 ## Common Commands Reference
 | Action | Command | Note |

@@ -5,9 +5,9 @@
 ### 📚 Core Documentation
 
 - **[README.md](../README.md)** - Main project overview, features, and setup
-- **[README.project.md](../README.project.md)** - Current implementation status and achievements
-- **[README.testing.md](../README.testing.md)** - Testing setup and guidelines
-- **[DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md)** - Guide for platform developers
+- **[README.project.md](README.project.md)** - Current implementation status and achievements
+- **[README.testing.md](README.testing.md)** - Testing setup and guidelines
+- **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Guide for platform developers
 
 ### 🔧 Setup & Configuration
 
