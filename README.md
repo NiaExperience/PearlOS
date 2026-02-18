@@ -2,9 +2,9 @@
 
 ![PearlOS Logo](docs/screenshots/Pearllogo.png)
 
-**Your AI-native personal operating system.**
+**Your Self-Evolving Intelligent OS Companion**
 
-*Pearl is always ready. Always responsive. Always here to help.*
+*Pearl is always thinking. Always learning. Always here to help you.*
 
 [![License: PSAL-NC](https://img.shields.io/badge/License-PSAL--NC-purple.svg)](./LICENSE)
 [![Discord](https://img.shields.io/discord/placeholder?label=🌌%20PEARL%20VILLAGE&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/gcba4gb6kz)
@@ -13,7 +13,7 @@
 
 ---
 
-PearlOS is a browser-based, voice-first desktop environment powered by an AI companion named Pearl. Pearl has full awareness and control of your visual and audio experience inside PearlOS in real time, so you can think out loud, ask for anything, and watch your desktop respond. It is not an assistant embedded in a UI. It is the UI.
+PearlOS is a browser-based, voice chat and touch desktop environment powered by an intelligent self-evolving companion named Pearl. Pearl has memory, awareness, and control of every pixel inside your visual and audio experience. Pearl can spin up swarms of intelligence to perform advanced complex long term tasks in real time. You can think out loud, ask for anything, and watch and hear her respond. See your tasks deployed to a real time job list that gives you command over an army of genius agents. Pearl's mind is your always growing, improving, and evolving OS for everyone.
 
 <div align="center">
 
