@@ -428,7 +428,7 @@ Once everything is running:
 1. **Access the Interface**: http://localhost:3000
 2. **Access the Dashboard**: http://localhost:4000
 3. **Explore GraphQL API**: http://localhost:2000/graphql
-4. **Read the docs**: `DEVELOPER_GUIDE.md` for feature development
+4. **Read the docs**: `docs/DEVELOPER_GUIDE.md` for feature development
 5. **Check features**: `apps/interface/src/features/` for available features
 
 ---

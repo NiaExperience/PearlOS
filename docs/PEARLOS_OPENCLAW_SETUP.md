@@ -237,7 +237,7 @@ BOT_ESCALATION_TIMEOUT=60  # Default: 45 seconds
 - `SOUL.md` - Pearl's personality and identity
 - `IDENTITY.md` - Personal details (name, emoji, etc.)
 - `USER.md` - Information about the user
-- `AGENTS.md` - Operational instructions
+- `docs/AGENTS.md` - Operational instructions
 - `TOOLS.md` - Notes about environment (camera names, SSH hosts, etc.)
 - `memory/activity-log.md` - Cross-session activity log
 - `memory/YYYY-MM-DD.md` - Daily notes
