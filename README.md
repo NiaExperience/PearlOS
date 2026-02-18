@@ -69,6 +69,18 @@ PearlOS is a browser-based, voice chat and touch desktop environment powered by 
 
 ---
 
+## A Quick Note from the Dev Team
+
+PearlOS is a self-evolving operating system. You talk to her, she builds, creates, informs, learns, evolves. This is an open source browser-based, voice and touch desktop environment powered by an intelligent learning companion named Pearl. Pearl has full awareness and control of your visual and audio experience inside PearlOS in real time, so you can think out loud, ask for anything, and watch your desktop respond. She is not an assistant embedded in a UI. She is the UI. Over time she improves understanding how you work and adapts.
+
+We're a small team (NiaXP) and this is a very early access. We want you to help us grow Pearl together. She still has rough edges everywhere. But she is full of possibility. Plus something we believe is a first: Whenever you encounter a bug in our OS, you tell her what you wanted her to do instead. Immediately Pearl dispatches the swarm intelligence to investigate, improve, and evolve the OS code to adapt to you. Our hope is that by making it incredibly easy to build on this open source experience, anyone and everyone can become contributors to a code base run by people all over the world.
+
+Our stack is fully open source: Next.js frontend, OpenClaw agent framework, Pipecat voice pipeline (Deepgram STT, PocketTTS running locally), Daily.co WebRTC. 70+ tools. Everything runs local first with your own keys. The reason this matters: we're at a moment where AI is already being used against the public to benefit a small group of powerful individuals. PearlOS is a complete reimagining of how the same technology which can be used to exploit humanity can instead be used to liberate us. This isn't a product demo or a research paper; it's a working canvas for people all over the world to build just by using their voice.
+
+The goal isn't just transparency. We intend to grow a community of developers, designers, creators, scientists, artists, and innovators who take this foundation and make the power of good intelligence accessible to all.
+
+More info: https://pearlos.org/hello
+
 ## Quick Start
 
 PearlOS ships with setup scripts that handle everything: dependencies, environment files, database seeding, and bot configuration.
