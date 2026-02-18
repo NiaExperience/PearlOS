@@ -1,8 +1,6 @@
 <div align="center">
 
-<!-- Logo placeholder -->
-
-# PearlOS
+![PearlOS Logo](docs/screenshots/Pearllogo.png)
 
 **Your AI-native personal operating system.**
 
@@ -174,12 +172,6 @@ PearlOS is three cooperating services. The browser UI talks to the voice bot via
 ---
 
 ## Features
-
-<div align="center">
-
-![PearlOS Features](docs/screenshots/features-showcase.png)
-
-</div>
 
 - **Voice-first AI companion.** Pearl listens and responds in real time using a full WebRTC voice pipeline. No button mashing required.
 - **Full browser desktop environment.** Windowed apps, a taskbar, draggable and resizable panels, and a coherent desktop metaphor all running in the browser.
