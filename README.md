@@ -19,7 +19,53 @@ PearlOS is a browser-based, voice-first desktop environment powered by an AI com
 
 <div align="center">
 
-[Website](https://pearlos.org) &nbsp;|&nbsp; [Getting Started](#quick-start) &nbsp;|&nbsp; [🌌 Pearl Village (Discord)](https://discord.gg/gcba4gb6kz) &nbsp;|&nbsp; [GitHub](https://github.com/AIMindOrg/PearlOS)
+[Website](https://pearlos.org) &nbsp;|&nbsp; [Getting Started](#quick-start) &nbsp;|&nbsp; [🌌 Pearl Village (Discord)](https://discord.gg/gcba4gb6kz) &nbsp;|&nbsp; [GitHub](https://github.com/NiaExperience/PearlOS)
+
+</div>
+
+---
+
+## Screenshots
+
+<div align="center">
+
+<table>
+<tr>
+<td width="33%" align="center" valign="top" style="padding: 10px;">
+
+### Desktop Interface
+
+![PearlOS Desktop](docs/screenshots/ss2.png)
+
+*PearlOS desktop with application icons, chat interface, and pixel-art fantasy forest background*
+
+</td>
+<td width="33%" align="center" valign="top" style="padding: 10px;">
+
+### Task Management
+
+![Task Management](docs/screenshots/ss3.png)
+
+*Real-time task tracking with job status, progress indicators, and active work monitoring*
+
+</td>
+<td width="33%" align="center" valign="top" style="padding: 10px;">
+
+### Dashboard & Analytics
+
+![Visualization for Data Dashboard](docs/screenshots/ss1.png)
+
+*Interactive dashboard showing stock performance analysis with Pearl's AI-powered insights*
+
+</td>
+</tr>
+</table>
+
+<!-- ### Custom Background Generation
+
+![Custom Background Generation](docs/screenshots/ss4.png)
+
+*AI-powered custom background generation allowing Pearl to create personalized desktop backgrounds on demand* -->
 
 </div>
 
@@ -32,7 +78,7 @@ PearlOS ships with setup scripts that handle everything: dependencies, environme
 ### Option 1: Interactive Setup Wizard (recommended)
 
 ```bash
-git clone https://github.com/AIMindOrg/PearlOS.git
+git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
 bash new-setup.sh
 ```
@@ -48,7 +94,7 @@ bash new-setup.sh --preset full --non-interactive
 ### Option 2: Classic Setup Script
 
 ```bash
-git clone https://github.com/AIMindOrg/PearlOS.git
+git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
 bash setup.sh
 ```
@@ -64,7 +110,7 @@ npm run start:all
 If you prefer doing things by hand, PearlOS is a monorepo. You will need Node.js 18+, Python 3.11+, and `pnpm`.
 
 ```bash
-git clone https://github.com/AIMindOrg/PearlOS.git
+git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
 pnpm install
 
@@ -129,6 +175,12 @@ PearlOS is three cooperating services. The browser UI talks to the voice bot via
 
 ## Features
 
+<div align="center">
+
+![PearlOS Features](docs/screenshots/features-showcase.png)
+
+</div>
+
 - **Voice-first AI companion.** Pearl listens and responds in real time using a full WebRTC voice pipeline. No button mashing required.
 - **Full browser desktop environment.** Windowed apps, a taskbar, draggable and resizable panels, and a coherent desktop metaphor all running in the browser.
 - **Wonder Canvas.** A rich, AI-driven canvas layer where Pearl can surface visual content, generated imagery, and interactive displays.
@@ -190,6 +242,12 @@ Pipecat handles the conversation orchestration layer: VAD (voice activity detect
 ## Desktop Apps
 
 PearlOS ships with a set of built-in apps that Pearl can open, control, and interact with on your behalf:
+
+<div align="center">
+
+![Desktop Apps](docs/screenshots/desktop-apps.png)
+
+</div>
 
 | App | Description |
 |---|---|
