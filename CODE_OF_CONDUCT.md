@@ -23,7 +23,7 @@ PearlOS is committed to providing a welcoming and inclusive environment for ever
 
 Project maintainers are responsible for clarifying standards of acceptable behavior and will take fair corrective action in response to any behavior they deem inappropriate, threatening, or harmful.
 
-Instances of unacceptable behavior may be reported by contacting the project team at **conduct@pearlos.org**. All complaints will be reviewed and investigated promptly and fairly. The project team is obligated to maintain confidentiality regarding the reporter.
+Instances of unacceptable behavior may be reported by contacting the project team at **dev@niaxp.com**. All complaints will be reviewed and investigated promptly and fairly. The project team is obligated to maintain confidentiality regarding the reporter.
 
 ## Attribution
 
