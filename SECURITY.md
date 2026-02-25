@@ -4,7 +4,7 @@
 
 **Please do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, email **security@pearlos.org** with:
+Instead, email **dev@niaxp.com** with:
 
 - A description of the vulnerability
 - Steps to reproduce
