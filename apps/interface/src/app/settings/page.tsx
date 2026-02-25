@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const tenantId = searchParams.get('tenantId') || (session?.user as any)?.tenantId;
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="bg-gray-900" style={{ overflow: 'auto', height: '100vh', width: '100vw' }}>
       {/* Header */}
       <div className="border-b border-gray-700 bg-gray-800">
         <div className="mx-auto max-w-4xl px-4 py-4">
@@ -31,6 +31,14 @@ export default function SettingsPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
+            <div className="ml-auto">
+              <a
+                href="/recovery"
+                className="flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-sm text-orange-300 transition-colors hover:bg-orange-500/20"
+              >
+                🔧 Recovery
+              </a>
+            </div>
             <h1 className="flex items-center text-2xl font-semibold text-white">
               {/* Pixelated Settings Gear Icon */}
               <div

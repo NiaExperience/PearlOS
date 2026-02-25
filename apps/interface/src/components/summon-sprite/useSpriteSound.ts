@@ -90,28 +90,14 @@ export function useSpriteSound() {
     }
   }, []);
 
-  /** Summon chime — ascending magical tone */
+  /** Summon chime — plays Pearl Begins.wav at 40% volume */
   const playSummonChime = useCallback(() => {
     try {
-      const ctx = getSharedAudioContext();
-      const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.type = 'sine';
-        const t = ctx.currentTime + i * 0.08;
-        osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.1, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-
-        osc.start(t);
-        osc.stop(t + 0.3);
-      });
+      const audio = new Audio('/sounds/pearl-begins.wav');
+      audio.volume = 0.4;
+      audio.play();
     } catch {
-      // Silently fail
+      // Silently fail if audio isn't available
     }
   }, []);
 

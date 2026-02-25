@@ -12,7 +12,7 @@ import os
 from collections.abc import Callable
 from typing import Any
 
-from bot.loguru import get_logger
+from loguru import get_logger
 
 logger = get_logger(__name__, tag="redis-admin")
 

@@ -20,11 +20,18 @@ export interface ActiveJob {
   fadingOut?: boolean;
 }
 
+export interface CompletedJob extends Omit<ActiveJob, 'status' | 'fadingOut'> {
+  status: 'complete';
+  completedAt: number;
+}
+
 const POLL_INTERVAL = 5000;
 const FADE_OUT_DELAY = 10000;
+const MAX_COMPLETED_HISTORY = 5;
 
 export function useActiveJobs() {
   const [jobs, setJobs] = useState<ActiveJob[]>([]);
+  const [completedHistory, setCompletedHistory] = useState<CompletedJob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fadeTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -55,9 +62,22 @@ export function useActiveJobs() {
           const wasRunning = existing?.status === 'running';
           const nowComplete = j.status === 'complete';
 
-          // If job just transitioned to complete, start fade-out
+          // If job just transitioned to complete, start fade-out and add to history
           if (nowComplete && wasRunning && !existing?.fadingOut) {
             map.set(j.id, { ...j, fadingOut: true });
+            
+            // Add to completed history
+            setCompletedHistory((history) => {
+              const completedJob: CompletedJob = {
+                ...j,
+                status: 'complete',
+                completedAt: Date.now(),
+              };
+              // Remove duplicates and keep only the last MAX_COMPLETED_HISTORY jobs
+              const filtered = history.filter((h) => h.id !== j.id);
+              return [completedJob, ...filtered].slice(0, MAX_COMPLETED_HISTORY);
+            });
+            
             if (!fadeTimers.current.has(j.id)) {
               const timer = setTimeout(() => {
                 setJobs((cur) => cur.filter((c) => c.id !== j.id));
@@ -74,6 +94,17 @@ export function useActiveJobs() {
         for (const j of prev) {
           if (!incoming.find((i) => i.id === j.id) && !j.fadingOut && j.status === 'running') {
             map.set(j.id, { ...j, status: 'complete', fadingOut: true });
+            
+            // Add to completed history
+            setCompletedHistory((history) => {
+              const completedJob: CompletedJob = {
+                ...j,
+                status: 'complete',
+                completedAt: Date.now(),
+              };
+              const filtered = history.filter((h) => h.id !== j.id);
+              return [completedJob, ...filtered].slice(0, MAX_COMPLETED_HISTORY);
+            });
 
             if (!fadeTimers.current.has(j.id)) {
               const timer = setTimeout(() => {
@@ -101,5 +132,5 @@ export function useActiveJobs() {
     };
   }, [fetchJobs]);
 
-  return { jobs, error };
+  return { jobs, completedHistory, error };
 }

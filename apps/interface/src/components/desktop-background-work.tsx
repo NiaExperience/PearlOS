@@ -16,20 +16,8 @@ import { useUI } from '@interface/contexts/ui-context';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
 import { useIsMobile } from '@interface/hooks/use-is-mobile';
 import { trackSessionHistory } from '@interface/lib/session-history';
-
-// ── Wonder Canvas helpers ────────────────────────────────────────────
-
-function closeButtonHTML(): string {
-  return `<button onclick="window.parent.postMessage({type:'wonder.interaction',action:'close',label:'Close scene'},'*')"
-  style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:6px;
-  background:rgba(15,8,32,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border:1px solid rgba(255,255,255,0.15);border-radius:100px;padding:8px 16px;
-  color:#d4c0e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s ease;letter-spacing:0.03em;"
-  onmouseover="this.style.background='rgba(15,8,32,0.9)';this.style.borderColor='rgba(255,211,51,0.4)';this.style.color='#FFD233'"
-  onmouseout="this.style.background='rgba(15,8,32,0.7)';this.style.borderColor='rgba(255,255,255,0.15)';this.style.color='#d4c0e8'"
-  >✕ Close</button>`;
-}
+import { closeButtonHTML } from '@interface/lib/wonder-canvas-close-button';
+import { buildNewsHTML } from '@interface/lib/news-app-html';
 
 function dispatchWonderScene(html: string): void {
   window.dispatchEvent(
@@ -58,16 +46,63 @@ function buildWeatherLoadingHTML(): string {
 <html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 60%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;}
-@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}</style>
-</head><body>
+html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.8s ease infinite;border-radius:12px;}
+.c{animation:fadeSlide .4s ease forwards;opacity:0}
+</style></head><body>
 ${closeButtonHTML()}
-<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px;padding:40px;">
-  <div style="font-size:clamp(48px,14vw,72px);animation:pulse 2s ease infinite;">🌤️</div>
-  <div style="font-size:clamp(16px,4.5vw,22px);color:#FFD233;font-weight:600;">Fetching weather...</div>
-  <div style="width:36px;height:36px;border:3px solid rgba(255,211,51,.2);border-top-color:#FFD233;border-radius:50%;animation:spin 1s linear infinite;"></div>
-  <div style="font-size:clamp(12px,2.8vw,14px);color:#9a80b0;">Connecting to weather service</div>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,20px);">
+  <div class="c" style="animation-delay:0s;text-align:center;padding-top:clamp(8px,2vw,16px);">
+    <div class="sk" style="height:14px;width:120px;margin:0 auto;"></div>
+  </div>
+  <div class="c" style="animation-delay:.08s;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:clamp(24px,6vw,40px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">
+    <div class="sk" style="width:clamp(60px,16vw,88px);height:clamp(60px,16vw,88px);border-radius:20px;"></div>
+    <div class="sk" style="height:clamp(44px,11vw,64px);width:140px;"></div>
+    <div class="sk" style="height:16px;width:100px;"></div>
+    <div class="sk" style="height:13px;width:80px;"></div>
+  </div>
+  <div class="c" style="animation-delay:.15s;display:flex;gap:clamp(8px,2vw,12px);">
+    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
+      <div class="sk" style="height:18px;width:48px;"></div>
+      <div class="sk" style="height:10px;width:44px;"></div>
+    </div>
+    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
+      <div class="sk" style="height:18px;width:48px;"></div>
+      <div class="sk" style="height:10px;width:44px;"></div>
+    </div>
+    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
+      <div class="sk" style="height:18px;width:48px;"></div>
+      <div class="sk" style="height:10px;width:44px;"></div>
+    </div>
+  </div>
+  <div class="c" style="animation-delay:.22s;">
+    <div class="sk" style="height:12px;width:100px;margin-bottom:clamp(8px,2vw,12px);"></div>
+    <div style="display:flex;gap:clamp(8px,2vw,12px);">
+      <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(12px,3vw,18px);display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="sk" style="height:10px;width:28px;"></div>
+        <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
+        <div class="sk" style="height:12px;width:40px;"></div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(12px,3vw,18px);display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="sk" style="height:10px;width:28px;"></div>
+        <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
+        <div class="sk" style="height:12px;width:40px;"></div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(12px,3vw,18px);display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="sk" style="height:10px;width:28px;"></div>
+        <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
+        <div class="sk" style="height:12px;width:40px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="c" style="animation-delay:.28s;text-align:center;padding:clamp(4px,1vw,8px) 0;">
+    <div style="font-size:clamp(11px,2.5vw,13px);color:#9a80b0;">Locating you & fetching weather…</div>
+  </div>
 </div>
 </body></html>`;
 }
@@ -77,10 +112,12 @@ function buildWeatherErrorHTML(): string {
 <html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 60%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;}</style>
+html,body{width:100%;height:100%;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.c{animation:fadeSlide .5s ease forwards;opacity:0}</style>
 </head><body>
 ${closeButtonHTML()}
-<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;max-width:380px;margin:0 auto;">
+<div class="c" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;max-width:380px;margin:0 auto;">
   <div style="font-size:clamp(48px,12vw,64px);">⛅</div>
   <div style="font-size:clamp(16px,4.5vw,20px);color:#E85D26;font-weight:600;">Weather unavailable</div>
   <div style="font-size:clamp(13px,3vw,15px);color:#9a80b0;line-height:1.6;">Couldn't load weather data right now. Try asking Pearl — she can check for you!</div>
@@ -96,19 +133,46 @@ function buildWeatherSceneHTML(data: Record<string, unknown>): string {
     const current = d.current_condition?.[0] ?? {};
     const tempC = String(current.temp_C ?? '--');
     const tempF = String(current.temp_F ?? '--');
+    const feelsLikeF = String(current.FeelsLikeF ?? '--');
     const feelsLikeC = String(current.FeelsLikeC ?? '--');
     const humidity = String(current.humidity ?? '--');
-    const windKmph = String(current.windspeedKmph ?? '--');
+    const windMph = String(current.windspeedMiles ?? '--');
+    const uvIndex = String(current.uvIndex ?? '--');
     const desc = String(current.weatherDesc?.[0]?.value ?? 'Unknown');
     const emoji = weatherEmoji(desc);
 
     const nearestArea = d.nearest_area?.[0] ?? {};
     const city = String(nearestArea.areaName?.[0]?.value ?? '');
+    const region = String(nearestArea.region?.[0]?.value ?? '');
     const country = String(nearestArea.country?.[0]?.value ?? '');
-    const location = [city, country].filter(Boolean).join(', ') || 'Your Location';
+    const locationParts = [city, region || country].filter(Boolean);
+    const location = locationParts.join(', ') || 'Your Location';
+
+    // Sunrise & sunset from today's astronomy
+    const todayWeather = d.weather?.[0] ?? {};
+    const astronomy = todayWeather.astronomy?.[0] ?? {};
+    const sunrise = String(astronomy.sunrise ?? '--');
+    const sunset = String(astronomy.sunset ?? '--');
+
+    // UV level label
+    const uvNum = parseInt(uvIndex, 10);
+    let uvLabel = '';
+    if (!isNaN(uvNum)) {
+      if (uvNum <= 2) uvLabel = 'Low';
+      else if (uvNum <= 5) uvLabel = 'Moderate';
+      else if (uvNum <= 7) uvLabel = 'High';
+      else if (uvNum <= 10) uvLabel = 'Very High';
+      else uvLabel = 'Extreme';
+    }
+
+    // Last updated timestamp
+    const fetchedAt = d._fetchedAt ? new Date(d._fetchedAt) : new Date();
+    const timeStr = fetchedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const forecastRows = (d.weather ?? []).slice(0, 3).map((day: any) => {
+    const forecastRows = (d.weather ?? []).slice(0, 3).map((day: any, idx: number) => {
+      const maxF = String(day.maxtempF ?? '--');
+      const minF = String(day.mintempF ?? '--');
       const maxC = String(day.maxtempC ?? '--');
       const minC = String(day.mintempC ?? '--');
       const dateStr = String(day.date ?? '');
@@ -116,11 +180,14 @@ function buildWeatherSceneHTML(data: Record<string, unknown>): string {
       const midDesc = String((hourly[4]?.weatherDesc ?? hourly[0]?.weatherDesc)?.[0]?.value ?? desc);
       const fe = weatherEmoji(midDesc);
       const dateObj = dateStr ? new Date(`${dateStr}T12:00:00`) : null;
-      const dayName = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'short' }) : '—';
-      return `<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:clamp(10px,3vw,16px);text-align:center;flex:1;min-width:0;">
-  <div style="font-size:clamp(11px,2.5vw,13px);color:#9a80b0;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">${dayName}</div>
-  <div style="font-size:clamp(22px,6vw,28px);margin-bottom:4px;">${fe}</div>
-  <div style="font-size:clamp(12px,3vw,14px);font-weight:600;color:#faf8f5;">${maxC}°<span style="color:#9a80b0;font-weight:400;">/${minC}°</span></div>
+      const dayName = idx === 0 ? 'Today' : (dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'short' }) : '—');
+      return `<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:clamp(10px,3vw,16px);text-align:center;flex:1;min-width:0;transition:border-color .2s,background .2s;"
+  onmouseover="this.style.borderColor='rgba(217,79,142,.3)';this.style.background='rgba(255,255,255,0.08)'"
+  onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.background='rgba(255,255,255,0.05)'">
+  <div style="font-size:clamp(10px,2.2vw,12px);color:#9a80b0;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;font-weight:600;">${dayName}</div>
+  <div style="font-size:clamp(24px,6.5vw,32px);margin-bottom:6px;">${fe}</div>
+  <div style="font-size:clamp(13px,3.2vw,15px);font-weight:700;color:#faf8f5;">${maxF}°<span style="color:rgba(154,128,176,.6);font-weight:400;font-size:clamp(10px,2.4vw,12px);">/${minF}°F</span></div>
+  <div style="font-size:clamp(9px,2vw,10px);color:rgba(154,128,176,.4);margin-top:2px;">${maxC}°/${minC}°C</div>
 </div>`;
     }).join('');
 
@@ -130,44 +197,76 @@ function buildWeatherSceneHTML(data: Record<string, unknown>): string {
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 60%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-.c{animation:fadeSlide .5s ease forwards}
+html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gentlePulse{0%,100%{opacity:.85}50%{opacity:1}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.c{animation:fadeSlide .5s ease forwards;opacity:0}
+.stat-card{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:clamp(12px,3vw,18px);text-align:center;transition:border-color .2s,background .2s;}
+.stat-card:hover{border-color:rgba(217,79,142,.25);background:rgba(255,255,255,0.08);}
 </style></head><body>
 ${closeButtonHTML()}
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,20px);">
-  <div class="c" style="animation-delay:.0s;opacity:0;text-align:center;padding-top:clamp(8px,2vw,16px);">
-    <div style="font-size:clamp(11px,2.5vw,13px);letter-spacing:.15em;text-transform:uppercase;color:#9a80b0;">📍 ${location}</div>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,18px);max-width:520px;margin:0 auto;width:100%;">
+
+  <!-- Location -->
+  <div class="c" style="animation-delay:.0s;text-align:center;padding-top:clamp(8px,2vw,16px);">
+    <div style="font-size:clamp(11px,2.5vw,13px);letter-spacing:.15em;text-transform:uppercase;color:#9a80b0;font-weight:500;">📍 ${location}</div>
   </div>
-  <div class="c" style="animation-delay:.1s;opacity:0;background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,211,51,0.2);border-radius:24px;padding:clamp(20px,5vw,32px);text-align:center;">
-    <div style="font-size:clamp(60px,16vw,88px);line-height:1;margin-bottom:clamp(8px,2vw,14px);">${emoji}</div>
-    <div style="font-size:clamp(44px,13vw,72px);font-weight:700;line-height:1;color:#FFD233;text-shadow:0 0 40px rgba(255,210,51,.4);">${tempC}°<span style="font-size:clamp(18px,4vw,24px);color:#9a80b0;font-weight:400;">C</span></div>
-    <div style="font-size:clamp(14px,3.5vw,18px);color:#d4c0e8;margin-top:8px;">${desc}</div>
-    <div style="font-size:clamp(12px,2.8vw,14px);color:#9a80b0;margin-top:4px;">Feels like ${feelsLikeC}°C</div>
+
+  <!-- Hero card -->
+  <div class="c" style="animation-delay:.08s;background:linear-gradient(135deg,rgba(217,79,142,.08) 0%,rgba(123,63,142,.1) 50%,rgba(255,211,51,.06) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,211,51,0.15);border-radius:24px;padding:clamp(24px,6vw,36px) clamp(16px,4vw,24px);text-align:center;">
+    <div style="font-size:clamp(56px,15vw,80px);line-height:1;margin-bottom:clamp(6px,1.5vw,10px);animation:float 4s ease-in-out infinite;">${emoji}</div>
+    <div style="display:flex;align-items:baseline;justify-content:center;gap:6px;">
+      <div style="font-size:clamp(52px,14vw,76px);font-weight:800;line-height:1;color:#FFD233;text-shadow:0 0 50px rgba(255,210,51,.3);letter-spacing:-0.03em;">${tempF}°</div>
+      <div style="font-size:clamp(16px,4vw,22px);color:#9a80b0;font-weight:500;">F</div>
+    </div>
+    <div style="font-size:clamp(11px,2.6vw,13px);color:rgba(154,128,176,.5);margin-top:2px;">${tempC}°C</div>
+    <div style="font-size:clamp(14px,3.5vw,18px);color:#d4c0e8;margin-top:clamp(6px,1.5vw,10px);font-weight:500;">${desc}</div>
+    <div style="font-size:clamp(12px,2.8vw,14px);color:#9a80b0;margin-top:4px;">Feels like ${feelsLikeF}°F <span style="color:rgba(154,128,176,.4);">/ ${feelsLikeC}°C</span></div>
   </div>
-  <div class="c" style="animation-delay:.2s;opacity:0;display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">
-    <div style="flex:1;background:rgba(232,93,38,.12);border:1px solid rgba(232,93,38,.25);border-radius:16px;padding:clamp(12px,3vw,16px);text-align:center;">
+
+  <!-- Stats row 1: Humidity, Wind, UV -->
+  <div class="c" style="animation-delay:.16s;display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">
+    <div class="stat-card">
       <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">💧</div>
-      <div style="font-size:clamp(16px,4.5vw,20px);font-weight:600;">${humidity}%</div>
-      <div style="font-size:clamp(10px,2.2vw,12px);color:#9a80b0;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;">Humidity</div>
+      <div style="font-size:clamp(17px,4.5vw,21px);font-weight:700;">${humidity}%</div>
+      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">Humidity</div>
     </div>
-    <div style="flex:1;background:rgba(123,63,142,.12);border:1px solid rgba(123,63,142,.25);border-radius:16px;padding:clamp(12px,3vw,16px);text-align:center;">
+    <div class="stat-card">
       <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">💨</div>
-      <div style="font-size:clamp(16px,4.5vw,20px);font-weight:600;">${windKmph}</div>
-      <div style="font-size:clamp(10px,2.2vw,12px);color:#9a80b0;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;">km/h Wind</div>
+      <div style="font-size:clamp(17px,4.5vw,21px);font-weight:700;">${windMph}</div>
+      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">mph Wind</div>
     </div>
-    <div style="flex:1;background:rgba(217,79,142,.12);border:1px solid rgba(217,79,142,.25);border-radius:16px;padding:clamp(12px,3vw,16px);text-align:center;">
-      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">🌡️</div>
-      <div style="font-size:clamp(16px,4.5vw,20px);font-weight:600;">${tempF}°F</div>
-      <div style="font-size:clamp(10px,2.2vw,12px);color:#9a80b0;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;">Fahrenheit</div>
+    <div class="stat-card">
+      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">☀️</div>
+      <div style="font-size:clamp(17px,4.5vw,21px);font-weight:700;">${uvIndex}</div>
+      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">UV${uvLabel ? ' · ' + uvLabel : ''}</div>
     </div>
   </div>
-  <div class="c" style="animation-delay:.3s;opacity:0;">
-    <div style="font-size:clamp(11px,2.5vw,13px);letter-spacing:.15em;text-transform:uppercase;color:#9a80b0;margin-bottom:clamp(8px,2vw,12px);">3-Day Forecast</div>
+
+  <!-- Stats row 2: Sunrise & Sunset -->
+  <div class="c" style="animation-delay:.22s;display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">
+    <div class="stat-card">
+      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">🌅</div>
+      <div style="font-size:clamp(14px,3.5vw,17px);font-weight:700;">${sunrise}</div>
+      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">Sunrise</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">🌇</div>
+      <div style="font-size:clamp(14px,3.5vw,17px);font-weight:700;">${sunset}</div>
+      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">Sunset</div>
+    </div>
+  </div>
+
+  <!-- 3-Day Forecast -->
+  <div class="c" style="animation-delay:.28s;">
+    <div style="font-size:clamp(10px,2.3vw,12px);letter-spacing:.15em;text-transform:uppercase;color:#9a80b0;margin-bottom:clamp(8px,2vw,12px);font-weight:600;">3-Day Forecast</div>
     <div style="display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">${forecastRows}</div>
   </div>
-  <div class="c" style="animation-delay:.4s;opacity:0;text-align:center;padding-bottom:clamp(8px,2vw,16px);">
-    <div style="font-size:clamp(10px,2vw,12px);color:rgba(154,128,176,.5);">Data from wttr.in · Ask Pearl for details</div>
+
+  <!-- Footer -->
+  <div class="c" style="animation-delay:.34s;text-align:center;padding-bottom:clamp(8px,2vw,16px);">
+    <div style="font-size:clamp(9px,2vw,11px);color:rgba(154,128,176,.4);">Updated ${timeStr} · wttr.in · Ask Pearl for details</div>
   </div>
 </div>
 </body></html>`;
@@ -176,161 +275,548 @@ ${closeButtonHTML()}
   }
 }
 
-function buildNewsHTML(): string {
+/**
+ * Background weather refresh — silently fetches fresh data and updates the scene
+ * if new data arrives. Used when we showed cached data instantly.
+ */
+function backgroundWeatherRefresh(dispatchWonderScene: (html: string) => void): void {
+  const WEATHER_CACHE_KEY = 'pearlos_weather_data';
+  const COORD_CACHE_KEY = 'pearlos_weather_coords';
+
+  // Build a minimal iframe that just fetches and posts back
+  let lat: string | null = null;
+  let lng: string | null = null;
+  try {
+    const cc = localStorage.getItem(COORD_CACHE_KEY);
+    if (cc) {
+      const c = JSON.parse(cc);
+      if (c.lat && c.lng) { lat = c.lat; lng = c.lng; }
+    }
+  } catch { /* ignore */ }
+
+  const url = lat && lng
+    ? `/api/weather?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`
+    : '/api/weather';
+
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 6000);
+
+  fetch(url, { signal: ctrl.signal })
+    .then(r => { clearTimeout(tid); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(data => {
+      try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ _data: data, _ts: Date.now() })); } catch { /* ignore */ }
+      // Silently update the scene with fresh data
+      dispatchWonderScene(buildWeatherSceneHTML(data as Record<string, unknown>));
+    })
+    .catch(() => { clearTimeout(tid); /* silently fail — cached data is still showing */ });
+}
+
+
+function buildDiscordHTML(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#2a1845 50%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#2a1845 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .c{animation:fadeSlide .5s ease forwards;opacity:0}
 .sk{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.12) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
-.wrap{min-height:100vh;display:flex;flex-direction:column;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,20px);}
-.card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;cursor:pointer;transition:transform .2s ease,border-color .2s ease;}
-.card:hover{transform:translateY(-2px);border-color:rgba(255,211,51,.3);}
-.card-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:rgba(255,255,255,.04);}
-.card-body{padding:clamp(14px,3.5vw,20px);}
-.card-source{display:inline-flex;align-items:center;gap:5px;font-size:clamp(10px,2.2vw,11px);letter-spacing:.1em;text-transform:uppercase;color:#D94F8E;font-weight:600;margin-bottom:8px;}
-.card-source::before{content:'';width:5px;height:5px;border-radius:50%;background:#D94F8E;}
-.card-title{font-size:clamp(15px,4vw,18px);font-weight:700;line-height:1.35;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
-.card-excerpt{font-size:clamp(12px,2.8vw,14px);color:#9a80b0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px;}
-.card-time{font-size:clamp(10px,2vw,11px);color:rgba(154,128,176,.6);}
-.featured .card-title{font-size:clamp(18px,5vw,24px);}
-.skel-card{display:flex;flex-direction:column;gap:10px;padding:16px;}
-a{color:inherit;text-decoration:none;}
+
+/* Layout */
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+.header{flex-shrink:0;display:flex;align-items:center;gap:clamp(8px,2vw,12px);padding:clamp(12px,3vw,18px) clamp(14px,3.5vw,20px);padding-right:clamp(56px,10vw,80px);border-bottom:1px solid rgba(255,255,255,.06);}
+.header-icon{font-size:clamp(20px,5vw,28px);}
+.header-title{font-size:clamp(16px,4vw,22px);font-weight:800;letter-spacing:-.02em;color:#faf8f5;flex-shrink:0;}
+.channel-select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:clamp(6px,1.5vw,8px) clamp(10px,2.5vw,14px);color:#d4c0e8;font-size:clamp(12px,2.8vw,14px);font-weight:600;font-family:inherit;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.channel-select:focus{border-color:rgba(217,79,142,.4);}
+.channel-select option{background:#1a0e2e;color:#d4c0e8;}
+.pearl-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(217,79,142,.12);border:1px solid rgba(217,79,142,.25);border-radius:100px;padding:3px 10px;font-size:clamp(9px,2vw,11px);letter-spacing:.08em;text-transform:uppercase;color:#D94F8E;font-weight:600;margin-left:auto;flex-shrink:0;}
+.pearl-badge .dot{width:5px;height:5px;border-radius:50%;background:#D94F8E;animation:pulse 1.5s ease infinite;display:inline-block;}
+
+/* Messages */
+.messages{flex:1;overflow-y:auto;overflow-x:hidden;padding:clamp(8px,2vw,14px) clamp(10px,2.5vw,16px);display:flex;flex-direction:column;gap:2px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}
+.messages::-webkit-scrollbar{width:6px;}
+.messages::-webkit-scrollbar-track{background:transparent;}
+.messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;}
+
+.msg-group{display:flex;gap:clamp(8px,2vw,12px);padding:clamp(4px,1vw,8px) 0;animation:msgIn .3s ease forwards;}
+.msg-group:first-child{padding-top:clamp(6px,1.5vw,10px);}
+.msg-group+.msg-group-same{padding-top:0;}
+.msg-avatar{width:clamp(32px,8vw,40px);height:clamp(32px,8vw,40px);border-radius:50%;flex-shrink:0;object-fit:cover;background:rgba(255,255,255,.06);}
+.msg-avatar-spacer{width:clamp(32px,8vw,40px);flex-shrink:0;}
+.msg-body{flex:1;min-width:0;}
+.msg-header{display:flex;align-items:baseline;gap:clamp(6px,1.5vw,8px);margin-bottom:2px;flex-wrap:wrap;}
+.msg-author{font-size:clamp(13px,3.2vw,15px);font-weight:700;color:#e8d5f5;}
+.msg-author.bot{color:#D94F8E;}
+.msg-time{font-size:clamp(10px,2.2vw,11px);color:rgba(154,128,176,.45);font-weight:500;}
+.msg-content{font-size:clamp(14px,3.5vw,16px);color:#d4c0e8;line-height:1.55;word-break:break-word;}
+.msg-content a{color:#7cacf8;text-decoration:underline;}
+.msg-content code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:.9em;font-family:'SF Mono',Monaco,Consolas,monospace;}
+.msg-reply{display:flex;align-items:center;gap:6px;padding:3px 8px;margin-bottom:4px;border-left:2px solid rgba(154,128,176,.3);color:rgba(154,128,176,.6);font-size:clamp(11px,2.5vw,12px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.msg-reply-author{font-weight:600;color:rgba(154,128,176,.8);}
+.msg-attachment{margin-top:6px;}
+.msg-attachment img{max-width:min(320px,100%);border-radius:10px;border:1px solid rgba(255,255,255,.06);}
+.msg-attachment a{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 10px;color:#7cacf8;font-size:clamp(11px,2.5vw,13px);text-decoration:none;margin-top:4px;}
+.msg-reactions{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+.msg-reaction{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:100px;padding:2px 8px;font-size:clamp(11px,2.4vw,13px);color:#9a80b0;cursor:default;}
+
+/* Pearl bar */
+.pearl-bar{flex-shrink:0;border-top:1px solid rgba(255,255,255,.06);background:rgba(15,8,32,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:clamp(8px,2vw,12px) clamp(10px,2.5vw,16px);display:flex;flex-direction:column;gap:clamp(6px,1.5vw,10px);}
+.pearl-actions{display:flex;gap:clamp(6px,1.5vw,8px);flex-wrap:wrap;}
+.pearl-btn{background:rgba(217,79,142,.1);border:1px solid rgba(217,79,142,.25);border-radius:100px;padding:clamp(6px,1.5vw,8px) clamp(12px,3vw,16px);font-size:clamp(11px,2.5vw,13px);font-weight:600;color:#D94F8E;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
+.pearl-btn:hover{background:rgba(217,79,142,.2);border-color:rgba(217,79,142,.4);}
+.pearl-btn:active{transform:scale(.96);}
+.pearl-btn.active{background:rgba(217,79,142,.25);border-color:rgba(217,79,142,.5);box-shadow:0 0 12px rgba(217,79,142,.15);}
+.pearl-btn-secondary{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:clamp(6px,1.5vw,8px) clamp(12px,3vw,16px);font-size:clamp(11px,2.5vw,13px);font-weight:600;color:#9a80b0;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
+.pearl-btn-secondary:hover{background:rgba(255,255,255,.1);color:#d4c0e8;}
+.compose{display:flex;gap:clamp(6px,1.5vw,8px);align-items:flex-end;}
+.compose-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:clamp(8px,2vw,12px) clamp(12px,3vw,16px);color:#faf8f5;font-size:clamp(14px,3.5vw,16px);font-family:inherit;outline:none;resize:none;min-height:clamp(38px,8vw,48px);max-height:120px;line-height:1.4;}
+.compose-input::placeholder{color:rgba(154,128,176,.4);}
+.compose-input:focus{border-color:rgba(217,79,142,.4);}
+.send-btn{background:linear-gradient(135deg,#D94F8E,#a855f7);border:none;border-radius:12px;width:clamp(38px,8vw,48px);height:clamp(38px,8vw,48px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0;color:#fff;font-size:clamp(16px,4vw,20px);}
+.send-btn:hover{transform:scale(1.05);box-shadow:0 4px 16px rgba(217,79,142,.3);}
+.send-btn:active{transform:scale(.95);}
+.send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* Status toast */
+.toast{position:fixed;bottom:clamp(100px,20vw,140px);left:50%;transform:translateX(-50%);background:rgba(15,8,32,.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(217,79,142,.3);border-radius:100px;padding:8px 20px;font-size:clamp(11px,2.5vw,13px);color:#D94F8E;font-weight:600;z-index:999;pointer-events:none;animation:fadeSlide .3s ease forwards;white-space:nowrap;}
+.toast.error{border-color:rgba(232,93,38,.3);color:#E85D26;}
+
+/* Pearl summary panel */
+.summary-panel{position:fixed;inset:0;background:rgba(15,8,32,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:9000;display:none;animation:fadeIn .2s ease;}
+.summary-panel.open{display:flex;flex-direction:column;}
+.summary-header{display:flex;align-items:center;justify-content:space-between;padding:clamp(14px,3.5vw,20px);border-bottom:1px solid rgba(255,255,255,.08);}
+.summary-title{font-size:clamp(16px,4vw,20px);font-weight:700;color:#faf8f5;}
+.summary-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9a80b0;font-size:18px;transition:all .2s;font-family:inherit;}
+.summary-close:hover{background:rgba(255,255,255,.12);color:#FFD233;}
+.summary-body{flex:1;overflow-y:auto;padding:clamp(14px,3.5vw,20px);font-size:clamp(14px,3.5vw,16px);color:#d4c0e8;line-height:1.65;-webkit-overflow-scrolling:touch;}
+.summary-body p{margin-bottom:12px;}
+.summary-body .loading{text-align:center;padding:40px 20px;color:#9a80b0;}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:clamp(20px,5vw,40px);text-align:center;}
+.empty-emoji{font-size:clamp(40px,10vw,56px);margin-bottom:16px;}
+.empty-title{font-size:clamp(16px,4vw,20px);font-weight:700;color:#e8d5f5;margin-bottom:8px;}
+.empty-sub{font-size:clamp(12px,2.8vw,14px);color:#9a80b0;line-height:1.5;}
+
+/* Date separator */
+.date-sep{text-align:center;padding:clamp(8px,2vw,14px) 0;font-size:clamp(10px,2.3vw,12px);color:rgba(154,128,176,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;}
 </style>
 </head><body>
 ${closeButtonHTML()}
-<div class="wrap" id="root">
-  <div class="c" style="text-align:center;padding-top:clamp(4px,1vw,12px);">
-    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(217,79,142,.15);border:1px solid rgba(217,79,142,.3);border-radius:100px;padding:6px 16px;font-size:clamp(10px,2.2vw,12px);letter-spacing:.12em;text-transform:uppercase;color:#D94F8E;">
-      <span style="width:6px;height:6px;border-radius:50%;background:#D94F8E;animation:pulse 1.5s ease infinite;display:inline-block;"></span>
-      Live News
+
+<div class="app">
+  <!-- Header -->
+  <div class="header c" style="animation-delay:0s;">
+    <div class="header-icon">💬</div>
+    <div class="header-title">Discord</div>
+    <select class="channel-select" id="channel-select" onchange="switchChannel(this.value)">
+      <option value="">Loading…</option>
+    </select>
+    <div class="pearl-badge"><span class="dot"></span>Pearl</div>
+  </div>
+
+  <!-- Messages -->
+  <div class="messages" id="messages">
+    <div class="empty-state">
+      <div class="empty-emoji">💜</div>
+      <div class="empty-title">Loading messages…</div>
+      <div class="empty-sub">Pearl is connecting to Discord</div>
     </div>
   </div>
-  <div id="cards">
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div class="card" style="opacity:.5"><div class="skel-card"><div class="sk" style="height:10px;width:20%;"></div><div class="sk" style="height:18px;width:85%;"></div><div class="sk" style="height:12px;width:55%;"></div></div></div>
-      <div class="card" style="opacity:.5"><div class="skel-card"><div class="sk" style="height:10px;width:25%;"></div><div class="sk" style="height:18px;width:75%;"></div><div class="sk" style="height:12px;width:60%;"></div></div></div>
-      <div class="card" style="opacity:.5"><div class="skel-card"><div class="sk" style="height:10px;width:18%;"></div><div class="sk" style="height:18px;width:90%;"></div><div class="sk" style="height:12px;width:48%;"></div></div></div>
+
+  <!-- Pearl bar -->
+  <div class="pearl-bar c" style="animation-delay:.1s;">
+    <div class="pearl-actions">
+      <button class="pearl-btn" onclick="summarize()" id="btn-summarize">✨ What's happening?</button>
+      <button class="pearl-btn" onclick="readAloud()" id="btn-read">🔊 Read to me</button>
+      <button class="pearl-btn-secondary" onclick="refreshMessages()">↻ Refresh</button>
     </div>
-  </div>
-  <div style="text-align:center;padding-bottom:clamp(8px,2vw,16px);">
-    <div style="font-size:clamp(10px,2vw,12px);color:rgba(154,128,176,.5);" id="footer">Loading headlines…</div>
+    <div class="compose">
+      <textarea class="compose-input" id="compose-input" placeholder="Type a message… Pearl will send it for you" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled title="Send">➤</button>
+    </div>
   </div>
 </div>
+
+<!-- Summary panel -->
+<div class="summary-panel" id="summary-panel">
+  <div class="summary-header">
+    <div class="summary-title">✨ Pearl's Summary</div>
+    <button class="summary-close" onclick="closeSummary()">✕</button>
+  </div>
+  <div class="summary-body" id="summary-body">
+    <div class="loading">Pearl is reading the conversation…</div>
+  </div>
+</div>
+
 <script>
 (function(){
-  var FEEDS = [
-    {url:'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml',name:'NY Times'},
-    {url:'https://feeds.bbci.co.uk/news/rss.xml',name:'BBC News'},
-    {url:'https://feeds.reuters.com/reuters/topNews',name:'Reuters'},
-    {url:'https://rss.cnn.com/rss/edition.rss',name:'CNN'},
-    {url:'https://feeds.arstechnica.com/arstechnica/index',name:'Ars Technica'}
-  ];
-  var PROXIES = ['https://corsproxy.io/?','https://api.allorigins.win/raw?url='];
+  var currentChannelId = '';
+  var channels = [];
+  var allMessages = [];
+  var refreshTimer = null;
+  var isSending = false;
 
-  function fetchWithTimeout(url, ms){
-    var c = new AbortController();
-    var t = setTimeout(function(){c.abort()}, ms);
-    return fetch(url,{signal:c.signal}).finally(function(){clearTimeout(t)});
+  // ── Helpers ──
+
+  function esc(s){
+    if(!s)return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function fetchViaProxy(feedUrl){
-    function tryProxy(i){
-      if(i>=PROXIES.length) return Promise.reject(new Error('all proxies failed'));
-      return fetchWithTimeout(PROXIES[i]+encodeURIComponent(feedUrl),5000)
-        .then(function(r){if(!r.ok)throw new Error();return r.text();})
-        .catch(function(){return tryProxy(i+1);});
-    }
-    return tryProxy(0);
+  function formatContent(raw){
+    var s = esc(raw);
+    // Bold
+    s = s.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');
+    // Italic
+    s = s.replace(/\\*(.+?)\\*/g,'<em>$1</em>');
+    // Inline code
+    s = s.replace(/\`([^\`]+)\`/g,'<code>$1</code>');
+    // Links
+    s = s.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+    // Newlines
+    s = s.replace(/\\n/g,'<br/>');
+    return s;
   }
 
-  function timeAgo(d){
-    var s=Math.floor((Date.now()-d.getTime())/1000);
-    if(s<60)return 'just now';
-    if(s<3600)return Math.floor(s/60)+'m ago';
-    if(s<86400)return Math.floor(s/3600)+'h ago';
-    return Math.floor(s/86400)+'d ago';
+  function timeStr(iso){
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    var now = new Date();
+    var h = d.getHours(); var m = d.getMinutes();
+    var ampm = h>=12?'PM':'AM'; h=h%12; if(h===0)h=12;
+    var time = h+':'+(m<10?'0':'')+m+' '+ampm;
+    if(d.toDateString()===now.toDateString()) return 'Today '+time;
+    var yesterday = new Date(now); yesterday.setDate(yesterday.getDate()-1);
+    if(d.toDateString()===yesterday.toDateString()) return 'Yesterday '+time;
+    return (d.getMonth()+1)+'/'+d.getDate()+' '+time;
   }
 
-  function extractImg(item){
-    // Try media:content, enclosure, or img in description
-    var mc=item.getElementsByTagName('media:content')[0]||item.getElementsByTagName('media:thumbnail')[0];
-    if(mc&&mc.getAttribute('url'))return mc.getAttribute('url');
-    var enc=item.getElementsByTagName('enclosure')[0];
-    if(enc&&enc.getAttribute('url')&&(enc.getAttribute('type')||'').indexOf('image')>=0)return enc.getAttribute('url');
-    var desc=(item.getElementsByTagName('description')[0]||{}).textContent||'';
-    var m=desc.match(/<img[^>]+src=["']([^"']+)/);
-    if(m)return m[1];
-    return '';
+  function dateLabel(iso){
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    var now = new Date();
+    if(d.toDateString()===now.toDateString()) return 'Today';
+    var yesterday = new Date(now); yesterday.setDate(yesterday.getDate()-1);
+    if(d.toDateString()===yesterday.toDateString()) return 'Yesterday';
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
   }
 
-  function textOf(item,tag){return (item.getElementsByTagName(tag)[0]||{}).textContent||'';}
-
-  function stripHtml(s){var d=document.createElement('div');d.innerHTML=s;return d.textContent||'';}
-
-  function parseFeed(xml,srcName){
-    var items=xml.querySelectorAll('item');
-    var out=[];
-    for(var i=0;i<items.length&&i<6;i++){
-      var it=items[i];
-      var title=textOf(it,'title');
-      var link=textOf(it,'link');
-      var desc=stripHtml(textOf(it,'description')).substring(0,200);
-      var pub=textOf(it,'pubDate');
-      var img=extractImg(it);
-      if(title) out.push({title:title,link:link,desc:desc,date:pub?new Date(pub):new Date(),img:img,source:srcName});
-    }
-    return out;
+  function toast(msg, isError){
+    var existing = document.querySelector('.toast');
+    if(existing) existing.remove();
+    var el = document.createElement('div');
+    el.className = 'toast'+(isError?' error':'');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function(){el.remove();},3000);
   }
 
-  var allItems=[];
-  var done=0;
+  function scrollToBottom(){
+    var el = document.getElementById('messages');
+    setTimeout(function(){ el.scrollTop = el.scrollHeight; }, 50);
+  }
 
-  function render(){
-    allItems.sort(function(a,b){return b.date-a.date;});
-    var top=allItems.slice(0,12);
-    if(!top.length){
-      document.getElementById('cards').innerHTML='<div style="text-align:center;padding:40px 20px;"><div style="font-size:48px;margin-bottom:16px;">📰</div><div style="color:#d4c0e8;font-size:16px;font-weight:600;margin-bottom:8px;">News feeds unavailable</div><div style="color:#9a80b0;font-size:14px;margin-bottom:20px;">Ask Pearl for the latest headlines!</div><button onclick="location.reload()" style="background:rgba(217,79,142,.2);border:1px solid rgba(217,79,142,.4);border-radius:100px;padding:10px 24px;color:#D94F8E;font-size:13px;font-weight:600;cursor:pointer;">↻ Retry</button></div>';
-      document.getElementById('footer').textContent='Tap Retry or ask Pearl for news';
+  // ── Channels ──
+
+  function loadChannels(){
+    fetch('/api/discord/channels')
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(!data.channels || !data.channels.length){
+          toast('No channels found', true);
+          return;
+        }
+        channels = data.channels;
+        var sel = document.getElementById('channel-select');
+        var html = '';
+        channels.forEach(function(ch){
+          html += '<option value="'+esc(ch.id)+'">#'+esc(ch.name)+'</option>';
+        });
+        sel.innerHTML = html;
+        // Default to first channel (usually #general)
+        currentChannelId = channels[0].id;
+        sel.value = currentChannelId;
+        loadMessages();
+      })
+      .catch(function(){
+        toast('Failed to load channels', true);
+      });
+  }
+
+  window.switchChannel = function(id){
+    if(!id || id === currentChannelId) return;
+    currentChannelId = id;
+    allMessages = [];
+    renderMessages();
+    loadMessages();
+  };
+
+  // ── Messages ──
+
+  function loadMessages(){
+    if(!currentChannelId) return;
+    fetch('/api/discord/messages?channelId='+encodeURIComponent(currentChannelId)+'&limit=50')
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(!data.messages){
+          toast('Failed to load messages', true);
+          return;
+        }
+        allMessages = data.messages;
+        renderMessages();
+        scrollToBottom();
+      })
+      .catch(function(){
+        toast('Connection error', true);
+      });
+  }
+
+  window.refreshMessages = function(){
+    toast('Refreshing…');
+    loadMessages();
+  };
+
+  function renderMessages(){
+    var el = document.getElementById('messages');
+    if(!allMessages.length){
+      el.innerHTML = '<div class="empty-state"><div class="empty-emoji">💬</div><div class="empty-title">No messages yet</div><div class="empty-sub">Be the first to say something!</div></div>';
       return;
     }
-    var html='<div style="display:flex;flex-direction:column;gap:clamp(12px,3vw,16px);">';
-    top.forEach(function(item,idx){
-      var delay=(idx*0.08).toFixed(2);
-      var featured=idx===0;
-      html+='<a href="'+item.link+'" target="_blank" rel="noopener" class="c card'+(featured?' featured':'')+'" style="animation-delay:'+delay+'s;">';
-      if(item.img){
-        html+='<img class="card-img" src="'+item.img+'" alt="" loading="lazy" onerror="this.style.display=\\'none\\'"/>';
+
+    var html = '';
+    var lastAuthor = '';
+    var lastDate = '';
+    var groupTimeout = 7 * 60 * 1000; // 7 minutes for grouping
+
+    allMessages.forEach(function(msg, idx){
+      // Date separator
+      var dl = dateLabel(msg.timestamp);
+      if(dl !== lastDate){
+        html += '<div class="date-sep">— '+esc(dl)+' —</div>';
+        lastDate = dl;
+        lastAuthor = '';
       }
-      html+='<div class="card-body">';
-      html+='<div class="card-source">'+item.source+'</div>';
-      html+='<div class="card-title">'+item.title+'</div>';
-      if(item.desc&&featured) html+='<div class="card-excerpt">'+item.desc+'</div>';
-      html+='<div class="card-time">'+timeAgo(item.date)+'</div>';
-      html+='</div></a>';
+
+      var prevMsg = idx > 0 ? allMessages[idx-1] : null;
+      var sameAuthor = prevMsg && prevMsg.author.id === msg.author.id;
+      var timeDiff = prevMsg ? new Date(msg.timestamp) - new Date(prevMsg.timestamp) : Infinity;
+      var grouped = sameAuthor && timeDiff < groupTimeout && dateLabel(msg.timestamp) === dateLabel(prevMsg.timestamp);
+
+      if(!grouped){
+        // Full message with avatar
+        html += '<div class="msg-group">';
+        html += '<img class="msg-avatar" src="'+esc(msg.author.avatar)+'" alt="" loading="lazy" onerror="this.style.background=\\'rgba(154,128,176,.2)\\';this.src=\\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1 1%22><rect fill=%22%239a80b0%22 width=%221%22 height=%221%22/></svg>\\'">';
+        html += '<div class="msg-body">';
+        html += '<div class="msg-header">';
+        html += '<span class="msg-author'+(msg.author.bot?' bot':'')+'">'+esc(msg.author.displayName)+'</span>';
+        if(msg.author.bot) html += '<span style="background:rgba(217,79,142,.15);border-radius:4px;padding:1px 5px;font-size:9px;color:#D94F8E;font-weight:700;letter-spacing:.05em;">BOT</span>';
+        html += '<span class="msg-time">'+esc(timeStr(msg.timestamp))+'</span>';
+        html += '</div>';
+        lastAuthor = msg.author.id;
+      } else {
+        // Grouped continuation
+        html += '<div class="msg-group msg-group-same">';
+        html += '<div class="msg-avatar-spacer"></div>';
+        html += '<div class="msg-body">';
+      }
+
+      // Reply reference
+      if(msg.referencedMessage){
+        html += '<div class="msg-reply">↩ <span class="msg-reply-author">'+esc(msg.referencedMessage.author)+'</span> '+esc(msg.referencedMessage.content)+'</div>';
+      }
+
+      // Content
+      if(msg.content){
+        html += '<div class="msg-content">'+formatContent(msg.content)+'</div>';
+      }
+
+      // Attachments
+      if(msg.attachments && msg.attachments.length){
+        msg.attachments.forEach(function(att){
+          html += '<div class="msg-attachment">';
+          if(att.contentType && att.contentType.startsWith('image/')){
+            html += '<img src="'+esc(att.url)+'" alt="'+esc(att.filename)+'" loading="lazy"/>';
+          } else {
+            html += '<a href="'+esc(att.url)+'" target="_blank" rel="noopener">📎 '+esc(att.filename)+'</a>';
+          }
+          html += '</div>';
+        });
+      }
+
+      // Reactions
+      if(msg.reactions && msg.reactions.length){
+        html += '<div class="msg-reactions">';
+        msg.reactions.forEach(function(r){
+          html += '<span class="msg-reaction">'+r.emoji+' '+r.count+'</span>';
+        });
+        html += '</div>';
+      }
+
+      html += '</div></div>';
     });
-    html+='</div>';
-    document.getElementById('cards').innerHTML=html;
-    document.getElementById('footer').textContent='Pearl News · '+top.length+' stories from '+new Set(top.map(function(i){return i.source})).size+' sources';
+
+    el.innerHTML = html;
   }
 
-  FEEDS.forEach(function(feed){
-    fetchViaProxy(feed.url)
-      .then(function(txt){
-        var parser=new DOMParser();
-        var xml=parser.parseFromString(txt,'text/xml');
-        allItems=allItems.concat(parseFeed(xml,feed.name));
-      })
-      .catch(function(){})
-      .finally(function(){
-        done++;
-        if(done>=FEEDS.length)render();
-      });
+  // ── Send ──
+
+  window.sendMessage = function(){
+    if(isSending) return;
+    var input = document.getElementById('compose-input');
+    var content = input.value.trim();
+    if(!content || !currentChannelId) return;
+
+    isSending = true;
+    document.getElementById('send-btn').disabled = true;
+    toast('Sending…');
+
+    fetch('/api/discord/send',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({channelId:currentChannelId, content:content})
+    })
+    .then(function(r){return r.json();})
+    .then(function(data){
+      isSending = false;
+      if(data.success){
+        input.value = '';
+        input.style.height = 'auto';
+        document.getElementById('send-btn').disabled = true;
+        toast('Message sent! 💜');
+        // Refresh to see the new message
+        setTimeout(loadMessages, 500);
+      } else {
+        document.getElementById('send-btn').disabled = false;
+        toast(data.error||'Failed to send', true);
+      }
+    })
+    .catch(function(){
+      isSending = false;
+      document.getElementById('send-btn').disabled = false;
+      toast('Connection error', true);
+    });
+  };
+
+  window.handleKey = function(e){
+    if(e.key==='Enter' && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  window.autoResize = function(el){
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120)+'px';
+    document.getElementById('send-btn').disabled = !el.value.trim();
+  };
+
+  // ── Pearl: Summarize ──
+
+  window.summarize = function(){
+    var panel = document.getElementById('summary-panel');
+    var body = document.getElementById('summary-body');
+    panel.classList.add('open');
+    body.innerHTML = '<div class="loading">✨ Pearl is reading the conversation…</div>';
+
+    // Build a text digest of recent messages for Pearl
+    var digest = allMessages.slice(-30).map(function(m){
+      return m.author.displayName+': '+m.content;
+    }).join('\\n');
+
+    if(!digest.trim()){
+      body.innerHTML = '<p>No messages to summarize yet. Try switching to an active channel!</p>';
+      return;
+    }
+
+    // Send to Pearl via parent postMessage
+    window.parent.postMessage({
+      type:'wonder.interaction',
+      action:'pearl-request',
+      label:'Summarize Discord',
+      payload: 'Please summarize this Discord conversation concisely. Focus on key topics and who said what. Here are the recent messages:\\n\\n'+digest
+    },'*');
+
+    // Show the digest formatted as a readable summary while Pearl thinks
+    var fallback = '<p style="color:#9a80b0;font-size:clamp(12px,2.8vw,13px);margin-bottom:16px;">Here\\'s what\\'s been said recently:</p>';
+    var lastSpeaker = '';
+    allMessages.slice(-20).forEach(function(m){
+      if(!m.content.trim()) return;
+      if(m.author.displayName !== lastSpeaker){
+        fallback += '<p><strong style="color:#e8d5f5;">'+esc(m.author.displayName)+'</strong></p>';
+        lastSpeaker = m.author.displayName;
+      }
+      fallback += '<p style="margin-left:12px;margin-bottom:4px;">'+esc(m.content)+'</p>';
+    });
+    body.innerHTML = fallback;
+  };
+
+  window.closeSummary = function(){
+    document.getElementById('summary-panel').classList.remove('open');
+  };
+
+  // ── Pearl: Read Aloud ──
+
+  window.readAloud = function(){
+    var recent = allMessages.slice(-10);
+    if(!recent.length){
+      toast('No messages to read');
+      return;
+    }
+
+    var text = recent.map(function(m){
+      if(!m.content.trim()) return '';
+      return m.author.displayName+' says: '+m.content;
+    }).filter(Boolean).join('. ');
+
+    if(!text){
+      toast('No text messages to read');
+      return;
+    }
+
+    // Send TTS request to parent
+    window.parent.postMessage({
+      type:'wonder.interaction',
+      action:'pearl-speak',
+      label:'Read Discord messages',
+      payload: text
+    },'*');
+
+    toast('🔊 Reading messages aloud…');
+  };
+
+  // ── Input: enable/disable send button ──
+  document.getElementById('compose-input').addEventListener('input', function(){
+    document.getElementById('send-btn').disabled = !this.value.trim();
+  });
+
+  // ── Init ──
+  loadChannels();
+
+  // Auto-refresh every 10 seconds
+  refreshTimer = setInterval(function(){
+    if(!document.hidden && !isSending){
+      loadMessages();
+    }
+  }, 10000);
+
+  // Cleanup on page hide
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden && refreshTimer){
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    } else if(!refreshTimer){
+      refreshTimer = setInterval(function(){
+        if(!document.hidden && !isSending) loadMessages();
+      }, 10000);
+    }
   });
 })();
 </script>
@@ -529,19 +1015,214 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
         return;
       }
       case 'weather': {
-        // Show loading state immediately in Wonder Canvas, then fetch real data
+        // --- Strategy ---
+        // 1. If we have cached weather data (<15min old), show it INSTANTLY
+        // 2. Fire off IP-based fetch immediately (no geolocation wait)
+        // 3. Race geolocation (2s timeout) — if it wins, upgrade the fetch
+        // 4. Total timeout: 8s with error shown on failure
+        // 5. Cache successful results in localStorage for instant repeat opens
+
+        const WEATHER_CACHE_KEY = 'pearlos_weather_data';
+        const WEATHER_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+        const COORD_CACHE_KEY = 'pearlos_weather_coords';
+
+        // Check for cached weather data first — show instantly
+        try {
+          const cachedWeather = localStorage.getItem(WEATHER_CACHE_KEY);
+          if (cachedWeather) {
+            const parsed = JSON.parse(cachedWeather);
+            if (parsed._data && parsed._ts && (Date.now() - parsed._ts) < WEATHER_CACHE_TTL) {
+              dispatchWonderScene(buildWeatherSceneHTML(parsed._data));
+              // Still refresh in background via iframe, but user sees weather immediately
+              // Fire background refresh after a tick
+              setTimeout(() => {
+                backgroundWeatherRefresh(dispatchWonderScene);
+              }, 100);
+              return;
+            }
+          }
+        } catch { /* ignore corrupt cache */ }
+
+        // No valid cache — show loading skeleton
         dispatchWonderScene(buildWeatherLoadingHTML());
-        fetch('https://wttr.in/?format=j1')
-          .then(res => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.json() as Promise<Record<string, unknown>>;
-          })
-          .then(data => {
-            dispatchWonderScene(buildWeatherSceneHTML(data));
-          })
-          .catch(() => {
-            dispatchWonderScene(buildWeatherErrorHTML());
+
+        // Build self-contained HTML that handles geolocation + fetch inside the iframe
+        // Key improvements:
+        // - Start IP-based fetch immediately (don't wait for geolocation)
+        // - Race geolocation with 2s timeout
+        // - If geolocation wins within 2s, cancel IP fetch and use coords
+        // - Fetch has 6s AbortController timeout
+        // - Cache weather data AND coords in localStorage
+        const weatherBootstrapHTML = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.8s ease infinite;border-radius:12px;}
+.c{animation:fadeSlide .4s ease forwards;opacity:0}
+</style></head><body>
+${closeButtonHTML()}
+<div id="weather-root" style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,20px);">
+  <div class="c" style="animation-delay:0s;text-align:center;padding-top:clamp(8px,2vw,16px);"><div class="sk" style="height:14px;width:120px;margin:0 auto;"></div></div>
+  <div class="c" style="animation-delay:.08s;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:clamp(24px,6vw,40px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">
+    <div class="sk" style="width:clamp(60px,16vw,88px);height:clamp(60px,16vw,88px);border-radius:20px;"></div>
+    <div class="sk" style="height:clamp(44px,11vw,64px);width:140px;"></div>
+    <div class="sk" style="height:16px;width:100px;"></div>
+  </div>
+  <div class="c" style="animation-delay:.15s;display:flex;gap:clamp(8px,2vw,12px);">
+    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;"><div class="sk" style="width:28px;height:28px;border-radius:8px;"></div><div class="sk" style="height:18px;width:48px;"></div><div class="sk" style="height:10px;width:44px;"></div></div>
+    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;"><div class="sk" style="width:28px;height:28px;border-radius:8px;"></div><div class="sk" style="height:18px;width:48px;"></div><div class="sk" style="height:10px;width:44px;"></div></div>
+    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;"><div class="sk" style="width:28px;height:28px;border-radius:8px;"></div><div class="sk" style="height:18px;width:48px;"></div><div class="sk" style="height:10px;width:44px;"></div></div>
+  </div>
+  <div class="c" style="animation-delay:.22s;text-align:center;padding:clamp(4px,1vw,8px) 0;">
+    <div style="font-size:clamp(11px,2.5vw,13px);color:#9a80b0;" id="status-msg">Fetching weather…</div>
+  </div>
+</div>
+<script>
+(function(){
+  var COORD_KEY='pearlos_weather_coords';
+  var DATA_KEY='pearlos_weather_data';
+  var statusEl=document.getElementById('status-msg');
+  var done=false;
+
+  function setStatus(msg){if(statusEl)statusEl.textContent=msg;}
+
+  function sendResult(data){
+    if(done)return;
+    done=true;
+    // Cache the weather data in localStorage (parent can also read this)
+    try{localStorage.setItem(DATA_KEY,JSON.stringify({_data:data,_ts:Date.now()}));}catch(e){}
+    window.parent.postMessage({type:'weather.data',payload:JSON.stringify(data)},'*');
+  }
+
+  function sendError(){
+    if(done)return;
+    done=true;
+    window.parent.postMessage({type:'weather.error'},'*');
+  }
+
+  function fetchWeather(lat,lng){
+    var url='/api/weather';
+    if(lat!=null&&lng!=null){
+      url+='?lat='+encodeURIComponent(lat)+'&lng='+encodeURIComponent(lng);
+    }
+    setStatus(lat!=null?'Fetching local weather…':'Fetching weather…');
+    var ctrl=new AbortController();
+    var tid=setTimeout(function(){ctrl.abort();},6000);
+    return fetch(url,{signal:ctrl.signal})
+      .then(function(r){
+        clearTimeout(tid);
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        return r.json();
+      })
+      .then(function(data){sendResult(data);return true;})
+      .catch(function(){clearTimeout(tid);return false;});
+  }
+
+  // --- Main flow: race geolocation (2s) vs immediate IP-based fetch ---
+  var cachedCoords=null;
+  try{
+    var cc=localStorage.getItem(COORD_KEY);
+    if(cc){
+      var c=JSON.parse(cc);
+      if(c.lat&&c.lng&&(Date.now()-c.ts)<86400000) cachedCoords=c;
+    }
+  }catch(e){}
+
+  if(cachedCoords){
+    // Have cached coords — use them immediately
+    setStatus('Using your location…');
+    fetchWeather(cachedCoords.lat,cachedCoords.lng).then(function(ok){
+      if(!ok)fetchWeather(null,null).then(function(ok2){if(!ok2)sendError();});
+    });
+    // Also refresh coords in background (don't block)
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(function(pos){
+        try{localStorage.setItem(COORD_KEY,JSON.stringify({lat:pos.coords.latitude.toFixed(4),lng:pos.coords.longitude.toFixed(4),ts:Date.now()}));}catch(e){}
+      },function(){},{timeout:5000,maximumAge:300000});
+    }
+  } else {
+    // No cached coords — race: start IP-based immediately, try geolocation with 2s timeout
+    var geoResolved=false;
+    var ipStarted=false;
+
+    function startIPFallback(){
+      if(ipStarted||done)return;
+      ipStarted=true;
+      setStatus('Using approximate location…');
+      fetchWeather(null,null).then(function(ok){if(!ok)sendError();});
+    }
+
+    // Start geolocation with aggressive 2s timeout
+    if(navigator.geolocation){
+      setStatus('Getting your location…');
+      var geoTimer=setTimeout(function(){
+        if(!geoResolved){geoResolved=true;startIPFallback();}
+      },2000);
+      navigator.geolocation.getCurrentPosition(
+        function(pos){
+          if(geoResolved)return; // too late
+          geoResolved=true;
+          clearTimeout(geoTimer);
+          var lat=pos.coords.latitude.toFixed(4);
+          var lng=pos.coords.longitude.toFixed(4);
+          try{localStorage.setItem(COORD_KEY,JSON.stringify({lat:lat,lng:lng,ts:Date.now()}));}catch(e){}
+          fetchWeather(lat,lng).then(function(ok){
+            if(!ok)fetchWeather(null,null).then(function(ok2){if(!ok2)sendError();});
           });
+        },
+        function(){
+          if(geoResolved)return;
+          geoResolved=true;
+          clearTimeout(geoTimer);
+          startIPFallback();
+        },
+        {timeout:2000,maximumAge:300000}
+      );
+    }else{
+      startIPFallback();
+    }
+  }
+})();
+</script>
+</body></html>`;
+
+        dispatchWonderScene(weatherBootstrapHTML);
+
+        // Listen for messages from the iframe
+        let weatherHandled = false;
+        const weatherMessageHandler = (event: MessageEvent) => {
+          if (weatherHandled) return;
+          if (event.data?.type === 'weather.data') {
+            weatherHandled = true;
+            try {
+              const data = JSON.parse(event.data.payload) as Record<string, unknown>;
+              // Also cache in parent's localStorage
+              try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ _data: data, _ts: Date.now() })); } catch { /* ignore */ }
+              dispatchWonderScene(buildWeatherSceneHTML(data));
+            } catch {
+              dispatchWonderScene(buildWeatherErrorHTML());
+            }
+            window.removeEventListener('message', weatherMessageHandler);
+          } else if (event.data?.type === 'weather.error') {
+            weatherHandled = true;
+            dispatchWonderScene(buildWeatherErrorHTML());
+            window.removeEventListener('message', weatherMessageHandler);
+          }
+        };
+        window.addEventListener('message', weatherMessageHandler);
+
+        // Timeout fallback — if iframe doesn't respond in 8s, show error
+        setTimeout(() => {
+          if (!weatherHandled) {
+            weatherHandled = true;
+            dispatchWonderScene(buildWeatherErrorHTML());
+          }
+          window.removeEventListener('message', weatherMessageHandler);
+        }, 8000);
+
         return;
       }
       case 'files':
@@ -552,8 +1233,8 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
         requestWindowOpen({ viewType: 'sprites', source: 'desktop:sprites' });
         return;
       case 'discord':
-        // Discord blocks iframe embedding (X-Frame-Options: DENY) — open in a new tab instead
-        window.open('https://discord.com/app', '_blank');
+        // Pearl-powered Discord client inside Wonder Canvas
+        dispatchWonderScene(buildDiscordHTML());
         return;
       default:
         console.warn(`⚠️ Unknown desktop app requested: ${appName}`);
@@ -561,19 +1242,19 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
   };
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ zIndex: -1 }}>
+    <div className="absolute inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(/WorkBg5.gif)',
+            backgroundImage: 'url(/backgrounds/desktop-forest.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         />
       </div>
 
-      {/* Desktop icons — column-first grid: icons fill top-to-bottom per column, columns left-to-right */}
+      {/* Desktop icons — strict 3-column grid, fills left-to-right then down */}
       <motion.div
         className={`pointer-events-auto fixed z-[30] ${
           isMobile
@@ -582,22 +1263,22 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
         }`}
         style={{
           display: 'grid',
-          gridAutoFlow: 'column',
-          gridTemplateRows: 'repeat(3, auto)',
-          gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)',
+          gridAutoFlow: 'row',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           justifyItems: 'center',
           rowGap: isMobile ? '20px' : '28px',
           columnGap: isMobile ? '8px' : '24px',
+          touchAction: 'manipulation',
         }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
       >
-        {/* Notes — always visible */}
+        {/* Notes */}
         {isFeatureEnabled('notes', supportedFeatures) && (
           <motion.div
             className="flex cursor-pointer flex-col items-center"
-            onClick={() => openDesktopApp('notes')}
+            onClick={() => openDesktopApp('notepad')}
             whileHover={{ y: -8 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           >
@@ -633,9 +1314,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/80 to-violet-600/80 shadow-lg">
-              <span className="text-[32px] leading-none">✨📷</span>
-            </div>
+            <Image src="/desktopicons/photo-magic.png" alt="Photo Magic" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
           </motion.div>
           <motion.span
             className="mt-2 text-center text-xs uppercase text-white"
@@ -674,7 +1353,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
           </motion.div>
         )}
 
-        {/* Video Meet */}
+        {/* Pearl Vision */}
         {isFeatureEnabled('dailyCall', supportedFeatures) && (
           <motion.div
             className="flex cursor-pointer flex-col items-center"
@@ -688,7 +1367,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
               whileTap={{ scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
-              <Image src="/desktopicons/social.png" alt="Video Meet" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
+              <Image src="/desktopicons/pearl-vision.png" alt="Pearl Vision" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
             </motion.div>
             <motion.span
               className="mt-2 text-center text-xs uppercase text-white"
@@ -696,12 +1375,12 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
               whileHover={{ color: 'rgb(165,180,252)', textShadow: '0 0 10px rgba(165,180,252,0.5)' }}
               transition={{ duration: 0.2 }}
             >
-              Video Meet
+              Pearl Vision
             </motion.span>
           </motion.div>
         )}
 
-        {/* News */}
+        {/* The News */}
         <motion.div
           className="flex cursor-pointer flex-col items-center"
           onClick={() => openDesktopApp('news')}
@@ -714,7 +1393,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           >
-            <Image src="/desktopicons/news.svg" alt="News" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
+            <Image src="/desktopicons/news.png" alt="The News" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
           </motion.div>
           <motion.span
             className="mt-2 text-center text-xs uppercase text-white"
@@ -722,7 +1401,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             whileHover={{ color: 'rgb(56, 189, 248)', textShadow: '0 0 10px rgba(56, 189, 248, 0.5)' }}
             transition={{ duration: 0.2 }}
           >
-            News
+            The News
           </motion.span>
         </motion.div>
 
@@ -739,7 +1418,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           >
-            <Image src="/desktopicons/weather.svg" alt="Weather" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
+            <Image src="/desktopicons/weather.png" alt="Weather" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
           </motion.div>
           <motion.span
             className="mt-2 text-center text-xs uppercase text-white"
@@ -764,7 +1443,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           >
-            <Image src="/desktopicons/files.svg" alt="Files" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
+            <Image src="/desktopicons/files.png" alt="Files" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
           </motion.div>
           <motion.span
             className="mt-2 text-center text-xs uppercase text-white"
@@ -815,7 +1494,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
               whileTap={{ scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
-              <Image src="/desktopicons/discord.svg" alt="Discord" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
+              <Image src="/desktopicons/discord.png" alt="Discord" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
             </motion.div>
             <motion.span
               className="mt-2 text-center text-xs uppercase text-white"
@@ -841,9 +1520,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             whileTap={{ scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/80 to-violet-600/80 shadow-lg">
-              <span className="text-[32px] leading-none">✨</span>
-            </div>
+            <Image src="/desktopicons/sprites.png" alt="Sprites" width={ICON_SIZE} height={ICON_SIZE} className="object-contain" />
           </motion.div>
           <motion.span
             className="mt-2 text-center text-xs uppercase text-white"
@@ -939,7 +1616,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
               initial={{ opacity: 0, scale: 0.92, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="relative w-full max-w-[min(900px,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] rounded-3xl border border-white/20 bg-gradient-to-b from-slate-900/98 via-slate-900/95 to-slate-950/98 p-4 text-white shadow-[0_40px_140px_rgba(0,0,0,0.7)] backdrop-blur-xl sm:p-6"
+              className="relative w-full max-w-[min(900px,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] rounded-3xl border border-white/20 bg-gradient-to-b from-slate-900/98 via-slate-900/95 to-slate-950/98 p-4 text-white shadow-[0_40px_140px_rgba(0,0,0,0.7)] backdrop-blur-xl sm:p-6"
               style={{ zIndex: 700, isolation: 'isolate' }}
             >
             {/* Top right buttons - Refresh and Close */}
@@ -980,7 +1657,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
             </div>
 
             {/* Content area */}
-            <div className="max-h-[calc(100vh-12rem)] overflow-y-auto pr-1 sm:max-h-[calc(88vh-140px)] sm:pr-2 applet-shelf-scroll">
+            <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1 sm:max-h-[calc(88dvh-140px)] sm:pr-2 applet-shelf-scroll">
               {folderLoading && (
                 <div className="flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-6 py-8 backdrop-blur-sm">
                   <span className="h-3 w-3 animate-ping rounded-full bg-white/70" />

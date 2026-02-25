@@ -13,7 +13,7 @@ import type { SoundtrackContextValue } from '../types/soundtrack-types';
 
 export const SoundtrackContext = createContext<SoundtrackContextValue | null>(null);
 
-const DEFAULT_NORMAL_VOLUME = 0.1;
+const DEFAULT_NORMAL_VOLUME = 0.35;
 const DUCKED_VOLUME_RATIO = 0.5; // Duck to 50% of base volume when speaking
 
 // iOS Safari has significantly higher audio output gain than desktop browsers.
@@ -54,6 +54,7 @@ function applyVolumeScaling(linear: number): number {
   return Math.pow(Math.max(0, Math.min(1, linear)), 3);
 }
 const VOLUME_STORAGE_KEY = 'nia:soundtrack:baseVolume';
+const PLAYING_STORAGE_KEY = 'nia:soundtrack:isPlaying';
 
 /**
  * Initialize the Web Audio API pipeline for an audio element.
@@ -167,7 +168,6 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
   const gainNodeRef = useRef<GainNode | null>(null);
   const webAudioReadyRef = useRef(false);
   const { isUserSpeaking, isAssistantSpeaking } = useVoiceSessionContext(); // Get speech state from context
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   
@@ -180,6 +180,28 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
   
   // Track local speaking state from Daily events for responsive volume ducking
   const [isSpeaking, setIsSpeaking] = useState(false);
+  
+  // Initialize isPlaying from localStorage (persisted pause state)
+  const [isPlaying, setIsPlayingState] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const stored = localStorage.getItem(PLAYING_STORAGE_KEY);
+      return stored === 'true';
+    } catch {
+      return false;
+    }
+  });
+  
+  // Wrapper to persist isPlaying changes
+  const setIsPlaying = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    setIsPlayingState(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      try {
+        localStorage.setItem(PLAYING_STORAGE_KEY, String(newValue));
+      } catch { /* ignore */ }
+      return newValue;
+    });
+  }, []);
   
   // Track if music was playing before forum opened (for auto-restart)
   const wasPlayingBeforeForumRef = useRef(false);
@@ -372,17 +394,8 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
 
   // Speech state is now managed by SpeechProvider via Pipecat bot events
 
-  // Auto-start soundtrack on mount at low volume.
-  // If autoplay is blocked (most browsers), queue for first user gesture.
-  const didAttemptAutoStart = useRef(false);
-  useEffect(() => {
-    if (didAttemptAutoStart.current) return;
-    didAttemptAutoStart.current = true;
-
-    // Auto-start playback
-    setIsPlaying(true);
-    logger.info('Soundtrack auto-start attempted on mount');
-  }, [logger]);
+  // Note: Auto-start removed - isPlaying is now loaded from localStorage
+  // If user paused the music, it stays paused across refreshes
 
   // Autoplay recovery: when autoplay was blocked, unlock on ANY user gesture
   // (touch/click/pointerdown). This handles both iOS Safari and desktop browsers

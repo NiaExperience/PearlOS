@@ -121,6 +121,7 @@ async def replace_note_content_handler(params: FunctionCallParams):
                         }
                     # One note found, proceed
                     note = notes[0]
+                    note_id = note.get("_id") or note.get("page_id")
                 else:
                     log.error("[notes] Cannot append: no note_id or title provided, and no active note")
                     return {
@@ -249,6 +250,7 @@ async def add_note_content_handler(params: FunctionCallParams):
                         }
                     # One note found, proceed
                     note = notes[0]
+                    note_id = note.get("_id") or note.get("page_id")
                 else:
                     log.error("[notes] Cannot append: no note_id or title provided, and no active note")
                     return {
@@ -382,6 +384,7 @@ async def remove_note_content_handler(params: FunctionCallParams):
                         }
                     # One note found, proceed
                     note = notes[0]
+                    note_id = note.get("_id") or note.get("page_id")
                 else:
                     logger.error("[notes] Cannot append: no note_id or title provided, and no active note")
                     return {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getClientLogger } from '@interface/lib/client-logger';
+import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
 import ExperienceRenderer, { type ExperienceContent } from './ExperienceRenderer';
 import WonderCanvasRenderer from './WonderCanvas/WonderCanvasRenderer';
 import UniversalCanvas from '@interface/components/canvas/UniversalCanvas';
@@ -19,11 +20,18 @@ const logger = getClientLogger('[stage]');
  * Z-index stack:
  *   0 — Background (dark gradient + ambient particles, via CSS)
  *   1 — Experience content (ExperienceRenderer)
- *   2 — Pearl avatar (rendered by parent — DailyCall/RiveAvatar)
+ *   2 — Pearl avatar (rendered by parent — DailyCall/GIF avatar)
  *   3 — Input bar (rendered by parent)
  */
 export default function Stage() {
+  const { currentMode } = useDesktopMode();
   const [experience, setExperience] = useState<ExperienceContent | null>(null);
+
+  // Log mode changes for debugging desktop mode switching
+  useEffect(() => {
+    logger.info(`[Stage] Desktop mode changed to: ${currentMode}`);
+    console.log(`[Stage] Desktop mode is now: ${currentMode}`);
+  }, [currentMode]);
 
   // Listen for experience.render events from the nia event system
   useEffect(() => {
@@ -67,7 +75,7 @@ export default function Stage() {
   }, []);
 
   return (
-    <div className="stage" data-testid="pearl-stage">
+    <div className={`stage stage--${currentMode}`} data-testid="pearl-stage" data-desktop-mode={currentMode}>
       {/* Wonder Canvas layer — behind experience and Pearl avatar */}
       <WonderCanvasRenderer />
 
@@ -81,7 +89,7 @@ export default function Stage() {
       <UniversalCanvas className="stage__canvas" />
 
       {/* Pearl avatar layer — the avatar itself is rendered by the parent
-          (RiveAvatar lives in DailyCall). This div reserves the z-index layer. */}
+          (GIF avatar lives in DailyCall). This div reserves the z-index layer. */}
       <div className="stage__pearl" />
     </div>
   );

@@ -1,0 +1,566 @@
+asyncapi: "2.6.0"
+id: "urn:chorus:tts:websocket"
+info:
+  title: Chorus TTS Streaming Text-to-Speech
+  version: "0.1.0"
+  description: Websocket protocol for streaming Chorus TTS (backed by Kokoro). Authenticate with an ElevenLabs-style API key, stream text payloads, and receive PCM audio responses in near real-time.
+  contact:
+    name: Chorus TTS Team
+    url: "https://chorus-tts.example.com/"
+    email: "support@chorus-tts.example.com"
+  license:
+    name: MIT
+    url: "https://opensource.org/licenses/MIT"
+servers:
+  development:
+    url: "ws://localhost:{port}"
+    protocol: ws
+    description: Local development server. Update the port to match SERVER_PORT.
+    variables:
+      port:
+        default: "8080"
+        description: Matches the SERVER_PORT environment variable.
+channels:
+  v1/text-to-speech/{voice_id}/stream-input:
+    description: Bidirectional websocket channel used to stream Chorus TTS audio. Clients authenticate via API key, pass optional query parameters to tune synthesis, then alternate between text payloads and flush markers while receiving PCM audio chunks.
+    servers:
+      - development
+    publish:
+      operationId: publishTextInputs
+      summary: Client text messages streamed into Chorus TTS.
+      message:
+        oneOf:
+          -
+            $ref: "#/components/messages/InitializeConnection"
+          -
+            $ref: "#/components/messages/SendText"
+          -
+            $ref: "#/components/messages/CloseConnection"
+      security:
+        -
+          XiApiKeyHeader:
+            []
+        -
+          BearerAuth:
+            []
+        -
+          ApiKeyQuery:
+            []
+    subscribe:
+      operationId: streamAudioOutputs
+      summary: Audio responses streamed from Chorus TTS.
+      message:
+        oneOf:
+          -
+            $ref: "#/components/messages/ConnectedEvent"
+          -
+            $ref: "#/components/messages/AudioOutputEvent"
+          -
+            $ref: "#/components/messages/FinalOutputEvent"
+          -
+            $ref: "#/components/messages/ErrorEvent"
+      security:
+        -
+          XiApiKeyHeader:
+            []
+        -
+          BearerAuth:
+            []
+        -
+          ApiKeyQuery:
+            []
+    parameters:
+      voice_id:
+        description: Requested Kokoro voice identifier.
+        schema:
+          readOnly: false
+          writeOnly: false
+          uniqueItems: false
+          definitions:
+            {}
+          properties:
+            {}
+          patternProperties:
+            {}
+          enum:
+            - af_alloy
+            - af_aoede
+            - af_bella
+            - af_heart
+            - af_jessica
+            - af_kore
+            - af_nicole
+            - af_nova
+            - af_river
+            - af_sarah
+            - af_sky
+            - am_adam
+            - am_echo
+            - am_eric
+            - am_fenrir
+            - am_liam
+            - am_michael
+            - am_onyx
+            - am_puck
+            - bf_alice
+            - bf_emma
+            - bf_isabella
+            - bf_lily
+            - bm_daniel
+            - bm_fable
+            - bm_george
+            - bm_lewis
+            - ff_siwis
+            - if_sara
+            - im_nicola
+            - jf_alpha
+            - jf_gongitsune
+            - jf_nezumi
+            - jf_tebukuro
+            - jm_kumo
+            - zf_xiaobei
+            - zf_xiaoni
+            - zf_xiaoxiao
+            - zf_xiaoyi
+            - zm_yunjian
+            - zm_yunxi
+            - zm_yunxia
+            - zm_yunyang
+          type: string
+    bindings:
+      ws:
+        query:
+          $ref: "#/components/schemas/HandshakeParams"
+        headers:
+          type: object
+          properties:
+            xi-api-key:
+              type: string
+              description: Primary authentication header (preferred).
+            authorization:
+              type: string
+              description: Optional Bearer token header.
+components:
+  schemas:
+    InitializeConnectionMessage:
+      description: Payload required to initialise a websocket session.
+      properties:
+        text:
+          const: " "
+          title: Text
+          type: string
+        voice_settings:
+          anyOf:
+            -
+              $ref: "#/components/schemas/VoiceSettings"
+            -
+              type: "null"
+          default: null
+        generation_config:
+          anyOf:
+            -
+              $ref: "#/components/schemas/GenerationConfig"
+            -
+              type: "null"
+          default: null
+        pronunciation_dictionary_locators:
+          anyOf:
+            -
+              items:
+                additionalProperties:
+                  type: string
+                type: object
+              type: array
+            -
+              type: "null"
+          default: null
+          title: Pronunciation Dictionary Locators
+        xi_api_key:
+          anyOf:
+            -
+              type: string
+            -
+              type: "null"
+          default: null
+          title: Xi Api Key
+        authorization:
+          anyOf:
+            -
+              type: string
+            -
+              type: "null"
+          default: null
+          title: Authorization
+      required:
+        - text
+      title: InitializeConnectionMessage
+      type: object
+    GenerationConfig:
+      description: Optional per-session overrides for generation behaviour.
+      properties:
+        chunk_length_schedule:
+          anyOf:
+            -
+              items:
+                type: integer
+              type: array
+            -
+              type: "null"
+          default: null
+          title: Chunk Length Schedule
+      title: GenerationConfig
+      type: object
+    VoiceSettings:
+      description: User-controllable voice rendering parameters.
+      properties:
+        stability:
+          anyOf:
+            -
+              maximum: 1.0
+              minimum: 0.0
+              type: number
+            -
+              type: "null"
+          default: null
+          title: Stability
+        similarity_boost:
+          anyOf:
+            -
+              maximum: 1.0
+              minimum: 0.0
+              type: number
+            -
+              type: "null"
+          default: null
+          title: Similarity Boost
+        style:
+          anyOf:
+            -
+              maximum: 1.0
+              minimum: 0.0
+              type: number
+            -
+              type: "null"
+          default: null
+          title: Style
+        use_speaker_boost:
+          anyOf:
+            -
+              type: boolean
+            -
+              type: "null"
+          default: null
+          title: Use Speaker Boost
+        speed:
+          anyOf:
+            -
+              maximum: 2.0
+              minimum: 0.5
+              type: number
+            -
+              type: "null"
+          default: null
+          title: Speed
+      title: VoiceSettings
+      type: object
+    SendTextMessage:
+      description: Payload carrying text or flush instructions during a session.
+      properties:
+        text:
+          title: Text
+          type: string
+        try_trigger_generation:
+          default: false
+          title: Try Trigger Generation
+          type: boolean
+        flush:
+          default: false
+          title: Flush
+          type: boolean
+        voice_settings:
+          anyOf:
+            -
+              $ref: "#/components/schemas/VoiceSettings"
+            -
+              type: "null"
+          default: null
+        generation_config:
+          anyOf:
+            -
+              $ref: "#/components/schemas/GenerationConfig"
+            -
+              type: "null"
+          default: null
+      required:
+        - text
+      title: SendTextMessage
+      type: object
+    CloseConnectionMessage:
+      description: Payload instructing the server to close the websocket session.
+      properties:
+        text:
+          const: ""
+          title: Text
+          type: string
+      required:
+        - text
+      title: CloseConnectionMessage
+      type: object
+    ConnectedEvent:
+      description: Server acknowledgement after accepting the websocket handshake.
+      properties:
+        event:
+          const: connected
+          title: Event
+          type: string
+        session_id:
+          title: Session Id
+          type: string
+        voice_id:
+          title: Voice Id
+          type: string
+        language_code:
+          title: Language Code
+          type: string
+        output_format:
+          $ref: "#/components/schemas/OutputFormat"
+      required:
+        - event
+        - session_id
+        - voice_id
+        - language_code
+        - output_format
+      title: ConnectedEvent
+      type: object
+    OutputFormat:
+      description: Enumerate supported PCM output formats.
+      enum:
+        - pcm_22050
+        - pcm_24000
+      title: OutputFormat
+      type: string
+    AudioOutputEvent:
+      description: Chunk of PCM data streamed back to the websocket client.
+      properties:
+        event:
+          const: audioOutput
+          title: Event
+          type: string
+        chunk_index:
+          title: Chunk Index
+          type: integer
+        audio:
+          title: Audio
+          type: string
+        sample_rate:
+          title: Sample Rate
+          type: integer
+        isFinal:
+          title: Isfinal
+          type: boolean
+        segment_reason:
+          title: Segment Reason
+          type: string
+      required:
+        - event
+        - chunk_index
+        - audio
+        - sample_rate
+        - isFinal
+        - segment_reason
+      title: AudioOutputEvent
+      type: object
+    FinalOutputEvent:
+      description: Summary emitted when the session completes successfully.
+      properties:
+        event:
+          const: finalOutput
+          title: Event
+          type: string
+        isFinal:
+          const: true
+          title: Isfinal
+          type: boolean
+        chunks:
+          title: Chunks
+          type: integer
+        duration_ms:
+          title: Duration Ms
+          type: integer
+      required:
+        - event
+        - isFinal
+        - chunks
+        - duration_ms
+      title: FinalOutputEvent
+      type: object
+    ErrorEvent:
+      description: Error reported back to websocket clients.
+      properties:
+        event:
+          const: error
+          title: Event
+          type: string
+        code:
+          title: Code
+          type: string
+        message:
+          title: Message
+          type: string
+        retryable:
+          title: Retryable
+          type: boolean
+      required:
+        - event
+        - code
+        - message
+        - retryable
+      title: ErrorEvent
+      type: object
+    HandshakeParams:
+      description: Query parameters accepted by the websocket handshake endpoint.
+      properties:
+        model_id:
+          anyOf:
+            -
+              type: string
+            -
+              type: "null"
+          default: null
+          title: Model Id
+        output_format:
+          $ref: "#/components/schemas/OutputFormat"
+          default: pcm_22050
+        api_key:
+          anyOf:
+            -
+              type: string
+            -
+              type: "null"
+          default: null
+          title: Api Key
+        authorization:
+          anyOf:
+            -
+              type: string
+            -
+              type: "null"
+          default: null
+          title: Authorization
+        language_code:
+          anyOf:
+            -
+              type: string
+            -
+              type: "null"
+          default: null
+          title: Language Code
+        enable_logging:
+          default: true
+          title: Enable Logging
+          type: boolean
+        enable_ssml_parsing:
+          default: false
+          title: Enable Ssml Parsing
+          type: boolean
+        inactivity_timeout:
+          default: 20
+          maximum: 180
+          minimum: 5
+          title: Inactivity Timeout
+          type: integer
+        sync_alignment:
+          default: false
+          title: Sync Alignment
+          type: boolean
+        auto_mode:
+          default: false
+          title: Auto Mode
+          type: boolean
+        apply_text_normalization:
+          $ref: "#/components/schemas/ApplyTextNormalization"
+          default: auto
+        seed:
+          anyOf:
+            -
+              maximum: 4294967295
+              minimum: 0
+              type: integer
+            -
+              type: "null"
+          default: null
+          title: Seed
+      title: HandshakeParams
+      type: object
+    ApplyTextNormalization:
+      description: Control how Kokoro normalises incoming text.
+      enum:
+        - auto
+        - on
+        - off
+      title: ApplyTextNormalization
+      type: string
+  messages:
+    InitializeConnection:
+      name: InitializeConnection
+      summary: Start a session by sending the sentinel space payload.
+      messageId: client.initializeConnection
+      payload:
+        $ref: "#/components/schemas/InitializeConnectionMessage"
+    SendText:
+      name: SendText
+      summary: Stream buffered text or flush instructions during the session.
+      messageId: client.sendText
+      payload:
+        $ref: "#/components/schemas/SendTextMessage"
+    CloseConnection:
+      name: CloseConnection
+      summary: Request the server to finish synthesis and close the session.
+      messageId: client.closeConnection
+      payload:
+        $ref: "#/components/schemas/CloseConnectionMessage"
+    ConnectedEvent:
+      name: ConnectedEvent
+      summary: Server acknowledgement after accepting the websocket handshake.
+      messageId: server.connected
+      payload:
+        $ref: "#/components/schemas/ConnectedEvent"
+    AudioOutputEvent:
+      name: AudioOutputEvent
+      summary: Streamed chunk of PCM audio generated from buffered text.
+      messageId: server.audioOutput
+      payload:
+        $ref: "#/components/schemas/AudioOutputEvent"
+    FinalOutputEvent:
+      name: FinalOutputEvent
+      summary: Summary emitted when the session finishes successfully.
+      messageId: server.finalOutput
+      payload:
+        $ref: "#/components/schemas/FinalOutputEvent"
+    ErrorEvent:
+      name: ErrorEvent
+      summary: Non-fatal or fatal error emitted by the server.
+      messageId: server.error
+      payload:
+        $ref: "#/components/schemas/ErrorEvent"
+  securitySchemes:
+    XiApiKeyHeader:
+      type: httpApiKey
+      description: API key used by ElevenLabs clients (preferred).
+      name: xi-api-key
+      in: header
+    ApiKeyQuery:
+      type: httpApiKey
+      description: Fallback query parameter for API key authentication.
+      name: api_key
+      in: query
+    BearerAuth:
+      type: http
+      description: Alternate bearer token accepted over the Authorization header.
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+  -
+    name: tts
+    description: Streaming synthesis endpoints for Kokoro.
+defaultContentType: application/json

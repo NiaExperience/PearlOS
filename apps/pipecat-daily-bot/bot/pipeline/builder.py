@@ -54,10 +54,11 @@ from core.config import (
     KOKORO_TTS_SAMPLE_RATE, KOKORO_TTS_AUTO_MODE,
     KOKORO_TTS_APPLY_TEXT_NORMALIZATION, KOKORO_TTS_ENABLE_LOGGING,
     KOKORO_TTS_ENABLE_SSML, KOKORO_TTS_SEED, KOKORO_TTS_INACTIVITY_TIMEOUT,
-    KOKORO_TTS_CHUNK_SCHEDULE, KOKORO_TTS_TRY_TRIGGER_GENERATION
+    KOKORO_TTS_CHUNK_SCHEDULE, KOKORO_TTS_TRY_TRIGGER_GENERATION,
+    BOT_VISION_ENABLED, BOT_VISION_MODEL, BOT_VISION_INTERVAL, BOT_VISION_PROMPT,
 )
 
-from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, ONBOARDING_NOTE, NOTES_NOTE
+from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, ONBOARDING_NOTE, NOTES_NOTE, VOICE_COMMAND_NOTE
 
 def load_workspace_context() -> str:
     """Load Pearl's identity and context from workspace files.
@@ -152,10 +153,28 @@ def load_workspace_context() -> str:
         base_logger.error(f"[{BOT_PID}] Error reading MEMORY.md: {e}")
     
     # Cross-channel identity clarity (concise version for token efficiency)
+    # ISSUE #2 FIX: Inject Discord context from environment when available
+    discord_context = ""
+    discord_guild_id = os.getenv("BOT_DISCORD_GUILD_ID")
+    discord_channel_id = os.getenv("BOT_DISCORD_CHANNEL_ID")
+    discord_channel_name = os.getenv("BOT_DISCORD_CHANNEL_NAME", "general")
+    
+    if discord_guild_id and discord_channel_id:
+        discord_context = (
+            f"\n## Your Current Discord Context\n\n"
+            f"You are currently operating in:\n"
+            f"- Discord Server/Guild ID: {discord_guild_id}\n"
+            f"- Channel: #{discord_channel_name} (ID: {discord_channel_id})\n\n"
+            f"When the user says 'send a Discord message to general' or 'message the general channel', "
+            f"they mean THIS channel (#{discord_channel_name}) that you're already in. "
+            f"You don't need to ask for server/channel IDs — you're already here.\n"
+        )
+    
     context_parts.append(
         "## Your Identity Across Channels\n\n"
         "You are Pearl — the SAME Pearl across PearlOS voice, Discord, Telegram, and webchat.\n"
         "When the user mentions 'Discord', that's one of YOUR channels — you ARE the Discord bot.\n\n"
+        + discord_context +
         "## Voice Session Rules\n\n"
         "- Only send messages to Discord/Telegram when the user explicitly asks.\n"
         "- You have full tool access via OpenClaw — web search, messaging, exec, files, everything.\n"
@@ -309,6 +328,11 @@ async def build_pipeline(
     # Read supported features from environment early for pipeline configuration
     supported_features_env = os.getenv('BOT_SUPPORTED_FEATURES')
     supported_features_list = supportedFeatures or (supported_features_env.split(',') if supported_features_env else [])
+    
+    # Auto-inject 'vision' feature flag when BOT_VISION_ENABLED is true
+    if BOT_VISION_ENABLED() and 'vision' not in supported_features_list:
+        supported_features_list.append('vision')
+        logger.info(f"[{BOT_PID}] Auto-injected 'vision' feature flag (BOT_VISION_ENABLED=true)")
     
     # Remove raw HTML tools from voice — bot_create_html_content takes raw HTML that model may narrate
     # Wonder Canvas is safe (uses run_llm=False, sends HTML via events not TTS)
@@ -765,14 +789,14 @@ async def build_pipeline(
                 "base_url": "https://openrouter.ai/api/v1",
             }
                 
-        else:  # default to gpt-4o-mini
-            openai_api_key = os.getenv("OPENAI_API_KEY")
-            if not openai_api_key:
-                raise ValueError("OPENAI_API_KEY is required for gpt-4o-mini")
+        else:  # default to gpt-4o-mini via OpenRouter
+            openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+            if not openrouter_api_key:
+                raise ValueError("OPENROUTER_API_KEY is required for gpt-4o-mini (via OpenRouter)")
             return {
-                "api_key": openai_api_key,
-                "model": "gpt-4o-mini",
-                "base_url": None,  # Use default OpenAI endpoint
+                "api_key": openrouter_api_key,
+                "model": "openai/gpt-4o-mini",
+                "base_url": "https://openrouter.ai/api/v1",
             }
 
     if toolbox_bundle and toolbox_bundle.schemas:
@@ -798,6 +822,10 @@ async def build_pipeline(
     # --- LLM mode: Check for OPENCLAW_SESSION mode first ---
     bot_llm_mode = os.getenv("BOT_LLM_MODE", "").lower()
     use_openclaw_session = (bot_llm_mode == "openclaw_session")
+    use_anthropic_voice = (bot_llm_mode == "anthropic_voice")
+
+    if use_anthropic_voice:
+        logger.info(f'[{BOT_PID}] 🧠 ANTHROPIC_VOICE MODE: Direct Anthropic Messages API with full context + tools')
 
     if use_openclaw_session:
         logger.info(f'[{BOT_PID}] 🧠 OPENCLAW_SESSION MODE: All inference delegated to OpenClaw Gateway (no local tools)')
@@ -811,6 +839,20 @@ async def build_pipeline(
     model_selection = os.getenv("BOT_MODEL_SELECTION", "gpt-4o-mini")
     hybrid_model = os.getenv("BOT_HYBRID_PRIMARY_MODEL", model_selection)
     use_sonnet_primary = os.getenv("BOT_USE_SONNET_PRIMARY", "true").lower() in ("true", "1", "yes")
+
+    # Per-role model overrides (set via Pearl Mind settings panel)
+    bot_voice_model = os.getenv("BOT_VOICE_MODEL", "")
+    bot_tools_model = os.getenv("BOT_TOOLS_MODEL", "")
+    bot_swarm_model = os.getenv("BOT_SWARM_MODEL", "")
+    bot_thinking_model = os.getenv("BOT_THINKING_MODEL", "")
+    if bot_voice_model:
+        logger.info(f'[{BOT_PID}] 🎙️ BOT_VOICE_MODEL override: {bot_voice_model}')
+    if bot_tools_model:
+        logger.info(f'[{BOT_PID}] 🔧 BOT_TOOLS_MODEL override: {bot_tools_model}')
+    if bot_swarm_model:
+        logger.info(f'[{BOT_PID}] 🐝 BOT_SWARM_MODEL override: {bot_swarm_model}')
+    if bot_thinking_model:
+        logger.info(f'[{BOT_PID}] 💭 BOT_THINKING_MODEL override: {bot_thinking_model}')
 
     if bot_llm_mode in ("anthropic", "haiku", "sonnet"):
         # NATIVE ANTHROPIC MODE: Direct AnthropicLLMService — no OpenAI adapter hack
@@ -846,6 +888,18 @@ async def build_pipeline(
         except Exception as e:
             logger.error(f'[{BOT_PID}] ❌ CRITICAL: Failed to initialize AnthropicLLMService: {e}')
             raise
+    elif use_anthropic_voice:
+        # Create a stub LLM for FlowManager/context-aggregator compatibility.
+        # Actual inference is handled by AnthropicVoiceProcessor in the pipeline.
+        openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
+        openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
+        sonnet_model = os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514")
+        llm = _OpenClawLLMService(
+            api_key=openclaw_key,
+            model=sonnet_model,
+            base_url=openclaw_url,
+        )
+        logger.info(f'[{BOT_PID}] ⏭️ Created stub LLM for FlowManager compat (ANTHROPIC_VOICE mode — inference via AnthropicVoiceProcessor)')
     elif use_openclaw_session:
         # Create a stub LLM for FlowManager/context-aggregator compatibility.
         # Actual inference is handled by OpenClawSessionProcessor in the pipeline.
@@ -904,7 +958,7 @@ async def build_pipeline(
         try:
             llm = _OpenClawLLMService(
                 api_key=openclaw_key,
-                model="anthropic/claude-sonnet-4-20250514",
+                model=os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514"),
                 base_url=openclaw_url,
             )
             logger.info(f'[{BOT_PID}] ✅ OpenClaw LLM initialized successfully')
@@ -936,7 +990,7 @@ async def build_pipeline(
     if hasattr(llm, '_tools'):
         logger.info(f'[{BOT_PID}] LLM._tools: %s' % llm._tools)
 
-    if not use_openclaw_session and toolbox_bundle and toolbox_bundle.registrations:
+    if not use_openclaw_session and not use_anthropic_voice and toolbox_bundle and toolbox_bundle.registrations:
         for registration in toolbox_bundle.registrations:
             llm.register_function(
                 registration.name,
@@ -972,11 +1026,22 @@ async def build_pipeline(
     notes_note = NOTES_NOTE if 'notes' in supported_features_list else ""
     
     # Load workspace context (identity + cross-session awareness)
-    # In voice mode, keep it minimal to avoid confusing the LLM
+    # Voice can handle decent context — only trim the cross-session extras if over limit
     workspace_context = load_workspace_context()
-    if len(workspace_context) > 2000:
-        logger.warning(f'[{BOT_PID}] Workspace context too long for voice ({len(workspace_context)} chars), trimming to identity only')
-        workspace_context = ""  # Let the personality prompt carry the identity
+    if len(workspace_context) > 8000:
+        # Over 8K is too much for voice — reload identity files only (no cross-session state)
+        logger.warning(f'[{BOT_PID}] Workspace context too long for voice ({len(workspace_context)} chars), loading identity only')
+        workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
+        identity_parts = []
+        for filename, label in [("SOUL.md", "Core Identity"), ("IDENTITY.md", "Personal Details"), ("USER.md", "User Context")]:
+            try:
+                with open(os.path.join(workspace_root, filename), 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    if content:
+                        identity_parts.append(f"## {label}\n{content}")
+            except Exception:
+                pass
+        workspace_context = "\n\n".join(identity_parts)
     logger.info(f'[{BOT_PID}] Loaded workspace context (len={len(workspace_context)})')
     
     # Build tool awareness note
@@ -1012,16 +1077,16 @@ async def build_pipeline(
         "## Wonder Canvas Image Proxy\n\n"
         "When generating Wonder Canvas HTML that includes images, NEVER use Unsplash URLs, "
         "NEVER guess photo IDs, NEVER use source.unsplash.com — they return wrong images.\n\n"
-        "ONLY use the local image proxy for ALL photos:\n"
-        "  http://localhost:4444/api/image?q=SUBJECT\n\n"
+        "ONLY use the image proxy for ALL photos:\n"
+        "  /api/image?q=SUBJECT\n\n"
         "Be SPECIFIC with queries. Use the exact species/subject name:\n"
         "  ✅ q=orca (for killer whales — returns actual orca photo)\n"
         "  ✅ q=humpback+whale (for humpback whales)\n"
         "  ❌ q=whale (too generic, could return any whale species)\n\n"
         "Examples:\n"
-        "  <img src=\"http://localhost:4444/api/image?q=orca\" style=\"...\">\n"
-        "  <img src=\"http://localhost:4444/api/image?q=red+panda\" style=\"...\">\n"
-        "  <img src=\"http://localhost:4444/api/image?q=golden+gate+bridge\" style=\"...\">\n\n"
+        "  <img src=\"/api/image?q=orca\" style=\"...\">\n"
+        "  <img src=\"/api/image?q=red+panda\" style=\"...\">\n"
+        "  <img src=\"/api/image?q=golden+gate+bridge\" style=\"...\">\n\n"
         "This endpoint fetches real Wikipedia images that match the subject.\n\n"
         "## Wonder Canvas iOS Compatibility\n\n"
         "NEVER use these CSS properties in Wonder Canvas HTML — they break on iOS Safari in sandboxed iframes:\n"
@@ -1057,18 +1122,38 @@ async def build_pipeline(
     
     # In openclaw_session mode, OpenClaw's agent system provides its own tool surface
     # (exec, web_search, message, pearlos skill, etc.) — don't inject Pipecat tool notes
-    if use_openclaw_session:
+    if use_openclaw_session or use_anthropic_voice:
         tool_awareness_note = ""
         openclaw_bridge_note = ""
+
+    # Pearl Vision awareness note
+    vision_awareness_note = ""
+    if BOT_VISION_ENABLED():
+        vision_awareness_note = (
+            "## Pearl Vision (Camera)\n\n"
+            "You can SEE the user through their camera! Video frames are periodically "
+            "analyzed and injected into your context as [VISION UPDATE] system messages.\n"
+            "When you receive a vision update, naturally incorporate what you see into "
+            "conversation. Don't announce 'I see a vision update' — just reference what "
+            "you observe as if you're looking at the person. For example: 'I love that "
+            "shirt!' or 'Looks like you're at a café!'\n"
+            "You can reference the user's appearance, surroundings, expressions, "
+            "and anything they show to the camera naturally."
+        )
+
+    # Voice command interpretation note — critical for STT disambiguation
+    voice_command_note = VOICE_COMMAND_NOTE
 
     system_content_parts = [
         workspace_context,  # Identity + cross-session context
         "",  # blank line separator
         prompt,  # Personality-specific instructions
         "",  # blank line separator
+        voice_command_note,  # Voice command interpretation (STT disambiguation)
         tool_awareness_note,  # Tool capability awareness (skipped in openclaw_session mode)
         openclaw_bridge_note,  # Voice-to-OpenClaw bridge guidance (skipped in openclaw_session mode)
         wonder_canvas_image_note,  # Image proxy hint for Wonder Canvas
+        vision_awareness_note,  # Pearl Vision camera awareness
         multi_user_note,
         smart_silence_note,
         onboarding_note,
@@ -1183,6 +1268,32 @@ async def build_pipeline(
     # Construct pipeline processors step-by-step for better readability and robustness
     pipeline_processors = [transport.input()]
     
+    # --- Pearl Vision: video frame analysis ---
+    vision_processor = None
+    if BOT_VISION_ENABLED():
+        try:
+            from processors.vision import VisionProcessor
+            vision_processor = VisionProcessor(
+                vision_model=BOT_VISION_MODEL(),
+                vision_interval=BOT_VISION_INTERVAL(),
+                vision_prompt=BOT_VISION_PROMPT(),
+                context=context,
+                transport=transport,
+            )
+            pipeline_processors.append(vision_processor)
+            # Wire the vision processor to the on-demand tool
+            try:
+                from tools.vision_tools import set_vision_processor
+                set_vision_processor(vision_processor)
+            except Exception as e:
+                logger.warning(f"[{BOT_PID}] [vision] Failed to set vision tool processor ref: {e}")
+            logger.info(f"[{BOT_PID}] [vision] ✅ Pearl Vision enabled: model={BOT_VISION_MODEL()}, interval={BOT_VISION_INTERVAL()}s")
+        except Exception as e:
+            logger.error(f"[{BOT_PID}] [vision] Failed to initialize VisionProcessor: {e}")
+            vision_processor = None
+    else:
+        logger.info(f"[{BOT_PID}] [vision] Pearl Vision disabled (BOT_VISION_ENABLED=false)")
+
     if use_lull_detection:
         user_idle = create_lull_processor(messages, lull_timeout_secs)
         pipeline_processors.append(user_idle)
@@ -1195,21 +1306,40 @@ async def build_pipeline(
     )
     logger.info(f"[{BOT_PID}] Created ToolNarrationProcessor for voice gap filling")
 
-    if os.getenv("BOT_NON_BLOCKING_TOOLS", "false").lower() == "true":
+    # Wonder Canvas template prompt - used across multiple LLM modes
+    _wonder_template_prompt = (
+        "**USE TEMPLATES FIRST:** Prefer `bot_wonder_canvas_template` (or via pearlos-tool) with "
+        "{\"template\": \"name\", \"data\": {...}} for common content types. Available templates: "
+        "weather_card, news_headline, person_bio, fact_card, definition_card, movie_card, "
+        "music_now_playing, recipe_card, book_card, game_scoreboard, quiz_question, poll, "
+        "story_choice, countdown_timer, achievement_unlocked, comparison_table, timeline, "
+        "stat_dashboard, progress_tracker, location_card, greeting_card, error_card, loading_card, "
+        "list_card, image_showcase. Only use `bot_wonder_canvas_scene` (raw HTML) for truly unique requests.\n"
+    )
+
+    if bot_llm_mode == "anthropic_voice":
+        # ANTHROPIC_VOICE mode: Direct Anthropic Messages API with full workspace context + tools
+        # This MUST come before BOT_NON_BLOCKING_TOOLS check to avoid being shadowed.
+        from processors.anthropic_voice import AnthropicVoiceProcessor
+
+        anthropic_voice_processor = AnthropicVoiceProcessor(
+            model=os.getenv("BOT_ANTHROPIC_VOICE_MODEL", os.getenv("BOT_VOICE_MODEL", os.getenv("BOT_FAST_MODEL", "claude-haiku-4-5-20251001"))),
+        )
+        logger.info(f'[{BOT_PID}] Created AnthropicVoiceProcessor for pipeline (anthropic_voice mode)')
+
+        pipeline_processors.extend([
+            context_agg.user(),
+            anthropic_voice_processor,
+            tts,
+            tts_speaking_monitor,
+            transport.output(),
+            context_agg.assistant(),
+        ])
+    elif os.getenv("BOT_NON_BLOCKING_TOOLS", "false").lower() == "true":
         # NON-BLOCKING TOOLS mode: use NonBlockingToolRouter for parallel tool execution
         from processors.non_blocking_router import NonBlockingToolRouter
 
         # Voice-specific system prompt (same as openclaw_session mode)
-        _wonder_template_prompt = (
-            "**USE TEMPLATES FIRST:** Prefer `bot_wonder_canvas_template` (or via pearlos-tool) with "
-            "{\"template\": \"name\", \"data\": {...}} for common content types. Available templates: "
-            "weather_card, news_headline, person_bio, fact_card, definition_card, movie_card, "
-            "music_now_playing, recipe_card, book_card, game_scoreboard, quiz_question, poll, "
-            "story_choice, countdown_timer, achievement_unlocked, comparison_table, timeline, "
-            "stat_dashboard, progress_tracker, location_card, greeting_card, error_card, loading_card, "
-            "list_card, image_showcase. Only use `bot_wonder_canvas_scene` (raw HTML) for truly unique requests.\n"
-        )
-
         nb_system_prompt = (
             "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
             "You are speaking aloud via text-to-speech in a PearlOS voice session.\n"
@@ -1227,6 +1357,23 @@ async def build_pipeline(
             "- You have FULL tool access: notes, YouTube, soundtracks, windows, apps, sprites, Discord messaging, web search, file operations, and more.\n"
             "- If the user asks you to do something, DO IT. Don't say you can't.\n"
             "\n"
+            "## SUB-AGENT SPAWN GUARD (CRITICAL)\n"
+            "Before spawning any sub-agent, you MUST run sessions_list(activeMinutes=10) and check for similar active task labels.\n"
+            "If a similar active task already exists, DO NOT spawn a new sub-agent. Reuse the existing task and report that it is already running.\n"
+            "Only spawn sub-agents when the user explicitly requests the work.\n"
+            "If spawning is your suggestion rather than an explicit user request, ask for confirmation before spawning.\n"
+            "Never create duplicate sub-agents for the same task intent.\n"
+            "\n"
+            "## VOICE COMMAND INTERPRETATION (CRITICAL)\n"
+            "Input comes from speech-to-text. Treat ALL app-related phrases as COMMANDS, not statements.\n"
+            "- 'close notes' / 'closed notes' / 'close the notes' → IMMEDIATELY invoke bot_close_notes\n"
+            "- 'open notes' / 'opened notes' → IMMEDIATELY invoke bot_open_notes\n"
+            "- 'close terminal' / 'closed terminal' → IMMEDIATELY invoke bot_close_terminal\n"
+            "- 'close gmail' / 'close youtube' / 'close drive' → invoke the matching close tool\n"
+            "- 'open [app]' / 'opened [app]' / 'launch [app]' → invoke the matching open tool\n"
+            "STT may transcribe 'close' as 'closed', 'clothes', 'shut', 'exit', 'hide'. "
+            "When followed by an app name, ALWAYS treat as a close command. Act immediately, never ask for confirmation.\n"
+            "\n"
             "## PROACTIVE WONDER CANVAS\n"
             "When the user asks a factual question (weather, store hours, fun facts, comparisons, history, etc.), "
             "ALWAYS show a visual info card on the Wonder Canvas using `pearlos-tool invoke bot_wonder_canvas_scene` "
@@ -1239,8 +1386,9 @@ async def build_pipeline(
 
         non_blocking = NonBlockingToolRouter(
             system_prompt=nb_system_prompt,
+            forwarder_ref=forwarder_ref,
         )
-        logger.info(f'[{BOT_PID}] Created NonBlockingToolRouter for pipeline')
+        logger.info(f'[{BOT_PID}] Created NonBlockingToolRouter for pipeline (with forwarder_ref for direct tools)')
 
         pipeline_processors.extend([
             context_agg.user(),
@@ -1273,6 +1421,18 @@ async def build_pipeline(
             "- Use the pearlos skill and pearlos-tool CLI for all PearlOS desktop actions.\n"
             "- You have FULL tool access: notes, YouTube, soundtracks, windows, apps, sprites, Discord messaging, web search, file operations, and more.\n"
             "- If the user asks you to do something, DO IT. Don't say you can't.\n"
+            "\n"
+            "## VOICE COMMAND INTERPRETATION (CRITICAL)\n"
+            "Input comes from speech-to-text. Treat ALL app-related phrases as COMMANDS, not statements.\n"
+            "- 'close notes' / 'closed notes' / 'close the notes' → IMMEDIATELY run: pearlos-tool invoke bot_close_notes\n"
+            "- 'open notes' / 'opened notes' → IMMEDIATELY run: pearlos-tool invoke bot_open_notes\n"
+            "- 'close terminal' / 'closed terminal' → IMMEDIATELY run: pearlos-tool invoke bot_close_terminal\n"
+            "- 'close gmail' / 'close youtube' / 'close drive' → invoke the matching bot_close_* tool\n"
+            "- 'open [app]' / 'opened [app]' / 'launch [app]' → invoke the matching bot_open_* tool\n"
+            "STT often transcribes 'close' as 'closed', 'clothes', 'shut', 'exit', or 'hide'. "
+            "When followed by an app name, ALWAYS treat it as a close command. "
+            "NEVER interpret 'closed notes' as a statement that notes are already closed. "
+            "It is ALWAYS a command to close notes. Act immediately, never ask for confirmation.\n"
             "\n"
             "## PROACTIVE WONDER CANVAS\n"
             "When the user asks a factual question (weather, store hours, fun facts, comparisons, history, etc.), "
@@ -1345,4 +1505,5 @@ async def build_pipeline(
         flow_manager,
         forwarder_ref,
         tts,  # Return TTS service for runtime config updates
+        vision_processor,  # Pearl Vision processor (None if disabled)
     )

@@ -91,7 +91,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   
   // Initialize personality state - check localStorage synchronously before first render
   const getInitialPersonalityKey = () => {
-    // Check if PearlMultiMenu is enabled
+    // Menu feature check (PearlMultiMenu removed — was Rive-based)
     const isMultiMenuEnabled = isFeatureEnabled('pearlMultiMenu', supportedFeatures);
 
     // If feature is disabled, strictly fallback to props (return undefined key)
@@ -163,7 +163,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
     return () => window.removeEventListener(NIA_EVENT_ONBOARDING_COMPLETE, handleOnboardingUpdate);
   }, [refreshMetadata]);
 
-  const { isBrowserWindowVisible } = useUI();
+  const { isBrowserWindowVisible, isChatMode, isAvatarVisible } = useUI();
   const { data: session } = useResilientSession();
   
   const isOnboardingEnabled = isFeatureEnabled('onboarding');
@@ -292,8 +292,8 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
     config: effectivePersonalityConfig,
   });
   
-  // Get Daily call object from context to monitor participants
-  const { getCallObject } = useVoiceSessionContext();
+  // Get Daily call object and speaking status from context to monitor participants and control avatar
+  const { getCallObject, isAssistantSpeaking, assistantVolumeLevel } = useVoiceSessionContext();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -692,11 +692,27 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       <VoiceInputBox onSubmit={handleVoiceInput} />
       
       <div
-        className={`pointer-events-auto mt-auto fixed z-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center ${!seatrade && 'p-3'} rounded-t-lg`}
+        className={`mt-auto fixed ${isChatMode ? 'z-[900]' : 'z-[851]'} flex flex-col items-center justify-center ${!seatrade && 'p-3'} rounded-t-lg`}
         style={{
-          transition: 'all 0.3s ease-in-out',
-          bottom: seatrade ? (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? '50%' : 20 : 72,
-          transform: seatrade && (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? 'translateY(50%) translateX(-50%)' : 'translateX(-50%)'
+          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+          ...(isChatMode ? {
+            // Chat mode: Pearl's container needs to be visible and positioned within the chat bar
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
+            left: '12px',
+            width: '40px', // Fixed width for the container
+            height: '40px', // Fixed height for the container
+            transform: 'none', // Ensure container is not scaled down
+            opacity: 1,         // Ensure container is visible
+            pointerEvents: 'none' as const, // Wrapper itself is not clickable, AssistantButton handles clicks
+            position: 'absolute', // Critical for correct positioning relative to chat bar
+            zIndex: 999, // Ensure it's above other elements within the chat bar if necessary
+          } : {
+            // Default state: Pearl anchored lower-left, vertically aligned with the chat bar
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
+            left: '12px',
+            transform: 'none',
+            pointerEvents: isAvatarVisible ? 'none' as const : 'auto' as const,
+          }),
         }}
       >
         <AssistantButton
@@ -704,6 +720,8 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
           audioLevel={audioLevel}
           callStatus={callStatus}
           toggleCall={toggleCall}
+          isAssistantSpeaking={isAssistantSpeaking}
+          assistantVolumeLevel={assistantVolumeLevel}
           supportedFeatures={supportedFeatures}
           startFullScreen={startFullScreen}
           allowedPersonalities={allowedPersonalities}

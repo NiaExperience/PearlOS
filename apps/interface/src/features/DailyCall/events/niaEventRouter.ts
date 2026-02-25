@@ -43,6 +43,7 @@ export const NIA_EVENT_BROWSER_OPEN = 'nia.event.browserOpen';
 export const NIA_EVENT_BROWSER_CLOSE = 'nia.event.browserClose';
 export const NIA_EVENT_VIEW_CLOSE = 'nia.event.viewClose';
 export const NIA_EVENT_DESKTOP_MODE_SWITCH = 'nia.event.desktopModeSwitch';
+export const NIA_EVENT_LAYOUT_MODE_SWITCH = 'nia.event.layoutModeSwitch';
 export const NIA_EVENT_YOUTUBE_SEARCH = 'nia.event.youtubeSearch';
 export const NIA_EVENT_YOUTUBE_PLAY = 'nia.event.youtubePlay';
 export const NIA_EVENT_YOUTUBE_PAUSE = 'nia.event.youtubePause';
@@ -116,6 +117,7 @@ const ROUTED_EVENT_NAMES: Record<string, string> = {
   [EventEnum.BROWSER_CLOSE]: NIA_EVENT_BROWSER_CLOSE,
   [EventEnum.VIEW_CLOSE]: NIA_EVENT_VIEW_CLOSE,
   [EventEnum.DESKTOP_MODE_SWITCH]: NIA_EVENT_DESKTOP_MODE_SWITCH,
+  [EventEnum.LAYOUT_MODE_SWITCH]: NIA_EVENT_LAYOUT_MODE_SWITCH,
   [EventEnum.YOUTUBE_SEARCH]: NIA_EVENT_YOUTUBE_SEARCH,
   [EventEnum.YOUTUBE_PLAY]: NIA_EVENT_YOUTUBE_PLAY,
   [EventEnum.YOUTUBE_PAUSE]: NIA_EVENT_YOUTUBE_PAUSE,
@@ -239,6 +241,9 @@ export function routeNiaEvent<TPayload = AnyPayload>(envelope: MinimalEnvelope<T
       case EventEnum.DESKTOP_MODE_SWITCH:
         posthog.capture('desktop_mode_switched_by_bot', { mode: rawPayload?.mode });
         break;
+      case EventEnum.LAYOUT_MODE_SWITCH:
+        posthog.capture('layout_mode_switched_by_bot', { mode: rawPayload?.mode });
+        break;
 
       // YouTube (Bot initiated)
       case EventEnum.YOUTUBE_SEARCH:
@@ -359,6 +364,9 @@ export function routeNiaEvent<TPayload = AnyPayload>(envelope: MinimalEnvelope<T
 
   const routed = eventEnum ? ROUTED_EVENT_NAMES[eventEnum] : undefined;
   if (routed) {
+    if (eventEnum === EventEnum.DESKTOP_MODE_SWITCH) {
+      console.log('[niaEventRouter] Dispatching DESKTOP_MODE_SWITCH →', routed, detail.payload);
+    }
     dispatchEvent(routed, detail);
   }
 

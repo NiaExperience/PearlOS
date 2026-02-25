@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, LogOut, Settings, CreditCard } from 'lucide-react';
+import { ChevronDown, LogOut, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
@@ -96,10 +96,6 @@ export function UserMenuDropdown({ tenantId }: { tenantId?: string }) {
     router.push(url);
   };
 
-  const handleSubscriptionClick = () => {
-    setIsOpen(false);
-    router.push('/subscription');
-  };
 
   return (
     <div
@@ -147,23 +143,6 @@ export function UserMenuDropdown({ tenantId }: { tenantId?: string }) {
               }} />
               Settings
             </button>
-            <button
-              onClick={handleSubscriptionClick}
-              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-gray-800 flex items-center gap-3"
-            >
-              {/* Pixelated Credit Card Icon */}
-              <div className="w-4 h-4" style={{
-                imageRendering: 'pixelated',
-                background: `
-                  linear-gradient(90deg, #a855f7 0%, #a855f7 100%),
-                  linear-gradient(0deg, #a855f7 0%, #a855f7 25%, transparent 25%, transparent 50%, #a855f7 50%, #a855f7 75%, transparent 75%, transparent 100%)
-                `,
-                backgroundSize: '100% 2px, 100% 100%',
-                backgroundPosition: '0 0, 0 0'
-              }} />
-              Subscription
-            </button>
-            <hr className="my-1 border-gray-700" />
             <button
               onClick={handleSignOut}
               className="w-full px-4 py-2 text-left text-sm text-white hover:bg-gray-800 flex items-center gap-3"

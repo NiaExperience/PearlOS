@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, ReactNode } from 'react';
 import { useKeyboardHeight } from '@interface/hooks/useKeyboardHeight';
 import styles from './ChatModeLayout.module.css';
-
 interface ChatModeLayoutProps {
   /** Chat messages content */
   children: ReactNode;
@@ -76,7 +75,6 @@ export function ChatModeLayout({ children, inputBar, className }: ChatModeLayout
       {inputBar && (
         <div
           className={`${styles.inputBar} ${isKeyboardOpen ? styles.inputBarKeyboardOpen : ''}`}
-          // Prevent tapping input bar area from triggering blur
           onMouseDown={(e) => {
             // Don't prevent default on the actual input/textarea
             const target = e.target as HTMLElement;
@@ -113,6 +111,19 @@ export function ChatInput({ value, onChange, onSend, placeholder = 'Message Pear
       onSend();
     }
   };
+
+  // Auto-focus on any printable keypress
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.length !== 1) return;
+      inputRef.current?.focus();
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {

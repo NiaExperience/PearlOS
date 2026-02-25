@@ -9,6 +9,36 @@ import { getNotesSession } from './notes-auth';
 
 const log = getLogger('Notes');
 
+/**
+ * Try to resolve assistant name from the request context when not explicitly provided.
+ * Checks query param, Referer header path, DEFAULT_ASSISTANT env, and PEARLOS_ONLY mode.
+ */
+function resolveAssistantName(request: NextRequest): string | null {
+    const searchParams = new URL(request.url).searchParams;
+    const fromQuery = searchParams.get('agent');
+    if (fromQuery) return fromQuery;
+
+    // Try to extract from Referer header (e.g., /pearlos/notes -> pearlos)
+    const referer = request.headers.get('referer');
+    if (referer) {
+        try {
+            const refUrl = new URL(referer);
+            const segments = refUrl.pathname.split('/').filter(Boolean);
+            if (segments.length > 0 && segments[0] !== 'api') {
+                return segments[0];
+            }
+        } catch {
+            // ignore invalid referer
+        }
+    }
+
+    // Environment-based defaults
+    if (process.env.DEFAULT_ASSISTANT) return process.env.DEFAULT_ASSISTANT;
+    if (process.env.PEARLOS_ONLY?.toLowerCase() === 'true') return 'pearlos';
+
+    return null;
+}
+
 export async function GET_impl(request: NextRequest) : Promise<NextResponse> {
     const session = await getNotesSession(request);
     if (!session || !session.user) {
@@ -31,14 +61,20 @@ export async function GET_impl(request: NextRequest) : Promise<NextResponse> {
                 });
     const searchParams = new URL(request.url).searchParams;
     const mode = searchParams.get('mode') || 'personal';
-    const assistantName = searchParams.get('agent');
+    const assistantName = resolveAssistantName(request);
     let tenantId = searchParams.get('tenantId');
     if (!tenantId) {
+      if (!assistantName) {
+        return NextResponse.json(
+          { error: "Missing 'agent' query parameter or 'tenantId'. Provide ?agent=<name> or ?tenantId=<id>." },
+          { status: 400 }
+        );
+      }
       // Get the assistant by name if tenantId is not provided
       const assistant = await AssistantActions.getAssistantBySubDomain(assistantName);
       if (!assistant) {
         return NextResponse.json(
-          { error: "Assistant not found" },
+          { error: `Assistant not found: ${assistantName}` },
           { status: 404 }
         );
       }
@@ -173,14 +209,20 @@ export async function POST_impl(request: NextRequest) : Promise<NextResponse> {
                         tag: 'Notes',
                 });
     const searchParams = new URL(request.url).searchParams;
-    const assistantName = searchParams.get('agent');
+    const assistantName = resolveAssistantName(request);
     let tenantId = searchParams.get('tenantId');
     if (!tenantId) {
+      if (!assistantName) {
+        return NextResponse.json(
+          { error: "Missing 'agent' query parameter or 'tenantId'. Provide ?agent=<name> or ?tenantId=<id>." },
+          { status: 400 }
+        );
+      }
       // Get the assistant by name if tenantId is not provided
       const assistant = await AssistantActions.getAssistantBySubDomain(assistantName);
       if (!assistant) {
         return NextResponse.json(
-          { error: "Assistant not found" },
+          { error: `Assistant not found: ${assistantName}` },
           { status: 404 }
         );
       }

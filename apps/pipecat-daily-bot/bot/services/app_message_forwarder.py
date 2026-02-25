@@ -28,6 +28,12 @@ from tools.logging_utils import bind_context_logger
 BRIDGE_VERSION = 1
 BRIDGE_KIND = 'nia.event'  # Must match browser bridge (appMessageBridge.ts)
 
+# Daily.co app-message hard limit is 4096 bytes for the 'data' field.
+# We leave headroom for JSON serialisation overhead (envelope wrapper fields).
+# Payloads exceeding this threshold are delivered via WebSocket-only to avoid
+# the 400 "data must be equal to or less than 4096" error that kills sessions.
+DAILY_APP_MSG_MAX_BYTES = 3500
+
 
 class AppMessageForwarder:
     def __init__(
@@ -125,6 +131,21 @@ class AppMessageForwarder:
           2. transport.send_app_message
           3. Frame-based transport._client.send_message fallback
         """
+        # Guard against Daily's 4096-byte hard limit for in-process delivery too.
+        # Oversized payloads are silently dropped here; WebSocket handles them.
+        try:
+            payload_bytes = len(json.dumps(envelope).encode('utf-8'))
+            if payload_bytes > DAILY_APP_MSG_MAX_BYTES:
+                self._log.info(
+                    'payload too large for Daily inproc app-message; WebSocket-only delivery',
+                    bytes=payload_bytes,
+                    limit=DAILY_APP_MSG_MAX_BYTES,
+                    event=envelope.get('event', '?'),
+                )
+                return
+        except Exception:
+            pass
+
         client = getattr(self.transport, '_client', None)
         # One-time introspection log (debug) for diagnostics
         if not getattr(self, '_logged_inproc_capabilities', False):  # type: ignore[attr-defined]
@@ -205,10 +226,22 @@ class AppMessageForwarder:
             return
         try:
             raw = json.dumps(envelope)
-            if len(raw) > 49000:
+            payload_bytes = len(raw.encode('utf-8'))
+            if payload_bytes > DAILY_APP_MSG_MAX_BYTES:
+                # Payload exceeds Daily's 4096-byte hard limit — skip HTTP delivery.
+                # The caller (_send) will still deliver via WebSocket, which has no
+                # size restriction and is already wired up on the frontend.
+                self._log.info(
+                    'payload too large for Daily app-message; WebSocket-only delivery',
+                    bytes=payload_bytes,
+                    limit=DAILY_APP_MSG_MAX_BYTES,
+                    event=envelope.get('event', '?'),
+                )
+                return
+            if payload_bytes > 49000:
                 self._log.warning(
                     'envelope size exceeds Daily limit (~50KB)',
-                    length=len(raw),
+                    length=payload_bytes,
                 )
                 envelope = {
                     k: (v if k != 'payload' else {'truncated': True}) for k, v in envelope.items()

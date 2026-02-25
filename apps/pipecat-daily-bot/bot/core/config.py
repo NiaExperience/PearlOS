@@ -317,10 +317,12 @@ def BOT_VOICE_OPTIMIZE_STREAMING_LATENCY() -> float | None:
 
 
 def BOT_TTS_PROVIDER() -> str:
-    # HARDCODED: PocketTTS is the TTS provider. Period.
-    # Previous attempts to use env vars were defeated by dotenv load order,
-    # leading spaces, and override conflicts. This is the nuclear option.
-    return "pocket"
+    provider = os.getenv("BOT_TTS_PROVIDER", "").strip().lower()
+    valid_providers = ["elevenlabs", "pocket", "kokoro"]
+    if provider not in valid_providers:
+        logger.warning(f"Invalid TTS provider '{provider}', falling back to 'pocket'")
+        return "pocket"
+    return provider
 
 
 def KOKORO_TTS_BASE_URL() -> str:
@@ -459,6 +461,37 @@ def BOT_BEAT_POST_SPEAK_BUFFER_SECS() -> float:
     return _env_float("BOT_BEAT_POST_SPEAK_BUFFER_SECS", 2.0)
 
 
+# ---------------------------------------------------------------------------
+# Vision (Pearl Vision) configuration
+# ---------------------------------------------------------------------------
+
+
+def BOT_VISION_ENABLED() -> bool:
+    """Whether Pearl Vision (video frame analysis) is enabled."""
+    return _env_bool("BOT_VISION_ENABLED", False)
+
+
+def BOT_VISION_MODEL() -> str:
+    """Vision-capable LLM model for frame analysis."""
+    return _env_str("BOT_VISION_MODEL", "openai/gpt-4o")
+
+
+def BOT_VISION_INTERVAL() -> float:
+    """Capture interval in seconds. 0=disabled, -1=on-demand only."""
+    return _env_float("BOT_VISION_INTERVAL", 10.0)
+
+
+def BOT_VISION_PROMPT() -> str:
+    """Custom prompt for vision analysis."""
+    return _env_str(
+        "BOT_VISION_PROMPT",
+        "Describe what you see in this image concisely. Focus on: "
+        "the person (appearance, expression, what they're doing), "
+        "their environment, and anything notable they might be showing. "
+        "Keep it to 2-3 sentences. Be natural and conversational.",
+    )
+
+
 def BOT_PROFILE_PREAMBLE_MESSAGE() -> str:
     return _env_str(
         "BOT_PROFILE_PREAMBLE_MESSAGE",
@@ -534,6 +567,11 @@ __all__ = [
     "KOKORO_TTS_ENABLE_LOGGING",
     "KOKORO_TTS_ENABLE_SSML",
     "KOKORO_TTS_SEED",
+    # vision
+    "BOT_VISION_ENABLED",
+    "BOT_VISION_MODEL",
+    "BOT_VISION_INTERVAL",
+    "BOT_VISION_PROMPT",
     # user profile
     "BOT_PROFILE_PREAMBLE_MESSAGE",
     "BOT_PROFILE_INSTRUCTION_MESSAGE",

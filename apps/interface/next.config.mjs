@@ -31,14 +31,15 @@ const nextConfig = {
     NEXT_PUBLIC_DAILY_ROOM_URL: process.env.NEXT_PUBLIC_DAILY_ROOM_URL,
     // Mesh configuration for Prism
     MESH_ENDPOINT: process.env.MESH_ENDPOINT,
-    MESH_SHARED_SECRET: process.env.MESH_SHARED_SECRET,
+    // SECURITY: MESH_SHARED_SECRET removed from client bundle — use server-only access
+    // MESH_SHARED_SECRET: process.env.MESH_SHARED_SECRET,
     NEXT_PUBLIC_MESH_ENDPOINT: process.env.MESH_ENDPOINT,
-    NEXT_PUBLIC_MESH_SHARED_SECRET: process.env.MESH_SHARED_SECRET,
+    // NEXT_PUBLIC_MESH_SHARED_SECRET: process.env.MESH_SHARED_SECRET,
   },
   // Exclude test directories from production builds
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
 
-  // Add headers to fix CORS/COOP issues for OAuth popups
+  // Add headers to fix CORS/COOP issues for OAuth popups + cache busting
   async headers() {
     return [
       {
@@ -51,6 +52,16 @@ const nextConfig = {
           {
             key: 'Cross-Origin-Embedder-Policy',
             value: 'unsafe-none',
+          },
+        ],
+      },
+      {
+        // Static JS chunks - NO CACHING (for dev/proxy scenarios)
+        source: '/_next/static/chunks/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
           },
         ],
       },

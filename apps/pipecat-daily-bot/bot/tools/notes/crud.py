@@ -385,6 +385,7 @@ async def bot_replace_note(
                     }
                 # One note found, proceed
                 note = notes[0]
+                note_id = note.get("_id") or note.get("page_id")
             else:
                 logger.error("[notes] Cannot update: no note_id or title provided, and no active note")
                 return {
@@ -429,6 +430,19 @@ async def bot_replace_note(
                             "update",
                             updated_note.get("mode") if updated_note else None
                         )
+
+                        # Also emit NOTE_UPDATED so the frontend can do a
+                        # real-time streaming content update without a full
+                        # notes reload (faster, animated via NIA_EVENT_NOTE_UPDATED).
+                        if updated_note:
+                            updated_content = _extract_note_content(updated_note)
+                            note_updated_payload: dict = {
+                                "noteId": note_id,
+                                "content": updated_content,
+                            }
+                            if title:
+                                note_updated_payload["title"] = title
+                            await forwarder.emit_tool_event(events.NOTE_UPDATED, note_updated_payload)
 
                     return {
                         "success": True, 

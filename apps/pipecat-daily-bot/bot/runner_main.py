@@ -454,7 +454,22 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
     os.environ["BOT_SESSION_USER_NAME"] = str(session_user_name)
   if session_user_email:
     os.environ["BOT_SESSION_USER_EMAIL"] = str(session_user_email)
-
+  
+  # ISSUE #2 FIX: Inject Discord context when available
+  # Check if this session is coming from Discord (via OpenClaw session metadata)
+  discord_guild_id = body.get("discordGuildId")
+  discord_channel_id = body.get("discordChannelId")
+  discord_channel_name = body.get("discordChannelName")
+  
+  # Fallback: if not in body, check environment or use TOOLS.md defaults
+  if not discord_guild_id:
+    discord_guild_id = os.getenv("OPENCLAW_DISCORD_GUILD_ID", "1471441655126167553")  # From TOOLS.md
+  if not discord_channel_id:
+    discord_channel_id = os.getenv("OPENCLAW_DISCORD_CHANNEL_ID", "1471441655650324533")  # #general from TOOLS.md
+  if not discord_channel_name:
+    discord_channel_name = os.getenv("OPENCLAW_DISCORD_CHANNEL_NAME", "general")
+  
+  # Create session_logger FIRST before using it
   runner_args = DailyRunnerArguments(room_url=room_url, token=token, body=body)  # type: ignore[arg-type]
   session_logger = logger.bind(
     roomUrl=room_url,
@@ -463,6 +478,17 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
     userName=session_user_name,
     debugTraceId=debug_trace_id,
   )
+  
+  # Set environment variables for bot to use (NOW session_logger is defined)
+  if discord_guild_id:
+    os.environ["BOT_DISCORD_GUILD_ID"] = str(discord_guild_id)
+    session_logger.info(f"[runner] Set Discord guild ID: {discord_guild_id}")
+  if discord_channel_id:
+    os.environ["BOT_DISCORD_CHANNEL_ID"] = str(discord_channel_id)
+    session_logger.info(f"[runner] Set Discord channel ID: {discord_channel_id}")
+  if discord_channel_name:
+    os.environ["BOT_DISCORD_CHANNEL_NAME"] = str(discord_channel_name)
+    session_logger.info(f"[runner] Set Discord channel name: {discord_channel_name}")
   session_logger.info(
     "[runner] Launch request (hasToken=%s, personality=%s, persona=%s)" %
     (bool(token), personalityId, persona)

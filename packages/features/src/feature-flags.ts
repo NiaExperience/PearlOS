@@ -82,7 +82,7 @@ interface FeatureDefinition {
 const definitions: FeatureDefinition[] = [
     { key: 'appletApi', hasPrompt: true, canonical: 'appletApi', env: ['NEXT_PUBLIC_FEATURE_APPLET_API', 'FEATURE_APPLET_API'], default: true, description: 'API integration instructions for HTML applets' },
     { key: 'avatar', hasPrompt: false, canonical: 'avatar', env: ['NEXT_PUBLIC_FEATURE_AVATAR', 'FEATURE_RIVEAVATAR'], default: true, description: 'Rive avatar + state machine + assistant button' },
-    { key: 'avatarLipsync', hasPrompt: false, canonical: 'avatarLipsync', env: ['NEXT_PUBLIC_FEATURE_AVATAR_LIPSYNC', 'FEATURE_AVATAR_LIPSYNC'], default: true, description: 'Advanced Rive avatar lipsync with voice confusion prevention' },
+    { key: 'avatarLipsync', hasPrompt: false, canonical: 'avatarLipsync', env: ['NEXT_PUBLIC_FEATURE_AVATAR_LIPSYNC', 'FEATURE_AVATAR_LIPSYNC'], default: false, description: 'Advanced Rive avatar lipsync with voice confusion prevention' },
     { key: 'summonSpriteTool', hasPrompt: false, canonical: 'summonSpriteTool', env: ['NEXT_PUBLIC_FEATURE_SUMMON_SPRITE_TOOL', 'FEATURE_SUMMON_SPRITE_TOOL'], default: true, description: 'Enable bot summon sprite tool' },
     { key: 'googleAuth', hasPrompt: false, canonical: 'googleAuth', env: ['NEXT_PUBLIC_FEATURE_GOOGLE_AUTH'], default: true, description: 'Enable Google OAuth login option for the assistant' },
     { key: 'guestLogin', hasPrompt: false, canonical: 'guestLogin', env: ['NEXT_PUBLIC_FEATURE_GUEST_LOGIN'], default: true, description: 'Enable guest/anonymous login option for the assistant' },

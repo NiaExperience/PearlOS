@@ -10,6 +10,7 @@ from tools.decorators import bot_tool
 from tools import events
 from tools.logging_utils import bind_tool_logger
 from tools.wonder_canvas_templates import render_template, get_template_names
+from tools.wonder_canvas import _should_dedup_scene, _mark_scene_pushed, _SCENE_DEDUP_WINDOW
 
 
 @bot_tool(
@@ -73,7 +74,17 @@ async def bot_wonder_canvas_template(params: FunctionCallParams):
     if template_name not in available and available:
         log.warning(f"Template '{template_name}' not in registry, rendered fallback")
 
+    # Per-turn dedup: skip if a scene was already pushed recently
+    if _should_dedup_scene():
+        log.warning(f"Wonder Canvas template DEDUPED — already pushed within {_SCENE_DEDUP_WINDOW}s window")
+        await params.result_callback(
+            {"success": True, "user_message": f"Template '{template_name}' already displayed (duplicate skipped)."},
+            properties=FunctionCallResultProperties(run_llm=False),
+        )
+        return
+
     log.info(f"Wonder Canvas template '{template_name}' ({len(html)} chars, transition={transition})")
+    _mark_scene_pushed()
 
     if params.forwarder:
         await params.forwarder.emit_tool_event(events.WONDER_CANVAS_SCENE, {

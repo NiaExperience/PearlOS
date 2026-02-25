@@ -143,6 +143,7 @@ export function useBotSpeakingDetection(
   // Manual audio monitoring for voice-only sessions (no DailyProvider)
   useEffect(() => {
     if (!callObject || !participantId) {
+      console.log('[BotSpeaking] No callObject or participantId', { callObject: !!callObject, participantId });
       return;
     }
 
@@ -154,27 +155,49 @@ export function useBotSpeakingDetection(
 
     const setupAudioMonitoring = () => {
       // Prevent duplicate setup
-      if (isSetup) return;
+      if (isSetup) {
+        console.log('[BotSpeaking] Already setup, skipping');
+        return;
+      }
 
       try {
         const participants = callObject.participants();
         const participant = participants?.[participantId];
         
-        if (!participant) return;
+        console.log('[BotSpeaking] Looking for participant', { participantId, found: !!participant, allParticipants: Object.keys(participants || {}) });
+        
+        if (!participant) {
+          console.log('[BotSpeaking] Participant not found');
+          return;
+        }
 
         // Get audio track
         const audioTrack = participant.tracks?.audio;
         
+        console.log('[BotSpeaking] Audio track state', { 
+          hasTrack: !!audioTrack?.track, 
+          state: audioTrack?.state,
+          participantId 
+        });
+        
         if (!audioTrack?.track || audioTrack.state !== 'playable') {
+          console.log('[BotSpeaking] Audio track not ready', { 
+            hasTrack: !!audioTrack?.track, 
+            state: audioTrack?.state 
+          });
           return;
         }
 
         // Mark as setup to prevent duplicates
         isSetup = true;
+        console.log('[BotSpeaking] Setting up audio monitoring for participant', participantId);
         
         // Create Web Audio API context for actual audio level analysis
         const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextClass) return;
+        if (!AudioContextClass) {
+          console.log('[BotSpeaking] No AudioContext available');
+          return;
+        }
         
         audioContext = new AudioContextClass();
         analyser = audioContext.createAnalyser();
@@ -186,7 +209,10 @@ export function useBotSpeakingDetection(
         microphone = audioContext.createMediaStreamSource(stream);
         microphone.connect(analyser);
 
+        console.log('[BotSpeaking] Audio monitoring started successfully');
+
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        let lastLogTime = 0;
 
         // Poll audio levels using requestAnimationFrame
         const checkAudioLevel = () => {
@@ -203,6 +229,13 @@ export function useBotSpeakingDetection(
           
           // Normalize to 0-1 range
           const normalizedLevel = average / 255;
+          
+          // Log audio level periodically (every 2 seconds) for debugging
+          const now = Date.now();
+          if (now - lastLogTime > 2000) {
+            console.log('[BotSpeaking] Audio level:', normalizedLevel.toFixed(3), 'threshold:', threshold);
+            lastLogTime = now;
+          }
           
           // Pass to audio level handler
           handleAudioLevel(normalizedLevel);

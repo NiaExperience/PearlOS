@@ -464,7 +464,10 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
       strategy: "jwt",
       maxAge: 30 * 24 * 60 * 60, // 30 days
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    // SECURITY: Do NOT set `secret` here — NextAuth reads NEXTAUTH_SECRET from env automatically.
+    // Explicitly setting it causes the value to leak into RSC flight payloads when authOptions
+    // is referenced in server components.
+    // secret: process.env.NEXTAUTH_SECRET,
     useSecureCookies: process.env.NODE_ENV === "production",
     cookies: {
       sessionToken: {

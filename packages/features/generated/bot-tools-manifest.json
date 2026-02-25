@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "tool_count": 82,
+  "tool_count": 88,
   "feature_count": 21,
   "tool_names": [
     "bot_add_note_content",
@@ -15,7 +15,6 @@
     "bot_canvas_show_table",
     "bot_close_applet_creation_engine",
     "bot_close_browser_window",
-    "bot_close_calculator",
     "bot_close_gmail",
     "bot_close_google_drive",
     "bot_close_notes",
@@ -32,18 +31,21 @@
     "bot_downgrade_user_access",
     "bot_download_note",
     "bot_end_call",
+    "bot_get_current_soundtrack",
     "bot_list_notes",
+    "bot_list_recent_tasks",
     "bot_load_html_applet",
+    "bot_look_at_user",
     "bot_maximize_window",
     "bot_minimize_window",
     "bot_next_soundtrack_track",
     "bot_onboarding_complete",
     "bot_open_browser",
-    "bot_open_calculator",
     "bot_open_creation_engine",
     "bot_open_enhanced_browser",
     "bot_open_gmail",
     "bot_open_google_drive",
+    "bot_open_news",
     "bot_open_note",
     "bot_open_notes",
     "bot_open_terminal",
@@ -75,8 +77,11 @@
     "bot_stop_soundtrack",
     "bot_summon_sprite",
     "bot_switch_desktop_mode",
+    "bot_switch_layout_mode",
     "bot_switch_note_mode",
+    "bot_task_feedback",
     "bot_think_deeply",
+    "bot_thumbs_up_task",
     "bot_update_html_applet",
     "bot_update_user_profile",
     "bot_upgrade_user_access",
@@ -84,12 +89,12 @@
     "bot_wonder_canvas_animate",
     "bot_wonder_canvas_avatar_hint",
     "bot_wonder_canvas_clear",
-    "bot_wonder_canvas_scene"
+    "bot_wonder_canvas_scene",
+    "bot_wonder_canvas_template"
   ],
   "features": [
     "assistantSelfClose",
     "browserAutomation",
-    "calculator",
     "dailyCall",
     "experiences",
     "gmail",
@@ -105,6 +110,7 @@
     "summonSpriteTool",
     "terminal",
     "userProfile",
+    "vision",
     "wikipedia",
     "wonderCanvas",
     "youtube"
@@ -364,7 +370,7 @@
     },
     "bot_close_applet_creation_engine": {
       "name": "bot_close_applet_creation_engine",
-      "description": "Close the creation engine or content creation tool window. Triggers: \"close creation engine\", \"exit creation engine\", \"close content creator\", \"exit content creator\".",
+      "description": "Close the creation engine or content creation tool window. Triggers: \"close creation engine\", \"closed creation engine\", \"exit creation engine\", \"close content creator\", \"exit content creator\".",
       "feature_flag": "htmlContent",
       "parameters": {
         "type": "object",
@@ -375,7 +381,7 @@
     },
     "bot_close_browser_window": {
       "name": "bot_close_browser_window",
-      "description": "Close specific apps (Gmail, Calculator, Terminal, Drive, Notes, etc.) or all windows. Use the \"apps\" parameter to specify which apps to close (e.g., [\"gmail\", \"terminal\"]). If no apps specified, closes all windows.",
+      "description": "Close specific apps (Gmail, Terminal, Drive, Notes, etc.) or all windows. Use the \"apps\" parameter to specify which apps to close (e.g., [\"gmail\", \"terminal\"]). If no apps specified, closes all windows. Speech-to-text variants like \"closed\" should be treated as \"close\".",
       "feature_flag": "browserAutomation",
       "parameters": {
         "apps": {
@@ -383,7 +389,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail', 'calculator', 'drive']). If not provided, closes all windows."
+          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail', 'drive']). If not provided, closes all windows."
         },
         "request_text": {
           "type": "string",
@@ -392,20 +398,9 @@
       },
       "passthrough": true
     },
-    "bot_close_calculator": {
-      "name": "bot_close_calculator",
-      "description": "Close the calculator application. Triggers: \"close calculator\", \"exit calculator\".",
-      "feature_flag": "calculator",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": true
-    },
     "bot_close_gmail": {
       "name": "bot_close_gmail",
-      "description": "Close Gmail. Triggers: \"close gmail\", \"exit gmail\".",
+      "description": "Close Gmail. Triggers: \"close gmail\", \"closed gmail\", \"exit gmail\". Treat \"closed gmail\" from speech-to-text as a command.",
       "feature_flag": "gmail",
       "parameters": {
         "type": "object",
@@ -416,7 +411,7 @@
     },
     "bot_close_google_drive": {
       "name": "bot_close_google_drive",
-      "description": "Close Google Drive. Triggers: \"close drive\", \"exit drive\".",
+      "description": "Close Google Drive. Triggers: \"close drive\", \"closed drive\", \"exit drive\". Treat \"closed drive\" from speech-to-text as a command.",
       "feature_flag": "googleDrive",
       "parameters": {
         "type": "object",
@@ -427,7 +422,7 @@
     },
     "bot_close_notes": {
       "name": "bot_close_notes",
-      "description": "Close the notes application. Triggers: \"close notes\", \"exit notes\", \"close notepad\".",
+      "description": "Close the notes application. Triggers: \"close notes\", \"closed notes\", \"exit notes\", \"close notepad\", \"shut notes\", \"hide notes\". NOTE: Speech-to-text may transcribe \"close\" as \"closed\" \u2014 treat \"closed notes\" as a command to close notes, not a statement.",
       "feature_flag": "notes",
       "parameters": {
         "type": "object",
@@ -438,7 +433,7 @@
     },
     "bot_close_terminal": {
       "name": "bot_close_terminal",
-      "description": "Close the terminal application. Triggers: \"close terminal\", \"exit terminal\".",
+      "description": "Close the terminal application. Triggers: \"close terminal\", \"closed terminal\", \"exit terminal\", \"shut terminal\". Treat \"closed terminal\" from speech-to-text as a command.",
       "feature_flag": "terminal",
       "parameters": {
         "type": "object",
@@ -449,7 +444,7 @@
     },
     "bot_close_view": {
       "name": "bot_close_view",
-      "description": "Close specific apps or the current view. Use the \"apps\" parameter to specify which apps to close (Gmail, Calculator, Terminal, Drive, Notes, etc.). If no apps specified, closes all windows.",
+      "description": "Close specific apps or the current view. Use the \"apps\" parameter to specify which apps to close (Gmail, Terminal, Drive, Notes, etc.). If no apps specified, closes all windows. Speech-to-text may transcribe \"close\" as \"closed\" \u2014 always treat as a command.",
       "feature_flag": "browserAutomation",
       "parameters": {
         "apps": {
@@ -457,7 +452,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail', 'calculator']). If not provided, closes all windows."
+          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail']). If not provided, closes all windows."
         },
         "request_text": {
           "type": "string",
@@ -468,7 +463,7 @@
     },
     "bot_close_youtube": {
       "name": "bot_close_youtube",
-      "description": "Close the YouTube player interface. Triggers: \"close youtube\", \"stop video\", \"exit youtube\".",
+      "description": "Close the YouTube player interface. Triggers: \"close youtube\", \"closed youtube\", \"stop video\", \"exit youtube\". Treat \"closed youtube\" from speech-to-text as a command.",
       "feature_flag": "youtube",
       "parameters": {
         "type": "object",
@@ -767,6 +762,17 @@
       },
       "passthrough": false
     },
+    "bot_get_current_soundtrack": {
+      "name": "bot_get_current_soundtrack",
+      "description": "Get information about the currently playing soundtrack track, including the song title, artist, and whether music is currently playing. Use this when the user asks what song is playing or about the background music.",
+      "feature_flag": "soundtrack",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
     "bot_list_notes": {
       "name": "bot_list_notes",
       "description": "List all available notes for the current tenant, providing titles, modes, and IDs (not full content).",
@@ -778,6 +784,23 @@
             "type": "number",
             "description": "Maximum number of notes to return (default 50)",
             "default": 50
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_list_recent_tasks": {
+      "name": "bot_list_recent_tasks",
+      "description": "List recent completed tasks and their feedback status. Use when the user asks to see tasks, review what's been done, check feedback status, or find tasks that need feedback. Examples: 'show me recent tasks', 'what tasks need feedback', 'list completed tasks'.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Max number of tasks to return. Defaults to 5.",
+            "default": 5
           }
         },
         "required": []
@@ -806,6 +829,22 @@
           "note_title": {
             "type": "string",
             "description": "Find applet by source note title (fuzzy match on note title, then find applets from that note)"
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_look_at_user": {
+      "name": "bot_look_at_user",
+      "description": "Look at the user through their camera to see what they look like, what they're doing, or what they're showing you. Use this when the user asks you to look at something, describe what you see, or when visual context would enhance the conversation.",
+      "feature_flag": "vision",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Brief reason for looking (e.g., 'user asked me to look at their outfit')"
           }
         },
         "required": []
@@ -868,17 +907,6 @@
       },
       "passthrough": true
     },
-    "bot_open_calculator": {
-      "name": "bot_open_calculator",
-      "description": "Open the calculator application.  Triggers: \"do some math\", \"open calculator\", \"load calculator app\", \"open calc\".",
-      "feature_flag": "calculator",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": true
-    },
     "bot_open_creation_engine": {
       "name": "bot_open_creation_engine",
       "description": "Open the creation engine or content creation tool. Triggers: \"open creation engine\", \"load creation tool\", \"start content creation\", \"create html content\".",
@@ -924,6 +952,17 @@
       "name": "bot_open_google_drive",
       "description": "Open Google Drive in the application or browser. Triggers: \"open drive\", \"load google drive app\", \"open google drive\", \"open my files\".",
       "feature_flag": "googleDrive",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_news": {
+      "name": "bot_open_news",
+      "description": "Open the built-in PearlOS News app. This is a full news reader with headlines from multiple sources (NY Times, BBC, NPR, Ars Technica, The Verge, etc.). Triggers: \"open news\", \"show me the news\", \"open the news\", \"load news\", \"what's in the news\", \"show news\", \"news app\", \"check the news\", \"the news\". IMPORTANT: This opens the EXISTING built-in news app \u2014 do NOT generate new HTML or use Wonder Canvas templates for news. The news app auto-fetches live headlines from RSS feeds.",
+      "feature_flag": "wonderCanvas",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -1364,7 +1403,7 @@
     },
     "bot_share_applet_with_user": {
       "name": "bot_share_applet_with_user",
-      "description": "Share ownership/access to an HTML applet with another person. Use when user says: 'share my applet with NAME', 'give ACCESS to USER', 'let PERSON see/edit this app'. Accepts user name OR email. Permission: 'read' = view only, 'write' = full edit. Example: 'share calculator with Jane' or 'share with jane@example.com, read access'.",
+      "description": "Share ownership/access to an HTML applet with another person. Use when user says: 'share my applet with NAME', 'give ACCESS to USER', 'let PERSON see/edit this app'. Accepts user name OR email. Permission: 'read' = view only, 'write' = full edit. Example: 'share notes with Jane' or 'share with jane@example.com, read access'.",
       "feature_flag": "resourceSharing",
       "parameters": {
         "type": "object",
@@ -1422,8 +1461,8 @@
               "read",
               "write"
             ],
-            "description": "Permission level: 'read' for read-only, 'write' for full edit",
-            "default": "write"
+            "description": "Permission level: 'read' for read-only (use this default if not specified by user), 'write' for full edit",
+            "default": "read"
           }
         },
         "required": [
@@ -1507,19 +1546,41 @@
     },
     "bot_switch_desktop_mode": {
       "name": "bot_switch_desktop_mode",
-      "description": "Switch between DESKTOP/background modes. Available modes: \"home\" (home/desktop background), \"work\" (work background with app icons), \"quiet\" (minimal peaceful background), and \"create\" (Creation Engine workspace). When user says \"home mode\" or \"desktop home\", use \"home\". When user says \"work mode\" or \"desktop work\", use \"work\". When user says \"quiet mode\", \"go quiet\", or anything similar, use \"quiet\". When user says \"create mode\", \"creation mode\", \"open create mode\", \"switch to create\", or anything similar about building/creating, use \"create\". IMPORTANT: This is NOT note privacy mode. If the user is talking about Notes/Notepad \"personal\" vs \"work\" visibility, use bot_switch_note_mode instead.",
+      "description": "Switch PearlOS desktop background/theme mode. Available modes: \"home\", \"work\", \"quiet\", \"create\". CRITICAL: When the user says \"switch to desktop\", \"go to desktop\", \"desktop\", \"go home\", or \"home mode\", use mode \"home\". When the user says \"work mode\", \"switch to work\", or \"workspace\", use mode \"work\". When the user says \"quiet mode\", \"go quiet\", or \"chill mode\", use mode \"quiet\". When the user says \"create mode\", \"creation mode\", or \"switch to create\", use mode \"create\". DEFAULT: If the user says just \"desktop\" without specifying a mode, ALWAYS use \"home\". The word \"desktop\" in PearlOS ALWAYS refers to these background/theme modes \u2014 never to Windows/macOS/Linux desktop. IMPORTANT: This is NOT note privacy mode. If the user is talking about Notes/Notepad \"personal\" vs \"work\" visibility, use bot_switch_note_mode instead.",
       "feature_flag": "browserAutomation",
       "parameters": {
         "type": "object",
         "properties": {
           "mode": {
             "type": "string",
-            "description": "The desktop mode to switch to. Valid values: 'home' (home/desktop background), 'work' (work background with app icons - aka workspace), 'quiet' (personal quiet background), or 'create' (Creation Engine workspace). REQUIRED - always provide this parameter.",
+            "description": "The PearlOS desktop background/theme mode to switch to. Valid values: 'home' (default home desktop \u2014 use this when user says 'switch to desktop' or just 'desktop'), 'work' (work background with app icons \u2014 use when user says 'work mode'), 'quiet' (minimal peaceful background \u2014 use when user says 'quiet mode'), or 'create' (Creation Engine workspace \u2014 use when user says 'create mode'). REQUIRED - always provide this parameter. DEFAULT to 'home' if the user says 'desktop' without specifying a mode.",
             "enum": [
               "home",
               "work",
               "quiet",
               "create"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_switch_layout_mode": {
+      "name": "bot_switch_layout_mode",
+      "description": "Switch between desktop-sized and mobile-sized UI LAYOUT. This controls viewport/responsive layout ONLY (wide vs narrow). Triggers: \"desktop layout\", \"mobile layout\", \"switch layout to desktop\", \"switch layout to mobile\". NOTE: This is RARELY what users mean. If the user says \"switch to desktop\", \"desktop\", \"go to desktop\", \"home mode\", \"work mode\", \"quiet mode\", or \"create mode\", they mean bot_switch_desktop_mode instead \u2014 NOT this tool.",
+      "feature_flag": "browserAutomation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "The UI layout mode to switch to. Valid values: 'desktop' (wide layout) or 'mobile' (narrow layout). NOTE: This is about viewport layout, NOT PearlOS desktop modes. If the user says 'switch to desktop' or 'desktop mode', they almost certainly want bot_switch_desktop_mode with mode='home' instead.",
+            "enum": [
+              "desktop",
+              "mobile"
             ]
           }
         },
@@ -1547,9 +1608,42 @@
       },
       "passthrough": true
     },
+    "bot_task_feedback": {
+      "name": "bot_task_feedback",
+      "description": "Submit feedback for a task that didn't work correctly (thumbs down). Use when the user says a task was wrong, didn't work, had issues, or wants to report a bug. Examples: 'that task was wrong', 'the voice analysis didn't work', 'report a bug with the avatar fix', 'mark that as incorrect'.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task identifier or descriptive name. Can be a job ID, task name, or description of what the task was about."
+          },
+          "feedback_text": {
+            "type": "string",
+            "description": "What went wrong \u2014 the user's description of the issue. This is typically transcribed from voice."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "How severe the issue is. Defaults to medium.",
+            "default": "medium"
+          }
+        },
+        "required": [
+          "task_id",
+          "feedback_text"
+        ]
+      },
+      "passthrough": false
+    },
     "bot_think_deeply": {
       "name": "bot_think_deeply",
-      "description": "Connect to your full OpenClaw brain for tasks that need results spoken back to the user. This is your gateway to: sending Discord/Telegram messages, web research, file access, deep analysis, and any capability beyond your built-in PearlOS tools. Use this when the user asks you to: send a Discord message, search the web, look something up, do complex reasoning, or anything requiring your OpenClaw backend. The result is returned synchronously and you can speak it back. Examples: 'send a message to #general on Discord saying hello', 'search the web for latest news about X', 'what's in my recent emails'. Do NOT use for simple PearlOS operations (notes, YouTube, calculator) \u2014 use built-in tools for those.",
+      "description": "Connect to your full OpenClaw brain for tasks that need results spoken back to the user. This is your gateway to: sending Discord/Telegram messages, web research, file access, deep analysis, and any capability beyond your built-in PearlOS tools. Use this when the user asks you to: send a Discord message, search the web, look something up, do complex reasoning, or anything requiring your OpenClaw backend. The result is returned synchronously and you can speak it back. Examples: 'send a message to #general on Discord saying hello', 'search the web for latest news about X', 'what's in my recent emails'. Do NOT use for simple PearlOS operations (notes, YouTube) \u2014 use built-in tools for those.",
       "feature_flag": "openclawBridge",
       "parameters": {
         "type": "object",
@@ -1566,6 +1660,24 @@
         },
         "required": [
           "question"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_thumbs_up_task": {
+      "name": "bot_thumbs_up_task",
+      "description": "Mark a completed task as correct (thumbs up). Use when the user says a task worked correctly, was good, or wants to approve it. Examples: 'that task was good', 'mark it as correct', 'thumbs up on that'.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Task identifier or descriptive name. Can be a job ID, task name, or description of what the task was about."
+          }
+        },
+        "required": [
+          "task_id"
         ]
       },
       "passthrough": false
@@ -1788,6 +1900,33 @@
         }
       },
       "passthrough": true
+    },
+    "bot_wonder_canvas_template": {
+      "name": "bot_wonder_canvas_template",
+      "description": "Display a pre-built Wonder Canvas template. FASTER than generating HTML from scratch. Use this FIRST for common content types (weather, news, facts, people, movies, quizzes, etc.). Available templates: weather_card, news_headline, person_bio, fact_card, definition_card, movie_card, music_now_playing, recipe_card, book_card, game_scoreboard, quiz_question, poll, story_choice, countdown_timer, achievement_unlocked, comparison_table, timeline, stat_dashboard, progress_tracker, location_card, greeting_card, error_card, loading_card, list_card, image_showcase. Pass template name and a data object with the required fields for that template.",
+      "feature_flag": "wonderCanvas",
+      "parameters": {
+        "template": {
+          "type": "string",
+          "description": "Template name (e.g. weather_card, news_headline, person_bio, fact_card, etc.)"
+        },
+        "data": {
+          "type": "object",
+          "description": "Key-value data to fill into the template placeholders."
+        },
+        "transition": {
+          "type": "string",
+          "enum": [
+            "fade",
+            "slide-left",
+            "slide-right",
+            "instant",
+            "dissolve"
+          ],
+          "description": "Scene transition animation. Default: fade."
+        }
+      },
+      "passthrough": true
     }
   },
   "by_feature": {
@@ -1797,11 +1936,8 @@
     "browserAutomation": [
       "bot_close_browser_window",
       "bot_close_view",
-      "bot_switch_desktop_mode"
-    ],
-    "calculator": [
-      "bot_close_calculator",
-      "bot_open_calculator"
+      "bot_switch_desktop_mode",
+      "bot_switch_layout_mode"
     ],
     "dailyCall": [
       "bot_start_daily_call"
@@ -1868,8 +2004,11 @@
       "bot_canvas_show_file",
       "bot_canvas_show_image",
       "bot_canvas_show_table",
+      "bot_list_recent_tasks",
       "bot_openclaw_task",
-      "bot_think_deeply"
+      "bot_task_feedback",
+      "bot_think_deeply",
+      "bot_thumbs_up_task"
     ],
     "resourceSharing": [
       "bot_downgrade_user_access",
@@ -1881,6 +2020,7 @@
     ],
     "soundtrack": [
       "bot_adjust_soundtrack_volume",
+      "bot_get_current_soundtrack",
       "bot_next_soundtrack_track",
       "bot_play_soundtrack",
       "bot_set_soundtrack_volume",
@@ -1897,15 +2037,20 @@
       "bot_delete_profile_metadata",
       "bot_update_user_profile"
     ],
+    "vision": [
+      "bot_look_at_user"
+    ],
     "wikipedia": [
       "bot_search_wikipedia"
     ],
     "wonderCanvas": [
+      "bot_open_news",
       "bot_wonder_canvas_add",
       "bot_wonder_canvas_animate",
       "bot_wonder_canvas_avatar_hint",
       "bot_wonder_canvas_clear",
-      "bot_wonder_canvas_scene"
+      "bot_wonder_canvas_scene",
+      "bot_wonder_canvas_template"
     ],
     "youtube": [
       "bot_close_youtube",

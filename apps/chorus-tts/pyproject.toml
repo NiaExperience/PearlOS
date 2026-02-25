@@ -1,0 +1,129 @@
+[project]
+name = "chorus-tts"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "kokoro-onnx>=0.4.9",
+    "pydantic>=2.7.0",
+    "fastapi>=0.115.5",
+    "starlette>=0.49.1",
+    "urllib3>=2.6.3",
+    "uvicorn>=0.30.0",
+    "pytest-cov>=7.0.0",
+    "pydantic-asyncapi>=0.3.0",
+    "structlog>=24.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "mypy>=1.10.0",
+    "ruff>=0.6.4",
+    "pytest-cov>=5.0.0",
+]
+gpu = [
+    "onnxruntime-gpu>=1.18.0",
+]
+load = [
+    "locust>=2.29.0",
+    "websockets>=15.0.1",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz" }
+
+[dependency-groups]
+dev = [
+    "en-core-web-sm",
+    "sounddevice>=0.5.3",
+    "spacy>=3.8.7",
+    "websockets>=15.0.1",
+    "mypy>=1.10.0",
+    "ruff>=0.6.4",
+]
+gpu = [
+    "onnxruntime-gpu>=1.18.0",
+]
+load = [
+    "locust>=2.29.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["chorus_tts", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "D",
+    "B",
+    "I",
+    "UP",
+    "S",
+    "A",
+    "DTZ",
+    "ASYNC",
+    "PT",
+    "BLE",
+    "FBT",
+    "G",
+    "EM",
+    "RET",
+    "RSE",
+    "PTH",
+    "T20",
+    "SLF",
+    "C4",
+    "C90",
+    "RUF",
+    "COM",
+    "ERA",
+    "ISC",
+    "FA",
+    "SLOT",
+    "SIM",
+    "PERF",
+    "PIE",
+    "FURB",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+"chorus_tts/app.py" = ["B008"]
+
+[tool.ruff.format]
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_optional = true
+strict_optional = true
+exclude = "(^tests/|^loadtest/|^scripts/|^main\\.py$)"
+
+[[tool.mypy.overrides]]
+module = ["kokoro_onnx", "onnxruntime"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false

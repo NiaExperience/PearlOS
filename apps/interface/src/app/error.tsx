@@ -75,6 +75,50 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
             >
               Try Again
             </button>
+
+            <button
+              onClick={() => window.location.href = '/recovery?error=' + encodeURIComponent(error?.message || 'unknown')}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              🔧 Recovery Page
+            </button>
+
+            <button
+              onClick={() => window.location.href = '/settings'}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: '#e0e0e0',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '12px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              ⚙️ Settings (always works)
+            </button>
             
             <button
               onClick={handleContactSupport}

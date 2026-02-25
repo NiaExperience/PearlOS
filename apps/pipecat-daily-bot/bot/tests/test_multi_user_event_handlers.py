@@ -18,7 +18,7 @@ class TestMultiUserEventHandlers:
     def setup_method(self):
         """Set up test fixtures before each test method."""
         self.env_patches = {
-            "OPENAI_API_KEY": "test-openai-key",
+            "OPENROUTER_API_KEY": "test-openrouter-key",
             "ELEVENLABS_API_KEY": "test-elevenlabs-key",
             "DAILY_API_KEY": "test-daily-key",
             "DAILY_ROOM_URL": "https://test.daily.co/room"

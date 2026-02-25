@@ -56,6 +56,12 @@ export function useBotParticipant(
     // Check for existing bot participant
     const checkForBot = () => {
       const info = getBotParticipant(callObject, options);
+      console.log('[BotParticipant] Checking for bot', { 
+        found: !!info, 
+        participantId: info?.participantId,
+        username: info?.username,
+        expectedPersonaName: options.expectedPersonaName
+      });
       if (info?.participantId) {
         setBotParticipantId(info.participantId);
         setBotInfo(info);

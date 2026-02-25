@@ -214,11 +214,11 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
 
   const handlePearlNewsClick = useCallback(() => {
     setClickedBuilding('pearlnews');
-    // Keep the click state a bit longer so the "Under Construction"
-    // label is visible on both desktop and mobile/touch
-    setTimeout(() => setClickedBuilding(null), 2000);
-    // No navigation, just click effect + message
-  }, []);
+    setTimeout(() => setClickedBuilding(null), 300);
+    // Switch to WORK mode and open The News
+    dispatchDesktopModeSwitch(DesktopMode.WORK, 'user_click_pearlnews_cutout');
+    trackSessionHistory('Opened The News from Pearl News building').catch(() => {});
+  }, [dispatchDesktopModeSwitch]);
 
   // Building cutouts configuration - single position that scales proportionally
   // All values are percentages relative to the background container (4096 x 1704)
@@ -313,6 +313,8 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
         className="absolute inset-0 overflow-hidden"
         style={{ 
           zIndex: 0,
+          touchAction: 'manipulation',
+          overscrollBehavior: 'none',
         }}
       >
         {/* Proportional Container - scales to COVER viewport (like background-size: cover) */}
@@ -331,19 +333,31 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
             // If viewport is taller than aspect ratio, height controls (100vh)
             width: '100vw',
             height: `${100 / BACKGROUND_ASPECT_RATIO}vw`, // Height based on width
-            minWidth: `${100 * BACKGROUND_ASPECT_RATIO}vh`, // Min width based on height
-            minHeight: '100vh',
+            minWidth: `${100 * BACKGROUND_ASPECT_RATIO}dvh`, // Min width based on dynamic viewport height
+            minHeight: '100dvh',
           }}
         >
         {/* Background Image */}
         <div 
           className="absolute inset-0"
           style={{
-            backgroundImage: 'url("/images/HomeScreenBG.png")',
-            backgroundSize: '100% 100%', // Stretch to fill container exactly
+            backgroundImage: 'url("/backgrounds/home-sunset.png")',
+            backgroundSize: 'cover',
             backgroundPosition: 'center',
             width: '100%',
             height: '100%',
+            zIndex: 0,
+          }}
+        />
+
+        {/* Subtle gradient overlay */}
+        <div 
+          className="absolute inset-0 pearl-aurora-gradient"
+          style={{
+            width: '100%',
+            height: '100%',
+            opacity: 0.15,
+            zIndex: 1,
           }}
         />
 
@@ -352,10 +366,8 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
           {buildingCutouts.map((building) => {
             const isHovered = hoveredBuilding === building.id;
             const isClicked = clickedBuilding === building.id;
-            // Pearl News: keep completely still on hover/click (no scale)
-            // Other buildings: scale on hover/click as before.
-            const shouldScale =
-              building.id === 'pearlnews' ? false : isHovered || isClicked;
+            // All buildings scale on hover/click
+            const shouldScale = isHovered || isClicked;
             const scale = shouldScale ? 1.15 : 1;
             const transition = 'transform 0.2s ease-out, filter 0.2s ease-out';
             const isDisabled = isWelcomeDialogVisible;
@@ -390,7 +402,7 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
                   className="relative w-full"
                   style={{
                     filter:
-                      building.id !== 'pearlnews' && (isHovered || isClicked) && !building.hoverImage
+                      (isHovered || isClicked) && !building.hoverImage
                         ? 'brightness(1.1) drop-shadow(0 8px 16px rgba(255, 255, 255, 0.3))'
                         : 'none',
                   }}
@@ -466,26 +478,11 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
                       }}
                     />
                   )} */}
-                  {/* Pearl News under-construction banner (front) */}
-                  {building.id === 'pearlnews' && (
-                    <img
-                      src="/images/under-construction.png"
-                      alt="Under construction"
-                      className="absolute pointer-events-none"
-                      style={{
-                        top: '18%',
-                        left: '50%',
-                        transform: 'translateX(-50%) rotate(-12deg)',
-                        width: '60%',
-                        height: 'auto',
-                        imageRendering: 'pixelated',
-                      }}
-                    />
-                  )}
-                  {/* Pearl News "Under Construction" label (hover + click) */}
+                  {/* Pearl News building — now live (under-construction banner removed) */}
+                  {/* Pearl News hover label — "The News" */}
                   {building.id === 'pearlnews' && (isHovered || isClicked) && !isDisabled && (
                     <div
-                      className="absolute left-1/2 -translate-x-1/2 -top-6 px-2 py-1 rounded bg-black/80 text-[10px] leading-none text-yellow-200 border border-yellow-300 shadow-md"
+                      className="absolute left-1/2 -translate-x-1/2 -top-6 px-2 py-1 rounded bg-black/80 text-[10px] leading-none text-fuchsia-200 border border-fuchsia-400/50 shadow-md"
                       style={{
                         imageRendering: 'pixelated',
                         fontFamily: '"Press Start 2P", system-ui, sans-serif',
@@ -493,7 +490,7 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      Under Construction
+                      The News
                     </div>
                   )}
                 </div>
@@ -569,6 +566,34 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
       )} */}
 
       <style jsx global>{`
+        /* Aurora / Rainbow Unicorn gradient */
+        @keyframes pearl-aurora-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .pearl-aurora-gradient {
+          background: linear-gradient(
+            135deg,
+            #1a0533,
+            #2d1b69,
+            #4b2e83,
+            #1e3a5f,
+            #0d4f6b,
+            #1a6b5a,
+            #2d5a4e,
+            #4b2e83,
+            #6b2fa0,
+            #8b3a8f,
+            #a0456b,
+            #6b2fa0,
+            #2d1b69,
+            #1a0533
+          );
+          background-size: 600% 600%;
+          animation: pearl-aurora-shift 30s ease infinite;
+        }
+
         @keyframes pixel-rain {
           0% {
             transform: translateY(-10px);

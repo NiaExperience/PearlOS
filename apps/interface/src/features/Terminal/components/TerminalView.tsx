@@ -10,12 +10,12 @@ interface TerminalLine {
   timestamp: string;
 }
 
-const HOME = '~';
+const HOME = '/workspace';
 
 // Use empty string for timestamps to avoid hydration mismatch (server vs client Date differs).
 // The timestamp is never displayed in the UI, so this is safe.
 const initialLines: TerminalLine[] = [
-  { type: 'output', content: 'Welcome to NIA Terminal', timestamp: '' },
+  { type: 'output', content: 'Welcome to PearlOS Terminal', timestamp: '' },
   { type: 'output', content: 'Connected to shell. Type "help" for built-in commands.', timestamp: '' },
 ];
 
@@ -55,7 +55,7 @@ const TerminalView: React.FC = () => {
     fetch('/api/terminal/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'pwd', cwd: undefined }),
+      body: JSON.stringify({ command: 'pwd', cwd: '/workspace' }),
     })
       .then((r) => r.json())
       .then((data) => {

@@ -87,7 +87,7 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
     if (isAvatarVisible) {
       setIsAvatarHiding(true);
       setIsAvatarAnimating(true);
-      // Immediately hide avatar; animation is handled by RiveAvatar return sequence
+      // Immediately hide avatar
       setIsAvatarVisible(false);
       setIsAvatarAnimating(false);
       setIsAvatarHiding(false);
@@ -95,7 +95,7 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Bot handoff: Listen for Daily Call session events to manage avatar visibility
-  // When Daily Call (video bot) starts, hide the voice-only bot (RiveAvatar)
+  // When Daily Call (video bot) starts, hide the voice-only bot (GIF avatar)
   // When Daily Call ends, restore the voice-only bot
   useEffect(() => {
     const handleDailyCallStart = () => {

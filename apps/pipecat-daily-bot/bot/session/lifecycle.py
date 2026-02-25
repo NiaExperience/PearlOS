@@ -17,7 +17,10 @@ from session.participant_data import extract_user_metadata
 from actions import profile_actions
 
 async def generate_conversation_summary(messages: list[dict[str, Any]]) -> str | None:
-    """Generate a concise summary of conversation messages using Groq (Llama) or fallback."""
+    """Generate a concise summary of conversation messages using Groq (Llama) or fallback.
+    
+    ISSUE #3 FIX: Added better error handling and auth fallback to prevent 401 errors.
+    """
     try:
         from openai import AsyncOpenAI
         
@@ -34,26 +37,41 @@ async def generate_conversation_summary(messages: list[dict[str, Any]]) -> str |
         # Prefer Groq (no OpenAI dependency), fall back to OpenAI if no Groq key
         groq_key = os.getenv("GROQ_API_KEY")
         if groq_key:
+            logger.debug(f"[{BOT_PID}] Using Groq for summary generation")
             client = AsyncOpenAI(
                 api_key=groq_key,
                 base_url="https://api.groq.com/openai/v1",
             )
-            model = "meta-llama/llama-4-scout-17b-16e-instruct"
+            model = os.getenv("BOT_SUMMARY_MODEL_FAST", "meta-llama/llama-4-scout-17b-16e-instruct")
         else:
-            client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            model = "gpt-4o-mini"
+            # Fallback: use OpenRouter instead of OpenAI
+            openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
+            if openrouter_key:
+                logger.debug(f"[{BOT_PID}] Using OpenRouter for summary generation")
+                client = AsyncOpenAI(
+                    api_key=openrouter_key,
+                    base_url="https://openrouter.ai/api/v1",
+                )
+                model = os.getenv("BOT_SUMMARY_MODEL", "anthropic/claude-sonnet-4.5")
+            else:
+                # No OpenRouter key either — skip summary generation
+                # ISSUE #3 FIX: Don't use OpenClaw gateway as fallback (causes 401 errors)
+                logger.warning(f"[{BOT_PID}] No GROQ_API_KEY or OPENROUTER_API_KEY set, skipping summary generation")
+                return None
         
         response = await client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": "Summarize the following conversation concisely."},
                 {"role": "user", "content": json.dumps(conversation_messages)}
-            ]
+            ],
+            timeout=30.0  # Add timeout to prevent hanging
         )
         return response.choices[0].message.content
         
     except Exception as e:
-        logger.error(f"[{BOT_PID}] Failed to generate summary: {e}")
+        # ISSUE #3 FIX: Suppress error and continue gracefully (don't crash session end)
+        logger.warning(f"[{BOT_PID}] Failed to generate summary (non-fatal): {e}")
         return None
 
 import json
@@ -354,3 +372,18 @@ class SessionLifecycle:
                     logger.debug(f"[{BOT_PID}] No transport available for conversation summary")
         except Exception as e:
             logger.error(f"[{BOT_PID}] Error generating/saving conversation summary: {e}", exc_info=True)
+
+        # --- Pearl's private journal entry ---
+        # Pearl reflects on the session privately. This is for her, not the user.
+        try:
+            from pearl.journal import write_entry
+            if summary_text:
+                # Generate a brief private reflection based on the session
+                journal_prompt = (
+                    f"Session ended. {len(conv_msgs) if 'conv_msgs' in dir() else '?'} messages exchanged. "
+                    f"Summary: {summary_text[:200] if summary_text else 'No summary generated.'}"
+                )
+                path = write_entry(journal_prompt)
+                logger.info(f"[{BOT_PID}] 📓 Wrote journal entry: {path}")
+        except Exception as journal_err:
+            logger.debug(f"[{BOT_PID}] Journal write skipped: {journal_err}")

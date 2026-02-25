@@ -5,6 +5,7 @@ import type { PersonalityVoiceConfig } from '@nia/prism';
 import React from 'react';
 
 // Relocated from apps/interface/src/components/DailyCallClientManager.tsx (feature branch)
+import DesktopModeSwitchBridge from '@interface/components/DesktopModeSwitchBridge';
 import InitializeDesktopMode from '@interface/components/InitializeDesktopMode';
 import AssistantWrapper from '@interface/components/assistant-canvas';
 import BrowserWindow from '@interface/components/browser-window';
@@ -12,7 +13,7 @@ import DesktopBackgroundSwitcher from '@interface/components/desktop-background-
 import { Stage } from '@interface/features/Stage';
 import ChatModeDesktop from '@interface/features/ChatMode/components/ChatModeDesktop';
 import PearlWelcomeDialog from '@interface/components/pearl-welcome-dialog';
-import { ProfileDropdown } from '@interface/components/profile-dropdown';
+// ProfileDropdown removed — deprecated ? button
 import { UserProfileProvider } from '@interface/contexts/user-profile-context';
 import { requestWindowOpen } from '@interface/features/ManeuverableWindow/lib/windowLifecycleController';
 import { getClientLogger } from '@interface/lib/client-logger';
@@ -137,6 +138,8 @@ export default function ClientManager(props: Props) {
         */}
         {/* === Next-Gen UI: The Stage replaces DesktopBackgroundSwitcher === */}
         <Stage />
+        {/* Bridge: listens for desktopModeSwitch events and updates context */}
+        <DesktopModeSwitchBridge />
         {/* WORK desktop background + icons — visible when chat mode is active */}
         <ChatModeDesktop
           supportedFeatures={supportedFeatures}
@@ -157,7 +160,7 @@ export default function ClientManager(props: Props) {
         */}
         {/* Initialize desktop mode after switcher so listener is mounted */}
         <InitializeDesktopMode mode={(initialDesktopMode as any) || 'work'} />
-        <ProfileDropdown tenantId={tenantId} />
+        {/* ProfileDropdown removed — deprecated ? button; user menu via PersistentNavButtons */}
         {seatrade ? (
           <div
             className={`absolute left-[16px] top-[16px] ${assistantName === 'seatrade-jdx' ? 'w-[120px]' : 'w-[200px]'}`}

@@ -616,7 +616,7 @@ class BotOperator:
         
         # Pass through critical API keys and config from operator environment
         keys_to_pass = [
-            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
             "DAILY_API_KEY",
             "MESH_API_ENDPOINT",
             "MESH_ENDPOINT",

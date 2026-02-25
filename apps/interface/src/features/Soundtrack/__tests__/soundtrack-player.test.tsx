@@ -95,7 +95,7 @@ describe('Soundtrack Player', () => {
     const { getByTestId } = setup();
     
     expect(getByTestId('is-playing').textContent).toBe('false');
-    expect(getByTestId('volume').textContent).toBe('0.1'); // DEFAULT_NORMAL_VOLUME
+    expect(getByTestId('volume').textContent).toBe('0.35'); // DEFAULT_NORMAL_VOLUME
     expect(getByTestId('is-speaking').textContent).toBe('false');
     expect(getByTestId('current-track-index').textContent).toBe('0');
   });
@@ -142,7 +142,7 @@ describe('Soundtrack Player', () => {
   it('should duck volume when bot starts speaking', async () => {
     const { getByTestId } = setup();
     
-    expect(getByTestId('volume').textContent).toBe('0.1'); // DEFAULT_NORMAL_VOLUME
+    expect(getByTestId('volume').textContent).toBe('0.35'); // DEFAULT_NORMAL_VOLUME
     
     // Simulate bot speaking via Daily audio level event
     act(() => {
@@ -151,7 +151,7 @@ describe('Soundtrack Player', () => {
     
     await waitFor(() => {
       expect(getByTestId('is-speaking').textContent).toBe('true');
-      expect(getByTestId('volume').textContent).toBe('0.05'); // Ducked to 50% of 0.1
+      expect(getByTestId('volume').textContent).toBe('0.175'); // Ducked to 50% of 0.35
     });
   });
 
@@ -164,7 +164,7 @@ describe('Soundtrack Player', () => {
     });
     
     await waitFor(() => {
-      expect(getByTestId('volume').textContent).toBe('0.05'); // Ducked
+      expect(getByTestId('volume').textContent).toBe('0.175'); // Ducked
     });
     
     // Stop bot speaking
@@ -174,7 +174,7 @@ describe('Soundtrack Player', () => {
     
     await waitFor(() => {
       expect(getByTestId('is-speaking').textContent).toBe('false');
-      expect(getByTestId('volume').textContent).toBe('0.1'); // Restored
+      expect(getByTestId('volume').textContent).toBe('0.35'); // Restored
     });
   });
 
@@ -188,7 +188,7 @@ describe('Soundtrack Player', () => {
     
     await waitFor(() => {
       expect(getByTestId('is-speaking').textContent).toBe('true');
-      expect(getByTestId('volume').textContent).toBe('0.05'); // Ducked
+      expect(getByTestId('volume').textContent).toBe('0.175'); // Ducked
     });
     
     // Bot continues speaking
@@ -198,7 +198,7 @@ describe('Soundtrack Player', () => {
     
     await waitFor(() => {
       expect(getByTestId('is-speaking').textContent).toBe('true');
-      expect(getByTestId('volume').textContent).toBe('0.05'); // Still ducked
+      expect(getByTestId('volume').textContent).toBe('0.175'); // Still ducked
     });
   });
 

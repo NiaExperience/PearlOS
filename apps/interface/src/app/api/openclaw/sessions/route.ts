@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
+import { readFile, readdir } from 'fs/promises';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
@@ -21,14 +21,48 @@ interface ActiveJob {
   kind: string;
 }
 
-const SESSION_STORE = process.env.OPENCLAW_SESSION_STORE 
-  || path.join(process.env.HOME || '/root', '.openclaw/agents/main/sessions/sessions.json');
+// Dynamically discover all agent session stores
+const AGENTS_DIR = path.join(process.env.HOME || '/root', '.openclaw/agents');
+
+async function getSessionStorePaths(): Promise<string[]> {
+  try {
+    const agents = await readdir(AGENTS_DIR);
+    return agents.map((agent) =>
+      path.join(AGENTS_DIR, agent, 'sessions/sessions.json')
+    );
+  } catch {
+    // Fallback to known paths if readdir fails
+    return [
+      path.join(AGENTS_DIR, 'main/sessions/sessions.json'),
+      path.join(AGENTS_DIR, 'voice/sessions/sessions.json'),
+      path.join(AGENTS_DIR, 'opus/sessions/sessions.json'),
+      path.join(AGENTS_DIR, 'sonnet/sessions/sessions.json'),
+      path.join(AGENTS_DIR, 'haiku/sessions/sessions.json'),
+    ];
+  }
+}
 
 // Sidecar file with human-readable task descriptions keyed by label
 const DESCRIPTIONS_FILE = path.join(process.env.HOME || '/root', '.openclaw/workspace/job-descriptions.json');
 
 // Only show sessions active in the last N minutes
 const ACTIVE_MINUTES = 30;
+
+/** Extract a short 1-line summary from a potentially huge task prompt */
+function extractTaskSummary(task: string): string {
+  if (!task) return '';
+  const lines = task.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#')) continue;
+    if (trimmed.startsWith('---')) continue;
+    if (trimmed.startsWith('```')) continue;
+    // Found a meaningful line — truncate to 100 chars
+    return trimmed.length > 100 ? trimmed.slice(0, 97) + '...' : trimmed;
+  }
+  return '';
+}
 
 async function loadDescriptions(): Promise<Record<string, string>> {
   try {
@@ -41,17 +75,26 @@ async function loadDescriptions(): Promise<Record<string, string>> {
 
 export async function GET() {
   try {
-    const [raw, descriptions] = await Promise.all([
-      readFile(SESSION_STORE, 'utf-8'),
-      loadDescriptions(),
-    ]);
-    const store = JSON.parse(raw) as Record<string, Record<string, unknown>>;
+    // Dynamically discover and read all agent session stores
+    const sessionStorePaths = await getSessionStorePaths();
+    const allSessions: Record<string, Record<string, unknown>> = {};
+    for (const storePath of sessionStorePaths) {
+      try {
+        const raw = await readFile(storePath, 'utf-8');
+        const store = JSON.parse(raw) as Record<string, Record<string, unknown>>;
+        Object.assign(allSessions, store);
+      } catch {
+        // File might not exist, skip
+      }
+    }
+
+    const descriptions = await loadDescriptions();
     const now = Date.now();
     const cutoff = now - ACTIVE_MINUTES * 60 * 1000;
 
     const jobs: ActiveJob[] = [];
 
-    for (const [key, session] of Object.entries(store)) {
+    for (const [key, session] of Object.entries(allSessions)) {
       // Only show subagent and cron sessions (skip cron run duplicates)
       if (!key.includes('subagent') && !key.includes('cron')) continue;
       if (key.includes(':run:')) continue; // skip individual cron run entries, show parent only
@@ -68,11 +111,33 @@ export async function GET() {
 
       const jobLabel = String(session.label || session.displayName || key.split(':').pop() || 'Job');
 
+      // Try to find a human-readable description:
+      // 1. Exact match on the label (e.g. "pre-release-health-monitor")
+      // 2. Label with "Cron: " prefix stripped (e.g. "Cron: voice-pipeline-healthcheck" → "voice-pipeline-healthcheck")
+      // 3. Partial match: try each description key to see if the label contains it
+      // 4. Fall back to the session's own task/description field
+      const strippedLabel = jobLabel.replace(/^Cron:\s*/, '');
+      let resolvedDescription = descriptions[jobLabel]
+        || descriptions[strippedLabel]
+        || extractTaskSummary(String(session.task || ''))
+        || String(session.description || '');
+
+      // Partial-match fallback: find the longest description key that appears in the label
+      if (!resolvedDescription) {
+        let bestMatch = '';
+        for (const descKey of Object.keys(descriptions)) {
+          if (strippedLabel.includes(descKey) && descKey.length > bestMatch.length) {
+            bestMatch = descKey;
+          }
+        }
+        if (bestMatch) resolvedDescription = descriptions[bestMatch];
+      }
+
       jobs.push({
         id: key,
         key,
         label: jobLabel,
-        description: descriptions[jobLabel] || String(session.task || session.description || ''),
+        description: resolvedDescription,
         status: isRunning ? 'running' : 'complete',
         channel: String(session.channel || session.lastChannel || ''),
         model: String(session.model || ''),

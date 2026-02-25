@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import Image from 'next/image';
 
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
@@ -18,9 +18,8 @@ const FloatingHomeButton: React.FC = () => {
   const isHome = currentMode === DesktopMode.HOME || currentMode === DesktopMode.DEFAULT;
 
   const handleClick = useCallback(() => {
-    if (isHome) return;
-
-    // Dispatch the desktop mode switch event (same pattern as taskbar)
+    // Always dispatch home event — even if already in HOME mode,
+    // this can close open overlays/windows and return to clean desktop
     const switchResponse: DesktopModeSwitchResponse = {
       success: true,
       mode: DesktopMode.HOME,
@@ -41,11 +40,10 @@ const FloatingHomeButton: React.FC = () => {
       })
     );
 
-    setMode(DesktopMode.HOME);
+    if (!isHome) {
+      setMode(DesktopMode.HOME);
+    }
   }, [currentMode, isHome, setMode]);
-
-  // Don't render when on home screen
-  if (isHome) return null;
 
   return (
     <button
@@ -67,7 +65,7 @@ const FloatingHomeButton: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(30, 58, 138, 0.45)',
+        background: isHome ? 'rgba(30, 58, 138, 0.25)' : 'rgba(30, 58, 138, 0.45)',
         backdropFilter: 'blur(12px) saturate(180%)',
         WebkitBackdropFilter: 'blur(12px) saturate(180%)',
         border: '1px solid rgba(147, 197, 253, 0.3)',

@@ -510,7 +510,7 @@ export function useVoiceSession({
         clearPendingSpriteConfig();
       } else {
         // Normal voice session (not sprite) - ensure sprite voice state is cleared
-        // This is important for lipsync to work correctly (effectiveSpeaking in RiveAvatar)
+        // This is important for lipsync to work correctly (effectiveSpeaking in GIF avatar)
         voiceLogger.info('Normal voice session start, clearing any stale sprite voice state');
         setActiveSpriteId(null);
         setActiveSpriteVoice(false);
@@ -670,13 +670,6 @@ export function useVoiceSession({
    */
   const stop = useCallback(async () => {
     try {
-      if (callStatusRef.current === CALL_STATUS.LOADING) {
-        voiceLogger.warn('Stop ignored during loading; waiting for bot join', {
-          event: 'voice_stop_ignored_loading',
-        });
-        return;
-      }
-
       clearLoadingTimeout();
       voiceLogger.info('Stopping session', { event: 'voice_stop' });
 
@@ -814,7 +807,7 @@ export function useVoiceSession({
       event: 'voice_toggle',
       status: callStatusRef.current,
     });
-    if (callStatusRef.current === CALL_STATUS.ACTIVE) {
+    if (callStatusRef.current === CALL_STATUS.ACTIVE || callStatusRef.current === CALL_STATUS.LOADING) {
       if (stopRef.current) {
         await stopRef.current();
       }

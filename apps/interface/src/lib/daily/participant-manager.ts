@@ -231,15 +231,34 @@ export function getBotParticipant(
     const participants = callObject.participants();
     
     if (!participants) {
+      console.log('[ParticipantManager] No participants object');
       return null;
     }
 
+    const participantList = Object.entries(participants).map(([id, p]) => ({
+      id,
+      username: p.user_name,
+      local: p.local
+    }));
+    console.log('[ParticipantManager] All participants:', participantList);
+
     for (const [id, participant] of Object.entries(participants)) {
-      if (id !== 'local' && !participant.local && isBotParticipant(participant, options)) {
-        return extractParticipantInfo(participant);
+      if (id !== 'local' && !participant.local) {
+        const isBot = isBotParticipant(participant, options);
+        console.log('[ParticipantManager] Checking participant', {
+          id,
+          username: participant.user_name,
+          isBot,
+          hasAudio: !!participant.tracks?.audio,
+          audioState: participant.tracks?.audio?.state
+        });
+        if (isBot) {
+          return extractParticipantInfo(participant);
+        }
       }
     }
 
+    console.log('[ParticipantManager] No bot participant found');
     return null;
   } catch (error) {
     log.error('Error getting bot participant', { error });

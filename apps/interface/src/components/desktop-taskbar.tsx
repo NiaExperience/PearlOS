@@ -86,7 +86,7 @@ const DesktopTaskbar = ({
   const isHomeHighlighted = isHomeActive && !isSocialAppOpen;
   const isWorkHighlighted = isWorkActive && !isSocialAppOpen;
 
-  const shouldHideHome = isSocialAppOpen ? false : isHomeActive;
+  const shouldHideHome = false; // Always show Home button so users can navigate back
   const shouldHideWork = isSocialAppOpen ? false : isWorkActive;
   const shouldHideCreate = isSocialAppOpen ? false : currentMode === DesktopMode.CREATIVE;
   const shouldHideQuiet = isSocialAppOpen ? false : currentMode === DesktopMode.QUIET;
@@ -742,37 +742,30 @@ const DesktopTaskbar = ({
             </svg>
           </motion.button>
 
-        {/* Home Button - Hide only when in HOME mode (unless social app is open) */}
+        {/* Home/Desktop Toggle Button - Contextual icon based on current view */}
+        {/* On Home screen: shows monitor/display icon + "DESKTOP" label (click → go to desktop/work view) */}
+        {/* On Desktop: shows Home icon + "HOME" label (click → go to home screen) */}
         {!shouldHideHome && (
         <div className="flex flex-col items-center gap-0.5">
           <motion.button
-            onClick={handleHomeClick}
-            title="Home"
+            onClick={isHomeActive ? handleWorkClick : handleHomeClick}
+            title={isHomeActive ? "Go to Desktop" : "Go to Home"}
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className={`flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm ${
-              isHomeHighlighted
-                ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/50 border-2 border-blue-400/60' 
-                : 'bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20'
-            }`}
+            className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
             animate={{
-              boxShadow: isHomeHighlighted ? [
-                "0 10px 25px rgba(37, 99, 235, 0.5)",
-                "0 15px 35px rgba(37, 99, 235, 0.7)",
-                "0 10px 25px rgba(37, 99, 235, 0.5)"
-              ] : "0 2px 8px rgba(59, 130, 246, 0.2)",
-              scale: isHomeHighlighted ? 1.05 : 1
+              boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
+              scale: 1
             }}
             whileHover={{ 
               scale: 1.12,
               y: -4,
-              backgroundColor: isHomeHighlighted ? "rgba(29, 78, 216, 0.95)" : "transparent",
+              backgroundColor: "transparent",
               boxShadow: "0 20px 40px rgba(37, 99, 235, 0.6)",
               borderRadius: "12px"
             }}
             whileTap={{ scale: 0.95 }}
             transition={{
-              boxShadow: isHomeHighlighted ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : {},
               type: "spring", 
               stiffness: 550, 
               damping: 18
@@ -781,23 +774,46 @@ const DesktopTaskbar = ({
             <motion.div
               className="relative flex h-10 w-10 md:h-12 md:w-12 items-center justify-center overflow-hidden"
               animate={{
-                scale: isHomeHighlighted ? 1.1 : 1,
-                filter: isHomeHighlighted ? "drop-shadow(0 2px 8px rgba(255, 255, 255, 0.3))" : "none"
+                scale: 1,
+                filter: "none"
               }}
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
             >
-              <Image
-                src="/HomeTB.png"
-                alt="Home icon"
-                width={48}
-                height={48}
-                className="h-full w-full object-contain p-1.5 md:p-2 filter drop-shadow-sm"
-                priority
-              />
+              {isHomeActive ? (
+                /* Monitor/display icon — shown when on the Home screen, clicking goes to Desktop */
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6 md:h-7 md:w-7 text-white/90 drop-shadow-sm"
+                  aria-label="Go to Desktop"
+                >
+                  {/* Monitor screen */}
+                  <rect x="2" y="3" width="20" height="13" rx="2" />
+                  {/* Stand stem */}
+                  <line x1="12" y1="16" x2="12" y2="20" />
+                  {/* Base */}
+                  <line x1="8" y1="20" x2="16" y2="20" />
+                </svg>
+              ) : (
+                /* Home icon — shown when on the Desktop, clicking goes to Home */
+                <Image
+                  src="/HomeTB.png"
+                  alt="Home icon"
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-contain p-1.5 md:p-2 filter drop-shadow-sm"
+                  priority
+                />
+              )}
             </motion.div>
           </motion.button>
-          <span className="text-white/90 text-[10px] md:text-xs font-medium uppercase tracking-wider drop-shadow-sm" style={{ fontFamily: 'Gohufont, monospace' }}>HOME</span>
+          <span className="text-white/90 text-[10px] md:text-xs font-medium uppercase tracking-wider drop-shadow-sm" style={{ fontFamily: 'Gohufont, monospace' }}>{isHomeActive ? 'DESKTOP' : 'HOME'}</span>
         </div>
         )}
 

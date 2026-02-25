@@ -300,7 +300,21 @@ export function cleanupExpiredRooms(): void {
   }
 }
 
-// Run cleanup every 60 seconds
-if (typeof window !== 'undefined') {
-  setInterval(cleanupExpiredRooms, 60000);
+/**
+ * Stop the room cleanup interval (for manual teardown if needed)
+ */
+export function stopRoomCleanup(): void {
+  if (cleanupIntervalId) {
+    clearInterval(cleanupIntervalId);
+    cleanupIntervalId = null;
+    log.info('Stopped room cleanup interval');
+  }
+}
+
+// Run cleanup every 60 seconds (singleton to prevent duplication on hot reload)
+let cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+
+if (typeof window !== 'undefined' && !cleanupIntervalId) {
+  cleanupIntervalId = setInterval(cleanupExpiredRooms, 60000);
+  log.info('Started room cleanup interval (60s)');
 }

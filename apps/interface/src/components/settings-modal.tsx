@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 
 import SettingsPanels from '@interface/components/settings-panels/SettingsPanels';
@@ -14,10 +15,23 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, tenantId }: SettingsModalProps) {
+  // Close on Escape key
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleKeyDown]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto p-4">
+    <div className="pointer-events-auto fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
@@ -47,7 +61,7 @@ export function SettingsModal({ isOpen, onClose, tenantId }: SettingsModalProps)
             </Button>
           </CardHeader>
           <CardContent className="space-y-6">
-            <SettingsPanels initialOpenPanel="profile" tenantId={tenantId} />
+            <SettingsPanels initialOpenPanel="model-config" tenantId={tenantId} />
           </CardContent>
         </Card>
       </div>

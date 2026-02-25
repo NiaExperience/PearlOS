@@ -7,6 +7,8 @@ import { getClientLogger } from '@interface/lib/client-logger';
 import { Message, TranscriptMessage } from '@interface/types/conversation.types';
 
 import {
+  NIA_EVENT_BOT_SPEAKING_STARTED,
+  NIA_EVENT_BOT_SPEAKING_STOPPED,
   NIA_EVENT_CONVERSATION_WRAPUP,
   NIA_EVENT_SESSION_END,
 } from '../features/DailyCall/events/niaEventRouter';
@@ -444,6 +446,18 @@ export const VoiceSessionProvider: React.FC<{
   // Only create when needed (lazy initialization)
   const callObjectRef = useRef<DailyCall | null>(null);
 
+  // Debounce refs for assistant speaking detection
+  // When bot.speaking.stopped fires, we suppress audio-level-based speaking for a grace period
+  const botSpeakingStoppedAtRef = useRef<number>(0);
+  const speakingDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Safety timeout: force speaking=false if stuck for too long (e.g., 30s)
+  const speakingSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounce for NIA bot.speaking.stopped — holds speaking state during inter-chunk gaps
+  const niaSpeakingStoppedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once NIA bot speaking events are received, they become the authoritative source.
+  // Audio-level events should NOT control isAssistantSpeaking after this point.
+  const niaEventsReceivedRef = useRef<boolean>(false);
+
   // DailyCall mutual exclusion: pause voice when video call is active
   const isDailyCallActiveRef = useRef(false);
 
@@ -491,21 +505,70 @@ export const VoiceSessionProvider: React.FC<{
       }
 
       const { detail } = event as CustomEvent<{ 
-        botParticipantId: string; 
+        participantId: string; 
         level: number; 
-        isSpeaking: boolean;
+        isSpeaking?: boolean;
       }>;
       
       if (detail) {
-        const { level, isSpeaking } = detail;
+        // CRITICAL: Only respond to bot (non-local) participant audio.
+        // The 'local' participantId is the user's own mic — setting
+        // isAssistantSpeaking from user audio causes the avatar to
+        // lip-sync to the user's voice and then freeze when they stop.
+        if (detail.participantId === 'local') {
+          return;
+        }
+
+        const { level } = detail;
         
         setAudioLevel(level);
-        setIsAssistantSpeaking(isSpeaking);
         
-        if (isSpeaking) {
+        // Once NIA bot speaking events have been received, they are the authoritative
+        // source for isAssistantSpeaking. Audio level events only update volume meters,
+        // NOT the speaking state. This prevents the broken audio monitor (which reports
+        // constant 0.7 level whenever a track is 'playable') from overriding NIA events.
+        if (niaEventsReceivedRef.current) {
           setAssistantVolumeLevel(Math.round(level * 100));
-        } else {
+          return;
+        }
+        
+        // Fallback path: no NIA events received yet, use audio levels as best-effort
+        const isSpeaking = detail.isSpeaking ?? (level > 0.012);
+
+        // If bot.speaking.stopped fired recently (within 1s), ignore audio-level-based speaking.
+        const timeSinceStopped = Date.now() - botSpeakingStoppedAtRef.current;
+        if (timeSinceStopped < 1000) {
           setAssistantVolumeLevel(0);
+          return;
+        }
+
+        if (isSpeaking) {
+          if (speakingDebounceTimerRef.current) {
+            clearTimeout(speakingDebounceTimerRef.current);
+            speakingDebounceTimerRef.current = null;
+          }
+          setIsAssistantSpeaking(true);
+          setAssistantVolumeLevel(Math.round(level * 100));
+          
+          if (speakingSafetyTimerRef.current) clearTimeout(speakingSafetyTimerRef.current);
+          speakingSafetyTimerRef.current = setTimeout(() => {
+            log.warn('Safety timeout: forcing isAssistantSpeaking=false after 30s');
+            setIsAssistantSpeaking(false);
+            setAudioLevel(0);
+            setAssistantVolumeLevel(0);
+          }, 30000);
+        } else {
+          if (!speakingDebounceTimerRef.current) {
+            speakingDebounceTimerRef.current = setTimeout(() => {
+              speakingDebounceTimerRef.current = null;
+              setIsAssistantSpeaking(false);
+              setAssistantVolumeLevel(0);
+              if (speakingSafetyTimerRef.current) {
+                clearTimeout(speakingSafetyTimerRef.current);
+                speakingSafetyTimerRef.current = null;
+              }
+            }, 500);
+          }
         }
       }
     };
@@ -624,6 +687,68 @@ export const VoiceSessionProvider: React.FC<{
     window.addEventListener('dailyCall.session.start', handleDailyCallSessionStart);
     window.addEventListener('dailyCall.session.end', handleDailyCallSessionEnd);
 
+    // Listen for bot speaking events from the Nia event router
+    // These are dispatched when the bot gateway sends bot.speaking.started/stopped
+    const handleBotSpeakingStarted = () => {
+      if (isDailyCallActiveRef.current) return;
+      log.info('Bot speaking started (nia event)');
+      // Mark that NIA events are available — they become the authoritative source
+      niaEventsReceivedRef.current = true;
+      // Clear the stopped timestamp so audio levels are respected again
+      botSpeakingStoppedAtRef.current = 0;
+      // Clear any pending "not speaking" debounce (audio-level based)
+      if (speakingDebounceTimerRef.current) {
+        clearTimeout(speakingDebounceTimerRef.current);
+        speakingDebounceTimerRef.current = null;
+      }
+      // Cancel any pending NIA stopped debounce — new chunk arrived before gap expired
+      if (niaSpeakingStoppedDebounceRef.current) {
+        clearTimeout(niaSpeakingStoppedDebounceRef.current);
+        niaSpeakingStoppedDebounceRef.current = null;
+      }
+      setIsAssistantSpeaking(true);
+      // Start safety timeout
+      if (speakingSafetyTimerRef.current) clearTimeout(speakingSafetyTimerRef.current);
+      speakingSafetyTimerRef.current = setTimeout(() => {
+        log.warn('Safety timeout: forcing isAssistantSpeaking=false after 30s (from bot.speaking.started)');
+        setIsAssistantSpeaking(false);
+        setAudioLevel(0);
+        setAssistantVolumeLevel(0);
+      }, 30000);
+    };
+
+    const handleBotSpeakingStopped = () => {
+      if (isDailyCallActiveRef.current) return;
+      log.info('Bot speaking stopped (nia event) — debouncing 500ms for inter-chunk gaps');
+      // Mark that NIA events are available — they become the authoritative source
+      niaEventsReceivedRef.current = true;
+      // Mark the stop timestamp — audio level handler will respect this
+      botSpeakingStoppedAtRef.current = Date.now();
+      // Clear any pending audio-level debounce timers
+      if (speakingDebounceTimerRef.current) {
+        clearTimeout(speakingDebounceTimerRef.current);
+        speakingDebounceTimerRef.current = null;
+      }
+      // Debounce the stopped event: wait 1500ms before marking as not speaking.
+      // This bridges inter-chunk gaps where one TTS segment ends and the next
+      // hasn't started yet. If bot.speaking.started fires within this window,
+      // the debounce is cancelled and speaking state stays true.
+      if (niaSpeakingStoppedDebounceRef.current) {
+        clearTimeout(niaSpeakingStoppedDebounceRef.current);
+      }
+      niaSpeakingStoppedDebounceRef.current = setTimeout(() => {
+        niaSpeakingStoppedDebounceRef.current = null;
+        log.info('Bot speaking stopped — debounce expired, marking as not speaking');
+        if (speakingSafetyTimerRef.current) {
+          clearTimeout(speakingSafetyTimerRef.current);
+          speakingSafetyTimerRef.current = null;
+        }
+        setIsAssistantSpeaking(false);
+        setAudioLevel(0);
+        setAssistantVolumeLevel(0);
+      }, 500);
+    };
+
     const handleConversationWrapup = () => {
       setIsCallEnding(true);
     };
@@ -631,20 +756,49 @@ export const VoiceSessionProvider: React.FC<{
     const handleSessionEnd = () => {
       setIsCallEnding(false);
       setSessionStatus('inactive');
+      // Reset speaking state — if call disconnects mid-speech, avatar must return to sleep
+      setIsAssistantSpeaking(false);
+      setAudioLevel(0);
+      setAssistantVolumeLevel(0);
+      setIsUserSpeaking(false);
+      // Clear any pending speaking timers
+      if (speakingDebounceTimerRef.current) {
+        clearTimeout(speakingDebounceTimerRef.current);
+        speakingDebounceTimerRef.current = null;
+      }
+      if (speakingSafetyTimerRef.current) {
+        clearTimeout(speakingSafetyTimerRef.current);
+        speakingSafetyTimerRef.current = null;
+      }
+      if (niaSpeakingStoppedDebounceRef.current) {
+        clearTimeout(niaSpeakingStoppedDebounceRef.current);
+        niaSpeakingStoppedDebounceRef.current = null;
+      }
+      botSpeakingStoppedAtRef.current = 0;
+      niaEventsReceivedRef.current = false;
     };
 
-    // Subscribe to Nia events (only conversation control, not speaking events)
+    // Subscribe to Nia bot speaking events (primary source of speaking state)
+    window.addEventListener(NIA_EVENT_BOT_SPEAKING_STARTED, handleBotSpeakingStarted);
+    window.addEventListener(NIA_EVENT_BOT_SPEAKING_STOPPED, handleBotSpeakingStopped);
+
+    // Subscribe to Nia events (conversation control)
     window.addEventListener(NIA_EVENT_CONVERSATION_WRAPUP, handleConversationWrapup);
     window.addEventListener(NIA_EVENT_SESSION_END, handleSessionEnd);
 
-    // Cleanup event listeners on unmount (call object cleanup is handled separately)
+    // Cleanup event listeners and timers on unmount (call object cleanup is handled separately)
     return () => {
       window.removeEventListener('daily:audioLevel', handleAudioLevel as EventListener);
       window.removeEventListener('daily:userAudioLevel', handleUserAudioLevel as EventListener);
       window.removeEventListener('dailyCall.session.start', handleDailyCallSessionStart);
       window.removeEventListener('dailyCall.session.end', handleDailyCallSessionEnd);
+      window.removeEventListener(NIA_EVENT_BOT_SPEAKING_STARTED, handleBotSpeakingStarted);
+      window.removeEventListener(NIA_EVENT_BOT_SPEAKING_STOPPED, handleBotSpeakingStopped);
       window.removeEventListener(NIA_EVENT_CONVERSATION_WRAPUP, handleConversationWrapup);
       window.removeEventListener(NIA_EVENT_SESSION_END, handleSessionEnd);
+      if (speakingDebounceTimerRef.current) clearTimeout(speakingDebounceTimerRef.current);
+      if (speakingSafetyTimerRef.current) clearTimeout(speakingSafetyTimerRef.current);
+      if (niaSpeakingStoppedDebounceRef.current) clearTimeout(niaSpeakingStoppedDebounceRef.current);
     };
   }, [log]); // Only depends on log (which is stable)
 

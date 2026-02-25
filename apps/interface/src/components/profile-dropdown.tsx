@@ -1,12 +1,10 @@
 'use client';
 
-import { LogOut, Settings, CreditCard } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
 
-import { SettingsModal } from '@interface/components/settings-modal';
-import { SubscriptionModal } from '@interface/components/subscription-modal';
 import { Avatar, AvatarFallback, AvatarImage } from '@interface/components/ui/avatar';
 import { Button } from '@interface/components/ui/button';
 import { useUI } from '@interface/contexts/ui-context';
@@ -21,8 +19,8 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
   const { data: session, status } = useResilientSession();
   const { isBrowserWindowMaximized, isChatMode } = useUI();
   const [isOpen, setIsOpen] = useState(false);
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  // Settings modal removed — now handled by PersistentNavButtons
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -139,15 +137,6 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
     }
   };
 
-  const handleSettingsClick = () => {
-    setIsOpen(false);
-    setIsSettingsModalOpen(true);
-  };
-
-  const handleSubscriptionClick = () => {
-    setIsOpen(false);
-    setIsSubscriptionModalOpen(true);
-  };
 
   const handleInviteClick = () => {
     setIsOpen(false);
@@ -207,20 +196,6 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
         {isOpen && (
           <div className="absolute right-0 top-full mt-2 w-48 bg-gray-900 rounded-md shadow-lg border border-gray-700 py-1 z-50" style={{ fontFamily: 'Gohufont, monospace' }}>
             <button
-              onClick={handleSettingsClick}
-              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-gray-800 flex items-center gap-3"
-              style={{ fontFamily: 'Gohufont, monospace' }}
-            >
-              {/* Custom Settings Icon */}
-              <img 
-                src="/UsersettingIcon.png" 
-                alt="Settings" 
-                className="w-6 h-6"
-                style={{ imageRendering: 'pixelated' }}
-              />
-              Settings
-            </button>
-            <button
               onClick={handleInviteClick}
               className="w-full px-4 py-2 text-left text-sm text-white hover:bg-gray-800 flex items-center gap-3"
               style={{ fontFamily: 'Gohufont, monospace' }}
@@ -236,7 +211,6 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
               Invite Friend
             </button>
             {/* <button
-              onClick={handleSubscriptionClick}
               className="w-full px-4 py-2 text-left text-sm text-white hover:bg-gray-800 flex items-center gap-3"
               style={{ fontFamily: 'Gohufont, monospace' }}
             >
@@ -274,19 +248,7 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
         )}
       </div>
       
-      {/* Subscription Modal */}
-      <SubscriptionModal 
-        isOpen={isSubscriptionModalOpen} 
-        onClose={() => setIsSubscriptionModalOpen(false)} 
-      />
       
-      {/* Settings Modal */}
-      <SettingsModal 
-        isOpen={isSettingsModalOpen} 
-        onClose={() => setIsSettingsModalOpen(false)}
-        tenantId={tenantId}
-      />
-
       {/* Invite Friend Modal (8-bit themed) */}
       <InviteViaEmailModal
         isOpen={isInviteModalOpen}

@@ -9,13 +9,14 @@ import { useUI } from '@interface/contexts/ui-context';
 import { useIsMobile } from '@interface/hooks/use-is-mobile';
 import { getClientLogger } from '@interface/lib/client-logger';
 
-import PearlMultiMenu, { PearlMultiMenuRef } from '../features/PearlMultiMenu/components/PearlMultiMenu';
+// PearlMultiMenu removed — was Rive-based. GIF only per Blair directive 2026-02-24
 import { CALL_STATUS, useVoiceSession } from '../hooks/useVoiceSession';
 import type { SoundtrackControlDetail } from '../features/Soundtrack/lib/events';
 import { SOUNDTRACK_EVENTS } from '../features/Soundtrack/lib/events';
 
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
 import { DesktopMode } from '@interface/types/desktop-modes';
+
 
 import { MODE_SELECTOR_UNLOCK_EVENT } from './desktop-mode-selector-events';
 import { Skeleton } from './ui/skeleton';
@@ -29,6 +30,8 @@ const AssistantButton = ({
   toggleCall,
   callStatus,
   audioLevel: _audioLevel = 0,
+  isAssistantSpeaking,
+  assistantVolumeLevel,
   themeData: _themeData,
   supportedFeatures,
   startFullScreen,
@@ -62,11 +65,8 @@ const AssistantButton = ({
   // UI context and avatar control
   const { triggerAvatarPopup, triggerAvatarHide, setBellButtonRect, isBrowserWindowVisible, isAvatarVisible, isDailyCallActive, isNotesWindowOpen, isChatMode, setIsChatMode } = useUI();
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const pearlMultiMenuRef = useRef<PearlMultiMenuRef>(null);
   const menuHideTimeoutRef = useRef<number | null>(null);
   const soundtrackTimeoutRef = useRef<number | null>(null);
-  const [isMenuRevealed, setIsMenuRevealed] = useState(false);
-  const isMultiMenuEnabled = isFeatureEnabled('pearlMultiMenu', supportedFeatures);
   const wasAvatarVisibleBeforeChatRef = useRef(false);
   const previousDesktopModeRef = useRef<DesktopMode | null>(null);
 
@@ -109,8 +109,12 @@ const AssistantButton = ({
         return await context.decodeAudioData(arrayBuffer);
       };
 
-      // Load and set the audio buffers for start and end sounds
-      loadSound('/sounds/magicbell4.wav')
+      // Load both Pearl sounds then randomly assign to start/end per session
+      const swapped = Math.random() > 0.5;
+      const startSoundUrl = swapped ? '/sounds/pearl-begins.wav' : '/sounds/pearl-melody.wav';
+      const endSoundUrl = swapped ? '/sounds/pearl-melody.wav' : '/sounds/pearl-begins.wav';
+
+      loadSound(startSoundUrl)
         .then((buffer) => {
           setCallStartBuffer(buffer);
         })
@@ -118,7 +122,7 @@ const AssistantButton = ({
           error: error instanceof Error ? error.message : String(error),
         }));
 
-      loadSound('/sounds/magicbell3.wav')
+      loadSound(endSoundUrl)
         .then((buffer) => {
           setCallEndBuffer(buffer);
         })
@@ -188,7 +192,10 @@ const AssistantButton = ({
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(ctx.destination);
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 0.35;
+    source.connect(gainNode);
+    gainNode.connect(ctx.destination);
     source.start(0);
   }, [getActiveAudioContext]);
 
@@ -239,11 +246,21 @@ const AssistantButton = ({
       }
     };
 
+    const handleForceStop = () => {
+      if ((callStatus === CALL_STATUS.ACTIVE || callStatus === CALL_STATUS.LOADING) && toggleCall) {
+        toggleCall();
+        if (callEndBuffer) { playSound(callEndBuffer); }
+        window.dispatchEvent(new CustomEvent('clearViewStateCache', { detail: { reason: 'user_closed_conversation' } }));
+      }
+    };
+
     window.addEventListener('assistant:force-start', handleForceStart);
+    window.addEventListener('assistant:force-stop', handleForceStop);
     return () => {
       window.removeEventListener('assistant:force-start', handleForceStart);
+      window.removeEventListener('assistant:force-stop', handleForceStop);
     };
-  }, [callStatus, callStartBuffer, toggleCall, triggerAvatarPopup, playSound, setBellButtonRect]);
+  }, [callStatus, callStartBuffer, callEndBuffer, toggleCall, triggerAvatarPopup, playSound, setBellButtonRect]);
 
   const dismissPearlWelcome = () => {
     if (typeof window !== 'undefined') {
@@ -258,30 +275,13 @@ const AssistantButton = ({
     }
   }, []);
 
-  const showPearlMenu = useCallback(() => {
-    if (!isMultiMenuEnabled || isMenuRevealed) {
-      return;
-    }
-    clearMenuHideTimeout();
-    pearlMultiMenuRef.current?.triggerAnimation();
-    setIsMenuRevealed(true);
-  }, [isMenuRevealed, isMultiMenuEnabled, setIsMenuRevealed, clearMenuHideTimeout]);
-
   const hidePearlMenu = useCallback(() => {
-    if (!isMenuRevealed) {
-      return;
-    }
-    clearMenuHideTimeout();
-    pearlMultiMenuRef.current?.hideAnimation();
-    setIsMenuRevealed(false);
-  }, [isMenuRevealed, setIsMenuRevealed, clearMenuHideTimeout]);
+    // No-op: PearlMultiMenu (Rive) removed
+  }, []);
 
   const scheduleMenuHide = useCallback(() => {
-    clearMenuHideTimeout();
-    menuHideTimeoutRef.current = window.setTimeout(() => {
-      hidePearlMenu();
-    }, 200);
-  }, [clearMenuHideTimeout, hidePearlMenu]);
+    // No-op: PearlMultiMenu (Rive) removed
+  }, []);
 
   const dispatchModeSelectorUnlock = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -292,21 +292,20 @@ const AssistantButton = ({
   const enterChatMode = useCallback(() => {
     if (isChatMode || isDailyCallActive) return;
     
-    logger.info('Entering chat mode (silent)');
+    logger.info('Entering chat mode (silent — Pearl stays sleeping)');
     wasAvatarVisibleBeforeChatRef.current = isAvatarVisible;
     
-    // Switch to work desktop mode (store previous mode for restoration)
+    // Store previous desktop mode for restoration, but do NOT switch away from
+    // the current mode.  Chat should load on the home screen (or whatever mode
+    // the user is already in) without forcing a WORK-mode transition.
     previousDesktopModeRef.current = currentDesktopMode;
-    if (currentDesktopMode !== DesktopMode.WORK) {
-      setDesktopMode(DesktopMode.WORK);
-    }
     
-    // Show avatar silently (no sound)
-    triggerAvatarPopup();
+    // Do NOT trigger avatar popup — Pearl stays in sleeping/inactive state.
+    // The parent container in assistant-canvas animates Pearl to lower-left via CSS.
     
     // Set chat mode state
     setIsChatMode(true);
-  }, [isChatMode, isDailyCallActive, isAvatarVisible, triggerAvatarPopup, setIsChatMode, currentDesktopMode, setDesktopMode]);
+  }, [isChatMode, isDailyCallActive, isAvatarVisible, setIsChatMode, currentDesktopMode, setDesktopMode]);
 
   const exitChatMode = useCallback(() => {
     if (!isChatMode) return;
@@ -318,15 +317,12 @@ const AssistantButton = ({
       triggerAvatarHide();
     }
     
-    // Restore previous desktop mode
-    if (previousDesktopModeRef.current !== null) {
-      setDesktopMode(previousDesktopModeRef.current);
-      previousDesktopModeRef.current = null;
-    }
+    // We no longer force a desktop mode change on enter, so no need to restore.
+    previousDesktopModeRef.current = null;
     
     setIsChatMode(false);
     wasAvatarVisibleBeforeChatRef.current = false;
-  }, [isChatMode, triggerAvatarHide, setIsChatMode, setDesktopMode]);
+  }, [isChatMode, triggerAvatarHide, setIsChatMode]);
 
   // Force-clear chat mode state without restoring previous desktop mode
   // Used when an external action (like taskbar Home button) changes the mode
@@ -350,12 +346,21 @@ const AssistantButton = ({
     previousDesktopModeRef.current = null;
   }, [isChatMode, callStatus, triggerAvatarHide, setIsChatMode]);
 
-  // Auto-exit chat mode when desktop mode changes away from WORK (e.g., taskbar Home button)
+  // Chat mode is no longer tied to a specific desktop mode, so we don't
+  // auto-exit when the desktop mode changes.  The user can dismiss chat
+  // explicitly via the close/minimize buttons.
+
+  // Listen for pearl:open-chat events (e.g. from the floating chat bubble button)
+  // This ensures the proper enterChatMode flow is used (desktop switch first, then chat mode)
   useEffect(() => {
-    if (isChatMode && currentDesktopMode !== DesktopMode.WORK) {
-      forceClearChatMode();
-    }
-  }, [currentDesktopMode, isChatMode, forceClearChatMode]);
+    const handleOpenChat = () => {
+      enterChatMode();
+    };
+    window.addEventListener('pearl:open-chat', handleOpenChat);
+    return () => {
+      window.removeEventListener('pearl:open-chat', handleOpenChat);
+    };
+  }, [enterChatMode]);
 
   const handleChatModeToggle = useCallback(() => {
     if (isChatMode) {
@@ -380,14 +385,10 @@ const AssistantButton = ({
         // no-op
       }
     }
-    // If chat mode is active and user taps Pearl, minimize the chat panel
-    if (isChatMode && callStatus === CALL_STATUS.INACTIVE) {
-      // Dispatch minimize event to ChatMode component
-      window.dispatchEvent(new Event('pearl:chat-minimize'));
-      return; // Don't start voice call
-    }
+    // Tapping Pearl directly always triggers voice mode, even in chat mode.
+    // Pearl activates/wakes up regardless of current mode.
 
-    if (callStatus === CALL_STATUS.ACTIVE) {
+    if (callStatus === CALL_STATUS.ACTIVE || callStatus === CALL_STATUS.LOADING) {
       // Play call end sound
       if (toggleCall) {
         // Clear soundtrack timeout if call is ending before 5 seconds
@@ -398,7 +399,7 @@ const AssistantButton = ({
 
         toggleCall();
         playSound(callEndBuffer);
-        // Do not immediately hide avatar here; let RiveAvatar drive Reverse Appear and hide itself
+        // Avatar hide handled by GIF state machine
         const clearViewStateEvent = new CustomEvent('clearViewStateCache', {
           detail: { reason: 'user_closed_conversation' }
         });
@@ -449,44 +450,11 @@ const AssistantButton = ({
   };
 
   const handleHoverStart = () => {
-    clearMenuHideTimeout();
-    showPearlMenu();
+    // No-op: PearlMultiMenu (Rive) removed
   };
 
   const handleHoverEnd = () => {
-    scheduleMenuHide();
-  };
-
-  const handleMenuPointerEnter = () => {
-    clearMenuHideTimeout();
-    showPearlMenu();
-  };
-
-  const handleMenuPointerLeave = () => {
-    scheduleMenuHide();
-  };
-
-  // Handle icon clicks from PearlMultiMenu
-  const handleIconAction = (iconType: string) => {
-    switch (iconType) {
-      case 'top':
-        // Add action for top icon (e.g., open notes)
-        break;
-      case 'top-right':
-        // Add action for top-right icon (e.g., open calendar)
-        break;
-      case 'bottom-right':
-        // Add action for bottom-right icon (e.g., open settings)
-        break;
-      case 'bottom-left':
-        // Add action for bottom-left icon (e.g., open browser)
-        break;
-      case 'top-left':
-        // Add action for top-left icon (e.g., open messages)
-        break;
-      default:
-        // Unknown icon type
-    }
+    // No-op: PearlMultiMenu (Rive) removed
   };
 
   useEffect(() => {
@@ -507,7 +475,7 @@ const AssistantButton = ({
     // Check call status first - if inactive/unavailable, button should be large
     if (isCallInactive) {
       // Button is large when inactive, regardless of browser window state
-      // On mobile, match RiveAvatar initial size (0.3 scale = 75px)
+      // On mobile, match avatar initial size (0.3 scale = 75px)
       if (isMobile) {
         return '75px';
       }
@@ -540,7 +508,7 @@ const AssistantButton = ({
     padding: '0px',
     display: 'block',
     zIndex: 2,
-    pointerEvents: 'none' as const, // Disable pointer events on the button itself
+    pointerEvents: 'auto' as const, // Enable pointer events for the button
     // border: '2px solid blue', // DEBUG BORDER
   };
 
@@ -549,8 +517,15 @@ const AssistantButton = ({
   // OR when inactive and notes window is open (mobile only)
   // Note: We no longer hide during LOADING - the bell should remain visible until the avatar actually appears
   const avatarFeatureOn = isFeatureEnabled('avatar', supportedFeatures);
-  // Also hide the pearl orb when chat mode is active — tiny Pearl lives inside the chat bar instead
-  const shouldHideBell = (avatarFeatureOn && isAvatarVisible) || (isDailyCallActive && isFeatureEnabled('dailyCall', supportedFeatures)) || (isCallInactive && isNotesWindowOpen && isMobile) || isChatMode;
+  // Hide the pearl orb when avatar is animating (voice session) or Daily Call is active.
+  // Pearl stays visible in chat mode (it animates to lower-left via parent container).
+  // Hide when: avatar is visible (voice active), Daily Call active, notes open on mobile,
+  // OR chat mode is active without a voice session (ChatMode renders its own Pearl orb in the input bar)
+  // ChatMode now renders its own inline Pearl avatar in the input bar.
+  // Hide AssistantButton whenever the chat bar is visible (chat mode OR home/work desktop modes).
+  const isHomeOrWorkMode = currentDesktopMode === DesktopMode.HOME || currentDesktopMode === DesktopMode.WORK;
+  const chatBarShowing = isChatMode || isHomeOrWorkMode;
+  const shouldHideBell = chatBarShowing || (avatarFeatureOn && isAvatarVisible) || (isDailyCallActive && isFeatureEnabled('dailyCall', supportedFeatures)) || (isCallInactive && isNotesWindowOpen && isMobile);
   if (shouldHideBell) return null;
 
   return (
@@ -568,42 +543,45 @@ const AssistantButton = ({
             position: 'relative'
           }}
         >
-          {/* PearlMultiMenu state machine - positioned behind the main animation */}
-          {isFeatureEnabled('pearlMultiMenu', supportedFeatures) && (
-            <PearlMultiMenu
-              ref={pearlMultiMenuRef}
-              className="pearl-multi-menu-layer"
-              allowedPersonalities={allowedPersonalities}
-              currentPersonalityKey={currentPersonalityKey}
-              onPersonalityChange={onPersonalityChange}
-              onMenuStateChange={(isRevealed) => {
-                setIsMenuRevealed(isRevealed);
+          {(isChatMode && (callStatus === CALL_STATUS.ACTIVE || callStatus === CALL_STATUS.LOADING)) ? (
+            // When voice session is active, GIF avatar renders the animated Pearl.
+            // Show inactive/subtle Pearl here to avoid duplicate avatars.
+            <img
+              src="/images/avatar/Pearlinactivenew.png"
+              alt="Pearl active"
+              className="w-full h-full"
+              style={{
+                backgroundColor: 'transparent',
+                background: 'none',
+                filter: 'drop-shadow(0 0 6px rgba(147, 51, 234, 0.5))',
+                transform: 'scale(1)',
+                transition: 'all 0.2s ease-in-out',
+                position: 'relative',
+                zIndex: 2,
+                objectFit: 'contain',
+                pointerEvents: 'none',
+                opacity: 0.6,
               }}
-              onPointerEnter={handleMenuPointerEnter}
-              onPointerLeave={handleMenuPointerLeave}
-              onIconClick={(iconType) => {
-                // Handle specific icon actions here
-                handleIconAction(iconType);
+            />
+          ) : (
+            // Render the inactive Pearl image otherwise
+            <img
+              src="/images/avatar/Pearlinactivenew.png"
+              alt="Pearl inactive"
+              className="w-full h-full"
+              style={{
+                backgroundColor: 'transparent',
+                background: 'none',
+                filter: seatrade ? 'none' : 'drop-shadow(2px 2px 2px black)',
+                transform: 'scale(1)',
+                transition: 'all 0.2s ease-in-out',
+                position: 'relative',
+                zIndex: 2,
+                objectFit: 'contain',
+                pointerEvents: 'none',
               }}
             />
           )}
-          
-          <img
-            src="/images/avatar/Pearlinactivenew.png"
-            alt="Pearl inactive"
-            className="w-full h-full"
-            style={{
-              backgroundColor: 'transparent',
-              background: 'none',
-              filter: seatrade ? 'none' : 'drop-shadow(2px 2px 2px black)',
-              transform: 'scale(1)',
-              transition: 'all 0.2s ease-in-out',
-              position: 'relative',
-              zIndex: 2,
-              objectFit: 'contain',
-              pointerEvents: 'none',
-            }}
-          />
 
           {/* Loading spinner removed - the bell now stays visible during LOADING 
               until the avatar appears, so we don't need a loading indicator here.
@@ -629,54 +607,13 @@ const AssistantButton = ({
             onBlur={handleHoverEnd}
             onClick={handleAction}
             onTouchStart={dismissPearlWelcome}
-            onTouchEnd={handleAction}
+            onTouchEnd={(e) => { e.preventDefault(); handleAction(); }}
             onTouchCancel={handleHoverEnd}
             title="Click to start session"
           />
         </div>
       </Button>
-      {/* Chat mode button - appears next to Pearl button when call is inactive */}
-      {isCallInactive && !seatrade && !isDailyCallActive && (
-        <button
-          onClick={handleChatModeToggle}
-          title={isChatMode ? 'Exit chat mode' : 'Chat with Pearl (silent)'}
-          style={{
-            position: 'absolute',
-            bottom: isMobile ? '-2px' : '2px',
-            right: isMobile ? '-8px' : '-14px',
-            width: isMobile ? '32px' : '36px',
-            height: isMobile ? '32px' : '36px',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: isChatMode ? 'rgba(59, 130, 246, 0.9)' : 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease-in-out',
-            zIndex: 10,
-            pointerEvents: 'auto',
-            boxShadow: isChatMode ? '0 0 12px rgba(59, 130, 246, 0.5)' : 'none',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(59, 130, 246, 1)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = isChatMode ? 'rgba(59, 130, 246, 0.9)' : 'transparent';
-          }}
-        >
-          {isChatMode ? (
-            // X icon when chat mode is active
-            <svg width={isMobile ? '16' : '18'} height={isMobile ? '16' : '18'} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          ) : (
-            // Chat icon
-            <img src="/chaticon.png" alt="Chat" width={isMobile ? 20 : 22} height={isMobile ? 20 : 22} style={{ borderRadius: '50%' }} />
-          )}
-        </button>
-      )}
+      {/* Chat mode button removed — desktop mode now only accessible via top-left PersistentNavButtons */}
       {seatrade && callStatus === CALL_STATUS.INACTIVE && !isBrowserWindowVisible && (
         <div style={{ zIndex: -1 }} className='absolute size-[180px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'>
           <svg viewBox="0 0 156.59 157.39">

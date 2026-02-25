@@ -14,6 +14,7 @@ import {
   NIA_EVENT_NOTE_CLOSE,
   NIA_EVENT_NOTE_DOWNLOAD,
   NIA_EVENT_NOTE_MODE_SWITCH,
+  NIA_EVENT_NOTE_OPEN,
   NIA_EVENT_NOTE_SAVED,
   NIA_EVENT_NOTE_UPDATED,
   NIA_EVENT_NOTE_DELETED,
@@ -59,6 +60,29 @@ import NoteShareControls from './NoteShareControls';
 
 const ReactMarkdown = React.lazy(() => import('react-markdown'));
 const log = getClientLogger('NotesNext');
+
+/**
+ * Detect whether content is primarily HTML rather than plain markdown.
+ * Returns true if the content contains block-level HTML tags that indicate
+ * it was generated as an HTML document/fragment (cards, charts, etc.).
+ */
+function isHtmlContent(content: string): boolean {
+  if (!content) return false;
+  const trimmed = content.trim();
+  // Starts with a doctype or html/head/body tag
+  if (/^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) return true;
+  // Contains block-level HTML tags (div, section, table with attributes, style tags, etc.)
+  // that wouldn't normally appear in markdown
+  const blockHtmlPattern = /<(?:div|section|article|header|footer|nav|main|style|script|table|form|iframe|canvas|svg|figure|details|dialog)\b[^>]*>/i;
+  if (blockHtmlPattern.test(trimmed)) return true;
+  // If it starts with an HTML tag and has significant HTML structure
+  if (/^<[a-z][a-z0-9]*[\s>]/i.test(trimmed)) {
+    const tagCount = (trimmed.match(/<[a-z][a-z0-9]*[\s>]/gi) || []).length;
+    const closingCount = (trimmed.match(/<\/[a-z][a-z0-9]*>/gi) || []).length;
+    if (tagCount >= 3 && closingCount >= 2) return true;
+  }
+  return false;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -379,8 +403,16 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
     });
   };
 
+  const contentIsHtml = useMemo(() => isHtmlContent(displayedContent), [displayedContent]);
+
   return (
     <div ref={containerRef} className={containerClass}>
+      {contentIsHtml ? (
+        <div
+          className="nn-html-content"
+          dangerouslySetInnerHTML={{ __html: displayedContent }}
+        />
+      ) : (
       <React.Suspense fallback={<div className="nn-loading">Loading…</div>}>
         <ReactMarkdown
           components={{
@@ -407,6 +439,28 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
             td: ({ children }) => <td className="nn-td">{children}</td>,
             hr: () => <hr className="nn-hr" />,
             a: ({ children, href }) => <a className="nn-a" href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+            img: ({ src, alt, ...props }) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={src}
+                alt={alt || 'Image'}
+                className="nn-img"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '8px 0' }}
+                onError={(e) => {
+                  const el = e.target as HTMLImageElement;
+                  el.style.display = 'inline-block';
+                  el.style.minWidth = '60px';
+                  el.style.minHeight = '40px';
+                  el.style.background = 'rgba(255,255,255,0.05)';
+                  el.style.border = '1px dashed rgba(255,255,255,0.2)';
+                  if (!el.alt) el.alt = 'Image unavailable';
+                }}
+                {...props}
+              />
+            ),
             strong: ({ children }) => <strong className="nn-strong">{children}</strong>,
             em: ({ children }) => <em className="nn-em">{children}</em>,
           }}
@@ -414,6 +468,7 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
           {displayedContent}
         </ReactMarkdown>
       </React.Suspense>
+      )}
       {isStreaming && <span className="nn-cursor" />}
       {/* Invisible scroll anchor — always at the bottom */}
       <div ref={scrollAnchorRef} className="nn-scroll-anchor" />
@@ -480,6 +535,9 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
   const [isProcessingDocument, setIsProcessingDocument] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
   const [dragCounter, setDragCounter] = useState(0);
+
+  // Track when NOTE_UPDATED last fired per noteId to avoid NOTES_REFRESH overwriting streaming updates
+  const lastNoteUpdatedRef = useRef<Map<string, number>>(new Map());
 
   // ─── Note state broadcasting to bot gateway ────────────────────────────
 
@@ -923,8 +981,24 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       // Clear streaming after a delay
       setTimeout(() => setIsStreaming(false), 2000);
 
+      // Record that this note was just updated via NOTE_UPDATED event
+      if (targetId) {
+        lastNoteUpdatedRef.current.set(targetId, Date.now());
+      }
+
       if (targetId && currentNoteRef.current?._id === targetId) {
         setCurrentNote(prev => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            ...(content !== undefined ? { content } : {}),
+            ...(title !== undefined ? { title } : {}),
+          };
+          return updated;
+        });
+        // Also update originalNote so bot-driven changes don't trigger
+        // false "unsaved changes" warnings
+        setOriginalNote(prev => {
           if (!prev) return prev;
           return {
             ...prev,
@@ -1033,7 +1107,13 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       const noteId = typeof payload.noteId === 'string' ? payload.noteId : undefined;
       const noteMode = typeof payload.mode === 'string' ? (payload.mode as NoteMode) : undefined;
 
-      if (noteId) refreshTargetRef.current = { noteId, mode: noteMode ?? null };
+      // Skip setting refreshTarget if NOTE_UPDATED recently handled this note
+      // (avoids NOTES_REFRESH overwriting the streaming content update)
+      const recentUpdate = noteId ? lastNoteUpdatedRef.current.get(noteId) : undefined;
+      const isRecentlyStreamed = recentUpdate && (Date.now() - recentUpdate < 5000);
+      if (noteId && !isRecentlyStreamed) {
+        refreshTargetRef.current = { noteId, mode: noteMode ?? null };
+      }
       if (noteMode) setMode(noteMode);
       await loadNotes();
     };
@@ -1054,6 +1134,96 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     window.addEventListener(NIA_EVENT_NOTES_LIST, handler as EventListener);
     return () => window.removeEventListener(NIA_EVENT_NOTES_LIST, handler as EventListener);
   }, [loadNotes]);
+
+  // NIA_EVENT_NOTE_OPEN — bot opened/created a note; navigate to it directly.
+  // This complements the browser-window.tsx handler (which may be guarded by
+  // isDailyCallActive). Handling it here ensures the Notes component itself
+  // always reacts to note.open events from voice sessions.
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const evt = e as CustomEvent<NiaEventDetail>;
+      const rawPayload = evt.detail?.payload;
+      if (!rawPayload || typeof rawPayload !== 'object') return;
+
+      const payload = rawPayload as Record<string, unknown>;
+      const noteId = typeof payload.noteId === 'string' ? payload.noteId : undefined;
+      const embeddedNote = payload.note as Note | undefined;
+
+      log.info('[NotesView] Received note.open event', { noteId });
+
+      // Fast path: full note object is embedded in the event payload
+      if (embeddedNote && embeddedNote._id) {
+        // Merge into notes list (add if new, update if existing)
+        setNotes(prev => {
+          const idx = prev.findIndex(n => n._id === embeddedNote._id);
+          if (idx >= 0) {
+            const cp = [...prev];
+            cp[idx] = { ...cp[idx], ...embeddedNote };
+            return cp;
+          }
+          return [embeddedNote, ...prev];
+        });
+        openNote(embeddedNote);
+        return;
+      }
+
+      // Slow path: only noteId provided — look up from loaded state or fetch
+      const targetId = noteId || undefined;
+      if (!targetId) return;
+
+      const local = notesRef.current.find(n => n._id === targetId);
+      if (local) {
+        openNote(local);
+        return;
+      }
+
+      // Note not in local state yet (just created) — reload and open
+      try {
+        const result = await findNoteWithFuzzySearch({ id: targetId }, assistantName);
+        if (result.found && result.note) {
+          const fresh = result.note as Note;
+          setNotes(prev => {
+            const idx = prev.findIndex(n => n._id === fresh._id);
+            if (idx >= 0) { const cp = [...prev]; cp[idx] = { ...cp[idx], ...fresh }; return cp; }
+            return [fresh, ...prev];
+          });
+          openNote(fresh);
+        } else {
+          // Fallback: full reload then open
+          await loadNotes();
+          const target = notesRef.current.find(n => n._id === targetId);
+          if (target) openNote(target);
+        }
+      } catch (err) {
+        log.error('[NotesView] Failed to fetch note for note.open', err as Record<string, unknown>);
+      }
+    };
+    window.addEventListener(NIA_EVENT_NOTE_OPEN, handler as EventListener);
+    return () => window.removeEventListener(NIA_EVENT_NOTE_OPEN, handler as EventListener);
+  }, [assistantName, openNote, loadNotes]);
+
+  // NIA_EVENT_NOTE_DELETED — bot deleted a note; remove from list and close if open.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const evt = e as CustomEvent<NiaEventDetail>;
+      const rawPayload = evt.detail?.payload;
+      if (!rawPayload || typeof rawPayload !== 'object') return;
+      const payload = rawPayload as Record<string, unknown>;
+      const noteId = typeof payload.noteId === 'string' ? payload.noteId : undefined;
+      if (!noteId) return;
+
+      log.info('[NotesView] Received note.deleted event', { noteId });
+      setNotes(prev => prev.filter(n => n._id !== noteId));
+      if (currentNoteRef.current?._id === noteId) {
+        setCurrentNote(null);
+        setOriginalNote(null);
+        setViewState('library');
+        setIsEditMode(false);
+      }
+    };
+    window.addEventListener(NIA_EVENT_NOTE_DELETED, handler as EventListener);
+    return () => window.removeEventListener(NIA_EVENT_NOTE_DELETED, handler as EventListener);
+  }, []);
 
   // ─── Voice command bridge ─────────────────────────────────────────────────
 
@@ -1687,6 +1857,7 @@ const NN_STYLES = `
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .nn-library-header {
@@ -1961,17 +2132,71 @@ const NN_STYLES = `
   
   .nn-doc-content { 
     padding: 20px 16px 48px; 
-    /* Remove redundant safe-area-inset since it's handled at root */
   }
+
+  /* Add top padding so "Notes" title isn't hidden behind window control overlay */
   .nn-library-header { 
-    padding: 16px 16px 12px; 
-    /* Remove redundant safe-area-inset since it's handled at root */
+    padding: 40px 16px 12px; 
   }
+
+  /* Ensure title is always visible and not overlapped */
+  .nn-library-title {
+    font-size: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
   .nn-library-body { padding: 12px 16px 16px; }
   .nn-card-grid { grid-template-columns: 1fr; }
+
+  /* Make toolbar wrap on mobile so buttons don't overflow */
   .nn-toolbar { 
     padding: 10px 12px; 
-    /* Remove redundant safe-area-inset since it's handled at root */
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .nn-toolbar-left {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  .nn-toolbar-right {
+    flex-wrap: wrap;
+  }
+
+  /* Ensure FAB is always visible and tappable on mobile */
+  .nn-fab {
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    width: 52px;
+    height: 52px;
+    font-size: 26px;
+    z-index: 60;
+    /* Ensure it's not clipped — keep absolute but with high z-index */
+    position: absolute;
+    /* Force visibility */
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  /* Reduce editor min-height on mobile */
+  .nn-editor {
+    min-height: 250px;
+  }
+
+  /* Smaller doc title on mobile */
+  .nn-doc-title-always {
+    font-size: 28px !important;
+  }
+
+  .nn-title-input {
+    font-size: 28px;
+  }
+
+  /* Ensure cards don't have excessive padding */
+  .nn-card {
+    padding: 14px;
   }
 }
 
@@ -2067,6 +2292,24 @@ const NN_STYLES = `
 /* ── Streaming / Rendered Content ─────────────────────────────────────── */
 
 .nn-rendered-content { min-height: 200px; }
+
+/* HTML content rendered via dangerouslySetInnerHTML */
+.nn-html-content {
+  padding: 0;
+  color: #e8e6e3;
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.nn-html-content * { max-width: 100%; box-sizing: border-box; }
+.nn-html-content img { max-width: 100%; height: auto; border-radius: 8px; }
+.nn-html-content table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.nn-html-content th, .nn-html-content td { border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; text-align: left; }
+.nn-html-content th { background: rgba(255,255,255,0.05); font-weight: 600; }
+.nn-html-content a { color: #9b8ec4; text-decoration: underline; }
+.nn-html-content h1, .nn-html-content h2, .nn-html-content h3 { margin: 16px 0 8px; }
+.nn-html-content pre { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; overflow-x: auto; }
+.nn-html-content code { font-family: 'Source Code Pro', monospace; font-size: 0.9em; }
 
 .nn-streaming-container {
   position: relative;

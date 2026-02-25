@@ -440,7 +440,9 @@ export default function VoiceNotes({ assistantName, onClose, supportedFeatures, 
                       <div 
                         className="content-text"
                         dangerouslySetInnerHTML={{
-                          __html: currentNote.content.replace(/\n/g, '<br />')
+                          __html: /^<!doctype\s+html|<(?:div|section|article|style|table)\b/i.test(currentNote.content.trim())
+                            ? currentNote.content
+                            : currentNote.content.replace(/\n/g, '<br />')
                         }}
                       />
                     ) : (

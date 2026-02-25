@@ -4,12 +4,39 @@ Provides tools for Pearl to push lightweight HTML scenes to the Wonder Canvas,
 manage layers, trigger animations, and clear content. Interactions from the
 user (via data-action attributes) flow back as context events.
 """
+import time as _time
+
 from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
 
 from tools.decorators import bot_tool
 from tools import events
 from tools.logging_utils import bind_tool_logger
+
+
+# ---------------------------------------------------------------------------
+# Per-turn dedup for Wonder Canvas scene pushes
+# Prevents multiple scene pushes within the same LLM turn (e.g., the model
+# calling both bot_wonder_canvas_scene and bot_wonder_canvas_template, or
+# calling the same tool twice).
+# ---------------------------------------------------------------------------
+_last_scene_push_ts: float = 0.0
+_SCENE_DEDUP_WINDOW: float = 5.0  # seconds — scenes within this window are deduped
+
+
+def _should_dedup_scene() -> bool:
+    """Return True if a scene was already pushed within the dedup window."""
+    global _last_scene_push_ts
+    now = _time.time()
+    if now - _last_scene_push_ts < _SCENE_DEDUP_WINDOW:
+        return True
+    return False
+
+
+def _mark_scene_pushed() -> None:
+    """Record that a scene was just pushed."""
+    global _last_scene_push_ts
+    _last_scene_push_ts = _time.time()
 
 
 @bot_tool(
@@ -74,7 +101,18 @@ async def bot_wonder_canvas_scene(params: FunctionCallParams):
 
     layer = args.get("layer", "main")
     transition = args.get("transition", "fade")
+
+    # Per-turn dedup: skip if a scene was already pushed recently
+    if _should_dedup_scene():
+        log.warning(f"Wonder Canvas scene DEDUPED — already pushed within {_SCENE_DEDUP_WINDOW}s window")
+        await params.result_callback(
+            {"success": True, "user_message": "Scene already displayed on Wonder Canvas (duplicate skipped)."},
+            properties=FunctionCallResultProperties(run_llm=False),
+        )
+        return
+
     log.info(f"Wonder Canvas scene ({len(html)} chars, layer={layer}, transition={transition})")
+    _mark_scene_pushed()
 
     if params.forwarder:
         await params.forwarder.emit_tool_event(events.WONDER_CANVAS_SCENE, {

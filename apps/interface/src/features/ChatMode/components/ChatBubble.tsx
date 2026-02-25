@@ -16,6 +16,9 @@ interface ChatBubbleProps {
 
 const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
   const isUser = message.role === 'user';
+  const isAssistant = message.role === 'assistant';
+  const hasText = Boolean(message.content?.trim());
+  const isEmptyAssistantStreaming = isAssistant && message.isStreaming && !hasText;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -25,21 +28,39 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
 
   return (
     <div
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3 transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
+      style={{
+        transition: 'opacity 0.25s ease, transform 0.25s ease',
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(8px)',
+      }}
     >
       <div
-        className="relative max-w-[80%] px-4 py-2.5 text-[15px] leading-relaxed"
-        style={isUser ? {
-          backgroundColor: 'rgba(123, 63, 142, 0.7)',
-          color: '#faf8f5',
-          borderRadius: '18px 18px 6px 18px',
-          boxShadow: '0 2px 8px rgba(123, 63, 142, 0.3)',
-        } : {
-          backgroundColor: '#2a1848',
-          color: '#faf8f5',
-          border: '1.5px solid rgba(123, 63, 142, 0.4)',
-          borderRadius: '6px 18px 18px 18px',
-          boxShadow: '0 2px 8px rgba(26, 14, 46, 0.5)',
+        className="relative max-w-[85%] leading-relaxed"
+        style={{
+          fontSize: 'clamp(14px, 3.8vw, 16px)',
+          lineHeight: '1.55',
+          padding: 'clamp(8px, 2.5vw, 12px) clamp(12px, 3.5vw, 16px)',
+          /* Min touch-target height */
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          /* Prevent text from overflowing the bubble */
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
+          overflow: 'hidden',
+          ...(isUser ? {
+            backgroundColor: 'rgba(123, 63, 142, 0.7)',
+            color: '#faf8f5',
+            borderRadius: '18px 18px 6px 18px',
+            boxShadow: '0 2px 8px rgba(123, 63, 142, 0.3)',
+          } : {
+            backgroundColor: '#2a1848',
+            color: '#faf8f5',
+            border: '1.5px solid rgba(123, 63, 142, 0.4)',
+            borderRadius: '6px 18px 18px 18px',
+            boxShadow: '0 2px 8px rgba(26, 14, 46, 0.5)',
+          }),
         }}
       >
         {/* Comic tail for Pearl's messages */}
@@ -69,9 +90,30 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
             }}
           />
         )}
-        <span className={message.isStreaming ? 'after:content-["▊"] after:animate-pulse after:ml-0.5 after:text-[#D94F8E]' : ''}>
-          {message.content}
-        </span>
+        {isEmptyAssistantStreaming ? (
+          <div className="flex items-center gap-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full bg-[#d4c0e8]"
+                style={{
+                  animation: 'chatBubbleDots 1.4s ease-in-out infinite',
+                  animationDelay: `${i * 0.2}s`,
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <span className={message.isStreaming ? 'after:content-["▊"] after:animate-pulse after:ml-0.5 after:text-[#D94F8E]' : ''}>
+            {message.content}
+          </span>
+        )}
+        <style jsx>{`
+          @keyframes chatBubbleDots {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+          }
+        `}</style>
       </div>
     </div>
   );

@@ -3,6 +3,9 @@
 import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
 
 import { SoundtrackContext } from './SoundtrackProvider';
+import { useUI } from '@interface/contexts/ui-context';
+import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
+import { DesktopMode } from '@interface/types/desktop-modes';
 
 /**
  * Floating music bar for the PearlOS background soundtrack.
@@ -16,6 +19,9 @@ import { SoundtrackContext } from './SoundtrackProvider';
  */
 export function SoundtrackToggleButton() {
   const context = useContext(SoundtrackContext);
+  const { isChatMode } = useUI();
+  const { currentMode } = useDesktopMode();
+  const hasChatBar = isChatMode || currentMode === DesktopMode.WORK || currentMode === DesktopMode.HOME;
   const [showVolume, setShowVolume] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
@@ -57,12 +63,65 @@ export function SoundtrackToggleButton() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showVolume]);
 
+  // Pixel-art SVG icons — SNES/GBA style, currentColor for theme adaptation
+  const PlayIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <polygon points="4,2 4,16 15,9" />
+    </svg>
+  );
+
+  const PauseIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <rect x="3" y="2" width="4" height="14" />
+      <rect x="11" y="2" width="4" height="14" />
+    </svg>
+  );
+
+  const NextIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <polygon points="2,2 2,14 11,8" />
+      <rect x="12" y="2" width="3" height="12" />
+    </svg>
+  );
+
+  const VolumeMutedIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <polygon points="1,5 1,11 4,11 8,14 8,2 4,5" />
+      <line x1="10" y1="5" x2="15" y2="11" stroke="currentColor" strokeWidth="2" />
+      <line x1="15" y1="5" x2="10" y2="11" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+
+  const VolumeLowIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <polygon points="1,5 1,11 4,11 8,14 8,2 4,5" />
+      <rect x="10" y="6" width="2" height="4" opacity="0.7" />
+    </svg>
+  );
+
+  const VolumeMedIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <polygon points="1,5 1,11 4,11 8,14 8,2 4,5" />
+      <rect x="10" y="6" width="2" height="4" opacity="0.7" />
+      <rect x="13" y="4" width="2" height="8" opacity="0.5" />
+    </svg>
+  );
+
+  const VolumeHighIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      <polygon points="1,5 1,11 4,11 8,14 8,2 4,5" />
+      <rect x="10" y="6" width="2" height="4" opacity="0.8" />
+      <rect x="13" y="4" width="2" height="8" opacity="0.6" />
+      <rect x="16" y="2" width="1" height="12" opacity="0.4" />
+    </svg>
+  );
+
   // Volume icon based on level
   const getVolumeIcon = () => {
-    if (baseVolume === 0) return '🔇';
-    if (baseVolume < 0.33) return '🔈';
-    if (baseVolume < 0.66) return '🔉';
-    return '🔊';
+    if (baseVolume === 0) return <VolumeMutedIcon />;
+    if (baseVolume < 0.33) return <VolumeLowIcon />;
+    if (baseVolume < 0.66) return <VolumeMedIcon />;
+    return <VolumeHighIcon />;
   };
 
   return (
@@ -151,7 +210,7 @@ export function SoundtrackToggleButton() {
         ref={barRef}
         style={{
           position: 'fixed',
-          bottom: '1rem',
+          bottom: hasChatBar ? '5.5rem' : '1rem',
           right: '1rem',
           zIndex: 250,
           display: 'flex',
@@ -178,9 +237,9 @@ export function SoundtrackToggleButton() {
           className="soundtrack-btn"
           onClick={handlePlayPause}
           aria-label={isPlaying ? 'Pause soundtrack' : 'Play soundtrack'}
-          style={{ fontSize: '18px' }}
+          style={{ color: 'rgba(219,234,254,0.9)' }}
         >
-          {isPlaying ? '⏸' : '▶️'}
+          {isPlaying ? <PauseIcon /> : <PlayIcon />}
         </button>
 
         {/* Track Info */}
@@ -206,9 +265,9 @@ export function SoundtrackToggleButton() {
             className="soundtrack-btn"
             onClick={() => next()}
             aria-label="Next track"
-            style={{ fontSize: '14px' }}
+            style={{ color: 'rgba(219,234,254,0.9)' }}
           >
-            ⏭
+            <NextIcon />
           </button>
         )}
 
@@ -218,7 +277,7 @@ export function SoundtrackToggleButton() {
             className="soundtrack-btn"
             onClick={toggleVolume}
             aria-label="Volume"
-            style={{ fontSize: '15px' }}
+            style={{ color: 'rgba(219,234,254,0.9)' }}
           >
             {getVolumeIcon()}
           </button>

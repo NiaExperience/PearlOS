@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+.jest-cache/
+.turbo/
+
+# Env and secrets (per-app .env* also in app .gitignores)
+.env
+.env.local
+.env.*.local
+
+# Local data and logs
+*.log
+.data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# TypeScript build info
+*.tsbuildinfo

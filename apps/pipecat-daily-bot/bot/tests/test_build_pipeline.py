@@ -42,7 +42,7 @@ async def test_build_pipeline_returns_expected_tuple(monkeypatch):
 
     # If heavy services are not configured properly (missing API keys), we still want this to raise
     # a controlled error rather than hang. Keys can be blank for construction.
-    monkeypatch.setenv("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", "test"))
+    monkeypatch.setenv("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", "test"))
     monkeypatch.setenv("DEEPGRAM_API_KEY", os.getenv("DEEPGRAM_API_KEY", "test"))
     monkeypatch.setenv("ELEVENLABS_API_KEY", os.getenv("ELEVENLABS_API_KEY", "test"))
 
@@ -89,7 +89,7 @@ async def test_build_pipeline_uses_kokoro_provider(monkeypatch):
     monkeypatch.setenv("KOKORO_TTS_BASE_URL", "ws://127.0.0.1:65535")
     monkeypatch.setenv("KOKORO_TTS_VOICE_ID", "af_alloy")
 
-    monkeypatch.setenv("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", "test"))
+    monkeypatch.setenv("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", "test"))
     monkeypatch.setenv("DEEPGRAM_API_KEY", os.getenv("DEEPGRAM_API_KEY", "test"))
     monkeypatch.setenv("ELEVENLABS_API_KEY", os.getenv("ELEVENLABS_API_KEY", "test"))
 

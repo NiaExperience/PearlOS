@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import DesktopBackgroundWork from '@interface/components/desktop-background-work';
 import { useUI } from '@interface/contexts/ui-context';
+import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
+import { DesktopMode } from '@interface/types/desktop-modes';
 import {
   NIA_EVENT_WONDER_SCENE,
   NIA_EVENT_WONDER_CLEAR,
@@ -30,7 +32,9 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
   isAdmin,
 }) => {
   const { isChatMode, setIsChatMode } = useUI();
+  const { currentMode } = useDesktopMode();
   const [wonderCanvasActive, setWonderCanvasActive] = useState(false);
+  const isWorkMode = currentMode === DesktopMode.WORK;
 
   // Listen for Wonder Canvas activation/deactivation
   useEffect(() => {
@@ -46,16 +50,27 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
     };
   }, []);
 
-  if (!isChatMode) return null;
+  // Show desktop icons when chat mode is active OR when in WORK desktop mode
+  if (!isChatMode && !isWorkMode) return null;
 
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-[5]"
+      className="pointer-events-none fixed inset-0 z-[25]"
       data-desktop-mode="work"
       style={{
         opacity: wonderCanvasActive ? 0 : 1,
-        pointerEvents: wonderCanvasActive ? 'none' : 'auto',
-        transition: 'opacity 300ms ease-in-out',
+        // When Wonder Canvas is active, use visibility:hidden to disable both
+        // rendering and pointer events on all children (icons). This prevents
+        // invisible icons from blocking clicks on the Wonder Canvas below.
+        // When inactive, visibility:visible lets children with pointer-events-auto
+        // (icon grid) be interactive while the parent stays pointer-events-none,
+        // allowing clicks that miss icons to pass through to Pearl's button.
+        visibility: wonderCanvasActive ? 'hidden' as const : 'visible' as const,
+        // Hiding: fade opacity first (300ms), then hide visibility instantly.
+        // Showing: make visible immediately, then fade opacity in (300ms).
+        transition: wonderCanvasActive
+          ? 'opacity 300ms ease-in-out, visibility 0s linear 300ms'
+          : 'opacity 300ms ease-in-out, visibility 0s linear 0s',
       }}
     >
       <DesktopBackgroundWork

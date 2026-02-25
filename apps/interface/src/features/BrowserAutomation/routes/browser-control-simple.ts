@@ -2,7 +2,7 @@
  * Simple Browser Control API Route
  * 
  * Simplified browser automation API with intelligent URL parsing.
- * Migrated from Fix-RiveAvatar branch to new features-first architecture.
+ * Migrated from avatar fix branch to new features-first architecture.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
