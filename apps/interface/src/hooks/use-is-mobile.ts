@@ -1,45 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useContext } from 'react';
+import { LayoutModeContext } from '@interface/contexts/layout-mode-context';
+import { useIsMobileDevice } from '@interface/hooks/use-is-mobile-device';
+
+// Re-export for convenience
+export { useIsMobileDevice } from '@interface/hooks/use-is-mobile-device';
 
 /**
- * Detects if the device is a mobile phone using both screen width and touch capability
- * 
- * Detection criteria:
- * - Screen width <= 768px (mobile breakpoint)
- * - Touch capability present
- * - Both conditions must be true to be considered a phone
- * 
- * @returns boolean - true if device is a mobile phone, false otherwise
+ * Override-aware mobile detection.
+ * If LayoutModeProvider is present, respects the layout override (desktop/mobile/auto).
+ * Otherwise falls back to raw device detection.
  */
 export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
+  const layoutContext = useContext(LayoutModeContext);
+  const deviceIsMobile = useIsMobileDevice();
 
-  useEffect(() => {
-    const checkIsMobile = () => {
-      // Check screen width (mobile breakpoint)
-      const isNarrowScreen = window.innerWidth <= 768;
-      
-      // Check touch capability
-      const hasTouchCapability = 
-        'ontouchstart' in window || 
-        navigator.maxTouchPoints > 0;
-      
-      // Both conditions must be true for mobile phones
-      const isMobileDevice = isNarrowScreen && hasTouchCapability;
-      
-      setIsMobile(isMobileDevice);
-    };
+  if (layoutContext) {
+    return layoutContext.effectiveIsMobile;
+  }
 
-    // Initial check
-    checkIsMobile();
-
-    // Listen for window resize (handles orientation changes)
-    window.addEventListener('resize', checkIsMobile);
-
-    return () => {
-      window.removeEventListener('resize', checkIsMobile);
-    };
-  }, []);
-
-  return isMobile;
+  return deviceIsMobile;
 }
-

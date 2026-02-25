@@ -41,6 +41,7 @@ class EventId(str, Enum):
     BROWSER_CLOSE = "browser.close"
     VIEW_CLOSE = "view.close"
     DESKTOP_MODE_SWITCH = "desktop.mode.switch"
+    LAYOUT_MODE_SWITCH = "layout.mode.switch"
     YOUTUBE_SEARCH = "youtube.search"
     YOUTUBE_PLAY = "youtube.play"
     YOUTUBE_PAUSE = "youtube.pause"
@@ -100,6 +101,7 @@ EVENT_IDS = [
     EventId.BROWSER_CLOSE.value,
     EventId.VIEW_CLOSE.value,
     EventId.DESKTOP_MODE_SWITCH.value,
+    EventId.LAYOUT_MODE_SWITCH.value,
     EventId.YOUTUBE_SEARCH.value,
     EventId.YOUTUBE_PLAY.value,
     EventId.YOUTUBE_PAUSE.value,

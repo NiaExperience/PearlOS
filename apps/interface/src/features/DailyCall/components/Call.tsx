@@ -19,7 +19,7 @@ import { DesktopMode } from '@interface/types/desktop-modes';
 import { isDuplicateEvent } from '@interface/lib/event-dedup';
 
 import { initAppMessageBridge } from '../events/appMessageBridge';
-import { routeNiaEvent } from '../events/niaEventRouter';
+import { routeNiaEvent, NIA_EVENT_SESSION_END } from '../events/niaEventRouter';
 import {
   getParticipantsSnapshot,
   recordParticipantJoin,
@@ -139,6 +139,10 @@ const Call: React.FC<CallProps> = ({
   const log = React.useMemo(() => getClientLogger('[daily_call]'), []);
   const { onboardingComplete } = useUserProfile();
   const { currentMode } = useDesktopMode();
+  // Ref to access currentMode inside the join effect without it being a dependency.
+  // This prevents desktop mode switches from re-triggering the join/leave cycle.
+  const currentModeRef = useRef(currentMode);
+  useEffect(() => { currentModeRef.current = currentMode; }, [currentMode]);
 
   // Track whether we've logged mount info to avoid log spam on re-renders
   const hasLoggedMountRef = useRef(false);
@@ -627,7 +631,7 @@ const Call: React.FC<CallProps> = ({
         const resolvedDailyCallConfig = dailyCallPersonalityVoiceConfig
           ? (() => {
               if (dailyCallPersonalityVoiceConfig.default) return dailyCallPersonalityVoiceConfig.default;
-              if (currentMode && dailyCallPersonalityVoiceConfig[currentMode]) return dailyCallPersonalityVoiceConfig[currentMode];
+              if (currentModeRef.current && dailyCallPersonalityVoiceConfig[currentModeRef.current]) return dailyCallPersonalityVoiceConfig[currentModeRef.current];
               const firstKey = Object.keys(dailyCallPersonalityVoiceConfig)[0];
               return firstKey ? dailyCallPersonalityVoiceConfig[firstKey] : undefined;
             })()
@@ -641,9 +645,9 @@ const Call: React.FC<CallProps> = ({
             resolvedDailyCallVoiceProvider: resolvedDailyCallConfig?.voice?.provider,
           });
         } else {
-          const modeConfig = currentMode ? modePersonalityVoiceConfig?.[currentMode] : undefined;
+          const modeConfig = currentModeRef.current ? modePersonalityVoiceConfig?.[currentModeRef.current] : undefined;
           log.info('[Call] DailyCall config missing, falling back to mode/props', {
-            currentMode,
+            currentMode: currentModeRef.current,
             hasModeConfig: !!modeConfig,
             modePersona: modeConfig?.personaName,
             modeVoiceId: modeConfig?.voice?.voiceId,
@@ -662,8 +666,8 @@ const Call: React.FC<CallProps> = ({
           if (resolvedDailyCallConfig.voiceParameters) initialVoiceParameters = resolvedDailyCallConfig.voiceParameters;
           if (resolvedDailyCallConfig.personaName) initialPersona = resolvedDailyCallConfig.personaName;
           log.info('[Call] Using dailyCall-specific config for join', { resolvedDailyCallConfig });
-        } else if (allowModeConfig && modePersonalityVoiceConfig && currentMode && modePersonalityVoiceConfig[currentMode]) {
-          const modeConfig = modePersonalityVoiceConfig[currentMode];
+        } else if (allowModeConfig && modePersonalityVoiceConfig && currentModeRef.current && modePersonalityVoiceConfig[currentModeRef.current]) {
+          const modeConfig = modePersonalityVoiceConfig[currentModeRef.current];
           const voiceConfig = modeConfig.voice || {};
 
           if (modeConfig.personalityId) initialPersonalityId = modeConfig.personalityId;
@@ -672,7 +676,7 @@ const Call: React.FC<CallProps> = ({
           if (modeConfig.voiceParameters) initialVoiceParameters = modeConfig.voiceParameters;
           if (modeConfig.personaName) initialPersona = modeConfig.personaName;
 
-          log.info('[Call] Using mode-specific config for join', { currentMode, modeConfig });
+          log.info('[Call] Using mode-specific config for join', { currentMode: currentModeRef.current, modeConfig });
         } else if (!allowModeConfig) {
           log.info('[Call] Onboarding active: skipping mode-specific config to use default personality');
         }
@@ -722,7 +726,7 @@ const Call: React.FC<CallProps> = ({
 
         const botVoiceConfigSource = resolvedDailyCallConfig
           ? 'dailyCall'
-          : modePersonalityVoiceConfig && currentMode && modePersonalityVoiceConfig[currentMode]
+          : modePersonalityVoiceConfig && currentModeRef.current && modePersonalityVoiceConfig[currentModeRef.current]
             ? 'mode'
             : 'prop';
 
@@ -1017,7 +1021,12 @@ const Call: React.FC<CallProps> = ({
     voiceProvider,
     modePersonalityVoiceConfig,
     dailyCallPersonalityVoiceConfig,
-    currentMode,
+    // CRITICAL: currentMode is intentionally EXCLUDED from this dependency array.
+    // Including it caused desktop mode switches to trigger the cleanup function,
+    // which calls daily.leave() and kills the active voice session.
+    // currentMode is only used during the initial join to pick voice config;
+    // mode-specific personality hot-swapping is disabled (see comment below).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     timeoutChecked,
     isTimedOut,
     timeoutInfo,
@@ -1040,6 +1049,36 @@ const Call: React.FC<CallProps> = ({
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Listen for bot-initiated session end (bot_end_call tool)
+  useEffect(() => {
+    const handleBotSessionEnd = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const detail = customEvent.detail;
+      const payload = detail?.payload || {};
+      const initiator = payload.initiator;
+
+      // Only handle bot-initiated session ends
+      if (initiator !== 'assistant') {
+        return;
+      }
+
+      log.info('[Call] Bot-initiated session end detected, leaving call', {
+        event: 'daily_call_bot_session_end',
+        roomUrl,
+        username,
+        reason: payload.reason,
+      });
+
+      // Trigger the leave callback
+      onLeave();
+    };
+
+    window.addEventListener(NIA_EVENT_SESSION_END, handleBotSessionEnd as EventListener);
+    return () => {
+      window.removeEventListener(NIA_EVENT_SESSION_END, handleBotSessionEnd as EventListener);
+    };
+  }, [onLeave, roomUrl, username, log]);
 
   // Persistent stealth mode enforcement - prevent any audio/video leaks
   useEffect(() => {
@@ -1796,6 +1835,7 @@ const Call: React.FC<CallProps> = ({
               sessionId={id}
               layoutMode={layoutMode}
               onTap={handleTapToSwitch}
+              onAvatarClick={onLeave}
               tileIndex={index}
               totalTiles={visibleParticipantIds.length}
               gridColumns={layout.columns}
@@ -1832,6 +1872,7 @@ const Call: React.FC<CallProps> = ({
             sessionId={mainSpeaker}
             layoutMode="speaker-main"
             onTap={handleTapToSwitch}
+            onAvatarClick={onLeave}
             tileIndex={0}
             totalTiles={visibleParticipantIds.length}
             gridColumns={1}
@@ -1847,6 +1888,7 @@ const Call: React.FC<CallProps> = ({
                 sessionId={id}
                 layoutMode="speaker-small"
                 onTap={handleTapToSwitch}
+                onAvatarClick={onLeave}
                 tileIndex={index + 1}
                 totalTiles={visibleParticipantIds.length}
                 gridColumns={1}
@@ -1874,6 +1916,7 @@ const Call: React.FC<CallProps> = ({
             sessionId={mainSpeaker}
             layoutMode="sidebar-main"
             onTap={handleTapToSwitch}
+            onAvatarClick={onLeave}
             tileIndex={0}
             totalTiles={visibleParticipantIds.length}
             gridColumns={1}
@@ -1888,6 +1931,7 @@ const Call: React.FC<CallProps> = ({
               sessionId={id}
               layoutMode="sidebar-small"
               onTap={handleTapToSwitch}
+              onAvatarClick={onLeave}
               tileIndex={index + 1}
               totalTiles={visibleParticipantIds.length}
               gridColumns={1}

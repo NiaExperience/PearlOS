@@ -11,7 +11,7 @@ import { Inter } from 'next/font/google';
 import { Toaster } from '@interface/components/ui/toaster';
 import { DisableTabNavigation } from '@interface/components/disable-tab-navigation';
 import { ErrorBoundary } from '@interface/components/ErrorBoundary';
-import RiveAvatar from '@interface/features/RiveAvatar/components/RiveAvatar';
+// Rive avatar removed — GIF only per Blair directive 2026-02-24
 
 import { Providers } from './providers';
 
@@ -25,6 +25,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 };
 
@@ -32,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // suppressHydrationWarning on <html> and <body>: browser extensions (e.g. password
   // managers, translators) can inject attributes/elements, causing hydration mismatches
   // on mobile Safari and other browsers. This is a standard Next.js safety net.
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
@@ -41,9 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <GlobalHtmlGenerationStatus />
           <ActiveJobsWidget />
           {children}
-          <ErrorBoundary name="Avatar" silent>
-            <RiveAvatar />
-          </ErrorBoundary>
+          {/* GIF-based avatar is rendered inline in ChatMode.tsx */}
         </Providers>
       </body>
     </html>

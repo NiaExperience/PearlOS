@@ -66,6 +66,10 @@ export const getAssistantConfig = async (
   if (!supportedFeatures.includes('summonSpriteTool' as FeatureKey)) {
     supportedFeatures.push('summonSpriteTool' as FeatureKey);
   }
+  // Hardwire avatar so the voice/call button always renders
+  if (!supportedFeatures.includes('avatar' as FeatureKey)) {
+    supportedFeatures.push('avatar' as FeatureKey);
+  }
   // Hardwire desktop app icons so they always appear (especially in chat/touch mode)
   for (const feat of ['notes', 'htmlContent', 'miniBrowser', 'youtube', 'dailyCall'] as FeatureKey[]) {
     if (!supportedFeatures.includes(feat)) {

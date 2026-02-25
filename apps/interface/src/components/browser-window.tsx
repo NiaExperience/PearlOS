@@ -1660,6 +1660,20 @@ const BrowserWindow = ({
           requestWindowOpen({ viewType, viewState, source, options: { allowDuplicate: allowDup } });
           return;
         }
+        case 'news':
+        case 'the-news':
+        case 'thenews': {
+          // Open the built-in PearlOS News app via Wonder Canvas
+          const { buildNewsHTML } = require('@interface/lib/news-app-html');
+          const { NIA_EVENT_WONDER_SCENE } = require('@interface/features/Stage/WonderCanvas/WonderCanvasRenderer');
+          window.dispatchEvent(
+            new CustomEvent(NIA_EVENT_WONDER_SCENE, {
+              detail: { payload: { html: buildNewsHTML(), layer: 'main', transition: 'fade' } },
+            })
+          );
+          log.info('[BrowserWindow] Opened built-in News app via Wonder Canvas');
+          return;
+        }
         default:
           log.warn(`⚠️ Unknown desktop app name: "${appName}"`);
       }
@@ -3437,6 +3451,9 @@ const BrowserWindow = ({
             return `${base} fixed left-0 top-0 z-40 h-full w-full md:w-1/2`;
           if (windowLayout === 'right')
             return `${base} fixed right-0 top-0 z-40 h-full w-full md:w-1/2`;
+          // Normal layout: fullscreen fixed on mobile, centered with max-width on desktop
+          if (isMobileView)
+            return `${base} fixed inset-0 z-40`;
           return `h-full w-full ${base} ${assistantName === 'nia-ambassador' ? '' : 'mx-auto max-w-6xl'} relative`;
         })()}
         style={{

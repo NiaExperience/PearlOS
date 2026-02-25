@@ -3,7 +3,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 
-import { AIConnectionsPanel } from '@interface/components/settings-panels/AIConnectionsPanel';
+import { ConnectionsPanel } from '@interface/components/settings-panels/ConnectionsPanel';
+import { LaunchModePanel } from '@interface/components/settings-panels/LaunchModePanel';
+import { ModelSettingsPanel } from '@interface/components/settings-panels/ModelSettingsPanel';
+import { ChannelModelsPanel } from '@interface/components/settings-panels/ChannelModelsPanel';
 import { MetadataDisplay, type MetadataDisplayRef } from '@interface/components/settings-panels/MetadataDisplay';
 import { useUserProfileMetadata } from '@interface/components/settings-panels/useUserProfileMetadata';
 import { Avatar, AvatarFallback, AvatarImage } from '@interface/components/ui/avatar';
@@ -25,7 +28,7 @@ import { validateMetadata } from '@interface/lib/metadata-utils';
 import '../../features/Notes/styles/notes.css';
 import { NIA_EVENT_ONBOARDING_COMPLETE } from '../../features/DailyCall/events/niaEventRouter';
 
-type PanelKey = 'ai-connections' | 'profile' | 'notifications' | 'appearance' | 'privacy' | 'contact' | 'stored-information' | null;
+type PanelKey = 'connections' | 'model-config' | 'channel-models' | 'launch-mode' | 'profile' | 'notifications' | 'appearance' | 'privacy' | 'contact' | 'stored-information' | null;
 
 interface Props {
   initialOpenPanel?: PanelKey;
@@ -35,7 +38,7 @@ interface Props {
 export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Props) {
   const logger = getClientLogger('[settings_panels]');
   const { data: session } = useResilientSession();
-  const [openPanel, setOpenPanel] = useState<PanelKey>(initialOpenPanel ?? null);
+  const [openPanel, setOpenPanel] = useState<PanelKey>(initialOpenPanel ?? 'model-config');
   const [isMobile, setIsMobile] = useState(false);
 
   const [notifications, setNotifications] = useState(true);
@@ -48,16 +51,18 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingDots, setLoadingDots] = useState(1);
+  const [hydrated, setHydrated] = useState(false);
 
   const user = session?.user;
   const { metadata, userProfileId, loading: metadataLoading, error: metadataError, refresh: refreshMetadata, onboardingComplete } = useUserProfileMetadata(openPanel === 'stored-information', tenantId);
   const metadataDisplayRef = useRef<MetadataDisplayRef>(null);
   const userInitial = user?.name?.charAt(0) || user?.email?.charAt(0) || '?';
 
-  // Track viewport for mobile/desktop layout
+  // Track viewport for mobile/desktop layout — only after hydration to avoid SSR mismatch
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth <= 768);
     update();
+    setHydrated(true);
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, []);
@@ -77,12 +82,36 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
   }, [metadataLoading]);
 
   const navItems = [
-    { key: 'ai-connections', label: 'AI & Connections', icon: (
+    { key: 'model-config', label: '🧠 Pearl Mind', icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5" style={{ imageRendering: 'pixelated' }}>
-        <rect x="7" y="2" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="1" y="12" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="13" y="12" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <path d="M10 8v2m0 0l-6 4m6-4l6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M10 2c-1.5 0-2.5 1-3 2-1.5.5-2.5 2-2.5 3.5 0 1 .5 2 1.5 2.5-.5.5-1 1.5-1 2.5 0 1.5 1 2.5 2.5 3 .5 1 1.5 1.5 2.5 1.5s2-.5 2.5-1.5c1.5-.5 2.5-1.5 2.5-3 0-1-.5-2-1-2.5 1-.5 1.5-1.5 1.5-2.5 0-1.5-1-3-2.5-3.5-.5-1-1.5-2-3-2z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <path d="M10 4v12M6 7h8M6 10h8M6 13h8" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+      </svg>
+    ) },
+    { key: 'channel-models', label: '📡 Channel Models', icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+        <path d="M10 2v4M10 14v4M2 10h4M14 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <circle cx="10" cy="2" r="1.5" fill="currentColor" opacity="0.6" />
+        <circle cx="10" cy="18" r="1.5" fill="currentColor" opacity="0.6" />
+        <circle cx="2" cy="10" r="1.5" fill="currentColor" opacity="0.6" />
+        <circle cx="18" cy="10" r="1.5" fill="currentColor" opacity="0.6" />
+      </svg>
+    ) },
+    { key: 'connections', label: 'Connections', icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5" style={{ imageRendering: 'pixelated' }}>
+        <path d="M3 10h4m6 0h4M10 3v4m0 6v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" />
+        <circle cx="10" cy="10" r="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <circle cx="3" cy="10" r="1.5" fill="currentColor" />
+        <circle cx="17" cy="10" r="1.5" fill="currentColor" />
+        <circle cx="10" cy="3" r="1.5" fill="currentColor" />
+        <circle cx="10" cy="17" r="1.5" fill="currentColor" />
+      </svg>
+    ) },
+    { key: 'launch-mode', label: 'Launch Mode', icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+        <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <path d="M8 8l4 2-4 2V8z" fill="currentColor" />
       </svg>
     ) },
     { key: 'profile', label: 'Profile', icon: <img src="/ProfileIco.png" alt="Profile" className="h-5 w-5" style={{ imageRendering: 'pixelated' }} /> },
@@ -113,8 +142,17 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
 
   const renderPanel = () => {
     switch (openPanel) {
-      case 'ai-connections':
-        return <AIConnectionsPanel />;
+      case 'connections':
+        return <ConnectionsPanel />;
+
+      case 'model-config':
+        return <ModelSettingsPanel />;
+
+      case 'channel-models':
+        return <ChannelModelsPanel />;
+
+      case 'launch-mode':
+        return <LaunchModePanel />;
 
       case 'profile':
         return (
@@ -429,34 +467,6 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
           }
         };
 
-        const handleToggleOnboarding = async (checked: boolean) => {
-          if (!userProfileId) return;
-          try {
-            const response = await fetch('/api/userProfile', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: userProfileId,
-                onboardingComplete: checked,
-                metadataOperation: 'merge',
-              }),
-            });
-            if (!response.ok) throw new Error('Failed to update onboarding status');
-            await refreshMetadata();
-            
-            // Dispatch event to notify other components
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent(NIA_EVENT_ONBOARDING_COMPLETE, { 
-                detail: { onboardingComplete: checked } 
-              }));
-            }
-          } catch (e) {
-            logger.error('Failed to update onboarding status', {
-              error: e instanceof Error ? e.message : String(e),
-            });
-          }
-        };
-
         return (
           <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
             <CardHeader>
@@ -517,19 +527,6 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
               )}
               {!metadataLoading && !metadataError && (
                 <>
-                  <div className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-                    <div className="space-y-0.5">
-                      <Label className="text-base text-white" style={{ fontFamily: 'Gohufont, monospace' }}>Onboarding Completed</Label>
-                      <p className="text-sm text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                        Has the initial onboarding flow been completed?
-                      </p>
-                    </div>
-                    <Switch
-                      checked={onboardingComplete}
-                      onCheckedChange={handleToggleOnboarding}
-                      disabled={isEditMode}
-                    />
-                  </div>
                   {(metadata && Object.keys(metadata).length > 0) || isEditMode ? (
                     <MetadataDisplay
                       ref={metadataDisplayRef}
@@ -557,10 +554,20 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
     }
   };
 
+  // Before hydration, render a minimal loading skeleton that matches
+  // regardless of viewport width to prevent SSR hydration mismatch on iOS
+  if (!hydrated) {
+    return (
+      <div className="flex gap-6" suppressHydrationWarning>
+        <div className="flex-1" />
+      </div>
+    );
+  }
+
   if (isMobile) {
     // Mobile: full-width menu on top, content below
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 overflow-visible">
         <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
           <CardContent className="p-3">
             <div className="grid grid-cols-2 gap-2">
@@ -583,14 +590,14 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
             </div>
           </CardContent>
         </Card>
-        <div>{renderPanel()}</div>
+        <div className="overflow-visible">{renderPanel()}</div>
       </div>
     );
   }
 
   // Desktop: sidebar + content
   return (
-    <div className="flex gap-6">
+    <div className="flex gap-6 overflow-visible">
       {/* Navigation Sidebar */}
       <Card className={`h-fit w-64 flex-shrink-0 border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
         <CardContent className="p-3">
@@ -616,7 +623,7 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
       </Card>
 
       {/* Content Area */}
-      <div className="flex-1">{renderPanel()}</div>
+      <div className="flex-1 overflow-visible">{renderPanel()}</div>
     </div>
   );
 }

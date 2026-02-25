@@ -58,25 +58,24 @@ font-size:clamp(13px,3.2vw,15px);text-align:left;cursor:pointer;transition:all 0
 # ===========================
 
 _reg("weather_card", "Weather display with temperature, condition, and forecast bars", _BASE_CSS + """
-<div class="card">
-  <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
-    <div class="text-muted mb">{location}</div>
-    <div style="font-size:clamp(48px,14vw,72px);font-weight:200;color:#fff">{temperature}</div>
-    <div class="text-lg mb" style="color:#a78bfa">{condition}</div>
-  </div>
-  <div class="glass mt" style="display:flex;flex-direction:column;gap:8px">
+<div style="background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:clamp(24px,6vw,48px);text-align:center">
+  <div style="font-size:clamp(3em,10vw,5em);margin-bottom:12px">{icon}</div>
+  <div style="color:#FFD233;font-family:Georgia,serif;font-size:clamp(2.5em,10vw,4.5em);font-weight:700;margin:0 0 4px">{temperature}</div>
+  <div style="color:#FFD233;font-family:Georgia,serif;font-size:clamp(1em,3.5vw,1.4em);margin:0 0 12px">{condition}</div>
+  <div style="color:#faf8f5;font-family:Georgia,serif;font-size:clamp(1em,3vw,1.3em);margin:0 0 24px">{location}</div>
+  <div style="display:flex;gap:clamp(16px,5vw,36px);color:#D94F8E;font-family:Georgia,serif;font-size:clamp(0.85em,2.5vw,1.05em)">
     {forecast_bars}
   </div>
 </div>
-""", {"location": "Current Location", "temperature": "--°", "condition": "Unknown",
-      "forecast_bars": '<div class="list-item text-sm">No forecast data</div>'})
+""", {"location": "Current Location", "temperature": "--°", "condition": "Unknown", "icon": "☀️",
+      "forecast_bars": '<span>💧 --</span><span>💨 --</span>'})
 
-_reg("news_headline", "News headline card with source and summary", _BASE_CSS + """
-<div class="card">
-  <div class="tag mb">{source}</div>
-  <div class="card-title">{headline}</div>
-  <div class="text-sm text-muted mb">{timestamp}</div>
-  <div style="font-size:clamp(13px,3.2vw,15px);line-height:1.6;color:rgba(255,255,255,0.75)">{summary}</div>
+_reg("news_headline", "The News headline card with source and summary", _BASE_CSS + """
+<div style="background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:clamp(24px,6vw,48px);text-align:center">
+  <div style="font-size:clamp(2.5em,8vw,4em);margin-bottom:16px">📰</div>
+  <div style="color:#D94F8E;font-family:Georgia,serif;font-size:clamp(0.8em,2.5vw,1em);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">{source} · {timestamp}</div>
+  <div style="color:#FFD233;font-family:Georgia,serif;font-size:clamp(1.4em,4.5vw,2.2em);font-weight:700;line-height:1.3;margin-bottom:16px;max-width:600px">{headline}</div>
+  <div style="color:#faf8f5;font-family:Georgia,serif;font-size:clamp(0.95em,3vw,1.15em);line-height:1.7;max-width:500px">{summary}</div>
 </div>
 """, {"headline": "Breaking News", "source": "News", "summary": "", "timestamp": ""})
 
@@ -93,23 +92,22 @@ _reg("person_bio", "Biography card with name, title, and key facts", _BASE_CSS +
 """, {"name": "Unknown", "photo_url": "", "title": "", "bio": "", "key_facts": ""})
 
 _reg("fact_card", "Fun fact display with category badge", _BASE_CSS + """
-<div class="card" style="text-align:center">
-  <div class="tag mb">{category}</div>
-  <div style="margin:16px 0"><span class="w-icon--lg w-icon--glow">{{icon:sparkle}}</span></div>
-  <div class="card-title">{title}</div>
-  <div class="mt" style="font-size:clamp(14px,3.5vw,16px);line-height:1.7;color:rgba(255,255,255,0.8)">{fact_text}</div>
-  <div class="text-sm text-muted mt">{source}</div>
+<div style="background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:clamp(24px,6vw,48px);text-align:center">
+  <div style="font-size:clamp(2.5em,8vw,4em);margin-bottom:16px">{icon}</div>
+  <div style="color:#D94F8E;font-family:Georgia,serif;font-size:clamp(0.8em,2.5vw,1em);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px">{category}</div>
+  <div style="color:#FFD233;font-family:Georgia,serif;font-size:clamp(1.4em,4.5vw,2.2em);font-weight:700;margin-bottom:16px;max-width:600px">{title}</div>
+  <div style="color:#faf8f5;font-family:Georgia,serif;font-size:clamp(0.95em,3vw,1.15em);line-height:1.7;max-width:500px">{fact_text}</div>
+  <div style="color:#D94F8E;font-family:Georgia,serif;font-size:clamp(0.75em,2vw,0.9em);margin-top:20px">{source}</div>
 </div>
-""", {"title": "Did You Know?", "fact_text": "", "category": "Fun Fact", "source": ""})
+""", {"title": "Did You Know?", "fact_text": "", "category": "Fun Fact", "source": "", "icon": "✨"})
 
 _reg("definition_card", "Dictionary-style word definition", _BASE_CSS + """
-<div class="card">
-  <div class="card-title" style="font-size:clamp(24px,7vw,36px)">{word}</div>
-  <div class="text-sm text-muted mb">{pronunciation} &middot; {part_of_speech}</div>
-  <div class="glass">
-    <div style="font-size:clamp(14px,3.5vw,16px);line-height:1.7">{definition}</div>
-  </div>
-  <div class="mt text-sm" style="color:rgba(255,255,255,0.5);font-style:italic">"{example_sentence}"</div>
+<div style="background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:clamp(24px,6vw,48px);text-align:center">
+  <div style="font-size:clamp(2.5em,8vw,4em);margin-bottom:16px">📖</div>
+  <div style="color:#FFD233;font-family:Georgia,serif;font-size:clamp(1.8em,6vw,3em);font-weight:700;margin-bottom:8px">{word}</div>
+  <div style="color:#D94F8E;font-family:Georgia,serif;font-size:clamp(0.85em,2.5vw,1em);margin-bottom:20px">{pronunciation} · {part_of_speech}</div>
+  <div style="color:#faf8f5;font-family:Georgia,serif;font-size:clamp(1em,3vw,1.2em);line-height:1.7;max-width:500px;margin-bottom:20px">{definition}</div>
+  <div style="color:#D94F8E;font-family:Georgia,serif;font-size:clamp(0.85em,2.5vw,1em);font-style:italic;max-width:450px">"{example_sentence}"</div>
 </div>
 """, {"word": "word", "pronunciation": "", "part_of_speech": "noun", "definition": "", "example_sentence": ""})
 

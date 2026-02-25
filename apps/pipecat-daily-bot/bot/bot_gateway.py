@@ -155,8 +155,36 @@ async def _auto_join_default_room():
 
 from contextlib import asynccontextmanager
 
+
+async def _check_service_health():
+    """Check health of dependent services (graceful degradation - log warnings only)."""
+    services = [
+        ("PocketTTS", "127.0.0.1", 8766),
+        ("Mesh API", "127.0.0.1", 2000),
+        ("OpenClaw Gateway", "127.0.0.1", 18789),
+    ]
+    
+    for service_name, host, port in services:
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=2.0
+            )
+            writer.close()
+            await writer.wait_closed()
+            logger.info(f"[service-check] ✓ {service_name} is reachable on port {port}")
+        except (asyncio.TimeoutError, ConnectionRefusedError, OSError) as e:
+            logger.warning(
+                f"[service-check] ✗ {service_name} unreachable on port {port} - "
+                f"some features may be degraded. Error: {e.__class__.__name__}"
+            )
+
+
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):
+    # Startup: check service health
+    await _check_service_health()
+    
     # Startup: auto-create persistent room and join bot
     auto_room_enabled = os.getenv("AUTO_ROOM_ENABLED", "true").lower() != "false"
     if auto_room_enabled and DAILY_API_KEY:
@@ -359,6 +387,11 @@ from fastapi.responses import StreamingResponse
 OPENCLAW_BASE_URL = os.getenv("OPENCLAW_BASE_URL", "http://localhost:18789")
 OPENCLAW_API_KEY = os.getenv("OPENCLAW_API_KEY", "")
 
+# Session key for text chat — uses a dedicated PearlOS text-chat session
+# so that chat history only shows user/assistant messages from PearlOS,
+# not internal TUI/agent traffic from agent:main:main.
+OPENCLAW_CHAT_SESSION_KEY = os.getenv("OPENCLAW_CHAT_SESSION_KEY", "agent:main:pearlos-text-chat")
+
 
 class ChatRequest(BaseModel):
     messages: list[dict]
@@ -366,7 +399,11 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat")
 async def chat_completion(body: ChatRequest):
-    """Stream a chat completion from OpenClaw for text chat mode."""
+    """Stream a chat completion from OpenClaw for text chat mode.
+    
+    Routes into the main OpenClaw session (same as TUI) so text chat
+    shares full context, history, tools, and memory.
+    """
 
     async def _stream():
         try:
@@ -376,7 +413,10 @@ async def chat_completion(body: ChatRequest):
                     "messages": body.messages,
                     "stream": True,
                 }
-                _headers = {"Content-Type": "application/json"}
+                _headers = {
+                    "Content-Type": "application/json",
+                    "x-openclaw-session-key": OPENCLAW_CHAT_SESSION_KEY,
+                }
                 if OPENCLAW_API_KEY:
                     _headers["Authorization"] = f"Bearer {OPENCLAW_API_KEY}"
                 async with session.post(
@@ -406,6 +446,174 @@ async def chat_completion(body: ChatRequest):
     )
 
 
+# ── Task control endpoint ──────────────────────────────────────────
+class StopTaskRequest(BaseModel):
+    task_label: str
+    action: str = "stop"  # stop, cancel, or kill
+
+@app.post("/api/tasks/stop")
+async def stop_task(body: StopTaskRequest):
+    """Stop a running OpenClaw sub-agent or background task."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Get list of sessions
+            headers = {"Content-Type": "application/json"}
+            if OPENCLAW_API_KEY:
+                headers["Authorization"] = f"Bearer {OPENCLAW_API_KEY}"
+            
+            async with session.get(
+                f"{OPENCLAW_BASE_URL}/api/sessions",
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status != 200:
+                    raise HTTPException(status_code=502, detail=f"OpenClaw returned {resp.status}")
+                
+                data = await resp.json()
+                sessions = data.get("sessions", [])
+                
+                # Find session matching task_label
+                target_session = None
+                for s in sessions:
+                    session_label = s.get("label", "")
+                    session_key = s.get("key", "")
+                    # Match by label or key containing the task_label
+                    if (body.task_label.lower() in session_label.lower() or 
+                        body.task_label.lower() in session_key.lower()):
+                        target_session = s
+                        break
+                
+                if not target_session:
+                    return {
+                        "status": "not_found",
+                        "message": f"No active task found matching '{body.task_label}'"
+                    }
+                
+                session_key = target_session["key"]
+                
+                # Send stop signal to the session
+                # (OpenClaw doesn't have a direct kill API, so we send a stop message)
+                async with session.post(
+                    f"{OPENCLAW_BASE_URL}/v1/chat/completions",
+                    headers=headers,
+                    json={
+                        "model": "default",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": f"User requested to {body.action} this task. Stop all work immediately and report status."
+                            }
+                        ],
+                        "stream": False,
+                        "x-openclaw-session-key": session_key
+                    },
+                    timeout=aiohttp.ClientTimeout(total=15)
+                ) as stop_resp:
+                    if stop_resp.status == 200:
+                        return {
+                            "status": "stopped",
+                            "message": f"Sent {body.action} signal to task '{body.task_label}'",
+                            "session_key": session_key
+                        }
+                    else:
+                        raise HTTPException(status_code=502, detail=f"Failed to stop task: {stop_resp.status}")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[stop_task] Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Chat history endpoint ──────────────────────────────────────────
+OPENCLAW_SESSIONS_DIR = os.path.join(
+    os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace"),
+    "..", "agents", "main", "sessions",
+)
+# Normalise so ../agents resolves properly
+OPENCLAW_SESSIONS_DIR = os.path.normpath(OPENCLAW_SESSIONS_DIR)
+
+
+@app.get("/api/chat/history")
+async def chat_history(limit: int = 50):
+    """Return recent user/assistant chat messages from the OpenClaw main session transcript."""
+    try:
+        sessions_file = os.path.join(OPENCLAW_SESSIONS_DIR, "sessions.json")
+        if not os.path.exists(sessions_file):
+            return {"messages": []}
+
+        with open(sessions_file, "r") as f:
+            sessions = json.load(f)
+
+        session_info = sessions.get(OPENCLAW_CHAT_SESSION_KEY)
+        if not session_info:
+            return {"messages": []}
+
+        session_id = session_info.get("sessionId")
+        if not session_id:
+            return {"messages": []}
+
+        transcript_path = os.path.join(OPENCLAW_SESSIONS_DIR, f"{session_id}.jsonl")
+        if not os.path.exists(transcript_path):
+            return {"messages": []}
+
+        messages = []
+        with open(transcript_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if entry.get("type") != "message":
+                    continue
+
+                msg = entry.get("message", {})
+                role = msg.get("role")
+                if role not in ("user", "assistant"):
+                    continue
+
+                # Extract text content
+                content_raw = msg.get("content", "")
+                if isinstance(content_raw, list):
+                    # content is array of content blocks
+                    text_parts = []
+                    has_tool_call = False
+                    for block in content_raw:
+                        if isinstance(block, dict):
+                            if block.get("type") == "text":
+                                text_parts.append(block.get("text", ""))
+                            elif block.get("type") == "toolCall":
+                                has_tool_call = True
+                    if has_tool_call and not text_parts:
+                        continue  # skip pure tool-call messages
+                    content = "\n".join(text_parts)
+                elif isinstance(content_raw, str):
+                    content = content_raw
+                else:
+                    continue
+
+                content = content.strip()
+                if not content:
+                    continue
+
+                messages.append({
+                    "role": role,
+                    "content": content,
+                    "timestamp": entry.get("timestamp", ""),
+                })
+
+        # Return last N messages
+        return {"messages": messages[-limit:]}
+
+    except Exception as e:
+        logger.error(f"[chat/history] Error reading transcript: {e}", exc_info=True)
+        return {"messages": []}
+
+
 # ---------------------------------------------------------------------------
 # Image proxy / resolver — returns a reliable image for a given search query.
 # Uses Wikipedia's REST API to find an actual matching thumbnail.
@@ -414,12 +622,31 @@ async def chat_completion(body: ChatRequest):
 
 _image_cache: Dict[str, str] = {}  # query -> resolved image URL
 
+# Wikipedia requires a descriptive User-Agent with contact info per their
+# robot policy (https://w.wiki/4wJS).  Generic / short UAs get 403'd.
+_WIKI_UA = "PearlOS/1.0 (https://pearlos.org; contact@pearlos.org) aiohttp/3.x"
 
-def _slugify_query(q: str) -> str:
-    """Convert a search query into a Wikipedia-friendly title slug."""
-    import re
-    # Title-case the query and replace spaces with underscores
-    return "_".join(word.capitalize() for word in re.sub(r"[^a-zA-Z0-9 ]", " ", q).split())
+
+async def _resolve_wiki_title(session: aiohttp.ClientSession, q: str) -> str | None:
+    """Use Wikipedia's opensearch API to resolve the canonical article title."""
+    import urllib.parse
+    url = (
+        f"https://en.wikipedia.org/w/api.php?action=opensearch"
+        f"&search={urllib.parse.quote(q)}&limit=1&format=json"
+    )
+    try:
+        async with session.get(
+            url,
+            timeout=aiohttp.ClientTimeout(total=6),
+            headers={"User-Agent": _WIKI_UA},
+        ) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if len(data) >= 2 and data[1]:
+                    return data[1][0].replace(" ", "_")
+    except Exception as e:
+        logger.warning(f"[image-proxy] opensearch failed for '{q}': {e}")
+    return None
 
 
 def _make_svg_placeholder(q: str) -> str:
@@ -456,24 +683,33 @@ async def image_proxy(q: str):
         logger.info(f"[image-proxy] Cache hit for '{q_lower}': {cached}")
         return RedirectResponse(url=cached, status_code=302)
 
-    # 2. Try Wikipedia REST API for this query
-    slug = _slugify_query(q_lower)
-    wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
+    # 2. Resolve canonical Wikipedia title via opensearch, then fetch summary
+    async with aiohttp.ClientSession() as session:
+        slug = await _resolve_wiki_title(session, q_lower)
+        if not slug:
+            # Fallback: simple capitalisation
+            slug = q_lower.replace(" ", "_").capitalize()
 
-    try:
-        async with aiohttp.ClientSession() as session:
+        wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
+        try:
             async with session.get(
                 wiki_url,
                 timeout=aiohttp.ClientTimeout(total=8),
-                headers={"User-Agent": "PearlOS-ImageProxy/1.0 (pearlos.org)"},
+                headers={"User-Agent": _WIKI_UA},
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    thumbnail = data.get("thumbnail") or {}
-                    img_url = thumbnail.get("source")
+                    # Try thumbnail, then originalimage
+                    img_url = None
+                    for key in ("thumbnail", "originalimage"):
+                        src = (data.get(key) or {}).get("source")
+                        if src:
+                            img_url = src
+                            break
                     if img_url:
-                        # Prefer higher-resolution version (bump width to 600px)
-                        img_url = img_url.replace("/320px-", "/600px-").replace("/200px-", "/600px-")
+                        # Prefer higher-resolution version (bump width to 800px)
+                        import re as _re
+                        img_url = _re.sub(r"/\d+px-", "/800px-", img_url)
                         _image_cache[q_lower] = img_url
                         logger.info(f"[image-proxy] Resolved '{q_lower}' → {img_url}")
                         return RedirectResponse(url=img_url, status_code=302)
@@ -481,8 +717,8 @@ async def image_proxy(q: str):
                         logger.info(f"[image-proxy] Wikipedia summary found but no thumbnail for '{q_lower}'")
                 else:
                     logger.info(f"[image-proxy] Wikipedia returned {resp.status} for slug '{slug}'")
-    except Exception as e:
-        logger.warning(f"[image-proxy] Wikipedia lookup failed for '{q_lower}': {e}")
+        except Exception as e:
+            logger.warning(f"[image-proxy] Wikipedia lookup failed for '{q_lower}': {e}")
 
     # 3. Fallback: SVG placeholder with the query text
     logger.info(f"[image-proxy] Using SVG placeholder for '{q_lower}'")
@@ -2253,6 +2489,16 @@ except Exception as _reg_err:
     logger.warning(f"[tools] Failed to register direct tool handlers (will retry on first invoke): {_reg_err}")
 
 
+# Persistent aiohttp session for Daily API broadcasts (avoids TCP reconnect per broadcast)
+_daily_broadcast_session: aiohttp.ClientSession | None = None
+
+async def _get_daily_broadcast_session() -> aiohttp.ClientSession:
+    global _daily_broadcast_session
+    if _daily_broadcast_session is None or _daily_broadcast_session.closed:
+        _daily_broadcast_session = aiohttp.ClientSession()
+    return _daily_broadcast_session
+
+
 async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result: dict, room_url: str | None):
     """Best-effort broadcast of tool result events via Daily + WebSocket.
 
@@ -2443,8 +2689,8 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
                 try:
                     _ui_url = f"https://api.daily.co/v1/rooms/{_ui_room_name}/send-app-message"
                     _ui_hdrs = {"Authorization": f"Bearer {_ui_api_key}", "Content-Type": "application/json"}
-                    async with aiohttp.ClientSession() as _ui_sess:
-                        async with _ui_sess.post(
+                    _ui_sess = await _get_daily_broadcast_session()
+                    async with _ui_sess.post(
                             _ui_url,
                             json={"data": ui_envelope, "recipient": "*"},
                             headers=_ui_hdrs,
@@ -2477,11 +2723,28 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
     try:
         url = f"https://api.daily.co/v1/rooms/{room_name}/send-app-message"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json={"data": envelope, "recipient": "*"}, headers=headers, timeout=10) as resp:
-                if resp.status >= 300:
-                    txt = await resp.text()
-                    logger.warning(f"[tools] Daily broadcast error: {resp.status} {txt[:200]}")
+
+        # Truncate large payloads to avoid Daily's 4096-byte limit
+        import copy as _copy
+        daily_envelope = _copy.deepcopy(envelope)
+        _payload_str = json.dumps({"data": daily_envelope, "recipient": "*"})
+        if len(_payload_str) > 3800:
+            # Strip large fields (HTML, note content) that the frontend gets via WS anyway
+            if "params" in daily_envelope and isinstance(daily_envelope["params"], dict):
+                for _big_key in ("html", "content", "css"):
+                    if _big_key in daily_envelope["params"] and len(str(daily_envelope["params"][_big_key])) > 500:
+                        daily_envelope["params"][_big_key] = "[truncated — delivered via WebSocket]"
+            if "result" in daily_envelope and isinstance(daily_envelope["result"], dict):
+                if "note" in daily_envelope["result"] and isinstance(daily_envelope["result"]["note"], dict):
+                    note = daily_envelope["result"]["note"]
+                    if len(str(note.get("content", ""))) > 500:
+                        note["content"] = note["content"][:500] + "..."
+
+        _daily_sess = await _get_daily_broadcast_session()
+        async with _daily_sess.post(url, json={"data": daily_envelope, "recipient": "*"}, headers=headers, timeout=10) as resp:
+            if resp.status >= 300:
+                txt = await resp.text()
+                logger.warning(f"[tools] Daily broadcast error: {resp.status} {txt[:200]}")
     except Exception as e:
         logger.warning(f"[tools] Daily broadcast failed (non-fatal): {e}")
 

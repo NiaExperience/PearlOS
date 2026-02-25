@@ -68,12 +68,15 @@ async def initialize_session_config(
             logger.error(f"[{BOT_PID}] [personality] Failed to get personality from DB fallback: {e}")
     
     if not personality_record:
-        if not tenant_id:
-            logger.warning(f"[{BOT_PID}] [personality] No tenantId provided; cannot resolve personality")
-        elif not personality_id:
-            logger.warning(f"[{BOT_PID}] [personality] No personalityId provided; cannot resolve personality")
-        else:
-            logger.warning(f"[{BOT_PID}] [personality] No personality record available for id={personality_id}")
+        error_msg = (
+            f"Could not load personality. Checked:\n"
+            f"1. BOT_PERSONALITY_RECORD env var: {'SET' if preloaded_personality_json else 'NOT SET'}\n"
+            f"2. Database personality ID: {personality_id or 'NOT PROVIDED'}\n"
+            f"3. Tenant ID: {tenant_id or 'NOT PROVIDED'}\n"
+            f"→ Fix: Ensure personality exists in database or BOT_PERSONALITY_RECORD is set"
+        )
+        logger.error(f"[{BOT_PID}] [personality] {error_msg}")
+        raise ValueError(error_msg)
     
     preloaded_prompt_payload = toolbox.parse_prompt_payload(os.getenv("BOT_FUNCTIONAL_PROMPTS"))
     if preloaded_prompt_payload:

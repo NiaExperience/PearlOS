@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate working directory
-  const workDir = cwd && isAllowedPath(cwd) ? path.resolve(cwd) : os.homedir();
+  const workDir = cwd && isAllowedPath(cwd) ? path.resolve(cwd) : '/workspace';
 
   if (isBlocked(command)) {
     return NextResponse.json(
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const target = cdMatch[1]?.trim();
     let newDir: string;
     if (!target || target === '~') {
-      newDir = os.homedir();
+      newDir = '/workspace';
     } else if (target === '-') {
       newDir = workDir; // can't track OLDPWD easily; stay put
     } else {

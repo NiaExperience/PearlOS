@@ -99,8 +99,7 @@ async def set_active_note_id(room_url: str, note_id: str | None, owner: str | No
             await client.expire(key, 86400)
             log.info(f"[{BOT_PID}] [state] Set active note for room {room_url}: {note_id} (owner: {owner})")
     except Exception as e:
-        log.error(f"[{BOT_PID}] [state] Failed to set active note for {room_url}: {e}")
-        # Fallback to in-memory storage so tests and local runs without Redis still work
+        log.debug(f"[{BOT_PID}] [state] Redis unavailable for set active note ({e}); using local fallback")
         if note_id is None:
             _local_active_notes.pop(room_url, None)
         else:
@@ -166,8 +165,7 @@ async def set_active_applet_id(room_url: str, applet_id: str | None, owner: str 
             await client.expire(key, 86400)
             log.info(f"[{BOT_PID}] [state] Set active applet for room {room_url}: {applet_id} (owner: {owner})")
     except Exception as e:
-        log.error(f"[{BOT_PID}] [state] Failed to set active applet for {room_url}: {e}")
-        # Fallback to in-memory storage
+        log.debug(f"[{BOT_PID}] [state] Redis unavailable for set active applet ({e}); using local fallback")
         if applet_id is None:
             _local_active_applets.pop(room_url, None)
         else:
@@ -186,7 +184,7 @@ async def get_desktop_mode(room_url: str) -> str:
         if data:
             return data
     except Exception as e:
-        log.error(f"[{BOT_PID}] [state] Failed to get desktop mode for {room_url}: {e}")
+        log.debug(f"[{BOT_PID}] [state] Redis unavailable for desktop mode ({e}); defaulting to 'home'")
     return "home"
 
 
@@ -201,12 +199,15 @@ async def set_desktop_mode(room_url: str, mode: str) -> None:
         await client.expire(key, 86400)
         log.info(f"[{BOT_PID}] [state] Set desktop mode for room {room_url}: {mode}")
     except Exception as e:
-        log.error(f"[{BOT_PID}] [state] Failed to set desktop mode for {room_url}: {e}")
+        log.debug(f"[{BOT_PID}] [state] Redis unavailable for set desktop mode ({e}); skipped")
 
 
 async def clear_room_state(room_url: str) -> None:
-    """Clear all active state for a room in Redis."""
+    """Clear all active state for a room (Redis + local fallback)."""
     log = _room_logger(room_url)
+    # Always clear local fallback state
+    _local_active_notes.pop(room_url, None)
+    _local_active_applets.pop(room_url, None)
     try:
         client = await _redis._get_redis()
         await client.delete(f"room:{room_url}:active_note")
@@ -214,7 +215,7 @@ async def clear_room_state(room_url: str) -> None:
         await client.delete(f"room:{room_url}:desktop_mode")
         log.info(f"[{BOT_PID}] [state] Cleared all active state for room: {room_url}")
     except Exception as e:
-        log.error(f"[{BOT_PID}] [state] Failed to clear room state for {room_url}: {e}")
+        log.debug(f"[{BOT_PID}] [state] Redis unavailable for clear_room_state ({e}); local state cleared")
 
 
 def get_room_tenant_id(room_url: str) -> str | None:

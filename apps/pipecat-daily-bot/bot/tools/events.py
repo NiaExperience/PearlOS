@@ -42,6 +42,7 @@ try:
     # View/Desktop Events (from nia_events)
     VIEW_CLOSE = EventId.VIEW_CLOSE.value
     DESKTOP_MODE_SWITCH = EventId.DESKTOP_MODE_SWITCH.value
+    LAYOUT_MODE_SWITCH = EventId.LAYOUT_MODE_SWITCH.value
     
     # YouTube Events (from nia_events)
     YOUTUBE_SEARCH = EventId.YOUTUBE_SEARCH.value
@@ -108,6 +109,7 @@ except ImportError:
     BROWSER_CLOSE = 'browser.close'
     VIEW_CLOSE = 'view.close'
     DESKTOP_MODE_SWITCH = 'desktop.mode.switch'
+    LAYOUT_MODE_SWITCH = 'layout.mode.switch'
     YOUTUBE_SEARCH = 'youtube.search'
     YOUTUBE_PLAY = 'youtube.play'
     YOUTUBE_PAUSE = 'youtube.pause'

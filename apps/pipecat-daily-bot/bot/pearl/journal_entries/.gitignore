@@ -1,0 +1,4 @@
+# Pearl's journal entries are personal to each instance
+# The JOURNAL.md template and journal.py ship with the repo; entries don't
+*.md
+!.gitignore

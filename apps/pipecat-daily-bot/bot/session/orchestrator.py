@@ -145,7 +145,23 @@ async def run_pipeline_session(
                 except TypeError:
                      build_result = await builder(room_url, persona, personalityId, None, None)
 
-    if len(build_result) == 11:
+    vision_processor = None
+    if len(build_result) == 12:
+        (
+            _pipeline,
+            task,
+            context_agg,
+            transport,
+            messages,
+            multi_user_aggregator,
+            context,
+            personality_message,
+            flow_manager,
+            forwarder_ref,
+            tts,
+            vision_processor,
+        ) = build_result
+    elif len(build_result) == 11:
         (
             _pipeline,
             task,
@@ -289,6 +305,33 @@ async def run_pipeline_session(
     )
     event_handlers.register(transport, task)
     
+    # --- Pearl Vision: wire participant events to vision processor ---
+    if vision_processor:
+        log.info(f"[{BOT_PID}] [vision] Wiring vision processor to participant events")
+        
+        @transport.event_handler("on_first_participant_joined")
+        async def _vision_on_first_join(transport_ref, participant):
+            pid = participant.get('id') if isinstance(participant, dict) else None
+            is_local = bool(participant.get('local')) if isinstance(participant, dict) else False
+            if pid and not is_local:
+                log.info(f"[{BOT_PID}] [vision] Starting video capture for first participant {pid}")
+                await vision_processor.start_capture(pid)
+        
+        @transport.event_handler("on_participant_joined")
+        async def _vision_on_join(transport_ref, participant):
+            pid = participant.get('id') if isinstance(participant, dict) else None
+            is_local = bool(participant.get('local')) if isinstance(participant, dict) else False
+            if pid and not is_local:
+                log.info(f"[{BOT_PID}] [vision] Starting video capture for participant {pid}")
+                await vision_processor.start_capture(pid)
+        
+        @transport.event_handler("on_participant_left")
+        async def _vision_on_leave(transport_ref, participant, reason):
+            pid = participant.get('id') if isinstance(participant, dict) else None
+            if pid:
+                log.info(f"[{BOT_PID}] [vision] Stopping video capture for participant {pid}")
+                await vision_processor.stop_capture(pid)
+    
     # Emit call state
     from eventbus import emit_call_state
     log.info(f'[{BOT_PID}] Emitting call state "starting"...')
@@ -321,6 +364,13 @@ async def run_pipeline_session(
             handlers_unsub()
         except Exception:
             pass
+        
+        # Clean up vision processor
+        if vision_processor:
+            try:
+                await vision_processor.cleanup()
+            except Exception as e:
+                log.warning(f"[{BOT_PID}] [vision] Cleanup error: {e}")
             
         await managers.stop()
 

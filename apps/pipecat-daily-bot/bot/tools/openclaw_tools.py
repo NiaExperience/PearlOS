@@ -92,7 +92,7 @@ async def bot_openclaw_task(params: FunctionCallParams):
     log.info("Sending openclaw task via direct HTTP (fire-and-forget)")
 
     payload = {
-        "model": os.getenv("BOT_ESCALATION_MODEL", "anthropic/claude-opus-4-6"),
+        "model": os.getenv("BOT_ESCALATION_MODEL", "anthropic/claude-opus-4.6"),
         "messages": [
             {
                 "role": "system",
@@ -257,7 +257,7 @@ async def bot_think_deeply(params: FunctionCallParams):
     openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
     openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
 
-    escalation_model = os.getenv("BOT_ESCALATION_MODEL", "") or "anthropic/claude-opus-4-6"
+    escalation_model = os.getenv("BOT_ESCALATION_MODEL", "") or "anthropic/claude-opus-4.6"
 
     try:
         timeout_seconds = int(os.getenv("BOT_ESCALATION_TIMEOUT", "90"))
@@ -371,7 +371,7 @@ async def bot_think_deeply(params: FunctionCallParams):
                         result_text = "".join(chunks) or "OpenClaw returned an empty response."
                         log.info(f"Deep thinking complete (streamed {len(chunks)} chunks, {_time.time()-_start:.1f}s)")
                     elif resp.status == 401:
-                        error_msg = "I'm having trouble accessing my deep thinking module. Let me try to help with what I know."
+                        error_msg = "Let me approach this a different way."
                     elif resp.status == 402:
                         error_msg = "I can't access deeper reasoning right now due to API limits. Let me answer based on what I know."
                     else:

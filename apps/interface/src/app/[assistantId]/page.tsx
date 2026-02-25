@@ -20,13 +20,14 @@ import AssistantWrapper from '@interface/components/assistant-canvas';
 // Removed dynamic(..., { ssr: false }) usage because it's not allowed in a Server Component.
 import BrowserWindow from '@interface/components/browser-window';
 import DesktopBackgroundSwitcher from '@interface/components/desktop-background-switcher';
-import { ProfileDropdown } from '@interface/components/profile-dropdown';
+// ProfileDropdown removed — user menu now handled via PersistentNavButtons Settings
 import ChatMode from '@interface/features/ChatMode/components/ChatMode';
 import FileDropZone from '@interface/components/FileDropZone';
 import DailyCallClientManager from '@interface/features/DailyCall/components/ClientManager';
 import { getDailyRoomUrl } from '@interface/features/DailyCall/lib/config';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger, setLogContext } from '@interface/lib/logger';
+import { PersistentNavButtons } from '@interface/components/PersistentNavButtons';
 import { AssistantThemeProvider } from '@interface/theme/AssistantThemeContext';
 
 // Check if we're in test mode
@@ -136,23 +137,56 @@ export default async function AssistantPage({
   });
 
   // Fetch raw assistant record (for _id look-up)
-  const assistantRecord = await AssistantActions.getAssistantBySubDomain(assistantName);
+  let assistantRecord = await AssistantActions.getAssistantBySubDomain(assistantName);
   if (!assistantRecord) {
-    log.error('Could not find assistant', { assistantName });
-    // Return 404 page early - don't continue processing
-    return (
-      <main className="relative flex min-h-screen flex-col items-center justify-center bg-red-500 p-4 text-white">
-        <div>
-          <h1 className="mb-2 text-center text-3xl uppercase">Assistant not found</h1>
-          <p className="text-center text-gray-400">Could not find assistant: {assistantName}</p>
-        </div>
-
-        <footer className="absolute bottom-4 mt-4 w-full py-4 shadow-md">
-          <p className="text-center text-gray-500">&copy; 2025 All Rights Reserved</p>
-        </footer>
-      </main>
-    );
-  } else if (!assistantRecord.subDomain) {
+    log.warn('Assistant not found, attempting auto-creation', { assistantName });
+    // Auto-create the assistant instead of showing an error page
+    try {
+      const assistantData = {
+        name: assistantName.charAt(0).toUpperCase() + assistantName.slice(1),
+        subDomain: assistantName,
+      };
+      const tenantId = await TenantActions.findOrCreateTenantForAssistant(assistantData, interfaceAuthOptions);
+      assistantRecord = await AssistantActions.createAssistant({ ...assistantData, tenantId });
+      // Apply default configuration
+      const updateData = {
+        ...assistantRecord,
+        firstMessage: "Hey there! I'm Pearl, your AI companion. How can I help you today?",
+        allowAnonymousLogin: true,
+        desktopMode: 'home',
+        model: {
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          temperature: 0.7,
+          systemPrompt: 'You are Pearl, a helpful and friendly AI assistant. You are warm, approachable, and knowledgeable.',
+        },
+        supportedFeatures: [
+          'notes', 'htmlContent', 'miniBrowser', 'dailyCall', 'avatar',
+          'passwordLogin', 'guestLogin', 'onboarding', 'calculator',
+          'youtube', 'soundtrack', 'terminal', 'openclawBridge', 'enhancedBrowser',
+        ],
+        modePersonalityVoiceConfig: {
+          default: {
+            personaName: 'Pearl',
+            voice: { provider: 'pocket', voiceId: 'azelma', speed: 1.0, model: 'pocket-v1' },
+          },
+        },
+      };
+      await AssistantActions.updateAssistant(assistantRecord._id!, updateData);
+      // Re-fetch so we have the complete record
+      assistantRecord = await AssistantActions.getAssistantBySubDomain(assistantName);
+      log.info('Auto-created assistant successfully', { assistantName, id: assistantRecord?._id });
+    } catch (autoCreateError) {
+      log.error('Failed to auto-create assistant', { assistantName, error: autoCreateError });
+      // Redirect to recovery page instead of dead-end error
+      redirect(`/recovery?error=assistant_not_found&assistant=${encodeURIComponent(assistantName)}`);
+    }
+  }
+  if (!assistantRecord) {
+    // Final fallback - should not happen but just in case
+    redirect(`/recovery?error=assistant_creation_failed&assistant=${encodeURIComponent(assistantName)}`);
+  }
+  if (!assistantRecord.subDomain) {
     log.warn('Assistant has no subDomain', {
       assistantId: assistantRecord._id?.toString(),
       assistantName: assistantRecord.name,
@@ -409,7 +443,8 @@ export default async function AssistantPage({
 
   // User should be part of the tenant
   if (!assistantRecord?.tenantId) {
-    throw new Error(`Assistant ${assistantName} does not have a tenantId`);
+    log.error('Assistant has no tenantId, redirecting to recovery', { assistantName });
+    redirect(`/recovery?error=no_tenant&assistant=${encodeURIComponent(assistantName)}`);
   } else {
     // In test/CI mode or when using an anonymous session for testing, bypass tenant membership checks
     // Also bypass in local development for convenience (env NEXT_PUBLIC_INTERFACE_DEV_BYPASS_TENANT=true)
@@ -481,6 +516,9 @@ export default async function AssistantPage({
             } as React.CSSProperties
           }
         >
+          {/* Persistent top-left nav buttons (Desktop + Settings) */}
+          <PersistentNavButtons tenantId={assistantRecord?.tenantId} />
+
           {/* Legacy vs. new experience branching continues below */}
           {/* Pass supportedFeatures to the client via props and also gate on the server with explicit list when possible */}
           {isFeatureEnabled('dailyCall', supportedFeatures) ? (
@@ -530,9 +568,7 @@ export default async function AssistantPage({
               />
               {/* Initialize desktop mode after switcher so listener is mounted */}
               <InitializeDesktopMode mode={effectiveInitialMode} />
-              <div className="pointer-events-auto">
-                <ProfileDropdown tenantId={assistantRecord?.tenantId} />
-              </div>
+              {/* ProfileDropdown removed — user menu now handled via PersistentNavButtons Settings */}
               {seatrade && (
                 <div
                   className={`pointer-events-auto absolute left-[16px] top-[16px] ${assistantName === 'seatrade-jdx' ? 'w-[120px]' : 'w-[200px]'}`}

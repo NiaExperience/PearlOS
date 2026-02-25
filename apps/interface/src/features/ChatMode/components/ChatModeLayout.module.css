@@ -38,13 +38,13 @@
 .inputBar {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 8px 12px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  gap: 10px;
+  padding: 10px 16px 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   background: var(--chat-input-bg, rgba(0, 0, 0, 0.6));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   /* Smooth keyboard transition */
   transition: padding-bottom 0.25s ease-out;
 }
@@ -58,19 +58,20 @@
 .input {
   flex: 1;
   font-size: 16px;
-  line-height: 1.4;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.1);
+  line-height: 1.5;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
   color: inherit;
   outline: none;
   resize: none;
-  min-height: 40px;
+  min-height: 44px;
   max-height: 120px;
   /* Prevent iOS zoom */
   font-size: max(16px, 1rem);
   touch-action: manipulation;
+  letter-spacing: 0.01em;
 }
 
 .input::placeholder {

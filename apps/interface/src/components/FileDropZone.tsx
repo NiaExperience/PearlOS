@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { useUI } from '@interface/contexts/ui-context';
+import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
+import { DesktopMode } from '@interface/types/desktop-modes';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 const API_BASE = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '';
@@ -15,6 +18,10 @@ const API_BASE = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '';
  * Also provides a floating attach button on mobile (bottom-left).
  */
 export default function FileDropZone() {
+  const { isChatMode } = useUI();
+  const { currentMode } = useDesktopMode();
+  const isWorkMode = currentMode === DesktopMode.WORK;
+  const isHomeMode = currentMode === DesktopMode.HOME;
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const dragCountRef = useRef(0);
@@ -196,32 +203,29 @@ export default function FileDropZone() {
         </div>
       )}
 
-      {/* Mobile attach button — subtle floating button, bottom-left */}
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="fixed bottom-6 left-4 z-[60] w-11 h-11 rounded-full flex items-center justify-center shadow-lg md:hidden"
+      {/* Chat bubble button — floating button, bottom-left.
+           Tapping opens/expands the chat bar (which has its own paperclip for attachments).
+           Hidden when ChatMode, HomeMode, or WorkMode is active (chat bar is already visible). */}
+      {!isChatMode && !isWorkMode && !isHomeMode && <button
+        onClick={() => window.dispatchEvent(new Event('pearl:open-chat'))}
+        className="fixed bottom-10 left-4 z-[501] w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
         style={{
           backgroundColor: 'rgba(20, 12, 40, 0.8)',
           backdropFilter: 'blur(12px)',
           border: '1px solid rgba(123, 63, 142, 0.25)',
           pointerEvents: 'auto',
         }}
-        aria-label="Attach file"
-        title="Upload a file or photo"
+        aria-label="Open chat"
+        title="Chat with Pearl"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#d4c0e8"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        {/* Chat bubble with "..." (typing indicator) — communicates text/type here */}
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 11.5C21 16.19 16.97 20 12 20C10.82 20 9.69 19.78 8.65 19.39L3 21L4.64 16.35C3.6 14.94 3 13.28 3 11.5C3 6.81 7.03 3 12 3C16.97 3 21 6.81 21 11.5Z" stroke="#d4c0e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <circle cx="8.5" cy="11.5" r="1.2" fill="#d4c0e8"/>
+          <circle cx="12" cy="11.5" r="1.2" fill="#d4c0e8"/>
+          <circle cx="15.5" cy="11.5" r="1.2" fill="#d4c0e8"/>
         </svg>
-      </button>
+      </button>}
     </>
   );
 }

@@ -56,15 +56,15 @@ def get_llm_config(model_selection: str):
             "provider": "OpenRouter",
         }
             
-    else:  # default to gpt-4o-mini
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required for gpt-4o-mini")
+    else:  # default to gpt-4o-mini via OpenRouter
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_api_key:
+            raise ValueError("OPENROUTER_API_KEY is required for gpt-4o-mini (via OpenRouter)")
         return {
-            "api_key": openai_api_key,
-            "model": "gpt-4o-mini",
-            "base_url": None,
-            "provider": "OpenAI",
+            "api_key": openrouter_api_key,
+            "model": "openai/gpt-4o-mini",
+            "base_url": "https://openrouter.ai/api/v1",
+            "provider": "OpenRouter",
         }
 
 
@@ -132,8 +132,6 @@ def verify_api_keys():
     print("="*60 + "\n")
     
     keys = {
-        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
-        "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
         "OPENROUTER_API_KEY": os.getenv("OPENROUTER_API_KEY"),
     }
     

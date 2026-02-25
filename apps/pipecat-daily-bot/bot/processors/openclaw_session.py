@@ -148,14 +148,12 @@ class OpenClawSessionProcessor(FrameProcessor):
             or os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
         ).rstrip("/")
         self._api_key = api_key or os.getenv("OPENCLAW_API_KEY", "openclaw-local")
-        # Use openclaw:main to explicitly route through the full agent system
-        # (tools, skills, exec, memory) rather than relying on the fallback default.
-        self._model = model or os.getenv("BOT_OPENCLAW_MODEL", "openclaw:main")
+        self._model = model or os.getenv("BOT_OPENCLAW_AGENT", "openclaw:voice")
         # Voice gets a dedicated session under the main agent — shares workspace,
         # skills, SOUL.md, MEMORY.md with all other Pearl sessions but doesn't
         # block TUI/Discord with serialized requests.
         self._session_key = session_key or os.getenv(
-            "OPENCLAW_SESSION_KEY", "agent:main:voice"
+            "OPENCLAW_SESSION_KEY", "agent:voice:voice"
         )
         self._max_tokens = max_tokens
         self._timeout = timeout
@@ -186,10 +184,49 @@ class OpenClawSessionProcessor(FrameProcessor):
         # Debounce window: ignore rapid-fire interruptions within this window.
         self._interruption_debounce_secs: float = 1.0
 
+        # ── User model preference (from UI settings) ──────────────
+        # The UI saves model preferences via /api/bot/model-settings which
+        # writes to the bot .env file. We also query /api/model-preference
+        # at startup to get the full provider/model ID and pass it as a
+        # header to OpenClaw so the gateway uses the user's chosen model.
+        self._model_override: str | None = None
+        self._gateway_url = os.getenv("BOT_GATEWAY_URL", "http://localhost:7860")
+        self._internal_secret = os.getenv("INTERNAL_API_SECRET", "pearl-internal")
+
         logger.info(
             f"[OpenClawSession] Initialized — model={self._model} "
             f"url={self._api_url} timeout={self._timeout}s"
         )
+
+    async def _fetch_model_preference(self) -> str | None:
+        """Query the model-preference API for the user's voice model selection.
+        
+        Returns a model ID like 'anthropic/claude-haiku-4-5' or None.
+        """
+        try:
+            if self._http_session is None or self._http_session.closed:
+                self._http_session = aiohttp.ClientSession()
+            url = f"{self._gateway_url}/api/model-preference?channel=voice"
+            async with self._http_session.get(
+                url,
+                headers={"x-internal-secret": self._internal_secret},
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    model_id = data.get("modelId")
+                    if model_id:
+                        logger.info(
+                            f"[OpenClawSession] User model preference: {model_id}"
+                        )
+                        return model_id
+                else:
+                    logger.warning(
+                        f"[OpenClawSession] Model preference API returned {resp.status}"
+                    )
+        except Exception as e:
+            logger.warning(f"[OpenClawSession] Failed to fetch model preference: {e}")
+        return None
 
     # ------------------------------------------------------------------
     # Meeting mode
@@ -303,6 +340,7 @@ class OpenClawSessionProcessor(FrameProcessor):
             self._messages = [self._messages[0]] + non_system[-self._max_history:]
 
         cancel = self._cancel_event
+        turn_start = time.monotonic()
 
         payload = {
             "model": self._model,
@@ -349,10 +387,8 @@ class OpenClawSessionProcessor(FrameProcessor):
                 await self.push_frame(LLMFullResponseEndFrame())
                 return
 
-        if user_text:
-            filler = _pick_filler(user_text)
-            await self.push_frame(TextFrame(text=filler + " "))
-            logger.info(f"[OpenClawSession] Instant filler: {filler!r}")
+        # Instant filler removed per Blair's directive (2026-02-23)
+        # Pearl now waits naturally for OpenClaw response without filler phrases
 
         # No follow-up filler loop — the instant contextual filler above is
         # enough.  The LLM should start streaming its real response quickly;
@@ -364,16 +400,30 @@ class OpenClawSessionProcessor(FrameProcessor):
             if self._http_session is None or self._http_session.closed:
                 self._http_session = aiohttp.ClientSession()
             session = self._http_session
+            # Fetch user's model preference on first request (lazy init)
+            if self._model_override is None:
+                pref = await self._fetch_model_preference()
+                # Use empty string as sentinel for "already checked, no preference"
+                self._model_override = pref or ""
+
+            req_headers = {
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+                # Route to main agent session — voice IS the main Pearl,
+                # not a separate session. Shares context with Discord/webchat/TUI.
+                "x-openclaw-session-key": self._session_key,
+                # Tell the gateway this is a voice channel so bindings
+                # resolve correctly (not hardcoded to "webchat").
+                "x-openclaw-channel": "voice",
+            }
+            # Pass user's model preference so OpenClaw uses the UI-selected model
+            if self._model_override:
+                req_headers["x-openclaw-model-override"] = self._model_override
+
             async with session.post(
                 f"{self._api_url}/chat/completions",
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "Content-Type": "application/json",
-                    # Route to main agent session — voice IS the main Pearl,
-                    # not a separate session. Shares context with Discord/webchat/TUI.
-                    "x-openclaw-session-key": self._session_key,
-                },
+                headers=req_headers,
                 timeout=aiohttp.ClientTimeout(total=self._timeout),
             ) as resp:
                 if resp.status != 200:
@@ -384,8 +434,7 @@ class OpenClawSessionProcessor(FrameProcessor):
                     )
                     await self.push_frame(
                         TextFrame(
-                            text="I'm having trouble thinking right now. "
-                            "Let me try again in a moment."
+                            text="Hmm, give me just a moment to think about that."
                         )
                     )
                     await self.push_frame(LLMFullResponseEndFrame())
@@ -407,6 +456,12 @@ class OpenClawSessionProcessor(FrameProcessor):
                         delta = choice.get("delta", {})
                         content = delta.get("content")
                         if content:
+                            if not full_response_chunks:
+                                ttfb_ms = (time.monotonic() - turn_start) * 1000
+                                logger.info(
+                                    f"[OpenClawSession] ⚡ TTFB: {ttfb_ms:.0f}ms "
+                                    f"(first content token from OpenClaw)"
+                                )
                             full_response_chunks.append(content)
                             await self.push_frame(TextFrame(text=content))
                     except (ValueError, IndexError, KeyError):
@@ -421,13 +476,13 @@ class OpenClawSessionProcessor(FrameProcessor):
             logger.error(f"[OpenClawSession] Network error: {exc}")
             await self.push_frame(
                 TextFrame(
-                    text="I lost my connection for a moment. Could you say that again?"
+                    text="I lost my train of thought for a moment. Let me get back on track."
                 )
             )
         except Exception as exc:
             logger.exception(f"[OpenClawSession] Unexpected error: {exc}")
             await self.push_frame(
-                TextFrame(text="Something went wrong. Let me try again.")
+                TextFrame(text="One sec, let me try that a different way.")
             )
         finally:
             self._is_processing = False

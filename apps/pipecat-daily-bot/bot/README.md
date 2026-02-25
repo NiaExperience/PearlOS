@@ -195,7 +195,7 @@ The bot uses Loguru for logging. Logs are displayed in the terminal where the bo
 ### Configuration
 
 - Bot display name: "Pipecat Bot"
-- Model: GPT-4o-mini (configurable in bot.py)
+- Model: Configurable via BOT_MODEL_SELECTION (default: gpt-4o-mini)
 - VAD: Silero voice activity detection
 - Audio: Enabled for both input and output
 

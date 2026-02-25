@@ -399,7 +399,13 @@ async def apply_config_update(
                     )
                     
                     if not personality_record:
-                        log.warning(f"[{BOT_PID}] [session.config] Personality/Sprite {new_pid} not found")
+                        error_msg = (
+                            f"Could not load personality during config update.\n"
+                            f"Personality ID: {new_pid}\n"
+                            f"Tenant ID: {tenant_id}\n"
+                            f"→ Fix: Ensure personality exists in database (check Personality or Sprite content types)"
+                        )
+                        log.error(f"[{BOT_PID}] [session.config] {error_msg}")
                         return
                     
                     # Check for 'primaryPrompt' (canonical) or 'system_prompt' (legacy/fallback)

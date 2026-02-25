@@ -59,22 +59,70 @@ export function setupVoiceSessionEventBridge(
     }
   });
 
-  // Audio level tracking
+  // Audio level tracking — only for bot (non-local) participants
   on('active-speaker-change', (e) => {
-    if (callbacks.onAudioLevel && e?.activeSpeaker?.peerId) {
-      // Get audio level for active speaker
-      const participants = callObject.participants();
-      const speaker = participants[e.activeSpeaker.peerId];
+    const peerId = e?.activeSpeaker?.peerId;
+    const participants = callObject.participants();
+    
+    // CRITICAL FIX FOR LIPSYNC BUG:
+    // When active speaker changes, we need to ALWAYS dispatch bot audio state
+    // - If speaker is local user → dispatch bot silence (level: 0)
+    // - If speaker is bot → dispatch bot speaking (level: 0.8)
+    // - If no active speaker → dispatch bot silence (level: 0)
+    // This ensures the avatar correctly reflects ONLY bot speaking state
+    
+    if (peerId) {
+      const speaker = participants[peerId];
+      const localSessionId = participants?.local?.session_id;
       
-      if (speaker?.tracks?.audio?.state === 'playable') {
-        // Audio level is typically 0-1, we'll use a simple approximation
-        const level = 0.8;
-        callbacks.onAudioLevel(level);
-        
-        // Dispatch custom event for speech context
-        window.dispatchEvent(new CustomEvent('daily:audioLevel', {
-          detail: { level, participantId: e.activeSpeaker.peerId }
+      // Check if this is the local user speaking
+      if (peerId === 'local' || peerId === localSessionId || speaker?.local) {
+        // User is speaking → dispatch user audio event
+        window.dispatchEvent(new CustomEvent('daily:userAudioLevel', {
+          detail: { level: 0.8, isSpeaking: true }
         }));
+        
+        // CRITICAL: Also dispatch bot SILENCE event so avatar goes idle
+        window.dispatchEvent(new CustomEvent('daily:audioLevel', {
+          detail: { level: 0, participantId: 'bot', isSpeaking: false }
+        }));
+        
+        if (callbacks.onAudioLevel) {
+          callbacks.onAudioLevel(0);
+        }
+        return;
+      }
+      
+      // Non-local participant is speaking (bot)
+      if (speaker?.tracks?.audio?.state === 'playable') {
+        const level = 0.8;
+        
+        if (callbacks.onAudioLevel) {
+          callbacks.onAudioLevel(level);
+        }
+        
+        // Dispatch bot speaking event
+        window.dispatchEvent(new CustomEvent('daily:audioLevel', {
+          detail: { level, participantId: peerId, isSpeaking: true }
+        }));
+      } else {
+        // Bot participant exists but audio not playable → silence
+        window.dispatchEvent(new CustomEvent('daily:audioLevel', {
+          detail: { level: 0, participantId: peerId, isSpeaking: false }
+        }));
+        
+        if (callbacks.onAudioLevel) {
+          callbacks.onAudioLevel(0);
+        }
+      }
+    } else {
+      // No active speaker → dispatch bot silence
+      window.dispatchEvent(new CustomEvent('daily:audioLevel', {
+        detail: { level: 0, participantId: 'bot', isSpeaking: false }
+      }));
+      
+      if (callbacks.onAudioLevel) {
+        callbacks.onAudioLevel(0);
       }
     }
   });
@@ -220,13 +268,16 @@ export function setupVoiceSessionEventBridge(
   });
 
   on('participant-updated', (e) => {
-    // Track audio level changes
+    // Track participant changes (e.g., track state transitions)
+    // NOTE: We intentionally do NOT emit fake audio levels here.
+    // The 'playable' state only means the track exists, not that audio is
+    // actually playing. NIA bot speaking events are the authoritative source
+    // for speaking state. Emitting constant 0.7 here was causing the avatar
+    // to lip-sync incorrectly (staying stuck in talking state).
     if (e?.participant && !e.participant.local) {
-      // Check if bot is speaking based on audio track state
       const audioTrack = e.participant.tracks?.audio;
-      if (audioTrack?.state === 'playable' && callbacks.onAudioLevel) {
-        // Estimate audio level (Daily doesn't provide direct access)
-        callbacks.onAudioLevel(0.7);
+      if (audioTrack?.state === 'playable') {
+        log.debug('Bot audio track is playable', { participant: e.participant.session_id });
       }
     }
   });
@@ -289,61 +340,21 @@ function handleNiaEvent(
 
 /**
  * Monitor audio levels manually
- * Note: This is a placeholder for more sophisticated audio level monitoring
- * Daily's network stats API doesn't directly expose remoteParticipants in the expected format
+ * 
+ * DEPRECATED: This function previously polled track state on every animation frame
+ * and reported a constant 0.7 level whenever a track was in 'playable' state.
+ * This was incorrect — 'playable' means the track exists, not that audio is flowing.
+ * The constant fake levels caused the avatar to lip-sync to nothing and stay stuck.
+ * 
+ * NIA bot speaking events (bot.speaking.started / bot.speaking.stopped) are now the
+ * authoritative source for speaking state. This function is retained for API
+ * compatibility but is a no-op.
  */
 export function startAudioLevelMonitoring(
-  callObject: DailyCall,
-  onAudioLevel: (level: number) => void
+  _callObject: DailyCall,
+  _onAudioLevel: (level: number) => void
 ): () => void {
-  let animationFrameId: number | null = null;
-  let lastLevel = 0;
-
-  const monitor = async () => {
-    try {
-      // Use participant audio track state as a simple proxy for audio level
-      const participants = callObject.participants();
-      
-      for (const [id, participant] of Object.entries(participants)) {
-        if (id !== 'local' && !participant.local) {
-          const audioTrack = participant.tracks?.audio;
-          if (audioTrack?.state === 'playable') {
-            // Simple binary: if audio is playing, report moderate level
-            const level = 0.7;
-            if (Math.abs(level - lastLevel) > 0.05) {
-              lastLevel = level;
-              onAudioLevel(level);
-              
-              // Dispatch custom event for speech context
-              window.dispatchEvent(new CustomEvent('daily:audioLevel', {
-                detail: { level, participantId: id }
-              }));
-            }
-          } else if (lastLevel > 0) {
-            lastLevel = 0;
-            onAudioLevel(0);
-            
-            // Dispatch silence event
-            window.dispatchEvent(new CustomEvent('daily:audioLevel', {
-              detail: { level: 0, participantId: id }
-            }));
-          }
-        }
-      }
-    } catch (error) {
-      // Ignore errors, just skip this sample
-    }
-
-    animationFrameId = window.requestAnimationFrame(monitor);
-  };
-
-  animationFrameId = window.requestAnimationFrame(monitor);
-
-  // Return cleanup function
-  return () => {
-    if (animationFrameId) {
-      window.cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-  };
+  log.info('Audio level monitoring is disabled — NIA bot speaking events are authoritative');
+  // No-op: return empty cleanup
+  return () => {};
 }

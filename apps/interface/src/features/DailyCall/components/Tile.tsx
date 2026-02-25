@@ -8,7 +8,7 @@ import { isBotParticipant, useBotSpeakingDetection } from '@interface/lib/daily'
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
 import { getClientLogger } from '@interface/lib/client-logger';
 
-import { TileRiveAvatar } from './TileRiveAvatar';
+import { TileGifAvatar } from './TileGifAvatar';
 
 interface TileProps {
   id?: string;
@@ -16,6 +16,7 @@ interface TileProps {
   isLocal?: boolean;
   layoutMode?: string;
   onTap?: (sessionId: string) => void;
+  onAvatarClick?: () => void; // Called when Pearl avatar is clicked
   tileIndex?: number;
   totalTiles?: number;
   gridColumns?: number;
@@ -23,18 +24,18 @@ interface TileProps {
   hidePearl?: boolean; // Hide Pearl bot avatar overlay
 }
 
-const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, tileIndex = 0, totalTiles: _totalTiles = 1, gridColumns: _gridColumns = 2, gridRows: _gridRows = 1, hidePearl = false }) => {
+const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, onAvatarClick, tileIndex = 0, totalTiles: _totalTiles = 1, gridColumns: _gridColumns = 2, gridRows: _gridRows = 1, hidePearl = false }) => {
   const log = getClientLogger('[daily_call]');
   
   // Get current persona name for bot detection
-  const { currentPersonaName } = useVoiceSessionContext();
+  const { currentPersonaName, isUserSpeaking, isAssistantSpeaking } = useVoiceSessionContext();
 
   const effectiveId = sessionId || id || '';
   const videoElement = useRef<HTMLVideoElement>(null);
   const audioElement = useRef<HTMLAudioElement>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   
-  // Audio processing refs - needed for TileRiveAvatar lipsync visualization
+  // Audio processing refs - needed for TileGifAvatar lipsync visualization
   const audioLevelRef = useRef(0);
   const levelSpanRef = useRef<HTMLSpanElement>(null);
   const currentAudioLevelRef = useRef(0);
@@ -150,7 +151,7 @@ const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, 
       debounceMs: 500,
       throttleMs: 200, // Throttle for performance with multiple tiles
       onAudioLevel: (level: number) => {
-        // Update refs for TileRiveAvatar lipsync visualization
+        // Update refs for TileGifAvatar lipsync visualization
         audioLevelRef.current = level;
         
         const now = Date.now();
@@ -471,21 +472,24 @@ const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, 
       )}
 
       {/* Rive Avatar Overlay for Pearl bot only - hide if hidePearl is true */}
+      {/* Clickable: Avatar click ends the call */}
       {isPearlBot && !hidePearl && (
         <div 
+          onClick={onAvatarClick}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
             height: '100%',
-            pointerEvents: 'none',
             zIndex: 10,
-            overflow: 'hidden'
+            overflow: 'hidden',
+            cursor: onAvatarClick ? 'pointer' : 'default',
           }}
         >
-          <TileRiveAvatar
-            isSpeaking={isBotSpeaking}
+          <TileGifAvatar
+            isSpeaking={isAssistantSpeaking && !isUserSpeaking}
+            isCallActive={true}
             audioLevelRef={currentAudioLevelRef}
             userName={userName}
             className="bot-avatar-overlay"

@@ -1,0 +1,943 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+
+import { Button } from '@interface/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@interface/components/ui/card';
+import { Input } from '@interface/components/ui/input';
+import { Label } from '@interface/components/ui/label';
+import { Slider } from '@interface/components/ui/slider';
+import { useResilientSession } from '@interface/hooks/use-resilient-session';
+
+const FONT = { fontFamily: 'Gohufont, monospace' } as const;
+
+// LLM Provider configuration
+type ProviderKey = 'openrouter' | 'anthropic' | 'openai' | 'groq' | 'deepseek' | 'google';
+
+interface ProviderOption {
+  id: ProviderKey;
+  name: string;
+  description: string;
+  badge?: string;
+  badgeColor?: string;
+}
+
+const LLM_PROVIDERS: ProviderOption[] = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    description: 'Routes to many models — best flexibility',
+    badge: 'Default',
+    badgeColor: 'text-purple-400',
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    description: 'Claude models direct — requires API key',
+    badge: 'Direct',
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    description: 'GPT models direct — requires API key',
+    badge: 'Direct',
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    description: 'Ultra-fast inference for open models',
+    badge: 'Fast',
+    badgeColor: 'text-green-400',
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    description: 'DeepSeek models direct',
+    badge: 'Direct',
+    badgeColor: 'text-blue-400',
+  },
+  {
+    id: 'google',
+    name: 'Google (Gemini)',
+    description: 'Gemini models via Google AI',
+    badge: 'Direct',
+    badgeColor: 'text-yellow-400',
+  },
+];
+
+// Model presets configuration
+type ModelPresetKey = 'glm-5' | 'deepseek' | 'hybrid';
+
+interface ModelPreset {
+  id: ModelPresetKey;
+  name: string;
+  description: string;
+  badge?: string;
+  badgeColor?: string;
+}
+
+const MODEL_PRESETS: ModelPreset[] = [
+  { 
+    id: 'glm-5', 
+    name: 'GLM-5', 
+    description: 'OpenRouter GLM-5 for all routes',
+    badge: 'Budget'
+  },
+  { 
+    id: 'deepseek', 
+    name: 'DeepSeek', 
+    description: 'DeepSeek Chat for all routes',
+    badge: 'Balanced',
+    badgeColor: 'text-blue-400'
+  },
+  { 
+    id: 'hybrid', 
+    name: 'Groq + DeepSeek', 
+    description: 'Groq Llama 3.3 70B for voice, DeepSeek for tools',
+    badge: 'Fastest',
+    badgeColor: 'text-green-400'
+  },
+];
+
+interface ApiKeyConfig {
+  key: string;
+  label: string;
+  metadataField: string;
+  connectUrl: string;
+  providerName: string;
+}
+
+const API_KEYS: ApiKeyConfig[] = [
+  {
+    key: 'anthropic',
+    label: 'Anthropic API Key',
+    metadataField: 'anthropic_api_key',
+    connectUrl: 'https://console.anthropic.com/settings/keys',
+    providerName: 'Anthropic',
+  },
+  {
+    key: 'openai',
+    label: 'OpenAI API Key',
+    metadataField: 'openai_api_key',
+    connectUrl: 'https://platform.openai.com/api-keys',
+    providerName: 'OpenAI',
+  },
+];
+
+function maskKey(key: string): string {
+  if (!key || key.length < 8) return key ? '••••' : '';
+  return '••••••••' + key.slice(-4);
+}
+
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-400">
+        <path d="M8 3C4 3 1 8 1 8s3 5 7 5 7-5 7-5-3-5-7-5z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-400">
+      <path d="M8 3C4 3 1 8 1 8s3 5 7 5 7-5 7-5-3-5-7-5z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+      <line x1="2" y1="2" x2="14" y2="14" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2 7l4 4 6-7" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M8 1v1M8 14v1M1 8h1M14 8h1M3.05 3.05l.7.7M12.25 12.25l.7.7M3.05 12.95l.7-.7M12.25 3.75l.7-.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-gray-500 inline-block ml-1">
+      <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1" fill="none" />
+      <path d="M6 5v3M6 3.5v.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function StatusDot({ connected }: { connected: boolean }) {
+  return (
+    <span
+      className={`inline-block h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}
+    />
+  );
+}
+
+export function AIConnectionsPanel() {
+  const { data: session } = useResilientSession();
+  const user = session?.user;
+
+  // LLM Provider state
+  const [selectedProvider, setSelectedProvider] = useState<ProviderKey>('openrouter');
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [providerMessage, setProviderMessage] = useState<string | null>(null);
+
+  // Model preset state
+  const [currentPreset, setCurrentPreset] = useState<ModelPresetKey | 'custom' | 'unknown'>('unknown');
+  const [presetModels, setPresetModels] = useState<{
+    BOT_FAST_MODEL: string | null;
+    BOT_OPENCLAW_MODEL: string | null;
+    BOT_ESCALATION_MODEL: string | null;
+  }>({ BOT_FAST_MODEL: null, BOT_OPENCLAW_MODEL: null, BOT_ESCALATION_MODEL: null });
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetMessage, setPresetMessage] = useState<string | null>(null);
+
+  // API key state per provider
+  const [keyValues, setKeyValues] = useState<Record<string, string>>({});
+  const [keyVisible, setKeyVisible] = useState<Record<string, boolean>>({});
+  const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
+  const [keyEditing, setKeyEditing] = useState<Record<string, boolean>>({});
+  const [keySaving, setKeySaving] = useState<Record<string, boolean>>({});
+
+  // Model Stack data
+  const [stackData, setStackData] = useState<any>(null);
+  const [stackLoading, setStackLoading] = useState(true);
+  const [showOptimizations, setShowOptimizations] = useState(false);
+
+  // OpenClaw status
+  const [openclawStatus, setOpenclawStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [openclawModels, setOpenclawModels] = useState<string[]>([]);
+
+  // OpenClaw Core Brain model
+  const [openclawModel, setOpenclawModel] = useState<string>('');
+  const [savingOpenclawModel, setSavingOpenclawModel] = useState(false);
+  const [openclawModelMessage, setOpenclawModelMessage] = useState<string | null>(null);
+
+  // Advanced Settings state
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [customModelId, setCustomModelId] = useState('');
+  const [temperature, setTemperature] = useState(1.0);
+  const [topP, setTopP] = useState(1.0);
+  const [maxTokens, setMaxTokens] = useState<number | ''>('');
+  const [promptCaching, setPromptCaching] = useState(false);
+  const [savingAdvanced, setSavingAdvanced] = useState(false);
+  const [advancedMessage, setAdvancedMessage] = useState<string | null>(null);
+
+  // Per-context model routing state
+  const [contextModels, setContextModels] = useState({
+    discord: '',
+    telegram: '',
+    voice: '',
+    subagents: '',
+  });
+
+  // Load user profile metadata
+  const loadProfile = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/userProfile?userId=${encodeURIComponent(user.id)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const profile = data.items?.[0];
+      if (!profile?.metadata) return;
+      const meta = profile.metadata;
+
+      // Load preferred provider
+      if (meta.preferred_provider && LLM_PROVIDERS.some(p => p.id === meta.preferred_provider)) {
+        setSelectedProvider(meta.preferred_provider as ProviderKey);
+      }
+
+      const newKeys: Record<string, string> = {};
+      for (const cfg of API_KEYS) {
+        if (meta[cfg.metadataField]) {
+          newKeys[cfg.key] = meta[cfg.metadataField];
+        }
+      }
+      setKeyValues(newKeys);
+    } catch {
+      // silent
+    }
+  }, [user?.id]);
+
+  useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Load model stack data
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/model-stack');
+        if (res.ok) {
+          setStackData(await res.json());
+        }
+      } catch {} finally {
+        setStackLoading(false);
+      }
+    })();
+  }, []);
+
+  // Load model preset status
+  const loadPresetStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bot/model-preset');
+      if (!res.ok) return;
+      const data = await res.json();
+      setCurrentPreset(data.current);
+      setPresetModels(data.models);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => { loadPresetStatus(); }, [loadPresetStatus]);
+
+  // Handle model preset change
+  const handlePresetChange = async (preset: ModelPresetKey) => {
+    setSavingPreset(true);
+    setPresetMessage(null);
+    
+    try {
+      const res = await fetch('/api/bot/model-preset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preset }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        setPresetMessage(`Error: ${data.error || 'Failed to update preset'}`);
+        return;
+      }
+      
+      setCurrentPreset(preset);
+      setPresetMessage('✓ Preset saved. Restart bot gateway to apply.');
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setPresetMessage(null), 5000);
+    } catch (err) {
+      setPresetMessage('Error: Failed to update preset');
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
+  // Handle LLM provider change
+  const handleProviderChange = async (provider: ProviderKey) => {
+    setSavingProvider(true);
+    setProviderMessage(null);
+
+    try {
+      await saveMetadataField({ preferred_provider: provider });
+      setSelectedProvider(provider);
+      setProviderMessage('✓ Provider preference saved');
+      setTimeout(() => setProviderMessage(null), 3000);
+    } catch {
+      setProviderMessage('Error: Failed to save provider preference');
+    } finally {
+      setSavingProvider(false);
+    }
+  };
+
+  // Check OpenClaw gateway and load config
+  useEffect(() => {
+    const check = async () => {
+      try {
+        // Read config file via our API
+        const configRes = await fetch('/api/openclaw-config', { signal: AbortSignal.timeout(5000) });
+        if (configRes.ok) {
+          const config = await configRes.json();
+          const primary = config?.agents?.defaults?.model?.primary || '';
+          if (primary) setOpenclawModel(primary);
+
+          // Extract model aliases as "available models"
+          const models = config?.agents?.defaults?.models;
+          if (models && typeof models === 'object') {
+            setOpenclawModels(Object.keys(models));
+          }
+
+          // Load advanced settings from config
+          const params = config?.agents?.defaults?.model?.params || {};
+          if (params.temperature !== undefined) setTemperature(params.temperature);
+          if (params.top_p !== undefined) setTopP(params.top_p);
+          if (params.max_tokens !== undefined) setMaxTokens(params.max_tokens);
+          if (params.prompt_caching !== undefined) setPromptCaching(params.prompt_caching);
+          if (params.custom_model_id) setCustomModelId(params.custom_model_id);
+
+          // Load per-context model routing
+          const routing = config?.agents?.defaults?.model?.routing || {};
+          setContextModels({
+            discord: routing.discord || '',
+            telegram: routing.telegram || '',
+            voice: routing.voice || '',
+            subagents: routing.subagents || '',
+          });
+
+          setOpenclawStatus('connected');
+        } else {
+          setOpenclawStatus('disconnected');
+        }
+      } catch {
+        setOpenclawStatus('disconnected');
+      }
+    };
+    check();
+  }, []);
+
+  // Handle OpenClaw Core Brain model change
+  const handleOpenclawModelChange = async (model: string) => {
+    setSavingOpenclawModel(true);
+    setOpenclawModelMessage(null);
+    try {
+      const res = await fetch('/api/openclaw-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patch: {
+            agents: {
+              defaults: {
+                model: {
+                  primary: model,
+                },
+              },
+            },
+          },
+        }),
+      });
+      if (res.ok) {
+        setOpenclawModel(model);
+        setOpenclawModelMessage('✓ OpenClaw model updated');
+        setTimeout(() => setOpenclawModelMessage(null), 4000);
+      } else {
+        setOpenclawModelMessage('Error: Failed to update model');
+      }
+    } catch {
+      setOpenclawModelMessage('Error: Gateway unreachable');
+    } finally {
+      setSavingOpenclawModel(false);
+    }
+  };
+
+  // Save advanced settings to OpenClaw config
+  const saveAdvancedSettings = async () => {
+    setSavingAdvanced(true);
+    setAdvancedMessage(null);
+    try {
+      const res = await fetch('/api/openclaw-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patch: {
+            agents: {
+              defaults: {
+                model: {
+                  params: {
+                    custom_model_id: customModelId || undefined,
+                    temperature,
+                    top_p: topP,
+                    max_tokens: maxTokens || undefined,
+                    prompt_caching: promptCaching,
+                  },
+                  routing: {
+                    discord: contextModels.discord || undefined,
+                    telegram: contextModels.telegram || undefined,
+                    voice: contextModels.voice || undefined,
+                    subagents: contextModels.subagents || undefined,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      });
+      if (res.ok) {
+        setAdvancedMessage('✓ Advanced settings saved');
+        setTimeout(() => setAdvancedMessage(null), 4000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setAdvancedMessage(`Error: ${data.error || 'Failed to save settings'}`);
+      }
+    } catch {
+      setAdvancedMessage('Error: Gateway unreachable');
+    } finally {
+      setSavingAdvanced(false);
+    }
+  };
+
+  const saveMetadataField = async (fields: Record<string, string>) => {
+    if (!user?.id) return;
+    const fetchRes = await fetch(`/api/userProfile?userId=${encodeURIComponent(user.id)}`);
+    if (!fetchRes.ok) throw new Error('Failed to fetch profile');
+    const fetchData = await fetchRes.json();
+    const profile = fetchData.items?.[0];
+    if (!profile) throw new Error('Profile not found');
+
+    const res = await fetch('/api/userProfile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: profile.id,
+        first_name: profile.first_name,
+        email: profile.email,
+        userId: profile.userId,
+        metadata: { ...profile.metadata, ...fields },
+        metadataOperation: 'replace',
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to save');
+  };
+
+  const handleSaveKey = async (cfg: ApiKeyConfig) => {
+    const value = keyInputs[cfg.key]?.trim();
+    if (!value) return;
+    setKeySaving(prev => ({ ...prev, [cfg.key]: true }));
+    try {
+      await saveMetadataField({ [cfg.metadataField]: value });
+      setKeyValues(prev => ({ ...prev, [cfg.key]: value }));
+      setKeyEditing(prev => ({ ...prev, [cfg.key]: false }));
+      setKeyInputs(prev => ({ ...prev, [cfg.key]: '' }));
+    } catch {
+      // silent
+    } finally {
+      setKeySaving(prev => ({ ...prev, [cfg.key]: false }));
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Pearl Mind - Primary AI Brain */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-white" style={FONT}>
+            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <span className="text-xl">🧠</span>
+            </div>
+            <div>
+              <div className="font-medium">Pearl Mind</div>
+              <p className="text-sm text-gray-400 font-normal">Primary intelligence for Discord, Telegram, and all Pearl sessions</p>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3" style={FONT}>
+          {/* Connection status */}
+          <div className={`flex items-center gap-2 text-sm ${openclawStatus === 'connected' ? 'text-green-400' : openclawStatus === 'checking' ? 'text-yellow-400' : 'text-red-400'}`}>
+            <div className="w-2 h-2 rounded-full bg-current" />
+            {openclawStatus === 'checking' && 'Checking connection...'}
+            {openclawStatus === 'connected' && 'Connected'}
+            {openclawStatus === 'disconnected' && 'Not reachable — gateway may be offline'}
+          </div>
+
+          <select
+            value={openclawModel}
+            onChange={(e) => handleOpenclawModelChange(e.target.value)}
+            disabled={openclawStatus !== 'connected' || savingOpenclawModel}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white focus:border-purple-500 focus:outline-none disabled:opacity-50"
+            style={FONT}
+          >
+            <option value="" disabled>Select Pearl Mind model...</option>
+            <optgroup label="Premium">
+              <option value="openrouter/anthropic/claude-opus-4-6">Claude Opus 4</option>
+              <option value="openrouter/anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
+              <option value="openrouter/openai/gpt-4o">GPT-4o</option>
+            </optgroup>
+            <optgroup label="Balanced">
+              <option value="openrouter/deepseek/deepseek-chat">DeepSeek Chat</option>
+              <option value="openrouter/qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
+              <option value="openrouter/mistralai/mistral-large">Mistral Large</option>
+              <option value="openrouter/google/gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+            </optgroup>
+            <optgroup label="Fast / Budget">
+              <option value="openrouter/z-ai/glm-5">GLM-5</option>
+              <option value="openrouter/meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+              <option value="openrouter/deepseek/deepseek-coder">DeepSeek Coder</option>
+              <option value="openrouter/qwen/qwen-2.5-coder-32b-instruct">Qwen 2.5 Coder 32B</option>
+            </optgroup>
+          </select>
+
+          <div className="text-xs text-gray-500">
+            Active: <code className="text-purple-400">{openclawModel || 'Loading...'}</code>
+          </div>
+
+          {savingOpenclawModel && (
+            <p className="text-xs text-blue-400">Updating model...</p>
+          )}
+          {openclawModelMessage && (
+            <p className={`text-xs ${openclawModelMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+              {openclawModelMessage}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* LLM Provider */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="text-white" style={FONT}>
+            🌐 LLM Provider
+          </CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            Your preferred AI provider
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3" style={FONT}>
+          <select
+            value={selectedProvider}
+            onChange={(e) => handleProviderChange(e.target.value as ProviderKey)}
+            disabled={savingProvider}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
+            style={FONT}
+          >
+            {LLM_PROVIDERS.map(provider => (
+              <option key={provider.id} value={provider.id}>
+                {provider.name} — {provider.badge}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-xs text-gray-500">
+            {LLM_PROVIDERS.find(p => p.id === selectedProvider)?.description}
+          </p>
+
+          {savingProvider && (
+            <p className="text-xs text-blue-400">Saving provider preference...</p>
+          )}
+          {providerMessage && (
+            <p className={`text-xs ${providerMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+              {providerMessage}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Model Presets */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="text-white" style={FONT}>
+            ⚡ Model Preset
+          </CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            Voice and reasoning models via OpenRouter
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3" style={FONT}>
+          <select
+            value={currentPreset === 'unknown' ? '' : currentPreset}
+            onChange={(e) => handlePresetChange(e.target.value as ModelPresetKey)}
+            disabled={savingPreset}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
+            style={FONT}
+          >
+            <option value="" disabled>Select a preset...</option>
+            {MODEL_PRESETS.map(preset => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name} — {preset.badge}
+              </option>
+            ))}
+          </select>
+          
+          {currentPreset !== 'unknown' && currentPreset !== 'custom' && (
+            <p className="text-xs text-gray-500">
+              {MODEL_PRESETS.find(p => p.id === currentPreset)?.description}
+            </p>
+          )}
+          
+          {savingPreset && (
+            <p className="text-xs text-blue-400">Updating preset...</p>
+          )}
+          {presetMessage && (
+            <p className={`text-xs ${presetMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+              {presetMessage}
+            </p>
+          )}
+          
+          {currentPreset === 'custom' && (
+            <div className="rounded-lg border border-yellow-600/50 bg-yellow-900/10 p-3 text-xs text-yellow-400" style={FONT}>
+              <div className="font-medium mb-1">Custom Configuration</div>
+              <div className="text-gray-500 space-y-0.5">
+                <div>Fast: {presetModels.BOT_FAST_MODEL || 'default'}</div>
+                <div>OpenClaw: {presetModels.BOT_OPENCLAW_MODEL || 'default'}</div>
+                <div>Escalation: {presetModels.BOT_ESCALATION_MODEL || 'default'}</div>
+              </div>
+            </div>
+          )}
+          
+          <p className="text-xs text-gray-600" style={FONT}>
+            Changes require bot gateway restart to take effect
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* API Key Connections */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="text-white" style={FONT}>
+            🔑 API Connections
+          </CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            Connect your AI provider accounts to unlock more models
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4" style={FONT}>
+          {API_KEYS.map(cfg => {
+            const hasKey = !!keyValues[cfg.key];
+            const editing = keyEditing[cfg.key];
+            const saving = keySaving[cfg.key];
+
+            return (
+              <div key={cfg.key} className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-white text-sm" style={FONT}>{cfg.providerName}</Label>
+                    {hasKey && (
+                      <span className="flex items-center gap-1 rounded-full bg-green-900/40 px-2 py-0.5 text-xs text-green-400">
+                        <CheckIcon /> Connected
+                      </span>
+                    )}
+                    {!hasKey && !editing && (
+                      <span className="text-xs text-gray-500">Not connected</span>
+                    )}
+                  </div>
+                </div>
+
+                {hasKey && !editing && (
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm text-gray-400" style={FONT}>
+                      {keyVisible[cfg.key] ? keyValues[cfg.key] : maskKey(keyValues[cfg.key])}
+                    </code>
+                    <button
+                      onClick={() => setKeyVisible(prev => ({ ...prev, [cfg.key]: !prev[cfg.key] }))}
+                      className="p-1 hover:bg-gray-700 rounded"
+                    >
+                      <EyeIcon open={!!keyVisible[cfg.key]} />
+                    </button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setKeyEditing(prev => ({ ...prev, [cfg.key]: true }))}
+                      className="ml-auto border-gray-600 text-gray-300 hover:bg-gray-700 text-xs"
+                      style={FONT}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                )}
+
+                {(!hasKey || editing) && (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => {
+                        window.open(cfg.connectUrl, '_blank');
+                        setKeyEditing(prev => ({ ...prev, [cfg.key]: true }));
+                      }}
+                      className="w-full bg-gray-700 hover:bg-gray-600 text-white border border-gray-600"
+                      style={FONT}
+                    >
+                      {hasKey ? `Update ${cfg.providerName} Key` : `Connect ${cfg.providerName}`}
+                    </Button>
+
+                    {(editing || !hasKey) && (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder={`Paste your ${cfg.providerName} API key`}
+                          value={keyInputs[cfg.key] || ''}
+                          onChange={e => setKeyInputs(prev => ({ ...prev, [cfg.key]: e.target.value }))}
+                          type="password"
+                          className="border-gray-700 bg-gray-800 text-white flex-1"
+                          style={FONT}
+                        />
+                        <Button
+                          onClick={() => handleSaveKey(cfg)}
+                          disabled={!keyInputs[cfg.key]?.trim() || saving}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          style={FONT}
+                        >
+                          {saving ? '...' : 'Save'}
+                        </Button>
+                        {editing && hasKey && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setKeyEditing(prev => ({ ...prev, [cfg.key]: false }))}
+                            className="border-gray-600 text-gray-400 hover:bg-gray-700"
+                            style={FONT}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* OpenClaw Gateway Status */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-white" style={FONT}>
+            <StatusDot connected={openclawStatus === 'connected'} />
+            OpenClaw Gateway
+          </CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            {openclawStatus === 'checking' && 'Checking connection...'}
+            {openclawStatus === 'connected' && 'Connected — your AI gateway is running'}
+            {openclawStatus === 'disconnected' && 'Not reachable — gateway may be offline'}
+          </CardDescription>
+        </CardHeader>
+        {openclawStatus === 'connected' && openclawModels.length > 0 && (
+          <CardContent style={FONT}>
+            <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block" style={FONT}>
+              Available Models
+            </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {openclawModels.map(m => (
+                <span
+                  key={m}
+                  className="rounded border border-gray-700 bg-gray-900/50 px-2 py-1 text-xs text-gray-400"
+                  style={FONT}
+                >
+                  {m}
+                </span>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Model Stack & Costs */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="text-white" style={FONT}>
+            📊 Model Stack & Costs
+          </CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            How your AI budget is distributed across Pearl&apos;s components
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3" style={FONT}>
+          {stackLoading && (
+            <p className="text-xs text-gray-500">Loading stack data...</p>
+          )}
+          {!stackLoading && !stackData && (
+            <p className="text-xs text-gray-500">Stack data not available. Run the rankings script to generate it.</p>
+          )}
+          {stackData && (
+            <>
+              <div className="space-y-2">
+                {Object.entries(stackData.stack || {}).map(([key, val]: [string, any]) => {
+                  const current = stackData.currentConfig?.[key];
+                  const isDifferent = current && current !== 'unknown' && current !== val.recommended;
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/50 p-3"
+                    >
+                      <div className="text-xl w-8 text-center flex-shrink-0">{val.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-white font-medium">{val.label}</span>
+                          {isDifferent && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 border border-yellow-700/50">
+                              differs
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">{val.recommended}</p>
+                        <p className="text-[10px] text-gray-600">{val.description}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-sm text-white font-medium">${val.costPer1M}</div>
+                        <div className="text-[10px] text-gray-500">/1M tokens</div>
+                        <div className="text-[10px] text-gray-600">~${val.estimatedMonthly}/mo</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Total */}
+              <div className="flex items-center justify-between rounded-lg border border-purple-700/50 bg-purple-900/10 p-3">
+                <span className="text-sm text-gray-300">Estimated Monthly Total</span>
+                <span className="text-lg text-purple-400 font-bold">${stackData.totalEstimatedMonthly}</span>
+              </div>
+
+              {/* Last updated */}
+              {stackData.lastUpdated && (
+                <p className="text-[10px] text-gray-600 text-right">
+                  Updated: {new Date(stackData.lastUpdated).toLocaleDateString()}
+                </p>
+              )}
+
+              {/* Optimization toggle */}
+              <button
+                onClick={() => setShowOptimizations(!showOptimizations)}
+                className="w-full rounded-lg border border-gray-700 bg-gray-900/50 p-2.5 text-sm text-gray-300 hover:bg-gray-700/50 hover:text-white transition-colors flex items-center justify-center gap-2"
+                style={FONT}
+              >
+                💡 {showOptimizations ? 'Hide' : 'See'} Optimization Suggestions
+              </button>
+
+              {/* Optimizations panel */}
+              {showOptimizations && (
+                <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4 space-y-3">
+                  {stackData.optimizations?.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-400 font-medium">🎯 Quick Wins</p>
+                      {stackData.optimizations.map((opt: any, i: number) => (
+                        <div key={i} className="text-xs text-gray-500">
+                          • <span className="text-white">{opt.component}</span>: switch from{' '}
+                          <code className="text-yellow-400">{opt.current}</code> to{' '}
+                          <code className="text-green-400">{opt.recommended}</code>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {stackData.optimizations?.length === 0 && (
+                    <p className="text-xs text-green-400">✓ All components using recommended models!</p>
+                  )}
+
+                  {stackData.presetStacks && (
+                    <div className="space-y-2 pt-2 border-t border-gray-700">
+                      <p className="text-xs text-gray-400 font-medium">📊 Alternative Stacks</p>
+                      {Object.entries(stackData.presetStacks).map(([key, preset]: [string, any]) => (
+                        <div key={key} className="flex items-center justify-between rounded border border-gray-700 bg-gray-800/50 p-2">
+                          <div>
+                            <span className="text-xs text-white">{preset.name}</span>
+                            <p className="text-[10px] text-gray-500">{preset.description}</p>
+                          </div>
+                          <span className="text-xs text-purple-400 font-medium">~${preset.estimatedMonthly}/mo</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

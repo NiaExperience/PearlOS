@@ -197,6 +197,11 @@
             "category": "ui"
         },
         {
+            "id": "layout.mode.switch",
+            "name": "Layout Mode Switch",
+            "category": "ui"
+        },
+        {
             "id": "youtube.search",
             "name": "YouTube Search",
             "category": "apps"

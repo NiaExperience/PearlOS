@@ -1,0 +1,10 @@
+{
+  "primaryModel": "",
+  "channels": {
+    "discord": { "model": "", "enabled": true },
+    "telegram": { "model": "", "enabled": true },
+    "voice": { "model": "", "enabled": true },
+    "webchat": { "model": "", "enabled": true }
+  },
+  "updatedAt": null
+}

@@ -6,12 +6,14 @@ import { useEffect } from 'react';
 
 import { DesktopModeProvider } from '@interface/contexts/desktop-mode-context';
 import { DesktopMode } from '@interface/types/desktop-modes';
+import { LayoutModeProvider } from '@interface/contexts/layout-mode-context';
 import { UIProvider } from '@interface/contexts/ui-context';
 import { VoiceSessionProvider } from '@interface/contexts/voice-session-context';
 import { DailyCallStateProvider } from '@interface/features/DailyCall/state/store';
 import { ErrorBoundary } from '@interface/components/ErrorBoundary';
 import { SoundtrackProvider, SoundtrackToggleButton } from '@interface/features/Soundtrack';
 import { setClientLogContext } from '@interface/lib/client-logger';
+import { useLayoutModeSwitchListener } from '@interface/hooks/useLayoutModeSwitchListener';
 import { useGatewaySocket } from '@interface/features/DailyCall/hooks/useGatewaySocket';
 import { useDailyCallState } from '@interface/features/DailyCall/state/store';
 import { ConsoleNoiseFilter } from '@interface/providers/console-noise-filter';
@@ -48,6 +50,12 @@ function extractRoomName(roomUrl?: string): string | undefined {
   }
 }
 
+/** Activates the layout mode switch listener so voice commands can toggle layout. */
+function LayoutModeSwitchBridge() {
+  useLayoutModeSwitchListener();
+  return null;
+}
+
 /** Activates the gateway WebSocket so nia.events arrive even without Daily. */
 function GatewaySocketBridge() {
   const { roomUrl, joined } = useDailyCallState();
@@ -63,25 +71,27 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     <LogContextProvider>
       <PostHogProvider>
         <UIProvider>
-          <DesktopModeProvider initialMode={DesktopMode.HOME}>
-            <DailyCallStateProvider>
-              <VoiceSessionProvider>
-                {/* Suppress known-benign console noise globally in the client */}
-                <GatewaySocketBridge />
-                <ConsoleNoiseFilter />
-                {soundtrackEnabled ? (
-                  <ErrorBoundary name="Soundtrack" silent>
-                    <SoundtrackProvider>
-                      {children}
-                      <SoundtrackToggleButton />
-                    </SoundtrackProvider>
-                  </ErrorBoundary>
-                ) : (
-                  children
-                )}
-              </VoiceSessionProvider>
-            </DailyCallStateProvider>
-          </DesktopModeProvider>
+          <LayoutModeProvider>
+            <DesktopModeProvider initialMode={DesktopMode.HOME}>
+              <DailyCallStateProvider>
+                <VoiceSessionProvider>
+                  {/* Suppress known-benign console noise globally in the client */}
+                  <GatewaySocketBridge />
+                  <LayoutModeSwitchBridge />
+                  <ConsoleNoiseFilter />
+                  {soundtrackEnabled ? (
+                    <ErrorBoundary name="Soundtrack" silent>
+                      <SoundtrackProvider>
+                        {children}
+                      </SoundtrackProvider>
+                    </ErrorBoundary>
+                  ) : (
+                    children
+                  )}
+                </VoiceSessionProvider>
+              </DailyCallStateProvider>
+            </DesktopModeProvider>
+          </LayoutModeProvider>
         </UIProvider>
       </PostHogProvider>
     </LogContextProvider>

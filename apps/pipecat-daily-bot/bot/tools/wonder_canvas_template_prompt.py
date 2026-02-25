@@ -104,4 +104,16 @@ bot_wonder_canvas_scene(html=html, transition="fade", layer="main")
 - Use {{icon:name}} for icons, NEVER emoji (emoji render as boxes)
 - Templates are under 3KB each for fast delivery
 - Built-in animations: wonder-fadeIn, wonder-slideUp, wonder-bounce, wonder-pulse, wonder-glow
+
+### IMPORTANT: Built-in Apps vs Templates
+Some content types have **dedicated built-in PearlOS apps** with their own open tools.
+When the user asks to "open" or "show" one of these, use the **dedicated tool**, NOT a template:
+
+- **News** → use `bot_open_news` (opens full news reader with live RSS feeds)
+  - Only use `news_headline` template when showing a SINGLE specific headline inline
+- **YouTube** → use `bot_open_youtube` or `bot_search_youtube_videos`
+- **Weather** → the desktop has a built-in weather app too
+
+Templates are for **quick inline content** (showing a fact, a bio, a recipe while talking).
+Built-in apps are for **full interactive experiences** (browsing all news, watching videos).
 """

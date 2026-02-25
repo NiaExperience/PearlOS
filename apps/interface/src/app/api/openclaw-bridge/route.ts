@@ -10,11 +10,26 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 
 function getConfig() {
   const apiUrl = process.env.OPENCLAW_API_URL ?? 'http://localhost:3100';
   const apiKey = process.env.OPENCLAW_API_KEY ?? '';
   return { apiUrl, apiKey };
+}
+
+function getPrimaryModel(): string {
+  const fallback = 'anthropic/claude-sonnet-4-5';
+  try {
+    const configPath = process.env.OPENCLAW_CONFIG_PATH ?? join(homedir(), '.openclaw', 'openclaw.json');
+    const raw = readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw);
+    return config?.agents?.defaults?.model?.primary ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export async function GET() {
@@ -53,6 +68,7 @@ export async function POST(req: NextRequest) {
             Accept: 'text/event-stream',
           },
           body: JSON.stringify({
+            model: getPrimaryModel(),
             messages: [{ role: 'user', content: prompt }],
             stream: true,
           }),

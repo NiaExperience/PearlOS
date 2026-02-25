@@ -95,13 +95,17 @@ class PocketTTSService(TTSService):
             logger.error(f"PocketTTS WAV header parse error: {e}")
             return None
 
-    async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame, None]:
+    async def run_tts(self, text: str, context_id: str = "") -> AsyncGenerator[Frame, None]:
         """Synthesize text via PocketTTS HTTP API and yield audio frames.
 
         Streams the response incrementally — reads the WAV header from the first
         chunk, then yields PCM audio frames as they arrive from the server.
         This eliminates the latency spike from buffering the entire response and
         provides smoother audio delivery to the transport, reducing crackling.
+        
+        Args:
+            text: Text to synthesize
+            context_id: Optional context identifier for tracking (unused by PocketTTS)
         """
         await self._ensure_session()
 
