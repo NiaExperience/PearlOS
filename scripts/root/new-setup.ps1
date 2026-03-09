@@ -1,12 +1,12 @@
 # Pearl-OS - New Setup Wizard (TUI-ish)
 # Run with:
-#   powershell -ExecutionPolicy Bypass -File new-setup.ps1
+#   powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1
 #
 # Non-interactive:
-#   powershell -ExecutionPolicy Bypass -File new-setup.ps1 -Preset minimal -NonInteractive
+#   powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1 -Preset minimal -NonInteractive
 #
 # Dry run:
-#   powershell -ExecutionPolicy Bypass -File new-setup.ps1 -Preset full -DryRun
+#   powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1 -Preset full -DryRun
 
 [CmdletBinding()]
 param(
@@ -27,8 +27,9 @@ function Write-Banner {
   Write-Host ""
 }
 
-$RepoRoot = Split-Path -Parent $PSCommandPath
-$SetupPath = Join-Path $RepoRoot "setup.ps1"
+$ScriptDir = Split-Path -Parent $PSCommandPath
+$RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..")
+$SetupPath = Join-Path $ScriptDir "setup.ps1"
 
 if (-not (Test-Path $SetupPath)) {
   Write-Host "Error: expected $SetupPath" -ForegroundColor Red
@@ -58,14 +59,14 @@ function Usage {
 new-setup.ps1 - interactive setup wizard for Pearl-OS
 
 Usage:
-  powershell -ExecutionPolicy Bypass -File new-setup.ps1
+  powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1
 
 Non-interactive:
-  powershell -ExecutionPolicy Bypass -File new-setup.ps1 -Preset full -NonInteractive
-  powershell -ExecutionPolicy Bypass -File new-setup.ps1 -Preset minimal -NonInteractive
+  powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1 -Preset full -NonInteractive
+  powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1 -Preset minimal -NonInteractive
 
 Dry run:
-  powershell -ExecutionPolicy Bypass -File new-setup.ps1 -Preset minimal -DryRun
+  powershell -ExecutionPolicy Bypass -File scripts/root/new-setup.ps1 -Preset minimal -DryRun
 
 Options:
   -Preset full|minimal|custom

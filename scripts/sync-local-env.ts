@@ -74,7 +74,7 @@ function main() {
   const rootEnvPath = path.join(repoRoot, '.env.local');
   
   if (!fs.existsSync(rootEnvPath)) {
-    console.error('[env] ❌ Root .env.local not found. Run ./setup.sh first.');
+    console.error('[env] ❌ Root .env.local not found. Run ./scripts/root/setup.sh first.');
     process.exit(1);
   }
   
