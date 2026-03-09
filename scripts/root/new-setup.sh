@@ -5,21 +5,22 @@
 
 set -o pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 usage() {
   cat <<'EOF'
 new-setup.sh - interactive setup wizard for Pearl-OS
 
 Usage:
-  bash new-setup.sh
+  bash scripts/root/new-setup.sh
 
 Non-interactive:
-  bash new-setup.sh --preset full --non-interactive
-  bash new-setup.sh --preset minimal --non-interactive
+  bash scripts/root/new-setup.sh --preset full --non-interactive
+  bash scripts/root/new-setup.sh --preset minimal --non-interactive
 
 Dry run:
-  bash new-setup.sh --preset minimal --dry-run
+  bash scripts/root/new-setup.sh --preset minimal --dry-run
 
 Options:
   --preset <full|minimal|custom>   Preset selection (default: interactive prompt)
@@ -60,13 +61,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! -f "${REPO_ROOT}/setup.sh" ]]; then
-  echo "Error: expected ${REPO_ROOT}/setup.sh" >&2
+if [[ ! -f "${SCRIPT_DIR}/setup.sh" ]]; then
+  echo "Error: expected ${SCRIPT_DIR}/setup.sh" >&2
   exit 1
 fi
 
 # Source setup.sh for the step functions + color vars + OS detection
-source "${REPO_ROOT}/setup.sh"
+source "${SCRIPT_DIR}/setup.sh"
 
 # Check if Node.js TUI is available (inquirer-based)
 USE_TUI=false

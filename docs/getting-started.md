@@ -16,7 +16,7 @@ Welcome! This guide will get you from zero to a running PearlOS instance.
 ```bash
 git clone https://github.com/AIMindOrg/PearlOS.git
 cd PearlOS
-bash new-setup.sh
+bash scripts/root/new-setup.sh
 ```
 
 The interactive wizard handles everything: Node, Python, dependencies, `.env` files, database seeding, and bot configuration. Works on Linux, macOS, and Windows (Git Bash/WSL).
@@ -24,9 +24,9 @@ The interactive wizard handles everything: Node, Python, dependencies, `.env` fi
 For a non-interactive full setup:
 
 ```bash
-bash new-setup.sh --preset full --non-interactive
+bash scripts/root/new-setup.sh --preset full --non-interactive
 # or simply:
-bash setup.sh
+bash scripts/root/setup.sh
 ```
 
 After setup, add your API keys to `.env.local` and run `npm run start:all`.
@@ -89,7 +89,7 @@ For the full architecture breakdown, see [ARCHITECTURE.md](../ARCHITECTURE.md).
 ## What's Next?
 
 - Explore the desktop: try Notes, YouTube, Calculator, and Wonder Canvas
-- Check out the [CONTRIBUTING.md](../CONTRIBUTING.md) guide if you want to contribute
+- Check out the [CONTRIBUTING.md](../.github/CONTRIBUTING.md) guide if you want to contribute
 - Read [ARCHITECTURE.md](../ARCHITECTURE.md) to understand how the pieces fit together
 - Join the community and say hello!
 

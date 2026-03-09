@@ -44,5 +44,5 @@ Before making changes, read [ARCHITECTURE.md](ARCHITECTURE.md) to understand:
 
 ## Additional Resources
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide
+- [CONTRIBUTING.md](../.github/CONTRIBUTING.md) for the full contributor guide
 - [docs/getting-started.md](docs/getting-started.md) for development setup

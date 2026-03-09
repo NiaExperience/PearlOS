@@ -57,8 +57,8 @@ PearlOS is a monorepo. Key packages:
 
 ## Reporting Issues
 
-- **Bugs:** Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md)
-- **Features:** Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md)
+- **Bugs:** Use the [bug report template](ISSUE_TEMPLATE/bug_report.md)
+- **Features:** Use the [feature request template](ISSUE_TEMPLATE/feature_request.md)
 - **Security:** See [SECURITY.md](SECURITY.md). Never open public issues for vulnerabilities.
 
 ## Code of Conduct

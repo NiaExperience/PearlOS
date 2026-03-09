@@ -90,7 +90,7 @@ PearlOS ships with setup scripts that handle everything: dependencies, environme
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-bash new-setup.sh
+bash scripts/root/new-setup.sh
 ```
 
 The wizard walks you through preset selection (full, minimal, or custom), installs all dependencies (Node, Python, Poetry, uv), creates `.env` files with API key placeholders, seeds the database, and configures the voice bot. It works on Linux, macOS, and Windows (via Git Bash/WSL).
@@ -98,7 +98,7 @@ The wizard walks you through preset selection (full, minimal, or custom), instal
 You can also run it non-interactively:
 
 ```bash
-bash new-setup.sh --preset full --non-interactive
+bash scripts/root/new-setup.sh --preset full --non-interactive
 ```
 
 ### Option 2: Classic Setup Script
@@ -106,7 +106,7 @@ bash new-setup.sh --preset full --non-interactive
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-bash setup.sh
+bash scripts/root/setup.sh
 ```
 
 This runs the full setup in one shot. After it finishes, add your API keys to `.env.local` and run:
@@ -395,7 +395,7 @@ PearlOS/
 ├── packages/                   # Shared packages (types, utils)
 ├── pnpm-workspace.yaml
 ├── package.json
-├── CONTRIBUTING.md
+├── .github/CONTRIBUTING.md
 └── README.md
 ```
 
@@ -405,7 +405,7 @@ PearlOS/
 
 PearlOS is open source and built in the open. Contributions, issues, and ideas are welcome.
 
-- **Contributing:** Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
+- **Contributing:** Read [CONTRIBUTING.md](./.github/CONTRIBUTING.md) before opening a PR.
 - **Issues:** Use GitHub Issues for bugs and feature requests.
 - **Discussion:** Join the community on [Discord](https://discord.gg/gcba4gb6kz).
 
