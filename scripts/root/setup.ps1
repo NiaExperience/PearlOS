@@ -1,6 +1,6 @@
 # Nia Universal - Universal Windows PowerShell Setup Script (Chocolatey-first)
-# Run with: powershell -ExecutionPolicy Bypass -File setup.ps1
-# Optional: setup.ps1 -SkipSystemInstall  (skip Choco installs; assume tools already present)
+# Run with: powershell -ExecutionPolicy Bypass -File scripts/root/setup.ps1
+# Optional: scripts/root/setup.ps1 -SkipSystemInstall  (skip Choco installs, assume tools already present)
 #
 # This script sets up EVERYTHING needed to run Nia Universal locally:
 # - Uses Chocolatey to install system tools (Node, Python, Git, PostgreSQL, Poetry, uv)
