@@ -783,7 +783,6 @@ setup_env() {
         
         case "${env_choice:-keep}" in
             keep|1)
-            1)
                 echo ""
                 echo -e "${GREEN}  ✓ Keeping existing env files${NC}"
                 # Just run sync to ensure app envs have the same secrets as root
