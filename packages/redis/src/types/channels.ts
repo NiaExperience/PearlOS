@@ -2,7 +2,7 @@
  * Channel definitions and types for Redis pub/sub
  */
 
-import type { BaseMessage } from './messages';
+import type { BaseMessage, MessageHandler } from './messages';
 
 /**
  * Channel names for different message types
@@ -20,9 +20,7 @@ export const ChannelNames = {
  */
 export type ChannelName = typeof ChannelNames[keyof typeof ChannelNames];
 
-// MessageHandler is exported from messages.ts to avoid duplication
-
-import type { MessageHandler } from './messages';
+// MessageHandler is exported from messages.ts to avoid duplication.
 
 /**
  * Channel subscription information
