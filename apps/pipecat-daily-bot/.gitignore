@@ -9,4 +9,6 @@ bot/coverage/
 bot/__pycache__
 __pycache__
 bot/.pytest_cache
+*.log
+gateway.log
 

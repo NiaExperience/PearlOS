@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';
 import { useLayoutMode } from '@interface/contexts/layout-mode-context';
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
 import { useTaskFeedback } from '../hooks/useTaskFeedback';
-import { TaskFeedbackModal } from './TaskFeedbackModal';
 
 const GOHUFONT_FONT_FACE = `
 @font-face {
@@ -39,10 +38,8 @@ function formatElapsed(ms: number): string {
 function humanizeLabel(job: ActiveJob): string {
   const raw = job.label || job.displayName || job.key || 'Task';
 
-  // Cron jobs: strip "Cron: " prefix and humanize the slug
   if (raw.startsWith('Cron: ') || job.kind === 'cron') {
     const slug = raw.replace(/^Cron:\s*/, '');
-    // Known cron job names → friendly labels
     const cronNames: Record<string, string> = {
       'voice-pipeline-healthcheck': 'Voice system health check',
       'pre-release-health-monitor': 'Release readiness check',
@@ -53,7 +50,6 @@ function humanizeLabel(job: ActiveJob): string {
     for (const [key, label] of Object.entries(cronNames)) {
       if (slug.includes(key)) return label;
     }
-    // Generic: strip version/swarm suffixes, then convert kebab-case to title case
     return slug
       .replace(/-v\d+$/i, '')
       .replace(/-swarm(-v\d+)?$/i, '')
@@ -62,14 +58,11 @@ function humanizeLabel(job: ActiveJob): string {
       .replace(/\b\w/g, c => c.toUpperCase());
   }
 
-  // Sub-agents: clean up the label
   if (job.kind === 'subagent') {
-    // Strip technical prefixes and bare UUIDs
     const cleaned = raw
       .replace(/^agent:main:subagent:/, '')
       .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Background task');
 
-    // Known sub-agent labels → friendly names (kept in sync with job-descriptions.json)
     const agentNames: Record<string, string> = {
       'active-jobs-descriptions': 'Making task names human-friendly',
       'active-jobs-widget': 'Building jobs dashboard',
@@ -101,7 +94,6 @@ function humanizeLabel(job: ActiveJob): string {
       if (cleaned.includes(key)) return label;
     }
 
-    // Generic: convert kebab-case slug to title case
     return cleaned
       .replace(/-v\d+$/i, '')
       .replace(/-/g, ' ')
@@ -123,12 +115,9 @@ function humanizeSubtitle(job: ActiveJob): string {
   if (job.status === 'failed') return `${kindLabel} · something went wrong`;
   if (job.status === 'complete') return `${kindLabel} · done`;
   if (job.status === 'running') {
-    // Try to generate a more useful active-verb subtitle from description
     const desc = job.description || '';
     const label = humanizeLabel(job);
-    // If we have a meaningful description (different from the label), derive a short verb phrase
     if (desc && desc.toLowerCase() !== label.toLowerCase()) {
-      // Truncate to ~50 chars for subtitle use
       const short = desc.length > 50 ? desc.slice(0, 47) + '…' : desc;
       return short;
     }
@@ -167,7 +156,6 @@ function StatusIndicator({ status }: { status: ActiveJob['status'] }) {
       </div>
     );
   }
-  // idle
   return (
     <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">
       <div className="w-2.5 h-2.5 bg-yellow-400/60 rounded-full" />
@@ -177,15 +165,17 @@ function StatusIndicator({ status }: { status: ActiveJob['status'] }) {
 
 function ExpandChevron({ expanded }: { expanded: boolean }) {
   return (
-    <svg
-      className={`w-4 h-4 text-white/40 transition-transform duration-200 flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
+    <div className="flex items-center justify-center min-w-[32px] min-h-[32px] flex-shrink-0">
+      <svg
+        className={`w-4 h-4 text-white/40 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
   );
 }
 
@@ -196,7 +186,6 @@ function friendlyModel(model: string): string {
   const modelNames: Record<string, string> = {
     'claude-opus-4.6': 'Opus (deep thinking)',
     'claude-opus-4-6': 'Opus (deep thinking)',
-    'claude-sonnet-4-5': 'Sonnet 4.5 (fast)',
     'claude-sonnet-4-5': 'Sonnet (fast)',
     'claude-sonnet-4.5': 'Sonnet (fast)',
     'claude-sonnet-4-5-20250514': 'Sonnet (fast)',
@@ -205,7 +194,7 @@ function friendlyModel(model: string): string {
   return modelNames[name] || name;
 }
 
-/** Humanize completed job label (same logic as ActiveJob) */
+/** Humanize completed job label */
 function humanizeCompletedLabel(job: CompletedJob): string {
   const raw = job.label || job.displayName || job.key || 'Task';
 
@@ -287,46 +276,77 @@ function formatTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
-/** Global stats panel showing technical details for all active jobs */
-function StatsPanel({ jobs }: { jobs: ActiveJob[] }) {
-  if (jobs.length === 0) return null;
+/** Generate a human-friendly summary from a job */
+function generateHumanSummary(job: ActiveJob | CompletedJob): string {
+  const label = 'elapsedMs' in job ? humanizeLabel(job as ActiveJob) : humanizeCompletedLabel(job as CompletedJob);
+  const desc = job.description || '';
 
+  if (desc && desc.toLowerCase() !== label.toLowerCase()) {
+    if (desc.includes('. ') || desc.includes('? ') || desc.includes('! ')) {
+      return desc;
+    }
+    const modelInfo = job.model ? ` Using ${friendlyModel(job.model)}.` : '';
+    const statusInfo = 'status' in job 
+      ? job.status === 'complete' ? ' Task completed successfully.' : ' Currently in progress.'
+      : '';
+    return `${desc}.${modelInfo || statusInfo}`;
+  }
+
+  const lbl = label.toLowerCase();
+  const modelInfo = job.model ? ` Using ${friendlyModel(job.model)}.` : '';
+  const isComplete = 'status' in job && job.status === 'complete';
+
+  if (lbl.includes('health check') || lbl.includes('healthcheck')) {
+    const what = lbl.includes('voice') ? 'voice system' : lbl.includes('release') ? 'release readiness' : 'system';
+    return `Running a quick check to make sure the ${what} is working properly. This helps catch issues before they affect users.${modelInfo}`;
+  }
+  if (lbl.includes('voice') && lbl.includes('fix')) {
+    return `Working on fixing an issue with the voice system. This should improve audio quality and response time.${modelInfo}`;
+  }
+  if (lbl.includes('redesign') || lbl.includes('overhaul')) {
+    const target = lbl.replace(/redesign(ing)?|overhaul(ing)?/gi, '').trim();
+    return `Redesigning ${target || 'the interface'} to look better and work more smoothly.${modelInfo}`;
+  }
+  if (lbl.includes('fix')) {
+    const target = lbl.replace(/fix(ing)?/gi, '').trim() || 'a component';
+    return `Fixing an issue with ${target}. This should resolve bugs and improve stability.${modelInfo}`;
+  }
+  if (lbl.includes('build') || lbl.includes('creating')) {
+    const target = lbl.replace(/build(ing)?|creating?/gi, '').trim() || 'a new feature';
+    return `Building ${target} from scratch. This adds new functionality to PearlOS.${modelInfo}`;
+  }
+  if (lbl.includes('analyz') || lbl.includes('analysis')) {
+    const target = lbl.replace(/analyz(ing|e)?|analysis/gi, '').trim() || 'the system';
+    return `Analyzing ${target} to understand what's happening.${modelInfo}`;
+  }
+  if (lbl.includes('test')) {
+    const target = lbl.replace(/test(ing)?/gi, '').trim() || 'components';
+    return `Testing ${target} to make sure everything works correctly.${modelInfo}`;
+  }
+
+  const action = isComplete ? 'Completed' : 'Working on';
+  const duration = 'elapsedMs' in job ? ` Took ${formatElapsed(job.elapsedMs)}.` : '';
+  const tokens = job.totalTokens > 0 ? ` Used ${job.totalTokens.toLocaleString()} tokens.` : '';
+  return `${action} task: ${label}. ${isComplete ? (duration || tokens || 'Finished successfully.') : (modelInfo || 'In progress.')}`;
+}
+
+function EyeToggleIcon({ active, onClick }: { active: boolean; onClick: (e: React.MouseEvent) => void }) {
   return (
-    <div
-      className="
-        bg-[#0d0815]/90 backdrop-blur-md border border-white/5 rounded-xl
-        p-3 max-h-[300px] overflow-y-auto
-        shadow-xl shadow-black/50
-      "
-      style={{ minWidth: '280px', maxWidth: 'min(360px, calc(100vw - 40px))', fontFamily: 'Gohufont, monospace' }}
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center justify-center w-6 h-6 rounded-md
+        transition-all duration-150 select-none cursor-pointer
+        ${active ? 'text-white/60 bg-white/5' : 'text-white/25 hover:text-white/40'}
+      `}
+      title={active ? 'Show summary' : 'Show technical details'}
+      aria-label={active ? 'Show summary' : 'Show technical details'}
     >
-      <div className="text-[10px] text-white/40 uppercase tracking-wider mb-2 pb-1 border-b border-white/5">
-        Technical Details
-      </div>
-      <div className="space-y-3">
-        {jobs.map((job) => {
-          const label = humanizeLabel(job);
-          return (
-            <div key={job.id} className="space-y-1 pb-2 border-b border-white/5 last:border-0 last:pb-0">
-              <div className="text-xs text-white/70 font-medium mb-1">{label}</div>
-              <div className="space-y-0.5 text-[11px] text-white/50">
-                {job.model && (
-                  <div><span className="text-white/30">Model:</span> {friendlyModel(job.model)}</div>
-                )}
-                {job.totalTokens > 0 && (
-                  <div><span className="text-white/30">Tokens:</span> {job.totalTokens.toLocaleString()}</div>
-                )}
-                <div><span className="text-white/30">Started:</span> {new Date(job.startedAt).toLocaleTimeString()}</div>
-                {job.channel && (
-                  <div><span className="text-white/30">Source:</span> {job.channel === 'discord' ? 'Discord' : job.channel === 'webchat' ? 'Web chat' : job.channel}</div>
-                )}
-                <div><span className="text-white/30">Status:</span> {job.status}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    </button>
   );
 }
 
@@ -422,212 +442,106 @@ function FeedbackButtons({
   );
 }
 
-function CompletedJobCard({
-  job,
-  feedbackGiven,
-  onThumbsUp,
-  onThumbsDown,
+/** Inline feedback form that expands below a job card */
+function InlineFeedbackForm({
+  taskId,
+  taskName,
+  taskDescription,
+  onSubmit,
+  onCancel,
+  submitting,
 }: {
-  job: CompletedJob;
-  feedbackGiven?: 'up' | 'down';
-  onThumbsUp: (id: string, label: string) => void;
-  onThumbsDown: (id: string, label: string) => void;
+  taskId: string;
+  taskName: string;
+  taskDescription?: string;
+  onSubmit: (feedback: { taskId: string; taskName: string; type: 'down'; notes: string; images: File[]; timestamp: number; mode: 'text'; taskDescription?: string }) => void;
+  onCancel: () => void;
+  submitting: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showTechnical, setShowTechnical] = useState(false);
-  const label = humanizeCompletedLabel(job);
+  const [notes, setNotes] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    // Auto-focus the textarea when it appears
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, []);
+
+  const handleSubmit = () => {
+    if (!notes.trim()) return;
+    onSubmit({
+      taskId,
+      taskName,
+      type: 'down',
+      notes,
+      images: [],
+      timestamp: Date.now(),
+      mode: 'text',
+      taskDescription,
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
 
   return (
     <div
-      className="
-        transition-all duration-300 ease-out opacity-100 translate-x-0
-      "
-      style={{ fontFamily: 'Gohufont, monospace' }}
+      className="mt-1 bg-[#0d0815]/80 backdrop-blur-md border border-red-400/20 rounded-xl p-3 space-y-2 animate-in slide-in-from-top-2 duration-200"
+      style={{ fontFamily: 'Gohufont, monospace', minWidth: '280px', maxWidth: 'min(360px, calc(100vw - 40px))' }}
+      onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className="
-          flex items-center gap-2 px-3 py-2 cursor-pointer select-none
-          bg-[#1a1025]/60 backdrop-blur-md border border-white/10 rounded-xl
-          hover:border-white/20 hover:bg-[#1a1025]/70
-          transition-colors duration-200
-          shadow-lg shadow-black/30
-        "
-        style={{ minWidth: '280px', maxWidth: 'min(360px, calc(100vw - 40px))' }}
-        onClick={() => setExpanded((e) => !e)}
-      >
-        {/* Completed checkmark indicator */}
-        <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">
-          <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-
-        <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-white/70 font-medium truncate flex-1">{label}</span>
-            <span className="text-[10px] text-white/30 flex-shrink-0">
-              {formatTimeAgo(job.completedAt)}
-            </span>
-          </div>
-          <span className="text-[10px] text-white/30 truncate">Completed</span>
-        </div>
-
-        <FeedbackButtons
-          jobId={job.id}
-          jobLabel={label}
-          feedbackGiven={feedbackGiven}
-          onThumbsUp={onThumbsUp}
-          onThumbsDown={onThumbsDown}
-        />
-
-        <ExpandChevron expanded={expanded} />
+      <div className="text-[10px] text-red-300/60 uppercase tracking-wider">
+        What went wrong?
       </div>
-
-      {/* Expanded panel with summary/technical toggle */}
-      <div
-        className={`
-          overflow-hidden transition-all duration-200 ease-out
-          ${expanded ? 'max-h-[200px] mt-1' : 'max-h-0'}
-        `}
-      >
-        <div
-          className="
-            relative bg-[#0d0815]/70 backdrop-blur-md border border-white/5 rounded-lg
-            p-2.5 text-[11px] text-white/50 leading-relaxed
-            max-h-[200px] overflow-y-auto
-          "
-          style={{ minWidth: '280px', maxWidth: 'min(360px, calc(100vw - 40px))', fontFamily: 'Gohufont, monospace' }}
-        >
-          {showTechnical ? (
-            <div className="space-y-1 pr-7">
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Technical Details</div>
-              {job.model && (
-                <div><span className="text-white/25">Model:</span> {friendlyModel(job.model)}</div>
-              )}
-              {job.totalTokens > 0 && (
-                <div><span className="text-white/25">Tokens:</span> {job.totalTokens.toLocaleString()}</div>
-              )}
-              <div><span className="text-white/25">Finished:</span> {new Date(job.completedAt).toLocaleTimeString()}</div>
-              {job.channel && (
-                <div><span className="text-white/25">Source:</span> {job.channel === 'discord' ? 'Discord' : job.channel === 'webchat' ? 'Web chat' : job.channel}</div>
-              )}
-            </div>
-          ) : (
-            <div className="pr-7 text-white/50">
-              {generateHumanSummary(job)}
-            </div>
-          )}
-
-          {/* Eye icon — bottom right */}
-          <div className="absolute bottom-2 right-2" onClick={(e) => e.stopPropagation()}>
-            <EyeToggleIcon
-              active={showTechnical}
-              onClick={(e) => { e.stopPropagation(); setShowTechnical((v) => !v); }}
-            />
-          </div>
+      <textarea
+        ref={inputRef}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Describe the issue… (Enter to submit)"
+        className="
+          w-full h-16 px-2.5 py-2 rounded-lg
+          bg-[#0a0610]/80 border border-white/10
+          text-xs text-white/80 placeholder-white/25
+          resize-none outline-none
+          focus:border-red-400/30 focus:ring-1 focus:ring-red-400/10
+          transition-colors duration-150
+        "
+        style={{ fontFamily: 'Gohufont, monospace' }}
+      />
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] text-white/25">
+          Task will be relaunched with your feedback
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onCancel}
+            className="px-2.5 py-1 rounded-lg text-[10px] text-white/40 hover:text-white/60 border border-white/10 hover:border-white/20 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !notes.trim()}
+            className="
+              px-2.5 py-1 rounded-lg text-[10px] font-medium
+              bg-red-500/20 text-red-300 border border-red-400/30
+              hover:bg-red-500/30 hover:border-red-400/50
+              disabled:opacity-30 disabled:cursor-not-allowed
+              transition-colors
+            "
+          >
+            {submitting ? 'Sending…' : 'Redo Task'}
+          </button>
         </div>
       </div>
     </div>
-  );
-}
-
-/** Generate a human-friendly 2-sentence summary from a job */
-function generateHumanSummary(job: ActiveJob | CompletedJob): string {
-  const label = 'elapsedMs' in job ? humanizeLabel(job as ActiveJob) : humanizeCompletedLabel(job as CompletedJob);
-  const desc = job.description || '';
-
-  // If we have a good description that differs from the label, use it (but enhance it to 2 sentences)
-  if (desc && desc.toLowerCase() !== label.toLowerCase()) {
-    // If description is already 2+ sentences, return as-is
-    if (desc.includes('. ') || desc.includes('? ') || desc.includes('! ')) {
-      return desc;
-    }
-    // Otherwise, add context as a second sentence
-    const modelInfo = job.model ? ` Using ${friendlyModel(job.model)}.` : '';
-    const statusInfo = 'status' in job 
-      ? job.status === 'complete' ? ' Task completed successfully.' : ' Currently in progress.'
-      : '';
-    return `${desc}.${modelInfo || statusInfo}`;
-  }
-
-  // Generate detailed 2-sentence summaries from the humanized label
-  const lbl = label.toLowerCase();
-  const modelInfo = job.model ? ` Using ${friendlyModel(job.model)}.` : '';
-  const isComplete = 'status' in job && job.status === 'complete';
-
-  // Common patterns → friendly 2-sentence summaries
-  if (lbl.includes('health check') || lbl.includes('healthcheck')) {
-    const what = lbl.includes('voice') ? 'voice system' : lbl.includes('release') ? 'release readiness' : 'system';
-    return `Running a quick check to make sure the ${what} is working properly. This helps catch issues before they affect users.${modelInfo}`;
-  }
-  
-  if (lbl.includes('voice') && lbl.includes('fix')) {
-    return `Working on fixing an issue with the voice system. This should improve audio quality and response time.${modelInfo}`;
-  }
-  
-  if (lbl.includes('voice') && lbl.includes('pipeline')) {
-    return `Checking on the voice processing pipeline to ensure smooth audio handling. This monitors latency, quality, and error rates.${modelInfo}`;
-  }
-  
-  if (lbl.includes('redesign') || lbl.includes('overhaul')) {
-    const target = lbl.replace(/redesign(ing)?|overhaul(ing)?/gi, '').trim();
-    return `Redesigning ${target || 'the interface'} to look better and work more smoothly. This includes visual polish and usability improvements.${modelInfo}`;
-  }
-  
-  if (lbl.includes('fix')) {
-    const target = lbl.replace(/fix(ing)?/gi, '').trim() || 'a component';
-    return `Fixing an issue with ${target}. This should resolve bugs and improve stability.${modelInfo}`;
-  }
-  
-  if (lbl.includes('build') || lbl.includes('creating')) {
-    const target = lbl.replace(/build(ing)?|creating?/gi, '').trim() || 'a new feature';
-    return `Building ${target} from scratch. This adds new functionality to PearlOS.${modelInfo}`;
-  }
-  
-  if (lbl.includes('analyz') || lbl.includes('analysis')) {
-    const target = lbl.replace(/analyz(ing|e)?|analysis/gi, '').trim() || 'the system';
-    return `Analyzing ${target} to understand what's happening. This helps identify patterns and potential improvements.${modelInfo}`;
-  }
-  
-  if (lbl.includes('check') || lbl.includes('verify')) {
-    const target = lbl.replace(/check(ing)?|verify(ing)?/gi, '').trim() || 'system components';
-    return `Checking ${target} to ensure everything is working as expected. This is part of routine maintenance.${modelInfo}`;
-  }
-  
-  if (lbl.includes('generat') || lbl.includes('creating')) {
-    const target = lbl.replace(/generat(ing|e)?|creating?/gi, '').trim() || 'content';
-    return `Generating ${target} based on your request. This may take a moment depending on complexity.${modelInfo}`;
-  }
-
-  if (lbl.includes('test')) {
-    const target = lbl.replace(/test(ing)?/gi, '').trim() || 'components';
-    return `Testing ${target} to make sure everything works correctly. This helps prevent bugs from reaching production.${modelInfo}`;
-  }
-
-  // Fallback: use the label with detailed context
-  const action = isComplete ? 'Completed' : 'Working on';
-  const duration = 'elapsedMs' in job ? ` Took ${formatElapsed(job.elapsedMs)}.` : '';
-  const tokens = job.totalTokens > 0 ? ` Used ${job.totalTokens.toLocaleString()} tokens.` : '';
-  return `${action} task: ${label}. ${isComplete ? (duration || tokens || 'Finished successfully.') : (modelInfo || 'In progress.')}`;
-}
-
-function EyeToggleIcon({ active, onClick }: { active: boolean; onClick: (e: React.MouseEvent) => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        flex items-center justify-center w-6 h-6 rounded-md
-        transition-all duration-150 select-none cursor-pointer
-        ${active ? 'text-white/60 bg-white/5' : 'text-white/25 hover:text-white/40'}
-      `}
-      title={active ? 'Show summary' : 'Show technical details'}
-      aria-label={active ? 'Show summary' : 'Show technical details'}
-    >
-      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    </button>
   );
 }
 
@@ -642,7 +556,6 @@ function StopButton({ jobId, jobLabel, onStopping }: { jobId: string; jobLabel: 
     onStopping?.();
     
     try {
-      // Use bot control base URL (proxied through Next.js API route)
       const botControlUrl = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:4444';
       const response = await fetch(`${botControlUrl}/api/tasks/stop`, {
         method: 'POST',
@@ -656,7 +569,6 @@ function StopButton({ jobId, jobLabel, onStopping }: { jobId: string; jobLabel: 
       const result = await response.json();
       
       if (response.ok && result.status === 'stopped') {
-        // Success - job will disappear when useActiveJobs detects it's gone
         console.log(`[ActiveJobs] Stopped task: ${jobLabel}`);
       } else {
         console.warn(`[ActiveJobs] Failed to stop task: ${result.message || 'unknown error'}`);
@@ -694,18 +606,143 @@ function StopButton({ jobId, jobLabel, onStopping }: { jobId: string; jobLabel: 
   );
 }
 
-function JobCard({ job, feedbackGiven, onThumbsUp, onThumbsDown }: {
+function CompletedJobCard({
+  job,
+  feedbackGiven,
+  showInlineFeedback,
+  onThumbsUp,
+  onThumbsDown,
+  onSubmitFeedback,
+  onCancelFeedback,
+  submittingFeedback,
+}: {
+  job: CompletedJob;
+  feedbackGiven?: 'up' | 'down';
+  showInlineFeedback: boolean;
+  onThumbsUp: (id: string, label: string) => void;
+  onThumbsDown: (id: string, label: string) => void;
+  onSubmitFeedback: (feedback: { taskId: string; taskName: string; type: 'down'; notes: string; images: File[]; timestamp: number; mode: 'text'; taskDescription?: string }) => void;
+  onCancelFeedback: () => void;
+  submittingFeedback: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [showTechnical, setShowTechnical] = useState(false);
+  const label = humanizeCompletedLabel(job);
+
+  return (
+    <div
+      className="transition-all duration-300 ease-out opacity-100 translate-x-0"
+      style={{ fontFamily: 'Gohufont, monospace' }}
+    >
+      <div
+        className="
+          flex items-center gap-2 px-3 py-2 cursor-pointer select-none
+          bg-[#1a1025]/60 backdrop-blur-md border border-white/10 rounded-xl
+          hover:border-white/20 hover:bg-[#1a1025]/70
+          transition-colors duration-200
+          shadow-lg shadow-black/30
+        "
+        style={{ minWidth: '280px', maxWidth: 'min(360px, calc(100vw - 40px))' }}
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">
+          <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-white/70 font-medium truncate flex-1">{label}</span>
+            <span className="text-[10px] text-white/30 flex-shrink-0">
+              {formatTimeAgo(job.completedAt)}
+            </span>
+          </div>
+          <span className="text-[10px] text-white/30 truncate">Completed</span>
+        </div>
+
+        <FeedbackButtons
+          jobId={job.id}
+          jobLabel={label}
+          feedbackGiven={feedbackGiven}
+          onThumbsUp={onThumbsUp}
+          onThumbsDown={onThumbsDown}
+        />
+
+        <ExpandChevron expanded={expanded} />
+      </div>
+
+      {/* Expanded panel */}
+      <div
+        className={`
+          overflow-hidden transition-all duration-200 ease-out
+          ${expanded ? 'max-h-[200px] mt-1' : 'max-h-0'}
+        `}
+      >
+        <div
+          className="
+            relative bg-[#0d0815]/70 backdrop-blur-md border border-white/5 rounded-lg
+            p-2.5 text-[11px] text-white/50 leading-relaxed
+            max-h-[200px] overflow-y-auto
+          "
+          style={{ minWidth: '280px', maxWidth: 'min(360px, calc(100vw - 40px))', fontFamily: 'Gohufont, monospace' }}
+        >
+          {showTechnical ? (
+            <div className="space-y-1 pr-7">
+              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Technical Details</div>
+              {job.model && <div><span className="text-white/25">Model:</span> {friendlyModel(job.model)}</div>}
+              {job.totalTokens > 0 && <div><span className="text-white/25">Tokens:</span> {job.totalTokens.toLocaleString()}</div>}
+              <div><span className="text-white/25">Finished:</span> {new Date(job.completedAt).toLocaleTimeString()}</div>
+              {job.channel && <div><span className="text-white/25">Source:</span> {job.channel === 'discord' ? 'Discord' : job.channel === 'webchat' ? 'Web chat' : job.channel}</div>}
+            </div>
+          ) : (
+            <div className="pr-7 text-white/50">{generateHumanSummary(job)}</div>
+          )}
+          <div className="absolute bottom-2 right-2" onClick={(e) => e.stopPropagation()}>
+            <EyeToggleIcon active={showTechnical} onClick={(e) => { e.stopPropagation(); setShowTechnical((v) => !v); }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Inline feedback form (replaces modal) */}
+      {showInlineFeedback && (
+        <InlineFeedbackForm
+          taskId={job.id}
+          taskName={label}
+          taskDescription={job.description}
+          onSubmit={onSubmitFeedback}
+          onCancel={onCancelFeedback}
+          submitting={submittingFeedback}
+        />
+      )}
+    </div>
+  );
+}
+
+function JobCard({
+  job,
+  feedbackGiven,
+  showInlineFeedback,
+  onThumbsUp,
+  onThumbsDown,
+  onSubmitFeedback,
+  onCancelFeedback,
+  submittingFeedback,
+}: {
   job: ActiveJob;
   feedbackGiven?: 'up' | 'down';
+  showInlineFeedback: boolean;
   onThumbsUp?: (id: string, label: string) => void;
   onThumbsDown?: (id: string, label: string) => void;
+  onSubmitFeedback: (feedback: { taskId: string; taskName: string; type: 'down'; notes: string; images: File[]; timestamp: number; mode: 'text'; taskDescription?: string }) => void;
+  onCancelFeedback: () => void;
+  submittingFeedback: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showTechnical, setShowTechnical] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(job.elapsedMs);
   const [stopping, setStopping] = useState(false);
 
-  // Live elapsed timer
   useEffect(() => {
     if (job.status !== 'running') {
       setElapsedMs(job.elapsedMs);
@@ -751,16 +788,10 @@ function JobCard({ job, feedbackGiven, onThumbsUp, onThumbsDown }: {
           <span className="text-[10px] text-white/40 truncate">{statusText}</span>
         </div>
 
-        {/* Stop button for running jobs */}
         {job.status === 'running' && !stopping && (
-          <StopButton
-            jobId={job.id}
-            jobLabel={label}
-            onStopping={() => setStopping(true)}
-          />
+          <StopButton jobId={job.id} jobLabel={label} onStopping={() => setStopping(true)} />
         )}
 
-        {/* Thumbs up/down for completed jobs */}
         {(job.status === 'complete' || job.fadingOut) && onThumbsUp && onThumbsDown && (
           <FeedbackButtons
             jobId={job.id}
@@ -774,7 +805,7 @@ function JobCard({ job, feedbackGiven, onThumbsUp, onThumbsDown }: {
         <ExpandChevron expanded={expanded} />
       </div>
 
-      {/* Expanded panel with summary/technical toggle */}
+      {/* Expanded panel */}
       <div
         className={`
           overflow-hidden transition-all duration-200 ease-out
@@ -792,70 +823,68 @@ function JobCard({ job, feedbackGiven, onThumbsUp, onThumbsDown }: {
           {showTechnical ? (
             <div className="space-y-1 pr-7">
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">Technical Details</div>
-              {job.model && (
-                <div><span className="text-white/25">Model:</span> {friendlyModel(job.model)}</div>
-              )}
-              {job.totalTokens > 0 && (
-                <div><span className="text-white/25">Tokens:</span> {job.totalTokens.toLocaleString()}</div>
-              )}
+              {job.model && <div><span className="text-white/25">Model:</span> {friendlyModel(job.model)}</div>}
+              {job.totalTokens > 0 && <div><span className="text-white/25">Tokens:</span> {job.totalTokens.toLocaleString()}</div>}
               <div><span className="text-white/25">Started:</span> {new Date(job.startedAt).toLocaleTimeString()}</div>
-              {job.channel && (
-                <div><span className="text-white/25">Source:</span> {job.channel === 'discord' ? 'Discord' : job.channel === 'webchat' ? 'Web chat' : job.channel}</div>
-              )}
+              {job.channel && <div><span className="text-white/25">Source:</span> {job.channel === 'discord' ? 'Discord' : job.channel === 'webchat' ? 'Web chat' : job.channel}</div>}
               <div><span className="text-white/25">Status:</span> {job.status}</div>
             </div>
           ) : (
-            <div className="pr-7 text-white/50">
-              {generateHumanSummary(job)}
-            </div>
+            <div className="pr-7 text-white/50">{generateHumanSummary(job)}</div>
           )}
-
-          {/* Eye icon — bottom right */}
           <div className="absolute bottom-2 right-2" onClick={(e) => e.stopPropagation()}>
-            <EyeToggleIcon
-              active={showTechnical}
-              onClick={(e) => { e.stopPropagation(); setShowTechnical((v) => !v); }}
-            />
+            <EyeToggleIcon active={showTechnical} onClick={(e) => { e.stopPropagation(); setShowTechnical((v) => !v); }} />
           </div>
         </div>
       </div>
+
+      {/* Inline feedback form (replaces modal) */}
+      {showInlineFeedback && (
+        <InlineFeedbackForm
+          taskId={job.id}
+          taskName={label}
+          taskDescription={job.description}
+          onSubmit={onSubmitFeedback}
+          onCancel={onCancelFeedback}
+          submitting={submittingFeedback}
+        />
+      )}
     </div>
   );
 }
 
-/** Tasks icon toggle button shown on mobile (left side) */
+/** Tasks icon toggle button */
 function GearToggleButton({
   count,
   hasRunning,
   hasFailed,
   expanded,
   onClick,
+  completedCount,
 }: {
   count: number;
   hasRunning: boolean;
   hasFailed: boolean;
   expanded: boolean;
   onClick: () => void;
+  completedCount?: number;
 }) {
-  const accentColor = hasFailed
-    ? 'border-red-400/40 text-red-300'
-    : hasRunning
-    ? 'border-blue-400/40 text-blue-200'
-    : 'border-white/20 text-white/70';
-
   return (
     <button
       onClick={onClick}
-      aria-label={`${count} active job${count !== 1 ? 's' : ''} — tap to ${expanded ? 'collapse' : 'expand'}`}
+      aria-label={count > 0
+        ? `${count} active job${count !== 1 ? 's' : ''} — tap to ${expanded ? 'collapse' : 'expand'}`
+        : `${completedCount || 0} completed tasks — tap to ${expanded ? 'collapse' : 'expand'}`
+      }
       className={`
-        flex items-center gap-1.5 px-2.5 py-2 rounded-xl
-        bg-[#1a1025]/80 backdrop-blur-md border
-        shadow-lg shadow-black/40
-        hover:border-white/30 hover:bg-[#1a1025]/90
+        flex items-center gap-1.5 px-2.5 py-2 rounded-full
+        bg-[#0f0820]/80 backdrop-blur-md border border-white/15
+        shadow-lg shadow-black/40 shadow-[0_0_12px_rgba(100,60,180,0.2)]
+        hover:border-[#FFD233]/40 hover:bg-[#0f0820]/95
+        text-[#d4c0e8] hover:text-[#FFD233]
         active:scale-95
         transition-all duration-200
         select-none cursor-pointer
-        ${accentColor}
       `}
       style={{ fontFamily: 'Gohufont, monospace' }}
     >
@@ -872,7 +901,7 @@ function GearToggleButton({
         </div>
       )}
 
-      {/* Tasks/list icon (not gear — avoids confusion with Settings button) */}
+      {/* Tasks/list icon */}
       <svg
         className="w-4 h-4 flex-shrink-0"
         fill="none"
@@ -888,8 +917,14 @@ function GearToggleButton({
         />
       </svg>
 
-      {/* Count badge */}
-      <span className="text-xs font-medium leading-none">{count}</span>
+      {/* Count badge — show active count or completed checkmark */}
+      {count > 0 ? (
+        <span className="text-xs font-medium leading-none">{count}</span>
+      ) : (
+        <span className="text-xs font-medium leading-none text-white/30">
+          {completedCount ? `✓${completedCount}` : '—'}
+        </span>
+      )}
 
       {/* Expand/collapse chevron */}
       <svg
@@ -907,29 +942,65 @@ function GearToggleButton({
 }
 
 export function ActiveJobsWidget() {
-  const { jobs, completedHistory } = useActiveJobs();
+  const { jobs, completedHistory, dismissJob } = useActiveJobs();
   const { effectiveIsMobile } = useLayoutMode();
-  // Use context's effectiveIsMobile: respects both actual viewport and forced desktop/mobile override
+  const [wonderCanvasActive, setWonderCanvasActive] = useState(false);
+  const [wonderSceneId, setWonderSceneId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleWonderScene = (e: Event) => {
+      const payload = (e as CustomEvent).detail?.payload ?? {};
+      if (payload.sceneId) {
+        setWonderSceneId(String(payload.sceneId));
+      }
+      if (payload.hideChrome) {
+        setWonderCanvasActive(true);
+      }
+    };
+    const handleWonderClear = () => {
+      setWonderCanvasActive(false);
+      setWonderSceneId(null);
+    };
+    window.addEventListener('nia:wonder.scene', handleWonderScene);
+    window.addEventListener('nia:wonder.clear', handleWonderClear);
+    return () => {
+      window.removeEventListener('nia:wonder.scene', handleWonderScene);
+      window.removeEventListener('nia:wonder.clear', handleWonderClear);
+    };
+  }, []);
+
   const isMobile = effectiveIsMobile;
   const [mobileExpanded, setMobileExpanded] = useState(false);
-  const [desktopExpanded, setDesktopExpanded] = useState(true);
-  // statsOpen removed — technical details now per-card via eye icon
+  const [desktopExpanded, setDesktopExpanded] = useState(false);
   const { currentMode } = useDesktopMode();
   const {
     feedbackState,
-    modalOpen,
-    modalTaskId,
-    modalTaskName,
+    inlineFeedbackTaskId,
     submitting,
-    handleThumbsUp,
-    openFeedbackModal,
-    closeFeedbackModal,
-    submitFeedback,
+    handleThumbsUp: rawThumbsUp,
+    openInlineFeedback,
+    closeInlineFeedback,
+    submitFeedback: rawSubmitFeedback,
   } = useTaskFeedback();
-  // Auto-collapse task list when desktop mode changes (e.g. tapping Monitor button)
+
+  const handleThumbsUp = useCallback(async (taskId: string, taskName: string) => {
+    await rawThumbsUp(taskId, taskName);
+    dismissJob(taskId);
+  }, [rawThumbsUp, dismissJob]);
+
+  const handleThumbsDown = useCallback((taskId: string, taskName: string) => {
+    openInlineFeedback(taskId, taskName);
+  }, [openInlineFeedback]);
+
+  const handleSubmitInlineFeedback = useCallback(async (feedback: { taskId: string; taskName: string; type: 'down'; notes: string; images: File[]; timestamp: number; mode: 'text'; taskDescription?: string }) => {
+    await rawSubmitFeedback(feedback);
+    dismissJob(feedback.taskId);
+  }, [rawSubmitFeedback, dismissJob]);
+
   useEffect(() => {
     setMobileExpanded(false);
   }, [currentMode]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const desktopContainerRef = useRef<HTMLDivElement>(null);
 
@@ -937,201 +1008,122 @@ export function ActiveJobsWidget() {
     ensureGohufont();
   }, []);
 
-  // Only show jobs that have meaningful labels
+  const completedIds = new Set(completedHistory.map((j) => j.id));
   const visibleJobs = jobs.filter(
-    (j) => j.status === 'running' || j.status === 'failed' || j.fadingOut || j.label
+    (j) => (j.status === 'running' || j.status === 'complete' || j.status === 'failed' || j.label)
+      && !completedIds.has(j.id)
   );
 
-  // Track whether there are any active jobs (running, failed, or fading out)
   const hasActiveJobs = visibleJobs.length > 0;
-
-  // Jobs list stays expanded/collapsed based on user action or mode change only
-
   const hasRunning = visibleJobs.some((j) => j.status === 'running');
   const hasFailed = visibleJobs.some((j) => j.status === 'failed');
-  const allComplete = visibleJobs.every((j) => j.status === 'complete' || j.fadingOut);
 
-  // Get latest job title for collapsed preview
-  const latestJob = visibleJobs[0];
-  const latestJobTitle = latestJob ? humanizeLabel(latestJob) : '';
-  
-  // Get latest completed job title for when no active jobs
-  const latestCompletedJob = completedHistory[0];
-  const latestCompletedJobTitle = latestCompletedJob ? humanizeCompletedLabel(latestCompletedJob) : '';
-
-  const feedbackModal = (
-    <TaskFeedbackModal
-      taskId={modalTaskId || ''}
-      taskName={modalTaskName}
-      isOpen={modalOpen}
-      onClose={closeFeedbackModal}
-      onSubmit={submitFeedback}
-      submitting={submitting}
-    />
+  // Shared job list rendering
+  const renderJobList = () => (
+    <>
+      {/* Active job cards */}
+      {hasActiveJobs && visibleJobs.map((job) => (
+        <JobCard
+          key={job.id}
+          job={job}
+          feedbackGiven={feedbackState.submitted.get(job.id)}
+          showInlineFeedback={inlineFeedbackTaskId === job.id}
+          onThumbsUp={handleThumbsUp}
+          onThumbsDown={handleThumbsDown}
+          onSubmitFeedback={handleSubmitInlineFeedback}
+          onCancelFeedback={closeInlineFeedback}
+          submittingFeedback={submitting}
+        />
+      ))}
+      
+      {/* Completed jobs history */}
+      {completedHistory.length > 0 && (
+        <>
+          {hasActiveJobs && (
+            <div className="text-[10px] text-white/30 px-2 py-0.5 uppercase tracking-wider" style={{ fontFamily: 'Gohufont, monospace' }}>
+              ─── completed ───
+            </div>
+          )}
+          {completedHistory.map((job) => (
+            <CompletedJobCard
+              key={job.id}
+              job={job}
+              feedbackGiven={feedbackState.submitted.get(job.id)}
+              showInlineFeedback={inlineFeedbackTaskId === job.id}
+              onThumbsUp={handleThumbsUp}
+              onThumbsDown={handleThumbsDown}
+              onSubmitFeedback={handleSubmitInlineFeedback}
+              onCancelFeedback={closeInlineFeedback}
+              submittingFeedback={submitting}
+            />
+          ))}
+        </>
+      )}
+      
+      {/* Empty state */}
+      {!hasActiveJobs && completedHistory.length === 0 && (
+        <div 
+          className="px-3 py-2 text-[11px] text-white/30 italic"
+          style={{ fontFamily: 'Gohufont, monospace' }}
+        >
+          No activity yet. Tasks will appear here.
+        </div>
+      )}
+    </>
   );
 
-  // ── Desktop: collapsible job cards, top-right ─────────────────────────────
-  if (!isMobile) {
-    // Collapsed state: compact pill widget (always visible)
-    if (!desktopExpanded) {
-      return (
-        <div
-          ref={desktopContainerRef}
-          className="fixed top-[24px] right-4 z-[800]"
-          style={{ pointerEvents: 'auto' }}
-        >
-          <button
-            onClick={() => setDesktopExpanded(true)}
-            className={`
-              flex flex-col gap-0.5 px-3 py-2 rounded-xl
-              bg-[#1a1025]/80 backdrop-blur-md border
-              shadow-lg shadow-black/40
-              hover:border-white/30 hover:bg-[#1a1025]/90
-              active:scale-95
-              transition-all duration-200
-              select-none cursor-pointer
-              ${hasActiveJobs 
-                ? (hasFailed ? 'border-red-400/40' : hasRunning ? 'border-blue-400/40' : 'border-white/20')
-                : 'border-white/10 opacity-70 hover:opacity-100'
-              }
-            `}
-            style={{ fontFamily: 'Gohufont, monospace', maxWidth: '180px' }}
-            aria-label={hasActiveJobs 
-              ? `${visibleJobs.length} active job${visibleJobs.length !== 1 ? 's' : ''} — click to expand`
-              : 'No active jobs — click to see recent history'
-            }
-          >
-            {/* Row 1: indicator + count */}
-            <div className="flex items-center gap-1.5">
-              {/* Spinning ring when running, checkmark when all done or no active jobs, red dot on failure */}
-              {hasActiveJobs ? (
-                <>
-                  {hasFailed ? (
-                    <div className="flex items-center justify-center w-4 h-4 flex-shrink-0">
-                      <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </div>
-                  ) : hasRunning ? (
-                    <div className="relative w-4 h-4 flex-shrink-0">
-                      <div
-                        className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"
-                        style={{ animationDuration: '1.5s' }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
-                      </div>
-                    </div>
-                  ) : allComplete ? (
-                    <div className="flex items-center justify-center w-4 h-4 flex-shrink-0">
-                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center w-4 h-4 flex-shrink-0">
-                      <div className="w-2 h-2 bg-yellow-400/60 rounded-full" />
-                    </div>
-                  )}
-                  <span className={`text-xs font-medium leading-none ${hasFailed ? 'text-red-300' : hasRunning ? 'text-blue-200' : 'text-white/70'}`}>
-                    {visibleJobs.length} {visibleJobs.length === 1 ? 'job' : 'jobs'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-center w-4 h-4 flex-shrink-0">
-                    <svg className="w-3.5 h-3.5 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium leading-none text-white/50">
-                    no jobs
-                  </span>
-                </>
-              )}
-            </div>
-            {/* Row 2: truncated latest job title */}
-            {hasActiveJobs && latestJobTitle ? (
-              <span className="text-[10px] text-white/40 truncate w-full text-left leading-tight">
-                {latestJobTitle.length > 22 ? latestJobTitle.slice(0, 20) + '…' : latestJobTitle}
-              </span>
-            ) : !hasActiveJobs && latestCompletedJobTitle ? (
-              <span className="text-[10px] text-white/30 truncate w-full text-left leading-tight">
-                Last: {latestCompletedJobTitle.length > 16 ? latestCompletedJobTitle.slice(0, 14) + '…' : latestCompletedJobTitle}
-              </span>
-            ) : null}
-          </button>
-          {feedbackModal}
-        </div>
-      );
-    }
+  const baseRightPx = 56; // Tailwind right-14
+  const sceneRightShift: Record<string, number> = {
+    // News has the most header controls, so shift it further left.
+    news: 130,
+    // Weather needs a smaller offset than news but still enough to clear its controls.
+    weather: 30,
+  };
+  const extraRightPx = wonderSceneId ? sceneRightShift[wonderSceneId] ?? 0 : 0;
+  const computedRight = baseRightPx + extraRightPx;
+  const isNewsScene = wonderSceneId === 'news';
 
-    // Expanded state: full job cards with minimize button + stats toggle
+  // ── Desktop ─────────────────────────────
+  if (!isMobile) {
     return (
       <div
         ref={desktopContainerRef}
-        className="fixed top-[24px] right-4 z-[800] flex flex-col gap-2"
-        style={{ pointerEvents: 'auto' }}
+        className={`fixed top-3 z-[450] flex flex-col gap-2 transition-opacity duration-200 ${wonderCanvasActive ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        style={{ pointerEvents: wonderCanvasActive ? 'none' : 'auto', right: `${computedRight}px` }}
       >
-        {/* Minimize button */}
-        <div className="flex items-center self-end">
-          <button
-            onClick={() => setDesktopExpanded(false)}
-            className="
-              flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-              bg-[#1a1025]/80 backdrop-blur-md border border-white/10
-              text-white/50 text-[11px] hover:text-white/70 hover:border-white/20
-              active:scale-95 transition-all duration-200 select-none cursor-pointer
-            "
-            style={{ fontFamily: 'Gohufont, monospace' }}
-            aria-label="Minimize jobs list"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-            </svg>
-            <span>minimize</span>
-          </button>
+        {/* Pill button — ALWAYS visible */}
+        <div className={desktopExpanded ? 'flex justify-end' : ''}>
+          <GearToggleButton
+            count={visibleJobs.length}
+            hasRunning={hasRunning}
+            hasFailed={hasFailed}
+            expanded={desktopExpanded}
+            onClick={() => setDesktopExpanded((v) => !v)}
+            completedCount={completedHistory.length}
+          />
         </div>
 
-        {/* Active job cards */}
-        {hasActiveJobs && visibleJobs.map((job) => (
-          <JobCard key={job.id} job={job} feedbackGiven={feedbackState.submitted.get(job.id)} onThumbsUp={handleThumbsUp} onThumbsDown={openFeedbackModal} />
-        ))}
-        
-        {/* Show completed jobs history when no active jobs */}
-        {!hasActiveJobs && completedHistory.length > 0 && (
-          <>
-            <div className="text-[10px] text-white/40 px-2 py-1 uppercase tracking-wider" style={{ fontFamily: 'Gohufont, monospace' }}>
-              Recent completed jobs
-            </div>
-            {completedHistory.map((job) => (
-              <CompletedJobCard key={job.id} job={job} feedbackGiven={feedbackState.submitted.get(job.id)} onThumbsUp={handleThumbsUp} onThumbsDown={openFeedbackModal} />
-            ))}
-          </>
-        )}
-        
-        {/* Message when no jobs at all */}
-        {!hasActiveJobs && completedHistory.length === 0 && (
-          <div 
-            className="px-3 py-2 text-[11px] text-white/40 italic"
-            style={{ fontFamily: 'Gohufont, monospace' }}
-          >
-            No jobs yet. Activity will appear here.
-          </div>
-        )}
-        {feedbackModal}
+        {/* Expanded job list */}
+        {desktopExpanded && renderJobList()}
       </div>
     );
   }
 
-  // ── Mobile: gear button (RIGHT) → expanded panel ────────────────────────────
+  // ── Mobile ────────────────────────────
   return (
     <div
       ref={containerRef}
-      className="fixed top-[24px] right-4 z-[800] flex flex-col items-end gap-2"
-      style={{ pointerEvents: 'none' }}
+      className={`fixed z-[450] flex flex-col items-end gap-2 transition-opacity duration-200 ${wonderCanvasActive ? 'opacity-0' : 'opacity-100'}`}
+      style={{
+        pointerEvents: 'none',
+        // When the News app is open on mobile, nudge the widget slightly
+        // down and right so it clears the top header chrome. As soon as
+        // the scene changes away from news, it returns to its original
+        // position.
+        top: isNewsScene ? '3.5rem' : '0.75rem',
+        right: isNewsScene ? '10px' : `${computedRight}px`,
+      }}
     >
-      {/* Gear toggle button — always visible on mobile, tapping toggles the panel */}
       <div style={{ pointerEvents: 'auto' }}>
         <GearToggleButton
           count={visibleJobs.length}
@@ -1139,21 +1131,18 @@ export function ActiveJobsWidget() {
           hasFailed={hasFailed}
           expanded={mobileExpanded}
           onClick={() => setMobileExpanded((v) => !v)}
+          completedCount={completedHistory.length}
         />
       </div>
 
-      {/* Expanded job cards — slide down from the right */}
       <div
         className={`
           flex flex-col gap-1.5 pt-1
           transition-all duration-300 ease-out origin-top-right
-          ${mobileExpanded
-            ? 'opacity-100 scale-100'
-            : 'opacity-0 scale-95 pointer-events-none'}
+          ${mobileExpanded ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}
         `}
         style={{
           pointerEvents: mobileExpanded ? 'auto' : 'none',
-          // Leave ~200px clear at bottom so Pearl + chat bar are never covered
           maxHeight: mobileExpanded ? 'calc(100dvh - 200px)' : '0px',
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -1162,54 +1151,8 @@ export function ActiveJobsWidget() {
           transition: 'opacity 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out',
         }}
       >
-        {/* Minimize button */}
-        <div className="flex items-center self-end">
-          <button
-            onClick={() => setMobileExpanded(false)}
-            className="
-              flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-              bg-[#1a1025]/80 backdrop-blur-md border border-white/10
-              text-white/50 text-[11px] hover:text-white/70 hover:border-white/20
-              active:scale-95 transition-all duration-200 select-none cursor-pointer
-            "
-            style={{ fontFamily: 'Gohufont, monospace' }}
-            aria-label="Minimize jobs list"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            <span>minimize</span>
-          </button>
-        </div>
-
-        {/* Active job cards */}
-        {hasActiveJobs && visibleJobs.map((job) => (
-          <JobCard key={job.id} job={job} feedbackGiven={feedbackState.submitted.get(job.id)} onThumbsUp={handleThumbsUp} onThumbsDown={openFeedbackModal} />
-        ))}
-        
-        {/* Show completed jobs history when no active jobs */}
-        {!hasActiveJobs && completedHistory.length > 0 && (
-          <>
-            <div className="text-[10px] text-white/40 px-2 py-1 uppercase tracking-wider" style={{ fontFamily: 'Gohufont, monospace' }}>
-              Recent completed jobs
-            </div>
-            {completedHistory.map((job) => (
-              <CompletedJobCard key={job.id} job={job} feedbackGiven={feedbackState.submitted.get(job.id)} onThumbsUp={handleThumbsUp} onThumbsDown={openFeedbackModal} />
-            ))}
-          </>
-        )}
-        
-        {/* Message when no jobs at all */}
-        {!hasActiveJobs && completedHistory.length === 0 && (
-          <div 
-            className="px-3 py-2 text-[11px] text-white/40 italic"
-            style={{ fontFamily: 'Gohufont, monospace' }}
-          >
-            No jobs yet. Activity will appear here.
-          </div>
-        )}
+        {renderJobList()}
       </div>
-      {feedbackModal}
     </div>
   );
 }

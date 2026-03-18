@@ -4,19 +4,20 @@ import time
 import uuid
 import hashlib
 import asyncio
+from collections import OrderedDict
 import redis
 import aiohttp
 
 # Load .env so gateway picks up DEFAULT_TENANT_ID, BOT_TTS_PROVIDER, etc.
 try:
     from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'), override=True)
 except ImportError:
     pass
 
 from fastapi import FastAPI, HTTPException, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional, Dict, Any
 from loguru import logger
 
@@ -156,28 +157,35 @@ async def _auto_join_default_room():
 from contextlib import asynccontextmanager
 
 
+async def _check_single_service(service_name: str, host: str, port: int):
+    """Check health of a single service (TCP probe)."""
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=2.0
+        )
+        writer.close()
+        await writer.wait_closed()
+        logger.info(f"[service-check] ✓ {service_name} is reachable on port {port}")
+    except (asyncio.TimeoutError, ConnectionRefusedError, OSError) as e:
+        logger.warning(
+            f"[service-check] ✗ {service_name} unreachable on port {port} - "
+            f"some features may be degraded. Error: {e.__class__.__name__}"
+        )
+
+
 async def _check_service_health():
-    """Check health of dependent services (graceful degradation - log warnings only)."""
+    """Check health of dependent services in parallel (graceful degradation - log warnings only)."""
     services = [
         ("PocketTTS", "127.0.0.1", 8766),
         ("Mesh API", "127.0.0.1", 2000),
         ("OpenClaw Gateway", "127.0.0.1", 18789),
     ]
     
-    for service_name, host, port in services:
-        try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
-                timeout=2.0
-            )
-            writer.close()
-            await writer.wait_closed()
-            logger.info(f"[service-check] ✓ {service_name} is reachable on port {port}")
-        except (asyncio.TimeoutError, ConnectionRefusedError, OSError) as e:
-            logger.warning(
-                f"[service-check] ✗ {service_name} unreachable on port {port} - "
-                f"some features may be degraded. Error: {e.__class__.__name__}"
-            )
+    await asyncio.gather(*[
+        _check_single_service(name, host, port)
+        for name, host, port in services
+    ])
 
 
 @asynccontextmanager
@@ -188,13 +196,17 @@ async def lifespan(app_instance: FastAPI):
     # Startup: auto-create persistent room and join bot
     auto_room_enabled = os.getenv("AUTO_ROOM_ENABLED", "true").lower() != "false"
     if auto_room_enabled and DAILY_API_KEY:
-        # Small delay to let runner_main modules initialize
-        await asyncio.sleep(1)
+        # Removed: asyncio.sleep(1) — runner_main modules are already imported
+        # by the time lifespan runs; no delay needed.
         await _auto_join_default_room()
     else:
         logger.info("[auto-room] Auto-room disabled (AUTO_ROOM_ENABLED=false or no DAILY_API_KEY)")
     yield
-    # Shutdown: nothing special needed
+    # Shutdown: close persistent aiohttp sessions
+    global _daily_broadcast_session
+    if _daily_broadcast_session and not _daily_broadcast_session.closed:
+        await _daily_broadcast_session.close()
+        _daily_broadcast_session = None
 
 
 app = FastAPI(lifespan=lifespan)
@@ -249,6 +261,39 @@ app.add_middleware(
 _ws_clients: dict[WebSocket, str | None] = {}  # ws -> session_id (None = receive all)
 _ws_clients_lock = asyncio.Lock()
 
+# ---------------------------------------------------------------------------
+# Replay buffer — queues recent nia.event envelopes when no WS clients are
+# connected so the first canvas push isn't lost.  Replayed on client connect.
+# ---------------------------------------------------------------------------
+_ws_replay_buffer: list[tuple[dict, str | None]] = []  # (envelope, session_id)
+_WS_REPLAY_MAX = 20          # max envelopes to buffer
+_WS_REPLAY_MAX_AGE_S = 30    # drop buffered events older than this
+
+# ---------------------------------------------------------------------------
+# Canvas HTML store — offload oversized HTML payloads for URL-based delivery
+# ---------------------------------------------------------------------------
+_canvas_html_store: OrderedDict[str, tuple[str, float]] = OrderedDict()  # key -> (html, timestamp)
+_CANVAS_STORE_TTL = 300  # 5 minutes
+_CANVAS_STORE_MAX = 50   # max entries
+
+
+def canvas_store_html(html: str) -> str:
+    """Store HTML content and return a unique key for URL-based retrieval."""
+    now = time.time()
+    # Evict expired entries
+    while _canvas_html_store:
+        oldest_key, (_, ts) = next(iter(_canvas_html_store.items()))
+        if now - ts > _CANVAS_STORE_TTL:
+            _canvas_html_store.pop(oldest_key)
+        else:
+            break
+    # Evict if over max
+    while len(_canvas_html_store) >= _CANVAS_STORE_MAX:
+        _canvas_html_store.popitem(last=False)
+    key = hashlib.sha256(html.encode()).hexdigest()[:16]
+    _canvas_html_store[key] = (html, now)
+    return key
+
 
 async def ws_broadcast(envelope: dict, session_id: str | None = None):
     """Send an envelope to connected WebSocket clients.
@@ -256,8 +301,19 @@ async def ws_broadcast(envelope: dict, session_id: str | None = None):
     If session_id is provided, only clients subscribed to that session (or
     unscoped clients) receive the event. This prevents tool events from
     leaking to stale/other sessions.
+    
+    When no clients are connected, nia.event envelopes are buffered and
+    replayed when the first client connects (solves first-push-lost race).
     """
     if not _ws_clients:
+        # Buffer nia.event envelopes for replay on first client connect
+        kind = envelope.get("kind", "")
+        if kind == "nia.event" or kind == "nia.tool_result":
+            _ws_replay_buffer.append((envelope, session_id))
+            # Trim to max size
+            while len(_ws_replay_buffer) > _WS_REPLAY_MAX:
+                _ws_replay_buffer.pop(0)
+            logger.debug(f"[ws/events] No clients connected — buffered {kind} for replay (buffer={len(_ws_replay_buffer)})")
         return
     payload = json.dumps(envelope)
     async with _ws_clients_lock:
@@ -288,6 +344,40 @@ async def ws_events(websocket: WebSocket):
     async with _ws_clients_lock:
         _ws_clients[websocket] = None  # Unscoped by default
     logger.info(f"[ws/events] Client connected, total={len(_ws_clients)}")
+
+    # Replay buffered events to the newly connected client
+    if _ws_replay_buffer:
+        import time as _replay_time
+        now = _replay_time.time()
+        replayed = 0
+        for env, _sid in list(_ws_replay_buffer):
+            # Skip stale events
+            env_ts = env.get("ts", 0) / 1000.0  # ts is ms
+            if now - env_ts > _WS_REPLAY_MAX_AGE_S:
+                continue
+            try:
+                await websocket.send_text(json.dumps(env))
+                replayed += 1
+            except Exception:
+                break
+        _ws_replay_buffer.clear()
+        if replayed:
+            logger.info(f"[ws/events] Replayed {replayed} buffered event(s) to new client")
+
+    # Start keepalive pinger — sends a ping every 15s to detect dead clients
+    async def _keepalive():
+        import asyncio as _aio
+        try:
+            while True:
+                await _aio.sleep(15)
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    break
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    keepalive_task = asyncio.create_task(_keepalive())
     try:
         while True:
             msg = await websocket.receive_text()
@@ -298,6 +388,7 @@ async def ws_events(websocket: WebSocket):
                     async with _ws_clients_lock:
                         _ws_clients[websocket] = data["session_id"]
                     logger.info(f"[ws/events] Client scoped to session={data['session_id']}")
+                # Respond to client pongs (keepalive ack) — no action needed
             except (json.JSONDecodeError, Exception):
                 pass
     except WebSocketDisconnect:
@@ -305,6 +396,7 @@ async def ws_events(websocket: WebSocket):
     except Exception:
         pass
     finally:
+        keepalive_task.cancel()
         async with _ws_clients_lock:
             _ws_clients.pop(websocket, None)
         logger.info(f"[ws/events] Client disconnected, total={len(_ws_clients)}")
@@ -620,11 +712,12 @@ async def chat_history(limit: int = 50):
 # Used by Wonder Canvas so it doesn't have to guess Unsplash photo IDs.
 # ---------------------------------------------------------------------------
 
-_image_cache: Dict[str, str] = {}  # query -> resolved image URL
+_image_cache: OrderedDict[str, str] = OrderedDict()  # query -> resolved image URL (LRU, capped)
+_IMAGE_URL_CACHE_MAX = 200
 
 # Wikipedia requires a descriptive User-Agent with contact info per their
 # robot policy (https://w.wiki/4wJS).  Generic / short UAs get 403'd.
-_WIKI_UA = "PearlOS/1.0 (https://pearlos.org; contact@pearlos.org) aiohttp/3.x"
+_WIKI_UA = "PearlOS/1.0 (https://pearlos.org; dev@niaxp.com) aiohttp/3.x"
 
 
 async def _resolve_wiki_title(session: aiohttp.ClientSession, q: str) -> str | None:
@@ -664,66 +757,122 @@ def _make_svg_placeholder(q: str) -> str:
 
 
 from fastapi.responses import RedirectResponse, Response as FastAPIResponse
+from collections import OrderedDict
+
+# LRU cache for image bytes: key -> (content_type, bytes)
+_image_bytes_cache: OrderedDict[str, tuple[str, bytes]] = OrderedDict()
+_IMAGE_BYTES_CACHE_MAX = 50
+
+
+async def _fetch_image_bytes(session: aiohttp.ClientSession, url: str) -> tuple[str, bytes] | None:
+    """Fetch image bytes from a URL. Returns (content_type, bytes) or None."""
+    try:
+        async with session.get(
+            url,
+            timeout=aiohttp.ClientTimeout(total=15),
+            headers={"User-Agent": _WIKI_UA},
+        ) as resp:
+            if resp.status == 200:
+                ct = resp.headers.get("Content-Type", "image/jpeg")
+                data = await resp.read()
+                if len(data) > 0:
+                    return (ct, data)
+    except Exception as e:
+        logger.warning(f"[image-proxy] Failed to fetch bytes from {url}: {e}")
+    return None
 
 
 @app.get("/api/image")
 async def image_proxy(q: str):
-    """Resolve a search query to a real image URL via Wikipedia.
+    """Resolve a search query to a real image via Wikipedia.
 
-    Returns a redirect to the actual image (e.g. a Wikipedia thumbnail).
-    Falls back to a simple SVG placeholder if no image is found.
+    Returns the actual image bytes (cached in memory) to avoid downstream
+    rate-limiting from Wikimedia 302 redirects.
 
     Usage: GET /api/image?q=sea+turtle
     """
     q_lower = q.lower().strip()
 
-    # 1. Check cache
-    if q_lower in _image_cache:
-        cached = _image_cache[q_lower]
-        logger.info(f"[image-proxy] Cache hit for '{q_lower}': {cached}")
-        return RedirectResponse(url=cached, status_code=302)
+    # 1. Check bytes cache
+    if q_lower in _image_bytes_cache:
+        _image_bytes_cache.move_to_end(q_lower)
+        ct, img_bytes = _image_bytes_cache[q_lower]
+        logger.info(f"[image-proxy] Bytes cache hit for '{q_lower}' ({len(img_bytes)} bytes)")
+        return FastAPIResponse(content=img_bytes, media_type=ct, headers={
+            "Cache-Control": "public, max-age=86400",
+            "Access-Control-Allow-Origin": "*",
+        })
 
-    # 2. Resolve canonical Wikipedia title via opensearch, then fetch summary
-    async with aiohttp.ClientSession() as session:
-        slug = await _resolve_wiki_title(session, q_lower)
-        if not slug:
-            # Fallback: simple capitalisation
-            slug = q_lower.replace(" ", "_").capitalize()
+    # 2. Resolve URL (from URL cache or Wikipedia API)
+    img_url = _image_cache.get(q_lower)
 
-        wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
-        try:
-            async with session.get(
-                wiki_url,
-                timeout=aiohttp.ClientTimeout(total=8),
-                headers={"User-Agent": _WIKI_UA},
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    # Try thumbnail, then originalimage
-                    img_url = None
-                    for key in ("thumbnail", "originalimage"):
-                        src = (data.get(key) or {}).get("source")
-                        if src:
-                            img_url = src
-                            break
-                    if img_url:
-                        # Prefer higher-resolution version (bump width to 800px)
-                        import re as _re
-                        img_url = _re.sub(r"/\d+px-", "/800px-", img_url)
-                        _image_cache[q_lower] = img_url
-                        logger.info(f"[image-proxy] Resolved '{q_lower}' → {img_url}")
-                        return RedirectResponse(url=img_url, status_code=302)
-                    else:
-                        logger.info(f"[image-proxy] Wikipedia summary found but no thumbnail for '{q_lower}'")
-                else:
-                    logger.info(f"[image-proxy] Wikipedia returned {resp.status} for slug '{slug}'")
-        except Exception as e:
-            logger.warning(f"[image-proxy] Wikipedia lookup failed for '{q_lower}': {e}")
+    if not img_url:
+        async with aiohttp.ClientSession() as session:
+            # Try progressively simpler search terms
+            words = q_lower.split()
+            search_variants = [q_lower]
+            # Add subset variants: first 3 words, first 2, first 1
+            for n in (3, 2, 1):
+                if len(words) > n:
+                    search_variants.append(" ".join(words[:n]))
 
-    # 3. Fallback: SVG placeholder with the query text
+            for variant in search_variants:
+                slug = await _resolve_wiki_title(session, variant)
+                if not slug:
+                    slug = variant.replace(" ", "_").capitalize()
+
+                wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
+                try:
+                    async with session.get(
+                        wiki_url,
+                        timeout=aiohttp.ClientTimeout(total=8),
+                        headers={"User-Agent": _WIKI_UA},
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            for key in ("thumbnail", "originalimage"):
+                                src = (data.get(key) or {}).get("source")
+                                if src:
+                                    img_url = src
+                                    break
+                            if img_url:
+                                import re as _re
+                                img_url = _re.sub(r"/\d+px-", "/800px-", img_url)
+                                _image_cache[q_lower] = img_url
+                                if len(_image_cache) > _IMAGE_URL_CACHE_MAX:
+                                    _image_cache.popitem(last=False)
+                                logger.info(f"[image-proxy] Resolved '{q_lower}' (variant='{variant}') → {img_url}")
+                                break
+                        else:
+                            logger.info(f"[image-proxy] Wikipedia returned {resp.status} for slug '{slug}'")
+                except Exception as e:
+                    logger.warning(f"[image-proxy] Wikipedia lookup failed for '{variant}': {e}")
+
+            # NOTE: source.unsplash.com is defunct (returns 503). No Unsplash fallback.
+            if not img_url:
+                logger.info(f"[image-proxy] No image found for '{q_lower}' via Wikipedia")
+
+    # 3. Fetch and cache image bytes
+    if img_url:
+        async with aiohttp.ClientSession() as session:
+            result = await _fetch_image_bytes(session, img_url)
+            if result:
+                ct, img_bytes = result
+                _image_bytes_cache[q_lower] = (ct, img_bytes)
+                if len(_image_bytes_cache) > _IMAGE_BYTES_CACHE_MAX:
+                    _image_bytes_cache.popitem(last=False)
+                logger.info(f"[image-proxy] Cached bytes for '{q_lower}' ({len(img_bytes)} bytes)")
+                return FastAPIResponse(content=img_bytes, media_type=ct, headers={
+                    "Cache-Control": "public, max-age=86400",
+                    "Access-Control-Allow-Origin": "*",
+                })
+
+    # 4. Fallback: SVG placeholder
     logger.info(f"[image-proxy] Using SVG placeholder for '{q_lower}'")
     svg_content = _make_svg_placeholder(q)
-    return FastAPIResponse(content=svg_content, media_type="image/svg+xml")
+    return FastAPIResponse(content=svg_content, media_type="image/svg+xml", headers={
+        "Access-Control-Allow-Origin": "*",
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -846,6 +995,23 @@ async def photo_magic_status(prompt_id: str):
     """Check generation status for a prompt_id."""
     from comfyui_client import get_status
     return await get_status(prompt_id)
+
+
+@app.get("/api/photo-magic/gallery")
+async def photo_magic_gallery():
+    """List all generated images with metadata, newest first."""
+    import glob
+    files = glob.glob(os.path.join(PHOTO_MAGIC_OUTPUT_DIR, "*.png"))
+    items = []
+    for f in sorted(files, key=os.path.getmtime, reverse=True)[:50]:
+        name = os.path.basename(f)
+        items.append({
+            "filename": name,
+            "url": f"/api/photo-magic/result/{name}",
+            "created": os.path.getmtime(f),
+            "size": os.path.getsize(f),
+        })
+    return {"items": items}
 
 
 @app.get("/api/photo-magic/result/{filename}")
@@ -1068,6 +1234,14 @@ async def _direct_runner_start(body: dict, session_id: str, req_logger) -> dict:
                     targetRoom=room_url,
                     sessionId=target_session.id,
                 )
+                # Cancel any pending idle shutdown — the user is reconnecting.
+                # Without this, a post-leave shutdown timer can kill the bot
+                # before the new participant's Daily join event arrives.
+                target_session.cancel_pending_shutdown()
+                req_logger.info(
+                    "[gateway] Direct mode: cancelled pending shutdown on reused session",
+                    sessionId=target_session.id,
+                )
                 async with user_bots_lock:
                     user_bots[user_bot_key] = {
                         "session_id": target_session.id,
@@ -1222,8 +1396,6 @@ async def _direct_runner_start(body: dict, session_id: str, req_logger) -> dict:
                             "personalityId": current.get("personalityId") or body.get("personalityId"),
                             "persona": current.get("persona") or body.get("persona"),
                             "reused": True,
-                                "detail": "Bot launch completed by concurrent request",
-                                "debugTraceId": debug_trace_id,
                             "detail": "Bot launch completed by concurrent request",
                             "debugTraceId": debug_trace_id,
                         }
@@ -1238,6 +1410,8 @@ async def _direct_runner_start(body: dict, session_id: str, req_logger) -> dict:
                         req_logger.info(
                             f"[gateway] Direct mode: Found existing bot for {room_url} (age: {existing_age:.1f}s)"
                         )
+                        # Cancel any pending idle shutdown on the reused session
+                        sessions[existing_session_id].cancel_pending_shutdown()
                         return {
                             "status": "running",
                             "session_id": existing_session_id,
@@ -2264,7 +2438,15 @@ async def emit_event(body: EmitEventRequest):
 
 class ToolInvokeRequest(BaseModel):
     tool_name: str
-    params: Dict[str, Any] = {}
+    params: Dict[str, Any] | None = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_null_params(cls, values: Any) -> Any:
+        """Coerce null params to empty dict — Groq sends null for no-arg tools."""
+        if isinstance(values, dict) and values.get("params") is None:
+            values["params"] = {}
+        return values
     room_url: str | None = None  # optional; defaults to first active room
     # Direct execution context (used when no Daily room is active)
     tenant_id: str | None = None
@@ -2324,6 +2506,14 @@ def _register_direct_handlers():
             return {"success": False, "error": "title is required"}
         note = await notes_actions.create_note(tenant_id, user_id, title, content, mode)
         if note:
+            _current_note_state.update({
+                "noteId": note.get("_id") or note.get("page_id"),
+                "title": note.get("title"),
+                "content": note.get("content"),
+                "viewState": "document",
+                "action": "opened",
+                "updatedAt": time.time(),
+            })
             return {
                 "success": True,
                 "note": note,
@@ -2334,9 +2524,9 @@ def _register_direct_handlers():
     async def _handle_bot_replace_note(params: dict, tenant_id: str, user_id: str) -> dict:
         content = params.get("content", "")
         title = params.get("title")
-        note_id = params.get("note_id")
+        note_id = params.get("note_id") or _current_note_state.get("noteId")
         if not note_id:
-            return {"success": False, "error": "note_id is required for direct invocation (no active note context)"}
+            return {"success": False, "error": "note_id is required (no note currently open)"}
         if not content:
             return {"success": False, "error": "content is required"}
         ok = await notes_actions.update_note_content(tenant_id, note_id, content, user_id, title)
@@ -2348,24 +2538,40 @@ def _register_direct_handlers():
     async def _handle_bot_open_note(params: dict, tenant_id: str, user_id: str) -> dict:
         note_id = params.get("note_id")
         title = params.get("title")
+
+        def _return_open(note: dict) -> dict:
+            _current_note_state.update({
+                "noteId": note.get("_id") or note.get("page_id"),
+                "title": note.get("title"),
+                "content": note.get("content"),
+                "viewState": "document" if note else "library",
+                "action": "opened",
+                "updatedAt": time.time(),
+            })
+            return {
+                "success": True,
+                "note": note,
+                "user_message": f"Opened note: {note.get('title', 'Untitled')}",
+            }
+
         if note_id:
             note = await notes_actions.get_note_by_id(tenant_id, note_id)
             if note:
-                return {"success": True, "note": note, "user_message": f"Opened note: {note.get('title', 'Untitled')}"}
+                return _return_open(note)
             return {"success": False, "error": f"Note {note_id} not found"}
         if title:
             matches = await notes_actions.fuzzy_search_notes(tenant_id, title, user_id)
             if matches and len(matches) == 1:
-                return {"success": True, "note": matches[0], "user_message": f"Opened note: {matches[0].get('title', 'Untitled')}"}
+                return _return_open(matches[0])
             if matches and len(matches) > 1:
                 return {"success": False, "error": "Multiple notes match that title", "matches": [{"_id": n.get("_id"), "title": n.get("title")} for n in matches]}
             return {"success": False, "error": f"No note matching '{title}'"}
         return {"success": False, "error": "note_id or title required"}
 
     async def _handle_bot_read_current_note(params: dict, tenant_id: str, user_id: str) -> dict:
-        note_id = params.get("note_id")
+        note_id = params.get("note_id") or _current_note_state.get("noteId")
         if not note_id:
-            return {"success": False, "error": "note_id is required for direct invocation (no active note context)"}
+            return {"success": False, "error": "note_id is required (no note currently open)"}
         note = await notes_actions.get_note_by_id(tenant_id, note_id)
         if not note:
             return {"success": False, "error": "Note not found"}
@@ -2404,6 +2610,45 @@ def _register_direct_handlers():
     _DIRECT_TOOL_HANDLERS["bot_delete_note"] = _handle_bot_delete_note
     _DIRECT_TOOL_HANDLERS["bot_save_note"] = _handle_bot_save_note
 
+    # Photo Magic — generate images via ComfyUI
+    async def _handle_bot_photo_magic_generate(params: dict, tenant_id: str, user_id: str) -> dict:
+        prompt = params.get("prompt", "")
+        if not prompt:
+            return {"success": False, "error": "prompt is required"}
+        try:
+            from comfyui_client import generate_image
+            path = await generate_image(prompt, output_dir=PHOTO_MAGIC_OUTPUT_DIR)
+            filename = os.path.basename(path)
+            return {
+                "success": True,
+                "image_path": path,
+                "image_url": f"/api/photo-magic/result/{filename}",
+                "filename": filename,
+                "user_message": f"Image generated: {prompt[:60]}",
+            }
+        except ImportError:
+            return {"success": False, "error": "ComfyUI client not available on this server"}
+        except Exception as e:
+            logger.error(f"[photo-magic] Generate via tool failed: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
+
+    _DIRECT_TOOL_HANDLERS["bot_photo_magic_generate"] = _handle_bot_photo_magic_generate
+
+    # Note view-control tools — pure UI, no Mesh/DB needed.
+    # Direct handlers just return success; the broadcast mechanism sends
+    # the nia.event envelope with the payload to all connected clients.
+    async def _handle_note_control_passthrough(params: dict, tenant_id: str, user_id: str) -> dict:
+        return {"success": True, "user_message": "Note control command sent."}
+
+    for _nt in [
+        "bot_scroll_note",
+        "bot_highlight_note",
+        "bot_highlight_note_text",
+        "bot_navigate_note_heading",
+        "bot_clear_note_highlights",
+    ]:
+        _DIRECT_TOOL_HANDLERS[_nt] = _handle_note_control_passthrough
+
     # Wonder Canvas tools — pure UI, no Mesh/DB needed.
     # Direct handlers just return success; the broadcast mechanism sends
     # the nia.event envelope with the HTML payload to all connected clients.
@@ -2419,6 +2664,158 @@ def _register_direct_handlers():
         "bot_wonder_canvas_template",
     ]:
         _DIRECT_TOOL_HANDLERS[_wt] = _handle_wonder_passthrough
+
+    # ---------------------------------------------------------------------------
+    # bot_canvas_show — creates a note via Mesh and opens it on the UI.
+    # The _broadcast_tool_event_best_effort emits note.open so the frontend
+    # navigates to the new note even without a voice session.
+    # ---------------------------------------------------------------------------
+    async def _handle_bot_canvas_show(params: dict, tenant_id: str, user_id: str) -> dict:
+        title = params.get("title", "Untitled")
+        content = params.get("content", "")
+        if not content:
+            return {"success": False, "error": "content is required"}
+        mode = "work"
+        note = await notes_actions.create_note(tenant_id, user_id, title, content, mode)
+        if note:
+            return {
+                "success": True,
+                "note": note,
+                "user_message": f"I've put '{title}' on your screen.",
+            }
+        return {"success": False, "error": "Failed to create note via Mesh"}
+
+    _DIRECT_TOOL_HANDLERS["bot_canvas_show"] = _handle_bot_canvas_show
+
+    # bot_canvas_show_file — reads a file and creates a note with its content
+    async def _handle_bot_canvas_show_file(params: dict, tenant_id: str, user_id: str) -> dict:
+        from pathlib import Path
+        file_path = params.get("file_path", "")
+        title = params.get("title")
+        if not file_path:
+            return {"success": False, "error": "file_path is required"}
+        path = Path(file_path)
+        if not path.is_absolute():
+            for base in [
+                Path("/workspace/OpenClaw/workspace"),
+                Path("/workspace/nia-universal"),
+                Path.cwd(),
+            ]:
+                candidate = base / file_path
+                if candidate.exists():
+                    path = candidate
+                    break
+        if not path.exists():
+            return {"success": False, "error": f"File not found: {file_path}"}
+        try:
+            from services.openclaw_mesh_bridge import _file_to_markdown
+            content = _file_to_markdown(path)
+        except ImportError:
+            # Fallback: read as text
+            try:
+                content = path.read_text(errors="replace")[:50000]
+            except Exception as e:
+                return {"success": False, "error": f"Cannot read file: {e}"}
+        display_title = title or path.name
+        note = await notes_actions.create_note(tenant_id, user_id, display_title, content, "work")
+        if note:
+            return {"success": True, "note": note, "user_message": f"I've put '{display_title}' on your screen."}
+        return {"success": False, "error": "Failed to create note via Mesh"}
+
+    _DIRECT_TOOL_HANDLERS["bot_canvas_show_file"] = _handle_bot_canvas_show_file
+
+    # Canvas content tools (chart, article, image, table) — pure UI events.
+    # The broadcast mechanism emits canvas.render for the frontend.
+    async def _handle_canvas_content_passthrough(params: dict, tenant_id: str, user_id: str) -> dict:
+        return {"success": True, "user_message": "Content displayed on canvas."}
+
+    for _ct in [
+        "bot_canvas_show_chart",
+        "bot_canvas_show_article",
+        "bot_canvas_show_image",
+        "bot_canvas_show_table",
+    ]:
+        _DIRECT_TOOL_HANDLERS[_ct] = _handle_canvas_content_passthrough
+
+    # ---------------------------------------------------------------------------
+    # bot_open_news — returns success; the frontend renders the News UI.
+    # The UI broadcast (app.open) is handled by _broadcast_tool_event_best_effort
+    # via the _TOOL_UI_EVENTS mapping, which tells the frontend to open the
+    # built-in News app using the same clean buildNewsHTML() as the desktop icon.
+    # ---------------------------------------------------------------------------
+    async def _handle_bot_open_news(params: dict, tenant_id: str, user_id: str) -> dict:
+        return {"success": True, "user_message": "Opening The News app."}
+
+    _DIRECT_TOOL_HANDLERS["bot_open_news"] = _handle_bot_open_news
+
+    # ---------------------------------------------------------------------------
+    # bot_get_weather — fetches live weather data and returns it.
+    # The wonder.scene UI event is broadcast by _broadcast_tool_event_best_effort.
+    # ---------------------------------------------------------------------------
+    async def _handle_bot_get_weather(params: dict, tenant_id: str, user_id: str) -> dict:
+        import aiohttp as _aiohttp
+        try:
+            from tools.weather_tools import _geocode, _fetch_weather, _decode_wmo, _build_weather_card_html, WEATHER_CARD_CSS
+        except ImportError:
+            return {"success": False, "error": "Weather tools not available"}
+
+        location = (params.get("location") or "").strip()
+        if not location:
+            return {"success": False, "error": "Location is required."}
+
+        try:
+            async with _aiohttp.ClientSession() as session:
+                geo = await _geocode(session, location)
+                if not geo:
+                    return {"success": False, "error": f"Could not find location: {location}"}
+
+                loc_display = geo["name"]
+                if geo.get("admin1"):
+                    loc_display += f", {geo['admin1']}"
+                if geo.get("country"):
+                    loc_display += f", {geo['country']}"
+
+                weather = await _fetch_weather(session, geo["latitude"], geo["longitude"], geo["timezone"])
+                if not weather:
+                    return {"success": False, "error": "Failed to fetch weather data."}
+
+            current = weather.get("current", {})
+            daily = weather.get("daily", {})
+            current_units = weather.get("current_units", {})
+
+            wmo = current.get("weather_code", 0)
+            desc, emoji, icon = _decode_wmo(wmo)
+
+            forecast_list = []
+            for i, d in enumerate(daily.get("time", [])):
+                fc_desc, _, _ = _decode_wmo(daily["weather_code"][i] if i < len(daily.get("weather_code", [])) else 0)
+                forecast_list.append({
+                    "date": d,
+                    "condition": fc_desc,
+                    "high_f": daily["temperature_2m_max"][i] if i < len(daily.get("temperature_2m_max", [])) else None,
+                    "low_f": daily["temperature_2m_min"][i] if i < len(daily.get("temperature_2m_min", [])) else None,
+                })
+
+            return {
+                "success": True,
+                "location": loc_display,
+                "current": {
+                    "temperature_f": current.get("temperature_2m"),
+                    "feels_like_f": current.get("apparent_temperature"),
+                    "condition": desc,
+                    "humidity_pct": current.get("relative_humidity_2m"),
+                    "wind_mph": current.get("wind_speed_10m"),
+                },
+                "forecast": forecast_list,
+                "user_message": f"Here's the weather for {loc_display}.",
+                # Stash HTML for the broadcast function to pick up
+                "_weather_html": _build_weather_card_html(loc_display, current, daily, current_units),
+                "_weather_css": WEATHER_CARD_CSS,
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Weather fetch failed: {str(e)}"}
+
+    _DIRECT_TOOL_HANDLERS["bot_get_weather"] = _handle_bot_get_weather
 
     # bot_end_call — emits bot.session.end nia.event; the actual Pipecat
     # session teardown is handled by the Daily pipeline when the bot process
@@ -2481,6 +2878,97 @@ def _register_direct_handlers():
 
     _DIRECT_TOOL_HANDLERS["bot_end_call"] = _handle_bot_end_call
 
+    # ── Generic passthrough handlers for UI-only tools ──────────────
+    # These tools just emit nia.event UI envelopes (open/close apps, window
+    # management, YouTube, soundtrack, etc.). They don't need backend logic —
+    # the _broadcast_tool_event_best_effort function handles the actual event
+    # emission based on _PASSTHROUGH_UI_EVENTS mapping.
+    async def _handle_ui_passthrough(params: dict, tenant_id: str, user_id: str) -> dict:
+        return {"success": True, "user_message": "Done."}
+
+    _UI_PASSTHROUGH_TOOLS = [
+        "bot_open_notes", "bot_close_notes",
+        "bot_open_youtube", "bot_close_youtube",
+        "bot_open_gmail", "bot_close_gmail",
+        "bot_open_terminal", "bot_close_terminal",
+        "bot_open_google_drive", "bot_close_google_drive",
+        "bot_open_creation_engine", "bot_close_applet_creation_engine",
+        "bot_open_browser", "bot_open_enhanced_browser",
+        "bot_close_browser_window", "bot_close_view",
+        "bot_minimize_window", "bot_maximize_window",
+        "bot_restore_window", "bot_snap_window_left",
+        "bot_snap_window_right", "bot_reset_window_position",
+        "bot_switch_desktop_mode",
+        "bot_search_youtube_videos", "bot_play_youtube_video",
+        "bot_pause_youtube_video", "bot_play_next_youtube_video",
+        "bot_play_soundtrack", "bot_stop_soundtrack",
+        "bot_next_soundtrack_track", "bot_adjust_soundtrack_volume",
+        "bot_set_soundtrack_volume",
+        "bot_switch_note_mode", "bot_show_share_dialog",
+    ]
+    for _tool_name in _UI_PASSTHROUGH_TOOLS:
+        _DIRECT_TOOL_HANDLERS[_tool_name] = _handle_ui_passthrough
+
+    # --- OpenClaw bridge: fire-and-forget background task ---
+    async def _handle_bot_openclaw_task(params: dict, tenant_id: str | None, user_id: str | None) -> dict:
+        """Direct handler for bot_openclaw_task — fire-and-forget to OpenClaw gateway."""
+        task = (params or {}).get("task", "").strip()
+        urgency = (params or {}).get("urgency", "normal")
+        if not task:
+            return {"success": False, "error": "task_required", "user_message": "I need a task description."}
+
+        session_key = f"oclaw-{uuid.uuid4().hex[:12]}"
+        openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
+        openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
+        escalation_model = os.getenv("BOT_ESCALATION_MODEL", "anthropic/claude-opus-4.6")
+
+        payload = {
+            "model": escalation_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a sub-agent spawned by Voice Pearl to handle a background task. "
+                        "Complete it thoroughly. Results will appear in the PearlOS interface. "
+                        "Write in clean natural language — no markdown formatting, no bullet lists.\n\n"
+                        "CRITICAL CONSTRAINTS:\n"
+                        "- Only use the message tool if the user explicitly asked you to send a message.\n"
+                        "- NEVER send your own internal reasoning to any channel.\n"
+                        "- Return your results directly. You are a sub-agent, not an independent agent."
+                    ),
+                },
+                {"role": "user", "content": f"[urgency={urgency}] {task}"},
+            ],
+            "stream": False,
+            "max_tokens": 4096,
+        }
+
+        async def _fire():
+            try:
+                async with aiohttp.ClientSession() as sess:
+                    async with sess.post(
+                        f"{openclaw_url}/chat/completions",
+                        json=payload,
+                        headers={"Authorization": f"Bearer {openclaw_key}"},
+                        timeout=aiohttp.ClientTimeout(total=120),
+                    ) as resp:
+                        if resp.status == 200:
+                            logger.info(f"[tools] OpenClaw background task completed: {session_key}")
+                        else:
+                            err = await resp.text()
+                            logger.error(f"[tools] OpenClaw task failed: {resp.status}: {err[:200]}")
+            except Exception as e:
+                logger.error(f"[tools] OpenClaw task error: {e}")
+
+        asyncio.ensure_future(_fire())
+        return {
+            "success": True,
+            "sessionKey": session_key,
+            "user_message": f"Task sent to OpenClaw. Session: {session_key}",
+        }
+
+    _DIRECT_TOOL_HANDLERS["bot_openclaw_task"] = _handle_bot_openclaw_task
+
 
 # Register on import
 try:
@@ -2507,12 +2995,43 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
     the frontend can react to tool outcomes without a Daily room.
     """
     import time as _time
+    try:
+        await _broadcast_tool_event_best_effort_inner(tool_name, params, result, room_url)
+    except Exception as e:
+        logger.error(f"[tools] _broadcast_tool_event_best_effort FAILED for {tool_name}: {e}", exc_info=True)
+
+
+async def _broadcast_tool_event_best_effort_inner(tool_name: str, params: dict, result: dict, room_url: str | None):
+    # ┌──────────────────────────────────────────────────────────────────────┐
+    # │ CRITICAL: DO NOT skip this broadcast based on Daily session state.  │
+    # │                                                                     │
+    # │ When tools are invoked via REST POST /api/tools/invoke (i.e. from   │
+    # │ the OpenClaw gateway), this WebSocket broadcast is the ONLY way     │
+    # │ the frontend receives the event. There is no in-process forwarder   │
+    # │ in the REST path — the AppMessageForwarder (Daily app-message) only │
+    # │ exists during in-process pipecat voice sessions.                    │
+    # │                                                                     │
+    # │ During voice sessions, tools run in-process via pipecat and use     │
+    # │ params.forwarder.emit_tool_event() → Daily app-message. The REST    │
+    # │ path + this broadcast are NOT involved in that flow.                │
+    # │                                                                     │
+    # │ The frontend event-dedup.ts ring buffer handles the (rare) case     │
+    # │ where both paths deliver the same event.                            │
+    # │                                                                     │
+    # │ History: 2026-02-28 — A "fix" that skipped this broadcast when a    │
+    # │ Daily session was active broke Wonder Canvas completely because     │
+    # │ REST-invoked tools lost their only delivery path. Reverted in       │
+    # │ commit 149a1eb6.                                                    │
+    # └──────────────────────────────────────────────────────────────────────┘
+    import time as _time
+
+    _broadcast_ts = int(_time.time() * 1000)
 
     envelope = {
         "v": 1,
         "kind": "nia.tool_result",
         "seq": 0,
-        "ts": int(_time.time() * 1000),
+        "ts": _broadcast_ts,
         "tool_name": tool_name,
         "params": params,
         "result": result,
@@ -2532,6 +3051,21 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
 
     # WebSocket broadcast scoped to active room/session
     await ws_broadcast(envelope, session_id=_room_name_for_scope)
+
+    # Also deliver via Daily app-message forwarder if a voice session is active.
+    # WebSocket delivery through Next.js rewrites + RunPod proxy is unreliable;
+    # the Daily app-message path is the primary reliable channel during voice.
+    _forwarder = None
+    if room_url:
+        from room.state import get_forwarder as _get_fwd
+        _forwarder = _get_fwd(room_url)
+    if not _forwarder:
+        # Try to find any active forwarder
+        from room.state import _room_forwarders as _fwd_map
+        for _fwd_url, _fwd_inst in _fwd_map.items():
+            if _fwd_inst:
+                _forwarder = _fwd_inst
+                break
 
     # Emit proper nia.event UI envelopes for tools that have UI side-effects.
     # This mirrors what the in-process forwarder does during a Daily session.
@@ -2588,6 +3122,10 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
         "bot_snap_window_right": "window.snap.right",
         "bot_reset_window_position": "window.reset",
         "bot_switch_note_mode": "note.mode.switch",
+        # News — emit app.open so the frontend renders the clean News UI
+        "bot_open_news": "app.open",
+        # Weather — render on Wonder Canvas
+        "bot_get_weather": "wonder.scene",
         # Wonder Canvas tools
         "bot_wonder_canvas_scene": "wonder.scene",
         "bot_wonder_canvas_add": "wonder.add",
@@ -2595,6 +3133,26 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
         "bot_wonder_canvas_clear": "wonder.clear",
         "bot_wonder_canvas_animate": "wonder.animate",
         "bot_wonder_canvas_template": "wonder.scene",
+        # Note control tools (scroll, highlight, navigate)
+        "bot_scroll_note": "note.scroll",
+        "bot_highlight_note": "note.highlight",
+        "bot_highlight_note_text": "note.highlight",
+        "bot_navigate_note_heading": "note.navigate.heading",
+        "bot_clear_note_highlights": "note.highlight.clear",
+        # OpenClaw Canvas tools — bot_canvas_show creates a note
+        "bot_canvas_show": "note.open",
+        "bot_canvas_show_file": "note.open",
+        # Canvas content tools — emit canvas.render for the frontend
+        "bot_canvas_show_chart": "canvas.render",
+        "bot_canvas_show_article": "canvas.render",
+        "bot_canvas_show_image": "canvas.render",
+        "bot_canvas_show_table": "canvas.render",
+        # Soundtrack tools
+        "bot_play_soundtrack": "soundtrack.control",
+        "bot_stop_soundtrack": "soundtrack.control",
+        "bot_next_soundtrack_track": "soundtrack.control",
+        "bot_adjust_soundtrack_volume": "soundtrack.control",
+        "bot_set_soundtrack_volume": "soundtrack.control",
         # Session control
         "bot_end_call": "bot.session.end",
     }
@@ -2640,7 +3198,97 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
                 }
             except Exception as _tmpl_err:
                 logger.warning(f"[tools] Wonder template render failed in broadcast: {_tmpl_err}")
-                # Fall through with raw params — frontend will ignore (no html key)
+                # The tool itself already emitted the wonder.scene event with
+                # rendered HTML via forwarder.emit_tool_event, so if our
+                # re-render here fails, just skip the broadcast entirely rather
+                # than sending an empty payload that blanks the canvas.
+                ui_event = None  # prevent broadcast below
+
+        # bot_open_news: emit app.open so the frontend renders the clean News UI
+        if tool_name == "bot_open_news" and ui_event == "app.open":
+            ui_payload = {"app": "news"}
+            category = (result or {}).get("category")
+            if category:
+                ui_payload["category"] = category
+
+        # bot_get_weather: use the pre-built HTML from the direct handler result
+        if tool_name == "bot_get_weather" and ui_event == "wonder.scene":
+            _whtml = result.get("_weather_html")
+            _wcss = result.get("_weather_css", "")
+            if _whtml:
+                ui_payload = {
+                    "html": _whtml,
+                    "css": _wcss,
+                    "transition": "fade",
+                    "layer": "main",
+                }
+                # Clean up internal fields from the result
+                result.pop("_weather_html", None)
+                result.pop("_weather_css", None)
+            else:
+                logger.warning("[tools] bot_get_weather result missing _weather_html; skipping UI broadcast")
+                ui_event = None
+
+        # Canvas content tools — build canvas.render payload from tool params
+        if ui_event == "canvas.render" and tool_name in (
+            "bot_canvas_show_chart", "bot_canvas_show_article",
+            "bot_canvas_show_image", "bot_canvas_show_table",
+        ):
+            import json as _json
+            _content: dict[str, Any] = {}
+            if tool_name == "bot_canvas_show_chart":
+                _chart_type = (params or {}).get("chart_type", "bar")
+                try:
+                    _chart_data = _json.loads((params or {}).get("chart_data", "{}"))
+                except Exception:
+                    _chart_data = {}
+                _content = {
+                    "type": "chart",
+                    "title": (params or {}).get("title", "Chart"),
+                    "data": {"chartType": _chart_type, **_chart_data},
+                }
+            elif tool_name == "bot_canvas_show_article":
+                _content = {
+                    "type": "article",
+                    "title": (params or {}).get("headline", "Article"),
+                    "data": {
+                        "headline": (params or {}).get("headline", ""),
+                        "body": (params or {}).get("body", ""),
+                        "source": (params or {}).get("source", ""),
+                        "author": (params or {}).get("author"),
+                        "heroImage": (params or {}).get("hero_image"),
+                        "url": (params or {}).get("url"),
+                    },
+                }
+            elif tool_name == "bot_canvas_show_image":
+                _content = {
+                    "type": "image",
+                    "title": (params or {}).get("title"),
+                    "data": {
+                        "src": (params or {}).get("image_url", ""),
+                        "alt": (params or {}).get("title", "Image"),
+                        "caption": (params or {}).get("caption"),
+                        "pixelArt": (params or {}).get("pixel_art", False),
+                    },
+                }
+            elif tool_name == "bot_canvas_show_table":
+                try:
+                    _cols = _json.loads((params or {}).get("columns", "[]"))
+                    _rows = _json.loads((params or {}).get("rows", "[]"))
+                except Exception:
+                    _cols, _rows = [], []
+                _content = {
+                    "type": "table",
+                    "title": (params or {}).get("title", "Data"),
+                    "data": {"columns": _cols, "rows": _rows},
+                }
+            if _content:
+                ui_payload = {
+                    "content": _content,
+                    "transition": "fade",
+                    "timestamp": int(_time.time() * 1000),
+                }
+
         # Merge select result fields (note data, etc.)
         if "note" in result:
             note = result["note"]
@@ -2661,15 +3309,94 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
         if close_app:
             ui_payload["apps"] = [close_app]
 
+        # Build soundtrack.control payload from tool name + params
+        if ui_event == "soundtrack.control":
+            _action_map = {
+                "bot_play_soundtrack": "play",
+                "bot_stop_soundtrack": "stop",
+                "bot_next_soundtrack_track": "next",
+                "bot_adjust_soundtrack_volume": "volume",
+                "bot_set_soundtrack_volume": "volume",
+            }
+            _st_action = _action_map.get(tool_name, "play")
+            ui_payload["action"] = _st_action
+            if _st_action == "volume":
+                ui_payload.setdefault("volume", (params or {}).get("volume", 0.5))
+            if tool_name == "bot_play_soundtrack":
+                _genre = (params or {}).get("genre") or (params or {}).get("playlist")
+                if _genre:
+                    ui_payload["genre"] = _genre
+
+        # snake_case → camelCase fixup for note control tools
+        if tool_name == "bot_scroll_note" and isinstance(ui_payload, dict):
+            if "search_text" in ui_payload:
+                ui_payload["searchText"] = ui_payload.pop("search_text")
+
         ui_envelope = {
             "v": 1,
             "kind": "nia.event",
             "seq": 0,
-            "ts": int(_time.time() * 1000),
+            "ts": _broadcast_ts,
             "event": ui_event,
             "payload": ui_payload,
+            "source": "gateway-broadcast",  # Anti-echo: prevents bot from re-forwarding
         }
         await ws_broadcast(ui_envelope, session_id=_room_name_for_scope)
+        logger.info(f"[tools] Broadcast nia.event '{ui_event}' via WS (scope={_room_name_for_scope}, payload_keys={list(ui_payload.keys()) if isinstance(ui_payload, dict) else 'N/A'})")
+
+        # Also emit via Daily app-message forwarder for reliable delivery
+        # during voice sessions (WebSocket through proxy is unreliable).
+        # SKIP for canvas tools that already emit via their own forwarder in-process —
+        # re-emitting here causes double canvas renders visible to the user.
+        _TOOLS_WITH_OWN_FORWARDER = {
+            "bot_wonder_canvas_scene", "bot_wonder_canvas_template",
+            "bot_wonder_canvas_add", "bot_wonder_canvas_remove",
+            "bot_wonder_canvas_clear", "bot_wonder_canvas_animate",
+            "bot_get_weather",
+        }
+        if _forwarder and tool_name not in _TOOLS_WITH_OWN_FORWARDER:
+            try:
+                await _forwarder.emit_tool_event(ui_event, ui_payload, ts=_broadcast_ts)
+                logger.info(f"[tools] Also emitted '{ui_event}' via Daily forwarder (reliable path)")
+            except Exception as _fwd_err:
+                logger.warning(f"[tools] Daily forwarder emit failed for '{ui_event}': {_fwd_err}")
+        elif _forwarder and tool_name in _TOOLS_WITH_OWN_FORWARDER:
+            logger.info(f"[tools] Skipped forwarder re-emit for '{tool_name}' (tool handles own emission)")
+
+        # ── Secondary events: tools that emit multiple UI events ─────────
+        # bot_close_browser_window / bot_close_view also need wonder.clear
+        # when closing canvas-resident apps (news, weather, wonder, etc.).
+        # In the voice/Daily path, the tool code emits wonder.clear via
+        # forwarder.emit_tool_event — but in the REST path, the forwarder
+        # doesn't exist, so we must emit the secondary event here.
+        _WONDER_CANVAS_APPS = {'news', 'weather', 'wonder', 'canvas-content'}
+        if tool_name in ("bot_close_browser_window", "bot_close_view"):
+            _close_apps = (params or {}).get("apps", [])
+            _needs_canvas_clear = (
+                not _close_apps  # closing all → also clear canvas
+                or any(
+                    str(a).lower() in _WONDER_CANVAS_APPS
+                    for a in (_close_apps if isinstance(_close_apps, list) else [])
+                )
+            )
+            if _needs_canvas_clear:
+                _clear_ts = int(_time.time() * 1000)
+                _clear_envelope = {
+                    "v": 1,
+                    "kind": "nia.event",
+                    "seq": 0,
+                    "ts": _clear_ts,
+                    "event": "wonder.clear",
+                    "payload": {},
+                    "source": "gateway-broadcast",
+                }
+                await ws_broadcast(_clear_envelope, session_id=_room_name_for_scope)
+                if _forwarder:
+                    try:
+                        await _forwarder.emit_tool_event("wonder.clear", {}, ts=_clear_ts)
+                    except Exception:
+                        pass
+                logger.info(f"[tools] Also broadcast wonder.clear for {tool_name}")
 
         # Also deliver ui_envelope via Daily REST API so voice-session frontends
         # receive the event even when the WS bridge is stopped (Daily call active).
@@ -2687,12 +3414,38 @@ async def _broadcast_tool_event_best_effort(tool_name: str, params: dict, result
             _ui_api_key = os.getenv("DAILY_API_KEY", "")
             if _ui_room_name and _ui_api_key:
                 try:
+                    import copy as _ui_copy
+                    _daily_ui_envelope = _ui_copy.deepcopy(ui_envelope)
+
+                    # ── Truncate large payloads to fit Daily's 4096-byte message limit ──
+                    # The frontend can fetch full note content via its own API using noteId.
+                    _daily_ui_str = json.dumps({"data": _daily_ui_envelope, "recipient": "*"})
+                    if len(_daily_ui_str) > 3800:
+                        _daily_ui_payload = _daily_ui_envelope.get("payload", {})
+                        if isinstance(_daily_ui_payload, dict):
+                            # Truncate top-level content field
+                            if isinstance(_daily_ui_payload.get("content"), str) and len(_daily_ui_payload["content"]) > 200:
+                                _daily_ui_payload["content"] = _daily_ui_payload["content"][:200] + "…"
+                            # Truncate content inside embedded note object
+                            _embedded_note = _daily_ui_payload.get("note")
+                            if isinstance(_embedded_note, dict):
+                                _nc = _embedded_note.get("content")
+                                if isinstance(_nc, str) and len(_nc) > 200:
+                                    _embedded_note["content"] = _nc[:200] + "…"
+                                elif isinstance(_nc, dict):
+                                    _embedded_note["content"] = ""
+                            # Truncate any other large string fields (html, css, etc.)
+                            for _big_key in ("html", "css"):
+                                if isinstance(_daily_ui_payload.get(_big_key), str) and len(_daily_ui_payload[_big_key]) > 200:
+                                    _daily_ui_payload[_big_key] = _daily_ui_payload[_big_key][:200] + "…"
+                        logger.debug(f"[tools] Truncated ui_envelope for Daily delivery: {len(_daily_ui_str)} -> {len(json.dumps({'data': _daily_ui_envelope, 'recipient': '*'}))} bytes")
+
                     _ui_url = f"https://api.daily.co/v1/rooms/{_ui_room_name}/send-app-message"
                     _ui_hdrs = {"Authorization": f"Bearer {_ui_api_key}", "Content-Type": "application/json"}
                     _ui_sess = await _get_daily_broadcast_session()
                     async with _ui_sess.post(
                             _ui_url,
-                            json={"data": ui_envelope, "recipient": "*"},
+                            json={"data": _daily_ui_envelope, "recipient": "*"},
                             headers=_ui_hdrs,
                             timeout=5,
                         ) as _ui_resp:
@@ -2784,17 +3537,47 @@ async def invoke_tool(body: ToolInvokeRequest):
         user_id = body.user_id or os.getenv("BOT_SESSION_USER_ID")
 
         # Pure UI tools (Wonder Canvas, etc.) don't need tenant/user context
-        _UI_ONLY_TOOLS = {"bot_wonder_canvas_scene", "bot_wonder_canvas_add",
-                          "bot_wonder_canvas_remove", "bot_wonder_canvas_clear",
-                          "bot_wonder_canvas_animate", "bot_wonder_canvas_template",
-                          "bot_end_call"}
+        _UI_ONLY_TOOLS = {
+            "bot_wonder_canvas_scene", "bot_wonder_canvas_add",
+            "bot_wonder_canvas_remove", "bot_wonder_canvas_clear",
+            "bot_wonder_canvas_animate", "bot_wonder_canvas_template",
+            "bot_end_call", "bot_open_news", "bot_get_weather",
+            # Canvas content tools (pure UI — no Mesh needed)
+            "bot_canvas_show_chart", "bot_canvas_show_article",
+            "bot_canvas_show_image", "bot_canvas_show_table",
+            # UI passthrough tools (open/close apps, window mgmt, YouTube, soundtrack)
+            "bot_open_notes", "bot_close_notes",
+            "bot_open_youtube", "bot_close_youtube",
+            "bot_open_gmail", "bot_close_gmail",
+            "bot_open_terminal", "bot_close_terminal",
+            "bot_open_google_drive", "bot_close_google_drive",
+            "bot_open_creation_engine", "bot_close_applet_creation_engine",
+            "bot_open_browser", "bot_open_enhanced_browser",
+            "bot_close_browser_window", "bot_close_view",
+            "bot_minimize_window", "bot_maximize_window",
+            "bot_restore_window", "bot_snap_window_left",
+            "bot_snap_window_right", "bot_reset_window_position",
+            "bot_switch_desktop_mode",
+            "bot_search_youtube_videos", "bot_play_youtube_video",
+            "bot_pause_youtube_video", "bot_play_next_youtube_video",
+            "bot_play_soundtrack", "bot_stop_soundtrack",
+            "bot_next_soundtrack_track", "bot_adjust_soundtrack_volume",
+            "bot_set_soundtrack_volume",
+            "bot_switch_note_mode", "bot_show_share_dialog",
+            "bot_scroll_note", "bot_highlight_note", "bot_highlight_note_text",
+            "bot_navigate_note_heading", "bot_clear_note_highlights",
+            # OpenClaw bridge (fire-and-forget, no tenant context needed)
+            "bot_openclaw_task",
+        }
         # Deduplication: prevent the same canvas tool from firing twice within 10s
         _CANVAS_DEDUP_TOOLS = {"bot_wonder_canvas_scene"}
         if body.tool_name in _CANVAS_DEDUP_TOOLS:
             _now = _time.monotonic()
-            _dedup_key = f"{body.tool_name}:{body.room_url or 'default'}"
+            import hashlib as _hashlib
+            _content_hash = _hashlib.md5(str(body.params).encode()).hexdigest()[:8]
+            _dedup_key = f"{body.tool_name}:{body.room_url or 'default'}:{_content_hash}"
             _last_call = getattr(invoke_tool, '_dedup_cache', {}).get(_dedup_key, 0)
-            if _now - _last_call < 10.0:
+            if _now - _last_call < 0.5:  # was 2.0 — too aggressive for interactive stories
                 logger.warning(f"[tools] DEDUP: Skipping duplicate {body.tool_name} call ({_now - _last_call:.1f}s since last)")
                 return {
                     "ok": True,
@@ -2805,6 +3588,12 @@ async def invoke_tool(body: ToolInvokeRequest):
             if not hasattr(invoke_tool, '_dedup_cache'):
                 invoke_tool._dedup_cache = {}
             invoke_tool._dedup_cache[_dedup_key] = _now
+            # Prevent unbounded growth: evict entries older than 30s
+            if len(invoke_tool._dedup_cache) > 100:
+                invoke_tool._dedup_cache = {
+                    k: v for k, v in invoke_tool._dedup_cache.items()
+                    if _now - v < 30.0
+                }
 
         if tenant_id and user_id or body.tool_name in _UI_ONLY_TOOLS:
             logger.info(f"[tools] Direct-executing {body.tool_name} (tenant={tenant_id}, user={user_id})")
@@ -2912,6 +3701,10 @@ async def invoke_tool(body: ToolInvokeRequest):
         "bot_set_soundtrack_volume": "soundtrack.control",
         "bot_switch_note_mode": "note.mode.switch",
         "bot_show_share_dialog": "share.show",
+        # News — emit app.open so the frontend renders the clean News UI
+        "bot_open_news": "app.open",
+        # Weather — render on Wonder Canvas
+        "bot_get_weather": "wonder.scene",
         # Wonder Canvas tools
         "bot_wonder_canvas_scene": "wonder.scene",
         "bot_wonder_canvas_add": "wonder.add",
@@ -2919,6 +3712,19 @@ async def invoke_tool(body: ToolInvokeRequest):
         "bot_wonder_canvas_clear": "wonder.clear",
         "bot_wonder_canvas_animate": "wonder.animate",
         "bot_wonder_canvas_template": "wonder.scene",
+        # Note control tools (scroll, highlight, navigate)
+        "bot_scroll_note": "note.scroll",
+        "bot_highlight_note": "note.highlight",
+        "bot_highlight_note_text": "note.highlight",
+        "bot_navigate_note_heading": "note.navigate.heading",
+        "bot_clear_note_highlights": "note.highlight.clear",
+        # OpenClaw Canvas tools
+        "bot_canvas_show": "note.open",
+        "bot_canvas_show_file": "note.open",
+        "bot_canvas_show_chart": "canvas.render",
+        "bot_canvas_show_article": "canvas.render",
+        "bot_canvas_show_image": "canvas.render",
+        "bot_canvas_show_table": "canvas.render",
         # Session control — emit bot.session.end so frontend teardown triggers
         "bot_end_call": "bot.session.end",
     }
@@ -2965,6 +3771,9 @@ async def invoke_tool(body: ToolInvokeRequest):
         soundtrack_action = _SOUNDTRACK_ACTIONS.get(body.tool_name)
         if soundtrack_action:
             pt_payload.update(soundtrack_action)
+        # snake_case → camelCase for note scroll
+        if body.tool_name == "bot_scroll_note" and "search_text" in pt_payload:
+            pt_payload["searchText"] = pt_payload.pop("search_text")
         ui_envelope = {
             "v": 1,
             "kind": "nia.event",
@@ -2975,6 +3784,29 @@ async def invoke_tool(body: ToolInvokeRequest):
         }
         await ws_broadcast(ui_envelope, session_id=_relay_room_name)
         logger.info(f"[tools] Emitted nia.event '{pt_event}' via WebSocket for {body.tool_name}")
+
+        # ── Secondary events: close tools need wonder.clear for canvas apps ──
+        _WONDER_CANVAS_APPS_RELAY = {'news', 'weather', 'wonder', 'canvas-content'}
+        if body.tool_name in ("bot_close_browser_window", "bot_close_view"):
+            _close_apps_relay = (body.params or {}).get("apps", [])
+            _needs_clear_relay = (
+                not _close_apps_relay
+                or any(
+                    str(a).lower() in _WONDER_CANVAS_APPS_RELAY
+                    for a in (_close_apps_relay if isinstance(_close_apps_relay, list) else [])
+                )
+            )
+            if _needs_clear_relay:
+                _clear_env = {
+                    "v": 1,
+                    "kind": "nia.event",
+                    "seq": 0,
+                    "ts": int(_time.time() * 1000),
+                    "event": "wonder.clear",
+                    "payload": {},
+                }
+                await ws_broadcast(_clear_env, session_id=_relay_room_name)
+                logger.info(f"[tools] Also broadcast wonder.clear for relay {body.tool_name}")
 
     # Resolve target room (optional — Daily delivery is best-effort)
     # Prefer non-auto-created rooms (real user sessions) over the persistent default room.
@@ -3324,6 +4156,19 @@ async def soundtrack_state_update(request: Request):
         return {"status": "error", "error": str(e)}
 
 
+@app.get("/canvas/{key}.html")
+async def get_canvas_html(key: str):
+    """Serve stored canvas HTML by key (URL-based payload delivery)."""
+    entry = _canvas_html_store.get(key)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Canvas HTML not found or expired")
+    html, ts = entry
+    if time.time() - ts > _CANVAS_STORE_TTL:
+        _canvas_html_store.pop(key, None)
+        raise HTTPException(status_code=404, detail="Canvas HTML expired")
+    return FastAPIResponse(content=html, media_type="text/html")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -3485,6 +4330,10 @@ async def meeting_add_transcript(request: Request):
         "timestamp": time.time(),
     }
     _meeting_state["segments"].append(segment)
+    # Cap segments to prevent unbounded memory growth in long meetings
+    MAX_MEETING_SEGMENTS = 5000
+    if len(_meeting_state["segments"]) > MAX_MEETING_SEGMENTS:
+        _meeting_state["segments"] = _meeting_state["segments"][-MAX_MEETING_SEGMENTS:]
     return {"ok": True, "segment_count": len(_meeting_state["segments"])}
 
 
@@ -3552,21 +4401,5 @@ async def meeting_state():
 
 
 # ---------------------------------------------------------------------------
-# Health
+# Health (duplicate removed — primary handler is @app.get("/health") above)
 # ---------------------------------------------------------------------------
-
-def health():
-    # When Redis is enabled, check it
-    if USE_REDIS:
-        try:
-            if r and r.ping():
-                return {"status": "ok"}
-        except Exception as e:
-            logger.error(f"Health check redis ping failed: {e}")
-        return {"status": "error", "detail": "redis disconnected"}
-
-    # Direct mode — gateway is healthy if it's running
-    result: Dict[str, Any] = {"status": "ok", "mode": "direct"}
-    if _default_room_url:
-        result["default_room"] = _default_room_url
-    return result

@@ -1,0 +1,25 @@
+name: deploy-kokoro-tts-stg
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'apps/chorus-tts/**'
+      - 'charts/kokoro-tts/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/deploy-kokoro-tts-stg.yml'
+  workflow_dispatch:
+
+jobs:
+  kokoro-tts:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app_name: kokoro-tts
+      dockerfile_path: apps/chorus-tts/Dockerfile
+      environment: stg
+      context_path: apps/chorus-tts
+    permissions:
+      id-token: write
+      contents: read
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}

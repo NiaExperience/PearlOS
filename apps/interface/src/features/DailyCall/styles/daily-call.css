@@ -3941,3 +3941,143 @@
   }
 }
 
+
+/* Image Support for Chat */
+.nia-daily-call-root .chat-image-preview {
+  padding: 12px;
+  background: rgba(30, 30, 50, 0.6);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nia-daily-call-root .preview-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nia-daily-call-root .preview-image {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.nia-daily-call-root .preview-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nia-daily-call-root .preview-filename {
+  color: #e5e7eb;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.nia-daily-call-root .preview-status {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.nia-daily-call-root .preview-remove {
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.nia-daily-call-root .preview-remove:hover {
+  background: rgba(220, 38, 38, 0.4);
+  border-color: rgba(220, 38, 38, 0.6);
+  transform: scale(1.1);
+}
+
+.nia-daily-call-root .chat-attach-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+
+.nia-daily-call-root .chat-attach-btn:hover {
+  color: #d1d5db;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nia-daily-call-root .chat-drag-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 30, 0.9);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+.nia-daily-call-root .drag-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed rgba(59, 130, 246, 0.5);
+  border-radius: 20px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.nia-daily-call-root .drag-icon {
+  font-size: 64px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.nia-daily-call-root .drag-text {
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.nia-daily-call-root .message-image {
+  margin-bottom: 8px;
+}
+
+.nia-daily-call-root .image-name {
+  font-size: 0.85em;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}

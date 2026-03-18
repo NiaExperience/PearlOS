@@ -51,6 +51,35 @@ class SessionEventHandler:
         self.current_participant_context: dict[str, Any] | None = None
         self.participant_context_message: dict[str, Any] | None = None
 
+    async def _is_authoritative_bot(self) -> bool:
+        """Check Redis to see if this bot is still authoritative for the room.
+
+        Returns True on any failure (fail-open) so single-bot setups work fine.
+        """
+        from core.config import BOT_PID as _pid
+        use_redis = os.getenv("USE_REDIS", "true").lower() == "true"
+        if not use_redis:
+            return True
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        password = (
+            os.getenv("REDIS_SHARED_SECRET")
+            if os.getenv("REDIS_AUTH_REQUIRED", "false").lower() == "true"
+            else None
+        )
+        try:
+            import redis.asyncio as _redis
+            client = _redis.from_url(redis_url, password=password, decode_responses=True)
+            key = f"room_authoritative_bot:{self.room_url}"
+            current = await client.get(key)
+            await client.aclose()
+            if current and current != _pid:
+                logger.info(f"[{_pid}] [handlers] Bot superseded by {current}")
+                return False
+            return True
+        except Exception as e:
+            logger.warning(f"[handlers] Auth bot check failed (fail-open): {e}")
+            return True
+
     def _get_greeting_state(self):
         return get_flow_greeting_state(self.flow_manager, self.room_url)
 
@@ -309,27 +338,84 @@ class SessionEventHandler:
                 if isinstance(node_cfg, dict):
                     await self.flow_manager.set_node_from_config(node_cfg)
 
-                # FAST GREETING: Speak a short canned phrase immediately via TTS,
-                # then wait for user voice input (skip the LLM round-trip).
-                import random
-                quick_greetings = ["Hey.", "What's up?", "Hey there.", "Hi."]
-                quick_phrase = random.choice(quick_greetings)
-                logger.info(f'[greeting] Fast greeting: "{quick_phrase}" (skipping LLM round-trip)')
+                # Check if we have session memory for a returning user
+                has_session_memory = False
+                participant_contexts = st.get('participant_contexts', {})
+                for _pid in ids:
+                    _pctx = participant_contexts.get(_pid)
+                    if _pctx and isinstance(_pctx, dict):
+                        _profile = _pctx.get('user_profile') or _pctx.get('profile_data')
+                        if _profile and isinstance(_profile, dict) and _profile.get('lastConversationSummary'):
+                            has_session_memory = True
+                            break
 
-                task = getattr(self.flow_manager, 'task', None)
-                if task and hasattr(task, 'queue_frames'):
-                    await task.queue_frames([TTSSpeakFrame(text=quick_phrase)])
-                    # Mark greeting speech as started so tool gate lifts
-                    st['greeting_speech_started'] = True
-                else:
-                    # Fallback: do the normal LLM greeting if we can't queue frames
-                    logger.warning('[greeting] Cannot queue TTSSpeakFrame, falling back to LLM greeting')
-                    async def _fast_first_run_gate() -> None:
+                if has_session_memory:
+                    # RETURNING USER: Always use fast canned greeting for reliability.
+                    # The session memory (lastConversationSummary) is already in the
+                    # system prompt context, so the LLM will naturally reference it
+                    # when the user speaks. No need for a slow LLM greeting round-trip.
+                    logger.info('[greeting] Returning user with session memory — using fast greeting (memory in context)')
+                
+                # Always use fast canned greeting for reliability:
+                if True:
+                    # FAST GREETING: Speak a short canned phrase immediately via TTS,
+                    # then wait for user voice input (skip the LLM round-trip).
+                    import random
+                    quick_greetings = ["Hey.", "What's up?", "Hey there.", "Hi."]
+                    quick_phrase = random.choice(quick_greetings)
+                    logger.info(f'[greeting] Fast greeting: "{quick_phrase}" (skipping LLM round-trip)')
+
+                    # Wait up to 2s for task.queue_frames to become available
+                    task = getattr(self.flow_manager, 'task', None)
+                    if not (task and hasattr(task, 'queue_frames')):
+                        for _retry in range(10):  # 10 x 200ms = 2s
+                            await asyncio.sleep(0.2)
+                            task = getattr(self.flow_manager, 'task', None)
+                            if task and hasattr(task, 'queue_frames'):
+                                logger.info(f'[greeting] task.queue_frames became available after {(_retry + 1) * 200}ms')
+                                break
+
+                    if task and hasattr(task, 'queue_frames'):
+                        await task.queue_frames([TTSSpeakFrame(text=quick_phrase)])
+                        # Mark greeting speech as started so tool gate lifts
+                        st['greeting_speech_started'] = True
+                        
+                        # Check if workspace context has a QA checklist to surface
                         try:
-                            self.refresh_llm_context()
+                            from pipeline.builder import load_workspace_context, detect_startup_checklist
+                            _ws_ctx = load_workspace_context()
+                            _checklist = detect_startup_checklist(_ws_ctx)
+                            if _checklist:
+                                logger.info(f'[greeting] QA checklist detected ({len(_checklist)} chars), queuing LLM turn to present it')
+                                checklist_instruction = (
+                                    "[SYSTEM] You just said a quick greeting. Now you need to walk through the QA checklist "
+                                    "that's in your workspace context. Present it conversationally — like a producer going through "
+                                    "a pre-flight checklist with the talent. Be natural and concise. Hit each item briefly. "
+                                    "Start with something like 'Alright, I've got our checklist ready. Here's what we're testing today...' "
+                                    "Keep it voice-friendly — no walls of text, just hit the key points.\n\n"
+                                    f"Here's the checklist:\n{_checklist}"
+                                )
+                                await task.queue_frames([
+                                    LLMMessagesAppendFrame(messages=[{"role": "system", "content": checklist_instruction}]),
+                                ])
+                                # Trigger an LLM run to process the injected checklist message
+                                async def _checklist_llm_run() -> None:
+                                    try:
+                                        self.refresh_llm_context()
+                                    except Exception:
+                                        pass
+                                _schedule_flow_llm_run(self.flow_manager, before_queue=_checklist_llm_run)
                         except Exception:
-                            pass
-                    _schedule_flow_llm_run(self.flow_manager, before_queue=_fast_first_run_gate)
+                            logger.exception('[greeting] Failed to check for QA checklist (non-fatal)')
+                    else:
+                        # Fallback: do the normal LLM greeting if we can't queue frames after retries
+                        logger.warning('[greeting] Cannot queue TTSSpeakFrame after 2s retry, falling back to LLM greeting')
+                        async def _fast_first_run_gate() -> None:
+                            try:
+                                self.refresh_llm_context()
+                            except Exception:
+                                pass
+                        _schedule_flow_llm_run(self.flow_manager, before_queue=_fast_first_run_gate)
             except Exception:
                 logger.exception('[greeting→beat_0] Failed transitioning to first beat')
 
@@ -354,8 +440,12 @@ class SessionEventHandler:
     async def _grace_countdown(self, st, trigger_pid: str, started_with: int):
         import time
         grace_secs = float(BOT_GREETING_GRACE_SECS())
-        
-        if started_with == 1:
+
+        # Voice-only rooms (prefixed "voice-") get zero grace period — greet immediately
+        room_name = (self.room_url or '').rsplit('/', 1)[-1] if self.room_url else ''
+        if room_name.startswith('voice-'):
+            grace_secs = 0.0
+        elif started_with == 1:
             pctx = st.get('participant_contexts', {}).get(trigger_pid)
             if pctx and isinstance(pctx, dict):
                 session_metadata = pctx.get('session_metadata')
@@ -549,6 +639,13 @@ class SessionEventHandler:
         """Emit soundtrack.control play event when the first participant joins a session."""
         async def _do_play():
             try:
+                # Guard: only the authoritative bot for this room should play.
+                # When a user disconnects and reconnects quickly, the old bot
+                # may still be alive and see the rejoin — skip it.
+                if not await self._is_authoritative_bot():
+                    logger.info("[handlers] Skipping soundtrack autoplay — this bot is superseded")
+                    return
+
                 from room.state import get_forwarder
                 forwarder = get_forwarder(self.room_url)
                 if forwarder:

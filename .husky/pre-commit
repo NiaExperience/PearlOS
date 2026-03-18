@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# Ephemeral PR draft guard: ensure PR_DOC.md is never committed.
+# If the developer staged it, unstage while leaving the file in the working tree.
+
+if git diff --cached --name-only | grep -q '^PR_DOC.md$'; then
+	echo '[pre-commit] Removing PR_DOC.md from staged changes (ephemeral file; do not commit).'
+	# Try modern restore first; fall back to reset for older git versions.
+	git restore --staged PR_DOC.md 2>/dev/null || git reset HEAD PR_DOC.md || true
+fi
+
+exit 0

@@ -1,0 +1,22 @@
+name: deploy-pipecat-daily-bot-stg
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'apps/pipecat-daily-bot/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/deploy-pipecat-daily-bot-base.yml'
+      - '.github/workflows/deploy-pipecat-daily-bot-stg.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-pipecat-daily-bot-base.yml
+    with:
+      environment: stg
+    permissions:
+      id-token: write
+      contents: read
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}

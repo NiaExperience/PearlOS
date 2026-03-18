@@ -31,12 +31,12 @@ export function SettingsModal({ isOpen, onClose, tenantId }: SettingsModalProps)
   if (!isOpen) return null;
 
   return (
-    <div className="pointer-events-auto fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto p-4">
+    <div className="pointer-events-auto fixed inset-0 z-[650] flex items-start justify-center overflow-y-auto p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative z-[950] my-8 w-full max-w-4xl">
+      <div className="relative z-[700] my-8 w-full max-w-4xl">
         <Card className="flex flex-col border-gray-700 bg-gray-900 shadow-2xl" style={{ fontFamily: 'Gohufont, monospace' }}>
           {/* Header */}
           <CardHeader className="flex flex-shrink-0 flex-row items-center justify-between space-y-0 pb-4">

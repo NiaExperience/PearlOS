@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WindowLayout } from '../types/maneuverable-window-types';
-import Image from 'next/image';
 
 interface ControlsProps {
     layout: WindowLayout;
@@ -236,108 +235,17 @@ export function ManeuverableWindowControls({ layout, onLayoutChange, onMinimize,
     return (
         <div 
             ref={controlsContainerRef}
-            className={`absolute top-1.5 right-1.5 z-50 flex items-center gap-2 transition-all duration-300 ease-in-out ${
+            className={`absolute top-2.5 right-4 z-50 flex items-center gap-2 transition-all duration-300 ease-in-out ${
                 controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
             }`}
         >
-            {isMobile ? (
-                // Mobile: Show only Close button
-                <button
-                    onClick={onClose}
-                    className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                    title="Close"
-                >
-                    <Image 
-                        src="/windowcontrolicons/close.png" 
-                        alt="Close" 
-                        width={16} 
-                        height={16}
-                        style={{ imageRendering: 'pixelated' }}
-                    />
-                </button>
-            ) : (
-                // Desktop: Show all controls
-                <>
-                    <button
-                        onClick={() => { onLayoutChange('left'); }}
-                        className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                        title="Snap Left"
-                    >
-                        <Image 
-                            src="/windowcontrolicons/snapleft.png" 
-                            alt="Snap Left" 
-                            width={16} 
-                            height={16}
-                            style={{ imageRendering: 'pixelated' }}
-                        />
-                    </button>
-                    <button
-                        onClick={() => { onLayoutChange('right'); }}
-                        className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                        title="Snap Right"
-                    >
-                        <Image 
-                            src="/windowcontrolicons/snapright.png" 
-                            alt="Snap Right" 
-                            width={16} 
-                            height={16}
-                            style={{ imageRendering: 'pixelated' }}
-                        />
-                    </button>
-                    <button
-                        onClick={() => { onRestoreCenter(); }}
-                        className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                        title="Center"
-                    >
-                        <Image 
-                            src="/windowcontrolicons/center.png" 
-                            alt="Center" 
-                            width={16} 
-                            height={16}
-                            style={{ imageRendering: 'pixelated' }}
-                        />
-                    </button>
-                    <button
-                        onClick={onMinimize}
-                        className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                        title="Minimize"
-                    >
-                        <Image 
-                            src="/windowcontrolicons/minimize.png" 
-                            alt="Minimize" 
-                            width={16} 
-                            height={16}
-                            style={{ imageRendering: 'pixelated' }}
-                        />
-                    </button>
-                    <button
-                        onClick={() => onLayoutChange(layout === 'maximized' ? 'normal' : 'maximized')}
-                        className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                        title={layout === 'maximized' ? 'Restore' : 'Maximize'}
-                    >
-                        <Image 
-                            src={layout === 'maximized' ? '/windowcontrolicons/restore.png' : '/windowcontrolicons/maximize.png'} 
-                            alt={layout === 'maximized' ? 'Restore' : 'Maximize'} 
-                            width={16} 
-                            height={16}
-                            style={{ imageRendering: 'pixelated' }}
-                        />
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="p-1 bg-gray-600/80 hover:bg-gray-500/90 text-white border border-gray-500/50 hover:border-gray-400/70 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-md hover:backdrop-blur-lg"
-                        title="Close"
-                    >
-                        <Image 
-                            src="/windowcontrolicons/close.png" 
-                            alt="Close" 
-                            width={16} 
-                            height={16}
-                            style={{ imageRendering: 'pixelated' }}
-                        />
-                    </button>
-                </>
-            )}
+            <button
+                onClick={onClose}
+                className="wonder-close-button"
+                title="Close"
+            >
+                ✕
+            </button>
         </div>
     );
 }

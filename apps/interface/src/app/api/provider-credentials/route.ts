@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { requireAuth } from '@interface/lib/api-auth';
 
 const ENV_PATH = '/root/.openclaw/.env';
 
@@ -51,7 +52,9 @@ async function writeEnvFile(env: Record<string, string>): Promise<void> {
 }
 
 // GET: List provider credentials status
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   try {
     const env = await parseEnvFile();
     
@@ -102,6 +105,8 @@ export async function GET() {
 
 // POST: Add or update provider credentials
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { provider, apiKey } = body;
@@ -156,6 +161,8 @@ export async function POST(request: NextRequest) {
 
 // DELETE: Remove provider credentials
 export async function DELETE(request: NextRequest) {
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get('provider');

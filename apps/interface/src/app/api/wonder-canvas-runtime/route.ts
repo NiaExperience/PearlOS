@@ -9,11 +9,15 @@ import { NextResponse } from 'next/server';
  * 
  * The HTML is injected via a query parameter (base64-encoded) or, if absent,
  * returns the static runtime shell that listens for postMessage scenes.
+ * 
+ * Uses Edge Runtime for fast cold starts (no heavy Node.js module loading).
  */
 
 // Import the runtime HTML from the renderer to keep it DRY
 // We re-export it here as a served page
 import { WONDER_RUNTIME_HTML } from '@interface/features/Stage/WonderCanvas/wonder-canvas-runtime';
+
+export const runtime = 'edge';
 
 export async function GET() {
   return new NextResponse(WONDER_RUNTIME_HTML, {

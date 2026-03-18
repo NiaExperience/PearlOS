@@ -23,7 +23,7 @@ try {
 }
 
 // Mock component using factory that only references allowed globals
-jest.mock('../components/RiveAvatar', () => {
+jest.mock('../components/FloatingPearl', () => {
   const ReactLocal = require('react');
   return {
     __esModule: true,
@@ -31,9 +31,9 @@ jest.mock('../components/RiveAvatar', () => {
   };
 });
 
-describe('RiveAvatar assets presence', () => {
+describe('FloatingPearl assets presence', () => {
   it('mounts canvas with expected state machines and asset src', () => {
-    const Mocked = require('../components/RiveAvatar').default;
+    const Mocked = require('../components/FloatingPearl').default;
     render(<Mocked />);
     const canvas = screen.getByTestId('rive-canvas');
     expect(canvas).toBeTruthy();

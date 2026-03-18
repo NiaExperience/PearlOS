@@ -3,7 +3,7 @@
  */
 // Load shared frontend jest setup (polyfills like ResizeObserver)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-require('../../../../../../jest.setup.frontend');
+require('../../../../../../tests/jest.setup.frontend');
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 

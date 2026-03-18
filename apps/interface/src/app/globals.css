@@ -21,7 +21,16 @@ html {
 body {
   /* font-family: "Cal Sans"; */
   font-family: Arial, Helvetica, sans-serif;
-  background-color: #000000 !important; /* lock PearlOS canvas to dark even if theme is light */
+  background-color: #0f0820 !important; /* lock PearlOS canvas to dark even if theme is light */
+  /* Pre-paint background image via CSS so it loads with the stylesheet,
+     not after React client-side rendering. The page bails out to CSR
+     (BAILOUT_TO_CLIENT_SIDE_RENDERING) so the component tree doesn't
+     exist in initial HTML. This ensures the image starts loading
+     immediately with the first CSS file. */
+  background-image: url('/backgrounds/home-sunset.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   /* Prevent double-tap zoom on the body */
   touch-action: manipulation;
   

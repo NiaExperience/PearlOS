@@ -6,9 +6,11 @@ import { useSession } from 'next-auth/react';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { usePostHog } from 'posthog-js/react';
 import { getClientLogger } from '@interface/lib/client-logger';
+import DOMPurify from 'dompurify';
 
-// Import styles for content animations
+// Import styles for content animations and syntax highlighting
 import '@interface/features/Notes/styles/notes-next.css';
+import 'highlight.js/styles/github-dark.css';
 
 import {
   NIA_EVENT_NOTE_CLOSE,
@@ -20,6 +22,10 @@ import {
   NIA_EVENT_NOTE_DELETED,
   NIA_EVENT_NOTES_REFRESH,
   NIA_EVENT_NOTES_LIST,
+  NIA_EVENT_NOTE_SCROLL,
+  NIA_EVENT_NOTE_HIGHLIGHT,
+  NIA_EVENT_NOTE_HIGHLIGHT_CLEAR,
+  NIA_EVENT_NOTE_NAVIGATE_HEADING,
   type NiaEventDetail,
 } from '@interface/features/DailyCall/events/niaEventRouter';
 import { forwardAppEvent } from '@interface/features/DailyCall/events/appMessageBridge';
@@ -59,6 +65,12 @@ import BookSpine from './BookSpine';
 import NoteShareControls from './NoteShareControls';
 
 const ReactMarkdown = React.lazy(() => import('react-markdown'));
+// GFM (tables, strikethrough, task lists) and syntax highlighting
+let remarkGfm: any = null;
+let rehypeHighlight: any = null;
+try { remarkGfm = require('remark-gfm').default || require('remark-gfm'); } catch {}
+try { rehypeHighlight = require('rehype-highlight').default || require('rehype-highlight'); } catch {}
+
 const log = getClientLogger('NotesNext');
 
 /**
@@ -68,7 +80,13 @@ const log = getClientLogger('NotesNext');
  */
 function isHtmlContent(content: string): boolean {
   if (!content) return false;
-  const trimmed = content.trim();
+  // Strip fenced code blocks, indented code blocks, and inline code before checking
+  // so HTML examples in code don't trigger HTML mode
+  const stripped = content
+    .replace(/```[\s\S]*?```/g, '')       // fenced code blocks
+    .replace(/`[^`]+`/g, '')              // inline code
+    .replace(/^(?: {4}|\t).*$/gm, '');    // indented code blocks
+  const trimmed = stripped.trim();
   // Starts with a doctype or html/head/body tag
   if (/^<!doctype\s+html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) return true;
   // Contains block-level HTML tags (div, section, table with attributes, style tags, etc.)
@@ -237,61 +255,15 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
       glowTimersRef.current.push(t);
     };
 
-    // First load or big content blob — progressive paragraph reveal
-    if (!prevContent && content.length > 0 && !hasRevealedRef.current) {
+    // First load or complete replacement — show all content immediately with glow
+    if ((!prevContent && content.length > 0) ||
+        (prevContent && prevContent.length > 0 && content !== prevContent && !content.startsWith(prevContent))) {
       hasRevealedRef.current = true;
-      const paragraphs = content.split(/(\n\n+)/);
-      // Show first paragraph immediately to avoid empty flash
-      let revealedIdx = 1;
-      setDisplayedContent(paragraphs.slice(0, 1).join(''));
+      setDisplayedContent(content);
       setShowGlow(true);
       setChangeType('append');
-
-      if (paragraphs.length <= 1) {
-        scheduleGlowCleanup(600);
-        return;
-      }
-
-      animationTimerRef.current = setInterval(() => {
-        revealedIdx++;
-        if (revealedIdx >= paragraphs.length) {
-          if (animationTimerRef.current) clearInterval(animationTimerRef.current);
-          setDisplayedContent(content);
-          scheduleGlowCleanup(600);
-        } else {
-          setDisplayedContent(paragraphs.slice(0, revealedIdx).join(''));
-        }
-      }, 120);
-
-      return () => { if (animationTimerRef.current) clearInterval(animationTimerRef.current); };
-    }
-
-    // Complete replacement — content actually changed (not just length-based)
-    if (prevContent && prevContent.length > 0 && content !== prevContent && !content.startsWith(prevContent)) {
-      const paragraphs = content.split(/(\n\n+)/);
-      // Show first paragraph immediately
-      let revealedIdx = 1;
-      setDisplayedContent(paragraphs.slice(0, 1).join(''));
-      setShowGlow(true);
-      setChangeType('append');
-
-      if (paragraphs.length <= 1) {
-        scheduleGlowCleanup(600);
-        return;
-      }
-
-      animationTimerRef.current = setInterval(() => {
-        revealedIdx++;
-        if (revealedIdx >= paragraphs.length) {
-          if (animationTimerRef.current) clearInterval(animationTimerRef.current);
-          setDisplayedContent(content);
-          scheduleGlowCleanup(600);
-        } else {
-          setDisplayedContent(paragraphs.slice(0, revealedIdx).join(''));
-        }
-      }, 120);
-
-      return () => { if (animationTimerRef.current) clearInterval(animationTimerRef.current); };
+      scheduleGlowCleanup(600);
+      return;
     }
 
     // Diff lines to detect new vs modified
@@ -410,11 +382,13 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
       {contentIsHtml ? (
         <div
           className="nn-html-content"
-          dangerouslySetInnerHTML={{ __html: displayedContent }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayedContent) }}
         />
       ) : (
       <React.Suspense fallback={<div className="nn-loading">Loading…</div>}>
         <ReactMarkdown
+          remarkPlugins={remarkGfm ? [remarkGfm] : []}
+          rehypePlugins={rehypeHighlight ? [rehypeHighlight] : []}
           components={{
             h1: ({ children }) => wrapWithAnimation(<h1 className="nn-h1">{children}</h1>, 'nn-h1'),
             h2: ({ children }) => wrapWithAnimation(<h2 className="nn-h2">{children}</h2>, 'nn-h2'),
@@ -521,6 +495,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
   // Refs
   const notesRef = useRef<Note[]>([]);
   const currentNoteRef = useRef<Note | null>(null);
+  const originalNoteRef = useRef<Note | null>(null);
   const isReadyRef = useRef(false);
   const commandQueueRef = useRef<Array<{ action: string; payload: Record<string, unknown> }>>([]);
   const incrementalAbortRef = useRef<(() => void) | null>(null);
@@ -538,6 +513,8 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
   // Track when NOTE_UPDATED last fired per noteId to avoid NOTES_REFRESH overwriting streaming updates
   const lastNoteUpdatedRef = useRef<Map<string, number>>(new Map());
+  // Track recently deleted note IDs to filter out stale returns from server during NOTES_REFRESH
+  const recentlyDeletedRef = useRef<Map<string, number>>(new Map());
 
   // ─── Note state broadcasting to bot gateway ────────────────────────────
 
@@ -576,6 +553,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { currentNoteRef.current = currentNote; }, [currentNote]);
+  useEffect(() => { originalNoteRef.current = originalNote; }, [originalNote]);
 
   // ─── Responsive ───────────────────────────────────────────────────────────
 
@@ -667,10 +645,16 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       const seenIds = new Set<string>();
       const sharedIds = new Set<string>();
 
+      // Clean up stale deletion tracking (older than 30 seconds)
+      const now = Date.now();
+      for (const [id, ts] of recentlyDeletedRef.current.entries()) {
+        if (now - ts > 30000) recentlyDeletedRef.current.delete(id);
+      }
+
       const handleBatch = (batch: NoteBatch) => {
         for (const item of batch.items) {
           const id = item._id;
-          if (id && !seenIds.has(id)) {
+          if (id && !seenIds.has(id) && !recentlyDeletedRef.current.has(id)) {
             seenIds.add(id);
             allNotes.push(item as Note);
           }
@@ -807,6 +791,8 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       await deleteNoteApi(noteToDeleteId, assistantName);
       posthog?.capture('note_deleted', { noteId: noteToDeleteId });
       await trackSessionHistory('Deleted Note', [{ type: 'Notes', id: noteToDeleteId }]);
+      // Track deletion so loadNotes() won't re-add from stale server data
+      recentlyDeletedRef.current.set(noteToDeleteId, Date.now());
       const updated = notes.filter(n => n._id !== noteToDeleteId);
       setNotes(updated);
       if (currentNote?._id === noteToDeleteId) {
@@ -895,7 +881,25 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     if (!hasUnsavedChanges() || !isEditMode) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
-      // Don't auto-save, just mark as needing save
+      // Auto-save: persist current changes to the file system
+      const note = currentNoteRef.current;
+      if (note && note._id) {
+        fetch('/api/notes/files', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: note._id,
+            title: note.title || '',
+            content: note.content || '',
+          }),
+        }).then(res => {
+          if (res.ok) {
+            return res.json().then(updated => {
+              originalNoteRef.current = updated;
+            });
+          }
+        }).catch(() => { /* best-effort auto-save */ });
+      }
     }, 3000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [currentNote, isEditMode, hasUnsavedChanges]);
@@ -986,6 +990,15 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         lastNoteUpdatedRef.current.set(targetId, Date.now());
       }
 
+      // Always update the notes list so library view stays in sync
+      if (targetId) {
+        const patch = {
+          ...(content !== undefined ? { content } : {}),
+          ...(title !== undefined ? { title } : {}),
+        };
+        setNotes(prev => prev.map(n => n._id === targetId ? { ...n, ...patch } : n));
+      }
+
       if (targetId && currentNoteRef.current?._id === targetId) {
         setCurrentNote(prev => {
           if (!prev) return prev;
@@ -1006,9 +1019,6 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
             ...(title !== undefined ? { title } : {}),
           };
         });
-      } else if (targetId) {
-        // Update in notes list
-        setNotes(prev => prev.map(n => n._id === targetId ? { ...n, ...(content !== undefined ? { content } : {}), ...(title !== undefined ? { title } : {}) } : n));
       }
     };
     window.addEventListener(NIA_EVENT_NOTE_UPDATED, handler as EventListener);
@@ -1060,12 +1070,12 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         setViewState('document');
         setIsEditMode(false);
       } else if (noteId) {
-        // Existing note saved — try to refresh it
+        // Existing note saved — refresh from server (don't re-save, the bot already saved)
         const existing = notesRef.current.find(n => n._id === noteId);
         if (existing) {
-          // Trigger a save of the current note if it matches
+          // If it's the current note, just mark original = current (no unsaved changes)
           if (currentNoteRef.current?._id === noteId) {
-            handleSaveNote();
+            setOriginalNote(currentNoteRef.current);
           }
         } else {
           // Note not in state — fetch and add
@@ -1099,7 +1109,8 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     return () => window.removeEventListener(NIA_EVENT_NOTE_DOWNLOAD, handler as EventListener);
   }, []);
 
-  // NOTES_REFRESH
+  // NOTES_REFRESH — debounced to avoid redundant reloads when multiple events fire together
+  const refreshDebounceRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     const handler = async (event: Event) => {
       const customEvent = event as CustomEvent<NiaEventDetail<Record<string, unknown>>>;
@@ -1115,10 +1126,20 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         refreshTargetRef.current = { noteId, mode: noteMode ?? null };
       }
       if (noteMode) setMode(noteMode);
-      await loadNotes();
+
+      // If a note was just updated/created via a specific event (NOTE_UPDATED, NOTE_OPEN, NOTE_SAVED),
+      // debounce the full reload to avoid sluggishness from redundant fetches
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+      refreshDebounceRef.current = setTimeout(async () => {
+        refreshDebounceRef.current = null;
+        await loadNotes();
+      }, isRecentlyStreamed ? 3000 : 300);
     };
     window.addEventListener(NIA_EVENT_NOTES_REFRESH, handler as EventListener);
-    return () => window.removeEventListener(NIA_EVENT_NOTES_REFRESH, handler as EventListener);
+    return () => {
+      window.removeEventListener(NIA_EVENT_NOTES_REFRESH, handler as EventListener);
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    };
   }, [mode, loadNotes]);
 
   // NOTES_LIST
@@ -1134,6 +1155,32 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     window.addEventListener(NIA_EVENT_NOTES_LIST, handler as EventListener);
     return () => window.removeEventListener(NIA_EVENT_NOTES_LIST, handler as EventListener);
   }, [loadNotes]);
+
+  // ─── Open note from FileBrowser (.md file click) ──────────────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const noteId = detail?.noteId;
+      if (!noteId) return;
+      log.info('[NotesView] Opening note from file click', { noteId });
+      const local = notesRef.current.find(n => n._id === noteId);
+      if (local) {
+        openNote(local);
+      } else {
+        fetch(`/api/notes/files?id=${encodeURIComponent(noteId)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(note => {
+            if (note) {
+              setNotes(prev => [note, ...prev]);
+              openNote(note);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    window.addEventListener('openNoteFromFile', handler);
+    return () => window.removeEventListener('openNoteFromFile', handler);
+  }, [openNote]);
 
   // NIA_EVENT_NOTE_OPEN — bot opened/created a note; navigate to it directly.
   // This complements the browser-window.tsx handler (which may be guarded by
@@ -1213,6 +1260,8 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       if (!noteId) return;
 
       log.info('[NotesView] Received note.deleted event', { noteId });
+      // Track deletion so loadNotes() won't re-add it from stale server data
+      recentlyDeletedRef.current.set(noteId, Date.now());
       setNotes(prev => prev.filter(n => n._id !== noteId));
       if (currentNoteRef.current?._id === noteId) {
         setCurrentNote(null);
@@ -1223,6 +1272,236 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     };
     window.addEventListener(NIA_EVENT_NOTE_DELETED, handler as EventListener);
     return () => window.removeEventListener(NIA_EVENT_NOTE_DELETED, handler as EventListener);
+  }, []);
+
+  // ─── Note scroll control (bot-initiated) ───────────────────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const evt = e as CustomEvent<NiaEventDetail>;
+      const payload = (evt.detail?.payload ?? {}) as Record<string, unknown>;
+      const position = payload.position as string | undefined;
+      const section = (payload.section ?? payload.heading) as string | undefined;
+      const searchText = payload.searchText as string | undefined;
+
+      const scrollContainer = document.querySelector('.nn-doc-content');
+      if (!scrollContainer) return;
+
+      log.info('[NotesView] note.scroll', { position, section, searchText });
+
+      // Scroll to section heading
+      if (section) {
+        const headings = scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const h of headings) {
+          if (h.textContent?.toLowerCase().includes(section.toLowerCase())) {
+            h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+      }
+
+      // Scroll to text match
+      if (searchText) {
+        const walker = document.createTreeWalker(scrollContainer, NodeFilter.SHOW_TEXT);
+        let node: Text | null;
+        while ((node = walker.nextNode() as Text | null)) {
+          if (node.textContent?.toLowerCase().includes(searchText.toLowerCase())) {
+            const parent = node.parentElement;
+            if (parent) {
+              parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              return;
+            }
+          }
+        }
+      }
+
+      // Positional scroll
+      if (position) {
+        const p = position.toLowerCase();
+        if (p === 'top') {
+          scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (p === 'bottom') {
+          scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+        } else if (p === 'up') {
+          scrollContainer.scrollBy({ top: -scrollContainer.clientHeight * 0.8, behavior: 'smooth' });
+        } else if (p === 'down') {
+          scrollContainer.scrollBy({ top: scrollContainer.clientHeight * 0.8, behavior: 'smooth' });
+        } else {
+          // Try percentage
+          const pct = parseFloat(p);
+          if (!isNaN(pct)) {
+            const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+            scrollContainer.scrollTo({ top: maxScroll * (pct / 100), behavior: 'smooth' });
+          }
+        }
+      }
+    };
+    window.addEventListener(NIA_EVENT_NOTE_SCROLL, handler as EventListener);
+    return () => window.removeEventListener(NIA_EVENT_NOTE_SCROLL, handler as EventListener);
+  }, []);
+
+  // ─── Note highlight control (bot-initiated) ──────────────────────────────
+  useEffect(() => {
+    const HIGHLIGHT_COLORS: Record<string, string> = {
+      yellow: 'rgba(255, 235, 59, 0.35)',
+      blue: 'rgba(66, 165, 245, 0.30)',
+      green: 'rgba(102, 187, 106, 0.30)',
+      pink: 'rgba(236, 64, 122, 0.25)',
+      orange: 'rgba(255, 167, 38, 0.30)',
+    };
+
+    const clearHighlights = () => {
+      document.querySelectorAll('.pearl-highlight').forEach(el => {
+        const parent = el.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(el.textContent || ''), el);
+          parent.normalize();
+        }
+      });
+    };
+
+    const applyHighlight = (payload: Record<string, unknown>) => {
+      const text = payload.text as string | undefined;
+      const section = payload.section as string | undefined;
+      const color = (payload.color as string) || 'yellow';
+      const durationSeconds = (payload.durationSeconds as number) ?? 8;
+      const bgColor = HIGHLIGHT_COLORS[color] || HIGHLIGHT_COLORS.yellow;
+
+      const scrollContainer = document.querySelector('.nn-doc-content');
+      if (!scrollContainer) return;
+
+      // Clear previous highlights first
+      clearHighlights();
+
+      if (section) {
+        // Highlight entire section (heading + content until next heading of same/higher level)
+        const headings = scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const h of headings) {
+          if (h.textContent?.toLowerCase().includes(section.toLowerCase())) {
+            const level = parseInt(h.tagName[1]);
+            const elementsToHighlight = [h as HTMLElement];
+            let sibling = h.nextElementSibling;
+            while (sibling) {
+              if (/^H[1-6]$/.test(sibling.tagName) && parseInt(sibling.tagName[1]) <= level) break;
+              elementsToHighlight.push(sibling as HTMLElement);
+              sibling = sibling.nextElementSibling;
+            }
+            for (const el of elementsToHighlight) {
+              el.style.backgroundColor = bgColor;
+              el.style.borderRadius = '4px';
+              el.style.transition = 'background-color 0.5s ease';
+              el.classList.add('pearl-highlight');
+            }
+            h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            break;
+          }
+        }
+      } else if (text) {
+        // Highlight text matches using mark-like wrapping
+        const searchLower = text.toLowerCase();
+        const walker = document.createTreeWalker(scrollContainer, NodeFilter.SHOW_TEXT);
+        const matches: { node: Text; start: number; end: number }[] = [];
+        let node: Text | null;
+        while ((node = walker.nextNode() as Text | null)) {
+          const content = node.textContent || '';
+          const idx = content.toLowerCase().indexOf(searchLower);
+          if (idx !== -1) {
+            matches.push({ node, start: idx, end: idx + text.length });
+          }
+        }
+        let scrolled = false;
+        // Process in reverse to maintain valid node references
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const m = matches[i];
+          const range = document.createRange();
+          range.setStart(m.node, m.start);
+          range.setEnd(m.node, m.end);
+          const mark = document.createElement('mark');
+          mark.className = 'pearl-highlight';
+          mark.style.backgroundColor = bgColor;
+          mark.style.borderRadius = '3px';
+          mark.style.padding = '1px 2px';
+          mark.style.transition = 'background-color 0.5s ease';
+          mark.style.animation = 'pearl-highlight-pulse 2s ease-in-out 2';
+          range.surroundContents(mark);
+          if (!scrolled) {
+            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            scrolled = true;
+          }
+        }
+      }
+
+      // Auto-clear after duration
+      if (durationSeconds > 0) {
+        setTimeout(clearHighlights, durationSeconds * 1000);
+      }
+    };
+
+    const highlightHandler = (e: Event) => {
+      const evt = e as CustomEvent<NiaEventDetail>;
+      const payload = (evt.detail?.payload ?? {}) as Record<string, unknown>;
+      log.info('[NotesView] note.highlight', payload);
+      applyHighlight(payload);
+    };
+
+    const clearHandler = () => {
+      log.info('[NotesView] note.highlight.clear');
+      clearHighlights();
+    };
+
+    window.addEventListener(NIA_EVENT_NOTE_HIGHLIGHT, highlightHandler as EventListener);
+    window.addEventListener(NIA_EVENT_NOTE_HIGHLIGHT_CLEAR, clearHandler as EventListener);
+    return () => {
+      window.removeEventListener(NIA_EVENT_NOTE_HIGHLIGHT, highlightHandler as EventListener);
+      window.removeEventListener(NIA_EVENT_NOTE_HIGHLIGHT_CLEAR, clearHandler as EventListener);
+    };
+  }, []);
+
+  // ─── Note navigate heading control (bot-initiated) ────────────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const evt = e as CustomEvent<NiaEventDetail>;
+      const payload = (evt.detail?.payload ?? {}) as Record<string, unknown>;
+      log.info('[NotesView] note.navigate.heading', payload);
+
+      const heading = payload.heading as string | undefined;
+      const direction = payload.direction as string | undefined;
+
+      const scrollContainer = document.querySelector('.nn-doc-content');
+      if (!scrollContainer) return;
+
+      const headings = Array.from(scrollContainer.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+      if (headings.length === 0) return;
+
+      if (heading) {
+        // Navigate to a specific heading by text match
+        const searchLower = heading.toLowerCase();
+        const target = headings.find(h => h.textContent?.toLowerCase().includes(searchLower));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Brief flash to indicate the heading
+          const el = target as HTMLElement;
+          const origBg = el.style.backgroundColor;
+          el.style.backgroundColor = 'rgba(255, 235, 59, 0.35)';
+          el.style.transition = 'background-color 0.5s ease';
+          setTimeout(() => { el.style.backgroundColor = origBg; }, 2000);
+        }
+      } else if (direction) {
+        // Navigate to next/previous heading relative to current scroll position
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const viewportMiddle = containerRect.top + containerRect.height * 0.3;
+
+        if (direction === 'next') {
+          const next = headings.find(h => h.getBoundingClientRect().top > viewportMiddle + 10);
+          if (next) next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (direction === 'previous') {
+          const above = headings.filter(h => h.getBoundingClientRect().top < viewportMiddle - 10);
+          if (above.length > 0) above[above.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    };
+
+    window.addEventListener(NIA_EVENT_NOTE_NAVIGATE_HEADING, handler as EventListener);
+    return () => window.removeEventListener(NIA_EVENT_NOTE_NAVIGATE_HEADING, handler as EventListener);
   }, []);
 
   // ─── Voice command bridge ─────────────────────────────────────────────────
@@ -1308,7 +1587,6 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       }
       if (action === 'openNote') {
         if (!isReadyRef.current) { commandQueueRef.current.push({ action, payload }); return; }
-        await new Promise(r => setTimeout(r, 300));
         let noteId = (payload.noteId as string) || '';
         const targetTitle = (payload.title as string) || '';
         const targetMode = (payload.mode as NoteMode) || mode;
@@ -1384,12 +1662,32 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     return () => window.removeEventListener('notepadCommand', handler as EventListener);
   }, [notes, mode, assistantName, hasUnsavedChanges, shouldIgnoreDuplicate, openNote, handleCreateNote, handleDeleteNote, handleSaveNote, downloadNote, handleModeSwitch, onClose, sendMessage, loadNotes]);
 
-  // ─── Cleanup ──────────────────────────────────────────────────────────────
+  // ─── Cleanup (save unsaved changes on unmount) ─────────────────────────
 
   useEffect(() => {
     return () => {
       if (incrementalAbortRef.current) incrementalAbortRef.current();
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+      // Save unsaved changes when component is unmounted externally
+      // (e.g. bot_close_notes, apps.close, window removal)
+      const note = currentNoteRef.current;
+      const orig = originalNoteRef.current;
+      if (note && note._id && orig) {
+        const hasChanges = note.title !== orig.title || note.content !== orig.content;
+        if (hasChanges) {
+          // Fire-and-forget save via the file API
+          fetch('/api/notes/files', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: note._id,
+              title: note.title || '',
+              content: note.content || '',
+            }),
+          }).catch(() => { /* best-effort */ });
+        }
+      }
     };
   }, []);
 
@@ -1584,47 +1882,12 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         ) : (
           // ═══ DOCUMENT VIEW ═══
           <div className="nn-document">
-            {/* Toolbar */}
-            <div className="nn-toolbar">
-              <div className="nn-toolbar-left">
-                <button className="nn-btn nn-btn-icon nn-btn-back" onClick={handleBackToLibrary} title="Back to library">
-                  ←
-                </button>
-                <button className="nn-btn nn-btn-icon" onClick={downloadNote} title="Download">⬇️</button>
-                <button className="nn-btn nn-btn-icon" onClick={() => fileInputRef.current?.click()} title="Import">📎</button>
-                {currentNote && (
-                  <NoteShareControls
-                    currentNote={currentNote}
-                    supportedFeatures={supportedFeatures}
-                    tenantId={currentNote?.tenantId || propTenantId}
-                    onSharingUpdated={() => toast({ title: 'Sharing Updated' })}
-                  />
-                )}
-                <button
-                  className={`nn-btn nn-btn-icon ${isEditMode ? 'nn-btn-active' : ''}`}
-                  onClick={() => { if (isEditMode && hasWriteAccess(currentNote)) setIsEditMode(false); else if (hasWriteAccess(currentNote)) setIsEditMode(true); }}
-                  title={isEditMode ? 'Preview' : 'Edit'}
-                >
-                  {isEditMode ? '👁️' : '✏️'}
-                </button>
-                {hasWriteAccess(currentNote) && currentNote?._id && (
-                  <button className="nn-btn nn-btn-icon nn-btn-delete-toolbar" onClick={() => handleDeleteNote(currentNote._id!)} title="Delete">🗑️</button>
-                )}
-              </div>
-              <div className="nn-toolbar-right">
-                {hasUnsavedChanges() && <span className="nn-unsaved-dot" title="Unsaved changes" />}
-                {!hasWriteAccess(currentNote) ? (
-                  <span className="nn-readonly-badge">🔒 Read-only</span>
-                ) : (
-                  <button
-                    className="nn-btn nn-btn-save"
-                    onClick={handleSaveNote}
-                    disabled={!hasUnsavedChanges() || isSaving || !currentNote?.content?.trim()}
-                  >
-                    {isSaving ? '⏳' : '💾'} {isSaving ? 'Saving…' : 'Save'}
-                  </button>
-                )}
-              </div>
+            {/* Back button - stays at top */}
+            <div className="nn-toolbar-top">
+              <button className="nn-btn nn-btn-icon nn-btn-back" onClick={handleBackToLibrary} title="Back to library">
+                ←
+              </button>
+              <h2 className="nn-toolbar-top-title">{currentNote?.title || 'Untitled'}</h2>
             </div>
 
             {/* Document content */}
@@ -1674,6 +1937,46 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
                 <p>No note selected</p>
               </div>
             )}
+
+            {/* Bottom Toolbar */}
+            <div className="nn-toolbar nn-toolbar-bottom">
+              <div className="nn-toolbar-left">
+                {hasUnsavedChanges() && <span className="nn-unsaved-dot" title="Unsaved changes" />}
+                {!hasWriteAccess(currentNote) ? (
+                  <span className="nn-readonly-badge">🔒 Read-only</span>
+                ) : (
+                  <button
+                    className="nn-btn nn-btn-save"
+                    onClick={handleSaveNote}
+                    disabled={!hasUnsavedChanges() || isSaving || !currentNote?.content?.trim()}
+                  >
+                    {isSaving ? '⏳' : '💾'} {isSaving ? 'Saving…' : 'Save'}
+                  </button>
+                )}
+              </div>
+              <div className="nn-toolbar-right nn-toolbar-right-bottom">
+                {hasWriteAccess(currentNote) && currentNote?._id && (
+                  <button className="nn-btn nn-btn-icon nn-btn-delete-toolbar" onClick={() => handleDeleteNote(currentNote._id!)} title="Delete">🗑️</button>
+                )}
+                <button className="nn-btn nn-btn-icon" onClick={() => fileInputRef.current?.click()} title="Import">📎</button>
+                {currentNote && (
+                  <NoteShareControls
+                    currentNote={currentNote}
+                    supportedFeatures={supportedFeatures}
+                    tenantId={currentNote?.tenantId || propTenantId}
+                    onSharingUpdated={() => toast({ title: 'Sharing Updated' })}
+                  />
+                )}
+                <button
+                  className={`nn-btn nn-btn-icon ${isEditMode ? 'nn-btn-active' : ''}`}
+                  onClick={() => { if (isEditMode && hasWriteAccess(currentNote)) setIsEditMode(false); else if (hasWriteAccess(currentNote)) setIsEditMode(true); }}
+                  title={isEditMode ? 'Preview' : 'Edit'}
+                >
+                  {isEditMode ? '👁️' : '✏️'}
+                </button>
+                <button className="nn-btn nn-btn-icon" onClick={downloadNote} title="Download">⬇️</button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -2079,18 +2382,56 @@ const NN_STYLES = `
   overflow: hidden;
 }
 
+/* Top mini-bar: back button + title */
+.nn-toolbar-top {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(30, 30, 46, 0.4);
+  z-index: 35;
+}
+
+.nn-toolbar-top-title {
+  font-family: 'Crimson Pro', serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #8a8a9a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* Bottom toolbar */
 .nn-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid #1e1e2e;
+  padding: 8px 20px;
   flex-shrink: 0;
   gap: 8px;
+  position: relative;
+  z-index: 35;
+}
+
+.nn-toolbar-bottom {
+  border-top: 1px solid rgba(30, 30, 46, 0.6);
+  background: rgba(10, 10, 15, 0.85);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .nn-toolbar-left { display: flex; align-items: center; gap: 4px; }
-.nn-toolbar-right { display: flex; align-items: center; gap: 10px; }
+.nn-toolbar-right { 
+  display: flex; 
+  align-items: center; 
+  gap: 4px;
+}
+.nn-toolbar-right-bottom {
+  padding-right: 0;
+}
 
 .nn-unsaved-dot {
   width: 8px;
@@ -2114,7 +2455,7 @@ const NN_STYLES = `
 .nn-doc-content {
   flex: 1;
   overflow-y: auto;
-  padding: 32px 48px 64px;
+  padding: 24px 48px 24px;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
@@ -2163,6 +2504,11 @@ const NN_STYLES = `
 
   .nn-toolbar-right {
     flex-wrap: wrap;
+    padding-right: 0;
+  }
+
+  .nn-toolbar-top {
+    padding: 6px 10px;
   }
 
   /* Ensure FAB is always visible and tappable on mobile */

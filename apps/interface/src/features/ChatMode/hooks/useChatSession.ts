@@ -23,10 +23,19 @@ function stripLeakedHtml(text: string): string {
   const hasDivStructure = /<div[\s>]/i.test(text) && /<\/div>/i.test(text);
   const hasDataAction = /data-action=/i.test(text);
   const hasWonderClass = /wonder-/i.test(text) && tagCount > 3;
+  // Catch inline-styled HTML blocks (common in wonder canvas scenes)
+  const hasInlineStyles = /style\s*=\s*["'][^"']*(?:background|gradient|display\s*:\s*flex|min-height|font-size)/i.test(text);
+  const hasHtmlBoilerplate = /<!DOCTYPE|<html|<head|<body/i.test(text);
 
-  // If it looks like a Wonder Canvas HTML block, strip it
-  if ((tagCount > 5 && (hasStyleBlock || hasDivStructure)) || hasDataAction || hasWonderClass) {
-    const htmlStartMatch = text.match(/^([\s\S]*?)(?:<(?:div|style|section|main|html|body|head)\b)/i);
+  // If it looks like a Wonder Canvas HTML block or any substantial HTML, strip it
+  if (
+    (tagCount > 5 && (hasStyleBlock || hasDivStructure)) ||
+    (tagCount > 2 && hasInlineStyles) ||
+    hasDataAction ||
+    hasWonderClass ||
+    hasHtmlBoilerplate
+  ) {
+    const htmlStartMatch = text.match(/^([\s\S]*?)(?:<(?:!DOCTYPE|div|style|section|main|html|body|head)\b)/i);
     const preText = htmlStartMatch?.[1]?.trim() || '';
     const htmlEndMatch = text.match(/<\/(?:div|style|section|main|html|body|head)>[^<]*$/i);
     const postIdx = htmlEndMatch ? (htmlEndMatch.index ?? 0) + htmlEndMatch[0].length : -1;

@@ -10,6 +10,8 @@ export interface TaskFeedback {
   images: File[];
   timestamp: number;
   mode: 'text' | 'voice';
+  /** Original task description for relaunch context */
+  taskDescription?: string;
 }
 
 export interface FeedbackState {
@@ -21,9 +23,9 @@ export function useTaskFeedback() {
   const [feedbackState, setFeedbackState] = useState<FeedbackState>({
     submitted: new Map(),
   });
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalTaskId, setModalTaskId] = useState<string | null>(null);
-  const [modalTaskName, setModalTaskName] = useState<string>('');
+  /** Which task ID currently has inline feedback open (null = none) */
+  const [inlineFeedbackTaskId, setInlineFeedbackTaskId] = useState<string | null>(null);
+  const [inlineFeedbackTaskName, setInlineFeedbackTaskName] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleThumbsUp = useCallback(async (taskId: string, taskName: string) => {
@@ -52,16 +54,15 @@ export function useTaskFeedback() {
     }
   }, []);
 
-  const openFeedbackModal = useCallback((taskId: string, taskName: string) => {
-    setModalTaskId(taskId);
-    setModalTaskName(taskName);
-    setModalOpen(true);
+  /** Toggle inline feedback for a specific task (replaces modal) */
+  const openInlineFeedback = useCallback((taskId: string, taskName: string) => {
+    setInlineFeedbackTaskId((prev) => (prev === taskId ? null : taskId));
+    setInlineFeedbackTaskName(taskName);
   }, []);
 
-  const closeFeedbackModal = useCallback(() => {
-    setModalOpen(false);
-    setModalTaskId(null);
-    setModalTaskName('');
+  const closeInlineFeedback = useCallback(() => {
+    setInlineFeedbackTaskId(null);
+    setInlineFeedbackTaskName('');
   }, []);
 
   const submitFeedback = useCallback(async (feedback: TaskFeedback) => {
@@ -74,6 +75,11 @@ export function useTaskFeedback() {
       formData.append('notes', feedback.notes);
       formData.append('timestamp', String(feedback.timestamp));
       formData.append('mode', feedback.mode);
+      if (feedback.taskDescription) {
+        formData.append('taskDescription', feedback.taskDescription);
+      }
+      // Request relaunch when negative feedback
+      formData.append('relaunch', 'true');
       for (const img of feedback.images) {
         formData.append('images', img);
       }
@@ -89,23 +95,22 @@ export function useTaskFeedback() {
         return { submitted: next };
       });
 
-      closeFeedbackModal();
+      closeInlineFeedback();
     } catch (e) {
       console.error('Failed to submit feedback:', e);
     } finally {
       setSubmitting(false);
     }
-  }, [closeFeedbackModal]);
+  }, [closeInlineFeedback]);
 
   return {
     feedbackState,
-    modalOpen,
-    modalTaskId,
-    modalTaskName,
+    inlineFeedbackTaskId,
+    inlineFeedbackTaskName,
     submitting,
     handleThumbsUp,
-    openFeedbackModal,
-    closeFeedbackModal,
+    openInlineFeedback,
+    closeInlineFeedback,
     submitFeedback,
   };
 }

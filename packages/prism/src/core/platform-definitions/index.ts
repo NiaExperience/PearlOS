@@ -19,6 +19,7 @@ import { UserDefinition } from "./User.definition";
 import { UserOrganizationRoleDefinition } from "./UserOrganizationRole.definition";
 import { UserProfileDefinition } from './UserProfile.definition';
 import { UserTenantRoleDefinition } from "./UserTenantRole.definition";
+import { NotesDefinition } from "./Notes.definition";
 
 // Export individual definitions
 export { FunctionalPromptDefinition } from './FunctionalPrompt.definition';
@@ -47,4 +48,5 @@ export const platformDefinitionsIndex: Record<string, IDynamicContent> = {
     UserTenantRole: UserTenantRoleDefinition,
     GlobalSettings: GlobalSettingsDefinition,
     LinkMap: LinkMapDefinition,
+    Notes: NotesDefinition,
 };

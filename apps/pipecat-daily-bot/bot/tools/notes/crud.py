@@ -1,9 +1,14 @@
-"""CRUD operations for notes."""
+"""CRUD operations for notes.
+
+Hybrid mode: uses file-based storage (/workspace/user/Documents/*.md) as primary,
+with fallback to database via Mesh API for legacy compatibility.
+"""
 from __future__ import annotations
 
 import asyncio
 import os
 from typing import Any
+from pathlib import Path
 
 from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
@@ -17,7 +22,19 @@ from tools.sharing.notes import _share_and_activate_note
 from tools.logging_utils import bind_tool_logger, bind_context_logger
 
 from .prompts import DEFAULT_NOTE_TOOL_PROMPTS
-from .utils import _get_room_state, _emit_refresh_event, _build_note_event_payload, _extract_note_content
+from .utils import _get_room_state, _emit_refresh_event, _build_note_event_payload, _extract_note_content, _inject_note_context_for_llm
+from .file_ops import (
+    create_note as file_create_note,
+    get_note as file_get_note,
+    update_note as file_update_note,
+    delete_note as file_delete_note,
+    list_notes as file_list_notes,
+    search_notes as file_search_notes,
+    DOCUMENTS_DIR,
+)
+
+# Feature flag: set to True to use file-based storage
+USE_FILE_STORAGE = os.environ.get("NOTES_FILE_STORAGE", "false").lower() in ("true", "1", "yes")
 
 _log = bind_context_logger(tag="[notes_tools]")
 logger = _log
@@ -68,7 +85,8 @@ async def replace_note_handler(params: FunctionCallParams):
     )
     if result.get("user_message"):
         log.info("[notes] update_note result message: %s" % result.get("user_message"))
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+    should_run_llm = not result.get("success", False)
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
 
 
 @bot_tool(
@@ -113,7 +131,8 @@ async def create_note_handler(params: FunctionCallParams):
     )
     if result.get("user_message"):
         log.info("[notes] create_note result message: %s" % result.get("user_message"))
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+    should_run_llm = not result.get("success", False)
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
 
 
 @bot_tool(
@@ -136,6 +155,7 @@ async def read_current_note_handler(
     
     if result.get("user_message"):
         log.info("[notes] read_note_content result message: %s" % result.get("user_message"))
+    # read_current_note needs run_llm=True so the LLM can summarize/discuss the content
     await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 
@@ -143,8 +163,35 @@ async def bot_read_current_note(
     room_url: str | None,
     params: FunctionCallParams | None = None
 ) -> dict[str, Any]:
-    """Fetch the full content for the requested note after permission checks."""
+    """Fetch the full content for the requested note."""
     log = bind_tool_logger(params, tag="[notes_tools]") if params else _log
+
+    # ── File-based path ──
+    if USE_FILE_STORAGE:
+        try:
+            if not room_url:
+                room_url = _get_room_state().get_current_room_url()
+            if not room_url:
+                return {"success": False, "error": "No room context", "user_message": "I can't determine the current room. Please try again."}
+
+            note_id = await _get_room_state().get_active_note_id(room_url)
+            if not note_id:
+                return {"success": False, "error": "No note open", "user_message": "Please open a note first."}
+
+            note = file_get_note(note_id)
+            if not note:
+                return {"success": False, "error": "Note not found", "user_message": "The active note file no longer exists."}
+
+            content = note.get("content", "")
+            title = note.get("title", "Untitled")
+            msg = f"Here's the current content of '{title}'." if content.strip() else f"'{title}' is currently empty."
+
+            return {"success": True, "note": note, "user_message": msg}
+        except Exception as e:
+            log.error(f"[notes] Error reading file-based note: {e}", exc_info=True)
+            return {"success": False, "error": str(e), "user_message": "Error reading note. Please try again."}
+
+    # ── Legacy DB path ──
     try:
         # Fallback: Try to recover from global state if missing
         if not room_url:
@@ -265,7 +312,8 @@ async def save_note_handler(params: FunctionCallParams):
     forwarder = params.forwarder
     note_id = arguments.get("note_id")
     result = await bot_save_note(room_url, forwarder, note_id=note_id)
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+    should_run_llm = not result.get("success", False)
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
 
 
 @bot_tool(
@@ -301,7 +349,8 @@ async def delete_note_handler(params: FunctionCallParams):
     title = arguments.get("title")
     confirm = arguments.get("confirm", False)
     result = await bot_delete_note(room_url, note_id, title, confirm, forwarder, params)
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+    should_run_llm = not result.get("success", False)
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
 
 
 # ============================================================================
@@ -316,24 +365,59 @@ async def bot_replace_note(
     note_id: str | None = None,
     params: FunctionCallParams | None = None
 ) -> dict[str, Any]:
-    """Update the content and optionally the title of the active shared note.
-    
-    Args:
-        room_url: Daily room URL
-        content: New content (markdown string)
-        forwarder: App message forwarder for sending refresh events
-        title: Optional new title for the note
-        params: Function call params (for permission checks)
-        note_id: Optional note ID to update (if not provided, uses active note)
-        
-    Returns:
-        {
-            "success": bool,
-            "note": dict (updated note) or None,
-            "error": str (optional),
-            "user_message": str (optional - friendly message for LLM to speak to user)
-        }
+    """Update the content and optionally the title of a note.
+    Uses file-based storage by default.
     """
+    # ── File-based path ──
+    if USE_FILE_STORAGE:
+        try:
+            # Resolve note_id from active note if not provided
+            if not note_id:
+                note_id = await _get_room_state().get_active_note_id(room_url)
+            if not note_id:
+                # Try to find by title
+                if title:
+                    results = file_search_notes(title)
+                    if len(results) == 1:
+                        note_id = results[0]["_id"]
+                    elif len(results) > 1:
+                        found = "; ".join(f"'{n['title']}'" for n in results)
+                        return {"success": False, "error": f"Multiple notes found: {found}", "user_message": f"I found multiple notes matching '{title}'. Please be more specific."}
+                if not note_id:
+                    return {"success": False, "error": "No note specified", "user_message": "Please open a note first, or specify which note to update."}
+
+            updated = file_update_note(note_id, content=content, title=title)
+            if not updated:
+                return {"success": False, "error": "Note not found", "user_message": "The note you're trying to update doesn't exist."}
+
+            # Inject context
+            await _inject_note_context_for_llm(
+                room_url=room_url,
+                note_id=updated["_id"],
+                title=updated.get("title"),
+                content=updated.get("content", ""),
+            )
+
+            # Emit events
+            if forwarder:
+                from tools import events
+                await _emit_refresh_event(forwarder, updated["_id"], "update", "personal")
+                await forwarder.emit_tool_event(events.NOTE_UPDATED, {
+                    "noteId": updated["_id"],
+                    "content": updated.get("content", ""),
+                    **({"title": title} if title else {}),
+                })
+
+            return {
+                "success": True,
+                "note": updated,
+                "user_message": "I've updated the note" + (f" title to '{title}'" if title else "") + "."
+            }
+        except Exception as e:
+            logger.error(f"[notes] Error updating file-based note: {e}", exc_info=True)
+            return {"success": False, "error": str(e), "user_message": f"Error updating note: {str(e)[:100]}."}
+
+    # ── Legacy DB path ──
     try:
         logger.info(f"[notes] bot_replace_note called for room {room_url} (title={'provided' if title else 'unchanged'})")
         
@@ -422,8 +506,18 @@ async def bot_replace_note(
                     updated_note = await notes_actions.get_note_by_id(tenant_id, note_id)
                     logger.info(f"[notes] Updated note {note_id}")
 
+                    if updated_note:
+                        await _inject_note_context_for_llm(
+                            room_url=room_url,
+                            note_id=note_id,
+                            title=title or updated_note.get("title"),
+                            content=_extract_note_content(updated_note),
+                        )
+
                     # Emit refresh event via Daily app-message
                     if forwarder:
+                        from tools import events
+
                         await _emit_refresh_event(
                             forwarder,
                             note_id,
@@ -487,9 +581,7 @@ async def bot_create_note(
     forwarder: AppMessageForwarder | None = None,
     context: Any = None
 ) -> dict[str, Any]:
-    """Create a new shared note for this conversation.
-    
-    Automatically sets as the active note.
+    """Create a new note. Uses file-based storage by default.
     
     Args:
         room_url: Daily room URL
@@ -505,6 +597,45 @@ async def bot_create_note(
             "user_message": str (optional - friendly message for LLM to speak to user)
         }
     """
+    # ── File-based path ──
+    if USE_FILE_STORAGE:
+        try:
+            logger.info(f"[notes] Creating file-based note: title='{title}'")
+            new_note = file_create_note(title, content)
+            note_id = new_note.get("_id")
+
+            # Set as active note
+            await _get_room_state().set_active_note_id(room_url, note_id)
+
+            # Inject note context into LLM
+            await _inject_note_context_for_llm(
+                room_url=room_url,
+                note_id=note_id,
+                title=new_note.get("title") or title,
+                content=new_note.get("content", ""),
+            )
+
+            # Emit events for frontend
+            if forwarder and note_id:
+                from tools import events
+                await _emit_refresh_event(forwarder, note_id, "create", "personal")
+                payload = _build_note_event_payload(new_note, note_id)
+                await forwarder.emit_tool_event(events.NOTE_OPEN, payload)
+
+            return {
+                "success": True,
+                "note": new_note,
+                "user_message": f"I've created a new note titled '{title}'."
+            }
+        except Exception as e:
+            logger.error(f"[notes] Error creating file-based note: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e),
+                "user_message": f"I encountered an error creating the note: {str(e)[:100]}."
+            }
+
+    # ── Legacy DB path ──
     try:
         logger.info(f"[notes] create_note called for room {room_url}, title='{title}'")
         
@@ -588,6 +719,14 @@ async def bot_create_note(
                     
                     # Set as active note
                     await _get_room_state().set_active_note_id(room_url, note_id)
+
+                    # Inject note context into LLM
+                    await _inject_note_context_for_llm(
+                        room_url=room_url,
+                        note_id=note_id,
+                        title=new_note.get("title") or title,
+                        content=_extract_note_content(new_note),
+                    )
 
                     # Emit NOTE_OPEN event (modern event system)
                     if forwarder and note_id:
@@ -716,51 +855,71 @@ async def bot_save_note(
     forwarder: AppMessageForwarder | None = None,
     note_id: str | None = None
 ) -> dict[str, Any]:
-    """Save the current note's changes to persistent storage.
-    
-    Note: In the current implementation, notes are automatically saved,
-    but this provides explicit save feedback.
-    
-    Args:
-        room_url: Daily room URL for tenant context
-        forwarder: Optional message forwarder for events
-        note_id: Optional note ID to save (if not provided, uses active note)
-        
-    Returns:
-        Dict with success status and optional error message
+    """Persist the current note to disk in addition to the database.
+
+    Primary storage is the database (Mesh/Postgres). This helper writes a
+    copy of the current note to the filesystem when the user explicitly
+    asks to \"save to disk/file\".
     """
     try:
-        # Accept note_id parameter or fall back to active note
+        # Resolve identifiers
         if not note_id:
             note_id = await _get_room_state().get_active_note_id(room_url)
-        
         if not note_id:
             return {
                 "success": False,
                 "error": "No note specified",
-                "user_message": "No note is currently open to save."
+                "user_message": "No note is currently open to save.",
             }
-        
-        # Emit refresh event
-        if forwarder:
-            # Emit legacy notes.refresh event for frontend compatibility
-            note_mode: str | None = None
-            tenant_id = _get_room_state().get_room_tenant_id(room_url)
-            if tenant_id and note_id:
-                try:
-                    note = await notes_actions.get_note_by_id(tenant_id, note_id)
-                    if note:
-                        note_mode = note.get("mode")
-                except Exception as fetch_error:
-                    logger.warning(f"[notes] Failed to fetch note {note_id} for save event mode lookup: {fetch_error}")
 
-            await _emit_refresh_event(forwarder, note_id, "saved", note_mode)
-        
+        tenant_id = _get_room_state().get_room_tenant_id(room_url)
+        if not tenant_id:
+            return {
+                "success": False,
+                "error": "No tenant context",
+                "user_message": "Cannot save without workspace context.",
+            }
+
+        # Fetch latest note from DB (source of truth)
+        note = await notes_actions.get_note_by_id(tenant_id, note_id)
+        if not note:
+            return {
+                "success": False,
+                "error": "Note not found",
+                "user_message": "I couldn't find that note to save.",
+            }
+
+        title = note.get("title") or "Untitled"
+        content = _extract_note_content(note)
+
+        # Prepare filesystem payload
+        DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+        target_path: Path = DOCUMENTS_DIR / f"{note_id}.md"
+
+        if content.lstrip().startswith("#"):
+            final_content = content
+        else:
+            final_content = f"# {title}\n\n{content}"
+
+        target_path.write_text(final_content, encoding="utf-8")
+
+        # Emit refresh hint (keeps parity with prior behavior)
+        if forwarder:
+            from tools import events
+
+            await _emit_refresh_event(forwarder, note_id, "saved", note.get("mode"))
+            await forwarder.emit_tool_event(events.NOTE_UPDATED, {
+                "noteId": note_id,
+                "title": title,
+            })
+
         return {
             "success": True,
-            "user_message": "Note saved successfully."
+            "user_message": f"Saved '{title}' to disk.",
+            "filePath": str(target_path),
+            "fileName": target_path.name,
         }
-        
+
     except Exception as e:
         logger.error(f"[notes] Error saving note: {e}")
         return {
@@ -778,18 +937,48 @@ async def bot_delete_note(
     forwarder: AppMessageForwarder | None = None,
     params: FunctionCallParams | None = None
 ) -> dict[str, Any]:
-    """Delete a note permanently.
-    
-    Args:
-        room_url: Daily room URL for tenant context
-    note_id: ID of the note to delete
-    title: Title of the note to delete (used when note_id is absent)
-        confirm: Confirmation flag to prevent accidental deletion
-        forwarder: Optional message forwarder for events
-        
-    Returns:
-        Dict with success status and optional error message
-    """
+    """Delete a note (moves to .trash)."""
+
+    # ── File-based path ──
+    if USE_FILE_STORAGE:
+        if not confirm:
+            return {"success": False, "error": "Confirmation required", "user_message": "Please confirm deletion."}
+
+        try:
+            # Resolve note_id from title if needed
+            if not note_id and title:
+                results = file_search_notes(title)
+                if len(results) == 1:
+                    note_id = results[0]["_id"]
+                elif len(results) > 1:
+                    found = "; ".join(f"'{n['title']}'" for n in results)
+                    return {"success": False, "error": f"Multiple notes: {found}", "user_message": f"Multiple notes match '{title}'. Please be more specific."}
+                else:
+                    return {"success": False, "error": "Note not found", "user_message": f"No note matching '{title}' found."}
+
+            if not note_id:
+                return {"success": False, "error": "No note specified", "user_message": "Please provide a note ID or title."}
+
+            deleted = file_delete_note(note_id)
+            if not deleted:
+                return {"success": False, "error": "Delete failed", "user_message": "Could not delete the note."}
+
+            # Emit events
+            if forwarder:
+                from tools import events
+                await forwarder.emit_tool_event(events.NOTE_DELETED, {"noteId": note_id})
+                await _emit_refresh_event(forwarder, note_id, "delete", "personal")
+
+            # Clear active note if it was this one
+            if await _get_room_state().get_active_note_id(room_url) == note_id:
+                await _get_room_state().set_active_note_id(room_url, None, None)
+
+            return {"success": True, "user_message": "Note deleted successfully."}
+        except Exception as e:
+            logger.error(f"[notes] Error deleting file-based note: {e}", exc_info=True)
+            return {"success": False, "error": str(e), "user_message": "Failed to delete note."}
+
+    # ── Legacy DB path ──
     try:
         if not confirm:
             return {

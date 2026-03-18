@@ -16,23 +16,9 @@ from tools.logging_utils import bind_tool_logger
 # Built-in fallback descriptions
 DEFAULT_PROFILE_TOOL_PROMPTS: dict[str, str] = {
     'bot_update_user_profile': (
-        "Save or update user profile when learning new information (upsert pattern - works for both new and existing profiles). "
-        "TRIGGER PHRASES - When user says: "
-        "'I like/love/enjoy X' → save under 'interests'. "
-        "'I work at/on X' → save under 'work'. "
-        "'My name is X' → save under 'name'. "
-        "'I'm from X' → save under 'location'. "
-        "'I have X hobby/pet' → save under 'hobbies' or 'pets'. "
-        "'I prefer X' → save under 'preferences'. "
-        "'I've been doing X lately' → save under 'recent_activities'. "
-        "EXAMPLES: "
-        "User says 'I love hiking' → save {'interests': 'hiking'}. "
-        "User says 'I work at Microsoft' → save {'work': 'Microsoft'}. "
-        "User says 'I have two dogs' → save {'pets': 'two dogs'}. "
-        "User says 'I prefer coffee over tea' → save {'preferences': 'coffee'}. "
-        "Use descriptive keys like 'interests', 'work', 'hobbies', 'family', 'pets', 'goals', 'preferences', 'recent_projects', 'recent_activities'. "
-        "Call this IMMEDIATELY after learning something new about the user. "
-        "Works for both new profiles and existing ones."
+        "Save or update user profile data (upsert). Call when learning new info about the user. "
+        "Use keys like: interests, work, name, location, hobbies, pets, preferences, goals. "
+        "Example: user says 'I love hiking' → {'interests': 'hiking'}."
     ),
     'bot_delete_profile_metadata': (
         "Remove specific fields from the user's profile metadata or clear all metadata. "

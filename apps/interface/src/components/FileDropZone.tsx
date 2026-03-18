@@ -208,7 +208,7 @@ export default function FileDropZone() {
            Hidden when ChatMode, HomeMode, or WorkMode is active (chat bar is already visible). */}
       {!isChatMode && !isWorkMode && !isHomeMode && <button
         onClick={() => window.dispatchEvent(new Event('pearl:open-chat'))}
-        className="fixed bottom-10 left-4 z-[501] w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
+        className="fixed bottom-10 left-4 z-[100] w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
         style={{
           backgroundColor: 'rgba(20, 12, 40, 0.8)',
           backdropFilter: 'blur(12px)',

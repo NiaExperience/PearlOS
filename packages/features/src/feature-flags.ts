@@ -34,7 +34,13 @@ export type FeatureKey =
     | 'youtube'
     | 'smartSilence'
     | 'lullDetection'
-    | 'spriteVoice';
+    | 'spriteVoice'
+    | 'news'
+    | 'weather'
+    | 'wonderCanvas'
+    | 'vision'
+    | 'sprites'
+    | 'calculator';
 
 export const FeatureKeys: FeatureKey[] = [
     'appletApi',
@@ -68,6 +74,12 @@ export const FeatureKeys: FeatureKey[] = [
     'smartSilence',
     'lullDetection',
     'spriteVoice',
+    'news',
+    'weather',
+    'wonderCanvas',
+    'vision',
+    'sprites',
+    'calculator',
 ];
 
 interface FeatureDefinition {
@@ -110,6 +122,12 @@ const definitions: FeatureDefinition[] = [
     { key: 'smartSilence', hasPrompt: false, canonical: 'smartSilence', env: ['NEXT_PUBLIC_FEATURE_SMART_SILENCE', 'FEATURE_SMART_SILENCE'], default: true, description: 'Enable smart silence: the bot stays silent when appropriate (responds with SILENCE).' },
     { key: 'lullDetection', hasPrompt: false, canonical: 'lullDetection', env: ['NEXT_PUBLIC_FEATURE_LULL_DETECTION', 'FEATURE_LULL_DETECTION'], default: false, description: 'Enable lull detection: the bot proactively speaks if the user is silent for a while.' },
     { key: 'spriteVoice', hasPrompt: false, canonical: 'spriteVoice', env: ['NEXT_PUBLIC_FEATURE_SPRITE_VOICE', 'FEATURE_SPRITE_VOICE'], default: true, description: 'Enable voice/personality switching when interacting with Sprites' },
+    { key: 'news', hasPrompt: true, canonical: 'news', env: ['NEXT_PUBLIC_FEATURE_NEWS', 'FEATURE_NEWS'], default: true, description: 'News headlines fetching and display tools' },
+    { key: 'weather', hasPrompt: true, canonical: 'weather', env: ['NEXT_PUBLIC_FEATURE_WEATHER', 'FEATURE_WEATHER'], default: true, description: 'Weather information fetching and display tools' },
+    { key: 'wonderCanvas', hasPrompt: false, canonical: 'wonderCanvas', env: ['NEXT_PUBLIC_FEATURE_WONDER_CANVAS', 'FEATURE_WONDER_CANVAS'], default: true, description: 'Wonder Canvas visual display surface for rich content' },
+    { key: 'vision', hasPrompt: false, canonical: 'vision', env: ['NEXT_PUBLIC_FEATURE_VISION', 'FEATURE_VISION'], default: true, description: 'Vision/image analysis capabilities' },
+    { key: 'sprites', hasPrompt: false, canonical: 'sprites', env: ['NEXT_PUBLIC_FEATURE_SPRITES', 'FEATURE_SPRITES'], default: true, description: 'Animated sprite characters' },
+    { key: 'calculator', hasPrompt: false, canonical: 'calculator', env: ['NEXT_PUBLIC_FEATURE_CALCULATOR', 'FEATURE_CALCULATOR'], default: true, description: 'Calculator widget' },
     { key: 'openclawBridge', hasPrompt: true, canonical: 'openclawBridge', env: ['NEXT_PUBLIC_FEATURE_OPENCLAW_BRIDGE', 'FEATURE_OPENCLAW_BRIDGE'], default: true, description: 'OpenClaw integration tools (bot_openclaw_task, bot_think_deeply)' },
     { key: 'enhancedBrowser', hasPrompt: true, canonical: 'enhancedBrowser', env: ['NEXT_PUBLIC_FEATURE_ENHANCED_BROWSER', 'FEATURE_ENHANCED_BROWSER'], default: true, description: 'Enhanced browser with full navigation controls' },
 ];

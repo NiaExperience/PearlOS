@@ -1,292 +1,192 @@
 /**
- * Hook to detect bot speaking state via Daily audio level monitoring
+ * Hook to detect bot speaking state via Web Audio API AnalyserNode
  * 
- * Uses Daily's native useAudioLevelObserver to monitor bot audio levels
- * and determine speaking state with configurable threshold and debouncing.
- * 
- * NOTE: This hook requires either:
- * 1. Component wrapped in DailyProvider (for video calls), OR
- * 2. Manual audio level monitoring via callObject (for voice-only sessions)
+ * Uses raw Web Audio API on the bot's actual MediaStreamTrack to get
+ * ground-truth audio amplitude data. This replaces Daily's broken
+ * useAudioLevelObserver which reports constant ~0.7 for any 'playable' track.
  * 
  * @example
  * ```tsx
- * // With DailyProvider (video calls)
- * const { isSpeaking, audioLevel } = useBotSpeakingDetection(botParticipantId);
- * 
- * // Without DailyProvider (voice-only)
- * const { isSpeaking } = useBotSpeakingDetection(
- *   botParticipantId,
- *   { callObject: getCallObject() }
- * );
+ * const audioTrack = useMediaTrack(botId, 'audio');
+ * const { isSpeaking, audioLevel } = useBotSpeakingDetection(audioTrack?.track);
  * ```
  */
 
-import type { DailyCall, DailyEventObjectTrack } from '@daily-co/daily-js';
-import { useAudioLevelObserver } from '@daily-co/daily-react';
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 import { AUDIO_DETECTION } from '../constants';
-import { getClientLogger } from '../../client-logger';
 
 export interface BotSpeakingOptions {
-  /** Audio level threshold (0-1) above which participant is considered speaking */
+  /** RMS threshold (0-1) above which participant is considered speaking */
   threshold?: number;
   
   /** Debounce delay (ms) before marking speaking as stopped */
   debounceMs?: number;
   
-  /** Throttle delay (ms) for audio callbacks to reduce CPU load (optional) */
-  throttleMs?: number;
-  
   /** Callback when speaking state changes */
   onSpeakingChange?: (isSpeaking: boolean) => void;
   
-  /** Callback on every audio level update (after throttling if configured) */
+  /** Callback on every audio level update */
   onAudioLevel?: (level: number) => void;
-  
-  /** 
-   * Daily call object for manual audio monitoring (voice-only sessions without DailyProvider)
-   * If provided, uses manual polling instead of useAudioLevelObserver
-   */
-  callObject?: DailyCall | null;
 }
 
 export interface UseBotSpeakingDetectionReturn {
   /** Whether the bot is currently speaking */
   isSpeaking: boolean;
   
-  /** Current audio level (0-1 range) */
+  /** Current audio level (0-1 range, RMS) */
   audioLevel: number;
   
   /** Ref to current audio level (for RAF-based animations) */
   audioLevelRef: React.MutableRefObject<number>;
 }
 
-const log = getClientLogger('[daily_bot_speaking]');
-
 /**
- * Hook to detect bot speaking state via audio level monitoring
+ * Detect bot speaking state using Web Audio API AnalyserNode on the actual audio track.
  * 
- * @param participantId - Daily participant ID (session_id) of the bot
- * @param options - Configuration options for detection behavior
- * @returns Object with isSpeaking state, audioLevel, and audioLevelRef
+ * @param track - The bot's MediaStreamTrack (from useMediaTrack().track)
+ * @param options - Configuration options
  */
 export function useBotSpeakingDetection(
-  participantId: string,
+  track: MediaStreamTrack | undefined | null,
   options: BotSpeakingOptions = {}
 ): UseBotSpeakingDetectionReturn {
   const {
     threshold = AUDIO_DETECTION.SPEAKING_THRESHOLD,
     debounceMs = AUDIO_DETECTION.DEBOUNCE_MS,
-    throttleMs = 0,
     onSpeakingChange,
     onAudioLevel,
-    callObject,
   } = options;
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const audioLevelRef = useRef(0);
-  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastCallbackTimeRef = useRef(0);
-  const lastUpdateRef = useRef(0);
+  
+  // Refs for managing the RAF loop and debounce without re-creating effects
+  const isSpeakingRef = useRef(false);
+  const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thresholdRef = useRef(threshold);
+  const debounceMsRef = useRef(debounceMs);
+  const onAudioLevelRef = useRef(onAudioLevel);
+  const onSpeakingChangeRef = useRef(onSpeakingChange);
+  
+  // Keep refs in sync
+  thresholdRef.current = threshold;
+  debounceMsRef.current = debounceMs;
+  onAudioLevelRef.current = onAudioLevel;
+  onSpeakingChangeRef.current = onSpeakingChange;
 
-  const handleAudioLevel = useCallback((level: number) => {
-    // Throttling (if enabled, for components with multiple participants like Tile.tsx)
-    if (throttleMs > 0) {
-      const now = Date.now();
-      if (now - lastCallbackTimeRef.current < throttleMs) {
-        audioLevelRef.current = level;
-        return;
-      }
-      lastCallbackTimeRef.current = now;
-    }
-
-    // Update audio level state and ref
-    setAudioLevel(level);
-    audioLevelRef.current = level;
-    
-    // Call optional audio level callback
-    onAudioLevel?.(level);
-
-    // Update timestamp for lipsync animations (if needed)
-    const now = Date.now();
-    if (now - lastUpdateRef.current > AUDIO_DETECTION.LIPSYNC_UPDATE_MS) {
-      lastUpdateRef.current = now;
-    }
-
-    // Speaking detection with threshold
-    const shouldBeSpeaking = level > threshold;
-
-    if (shouldBeSpeaking && !isSpeaking) {
-      // Start speaking immediately
-      setIsSpeaking(true);
-      // Clear any pending stop timeout
-      if (speakingTimeoutRef.current) {
-        clearTimeout(speakingTimeoutRef.current);
-        speakingTimeoutRef.current = null;
-      }
-    } else if (!shouldBeSpeaking && isSpeaking) {
-      // Stop speaking with debounce to smooth out brief gaps
-      if (!speakingTimeoutRef.current) {
-        speakingTimeoutRef.current = setTimeout(() => {
-          setIsSpeaking(false);
-          speakingTimeoutRef.current = null;
-        }, debounceMs);
-      }
-    }
-  }, [isSpeaking, threshold, debounceMs, throttleMs, onAudioLevel]);
-
-  // Use Daily's native audio level observer (if in DailyProvider context)
-  useAudioLevelObserver(participantId || '', handleAudioLevel);
-
-  // Manual audio monitoring for voice-only sessions (no DailyProvider)
   useEffect(() => {
-    if (!callObject || !participantId) {
-      console.log('[BotSpeaking] No callObject or participantId', { callObject: !!callObject, participantId });
-      return;
-    }
+    if (!track || track.readyState === 'ended') return;
 
     let audioContext: AudioContext | null = null;
     let analyser: AnalyserNode | null = null;
-    let microphone: MediaStreamAudioSourceNode | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
     let rafId: number | null = null;
-    let isSetup = false;
+    let disposed = false;
 
-    const setupAudioMonitoring = () => {
-      // Prevent duplicate setup
-      if (isSetup) {
-        console.log('[BotSpeaking] Already setup, skipping');
-        return;
-      }
-
+    const setup = () => {
       try {
-        const participants = callObject.participants();
-        const participant = participants?.[participantId];
+        const ACtor = window.AudioContext || (window as any).webkitAudioContext;
+        if (!ACtor) return;
+
+        audioContext = new ACtor();
         
-        console.log('[BotSpeaking] Looking for participant', { participantId, found: !!participant, allParticipants: Object.keys(participants || {}) });
-        
-        if (!participant) {
-          console.log('[BotSpeaking] Participant not found');
-          return;
+        // Handle suspended AudioContext (needs user gesture)
+        if (audioContext.state === 'suspended') {
+          const resume = () => {
+            audioContext?.resume();
+            document.removeEventListener('click', resume);
+            document.removeEventListener('keydown', resume);
+          };
+          document.addEventListener('click', resume, { once: true });
+          document.addEventListener('keydown', resume, { once: true });
         }
 
-        // Get audio track
-        const audioTrack = participant.tracks?.audio;
-        
-        console.log('[BotSpeaking] Audio track state', { 
-          hasTrack: !!audioTrack?.track, 
-          state: audioTrack?.state,
-          participantId 
-        });
-        
-        if (!audioTrack?.track || audioTrack.state !== 'playable') {
-          console.log('[BotSpeaking] Audio track not ready', { 
-            hasTrack: !!audioTrack?.track, 
-            state: audioTrack?.state 
-          });
-          return;
-        }
-
-        // Mark as setup to prevent duplicates
-        isSetup = true;
-        console.log('[BotSpeaking] Setting up audio monitoring for participant', participantId);
-        
-        // Create Web Audio API context for actual audio level analysis
-        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextClass) {
-          console.log('[BotSpeaking] No AudioContext available');
-          return;
-        }
-        
-        audioContext = new AudioContextClass();
         analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.8;
+        analyser.fftSize = 2048; // Good resolution for speech RMS
+        analyser.smoothingTimeConstant = 0.3; // Low smoothing for responsive detection
 
-        // Connect audio track to analyser
-        const stream = new MediaStream([audioTrack.track]);
-        microphone = audioContext.createMediaStreamSource(stream);
-        microphone.connect(analyser);
+        const stream = new MediaStream([track]);
+        source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        // Do NOT connect to destination — we don't want to double-play audio
 
-        console.log('[BotSpeaking] Audio monitoring started successfully');
+        const timeDomainData = new Uint8Array(analyser.fftSize);
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        let lastLogTime = 0;
+        const tick = () => {
+          if (disposed || !analyser) return;
 
-        // Poll audio levels using requestAnimationFrame
-        const checkAudioLevel = () => {
-          if (!analyser) return;
+          analyser.getByteTimeDomainData(timeDomainData);
 
-          analyser.getByteFrequencyData(dataArray);
-          
-          // Calculate average audio level (0-255 range)
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
+          // Calculate RMS from time-domain data
+          // Values are 0-255 centered at 128 (silence)
+          let sumSquares = 0;
+          for (let i = 0; i < timeDomainData.length; i++) {
+            const normalized = (timeDomainData[i] - 128) / 128; // -1 to 1
+            sumSquares += normalized * normalized;
           }
-          const average = sum / dataArray.length;
-          
-          // Normalize to 0-1 range
-          const normalizedLevel = average / 255;
-          
-          // Log audio level periodically (every 2 seconds) for debugging
-          const now = Date.now();
-          if (now - lastLogTime > 2000) {
-            console.log('[BotSpeaking] Audio level:', normalizedLevel.toFixed(3), 'threshold:', threshold);
-            lastLogTime = now;
-          }
-          
-          // Pass to audio level handler
-          handleAudioLevel(normalizedLevel);
+          const rms = Math.sqrt(sumSquares / timeDomainData.length);
 
-          // Continue monitoring
-          rafId = requestAnimationFrame(checkAudioLevel);
+          // Update level refs/state
+          audioLevelRef.current = rms;
+          setAudioLevel(rms);
+          onAudioLevelRef.current?.(rms);
+
+          // Speaking detection: instant start, debounced stop
+          const aboveThreshold = rms > thresholdRef.current;
+
+          if (aboveThreshold) {
+            // Clear any pending stop
+            if (stopTimeoutRef.current) {
+              clearTimeout(stopTimeoutRef.current);
+              stopTimeoutRef.current = null;
+            }
+            if (!isSpeakingRef.current) {
+              isSpeakingRef.current = true;
+              setIsSpeaking(true);
+            }
+          } else if (isSpeakingRef.current && !stopTimeoutRef.current) {
+            // Start debounced stop
+            stopTimeoutRef.current = setTimeout(() => {
+              stopTimeoutRef.current = null;
+              isSpeakingRef.current = false;
+              setIsSpeaking(false);
+            }, debounceMsRef.current);
+          }
+
+          rafId = requestAnimationFrame(tick);
         };
 
-        checkAudioLevel();
-      } catch (error) {
-        log.error('Error setting up audio monitoring', { error });
+        rafId = requestAnimationFrame(tick);
+      } catch (err) {
+        console.error('[BotSpeaking] Web Audio setup failed:', err);
       }
     };
 
-    // Setup monitoring when participant track is ready
-    setupAudioMonitoring();
-
-    // Also listen for track-started event - fires when track becomes playable
-    const handleTrackStarted = (event?: DailyEventObjectTrack) => {
-      // Only setup if this is our bot participant's audio track
-      if (event?.participant?.session_id === participantId && event?.track?.kind === 'audio') {
-        // Small delay to ensure track object is fully propagated
-        setTimeout(() => {
-          setupAudioMonitoring();
-        }, 100);
-      }
-    };
-
-    callObject.on('track-started', handleTrackStarted);
+    setup();
 
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      if (microphone) microphone.disconnect();
-      if (audioContext) audioContext.close();
-      callObject.off('track-started', handleTrackStarted);
+      disposed = true;
+      if (rafId != null) cancelAnimationFrame(rafId);
+      if (stopTimeoutRef.current) {
+        clearTimeout(stopTimeoutRef.current);
+        stopTimeoutRef.current = null;
+      }
+      if (source) { try { source.disconnect(); } catch {} }
+      if (audioContext) { try { audioContext.close(); } catch {} }
+      // Reset state on cleanup
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      setAudioLevel(0);
+      audioLevelRef.current = 0;
     };
-  }, [callObject, participantId, handleAudioLevel]);
+  }, [track]); // Only re-setup when the track changes
 
   // Notify parent of speaking state changes
   useEffect(() => {
-    onSpeakingChange?.(isSpeaking);
-  }, [isSpeaking, onSpeakingChange]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (speakingTimeoutRef.current) {
-        clearTimeout(speakingTimeoutRef.current);
-      }
-    };
-  }, []);
+    onSpeakingChangeRef.current?.(isSpeaking);
+  }, [isSpeaking]);
 
   return { isSpeaking, audioLevel, audioLevelRef };
 }

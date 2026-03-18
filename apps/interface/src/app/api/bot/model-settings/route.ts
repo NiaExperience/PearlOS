@@ -233,6 +233,35 @@ export const AVAILABLE_MODELS = {
     description: 'Small Mistral model',
     provider: 'Mistral',
   },
+  // ═══ LOCAL OLLAMA MODELS ═══
+  // Qwen 2.5
+  'ollama-qwen2.5-0.5b': { id: 'ollama-qwen2.5-0.5b', name: 'Qwen 2.5 0.5B (Local)', modelId: 'qwen2.5:0.5b', description: 'Tiny Qwen — ultra fast', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-1.5b': { id: 'ollama-qwen2.5-1.5b', name: 'Qwen 2.5 1.5B (Local)', modelId: 'qwen2.5:1.5b', description: 'Small Qwen — fast', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-3b': { id: 'ollama-qwen2.5-3b', name: 'Qwen 2.5 3B (Local)', modelId: 'qwen2.5:3b', description: 'Qwen 2.5 3B — fast, zero cost', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-7b': { id: 'ollama-qwen2.5-7b', name: 'Qwen 2.5 7B (Local)', modelId: 'qwen2.5:7b', description: 'Qwen 2.5 7B — good balance', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-14b': { id: 'ollama-qwen2.5-14b', name: 'Qwen 2.5 14B (Local)', modelId: 'qwen2.5:14b', description: 'Qwen 2.5 14B — strong', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-32b': { id: 'ollama-qwen2.5-32b', name: 'Qwen 2.5 32B (Local)', modelId: 'qwen2.5:32b', description: 'Qwen 2.5 32B — needs ~20GB VRAM', provider: 'Local (Ollama)' },
+  // Qwen 2.5 Coder
+  'ollama-qwen2.5-coder-1.5b': { id: 'ollama-qwen2.5-coder-1.5b', name: 'Qwen 2.5 Coder 1.5B (Local)', modelId: 'qwen2.5-coder:1.5b', description: 'Code-optimized Qwen', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-coder-3b': { id: 'ollama-qwen2.5-coder-3b', name: 'Qwen 2.5 Coder 3B (Local)', modelId: 'qwen2.5-coder:3b', description: 'Code-optimized Qwen', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-coder-7b': { id: 'ollama-qwen2.5-coder-7b', name: 'Qwen 2.5 Coder 7B (Local)', modelId: 'qwen2.5-coder:7b', description: 'Code-optimized Qwen', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-coder-14b': { id: 'ollama-qwen2.5-coder-14b', name: 'Qwen 2.5 Coder 14B (Local)', modelId: 'qwen2.5-coder:14b', description: 'Code-optimized Qwen — strong', provider: 'Local (Ollama)' },
+  'ollama-qwen2.5-coder-32b': { id: 'ollama-qwen2.5-coder-32b', name: 'Qwen 2.5 Coder 32B (Local)', modelId: 'qwen2.5-coder:32b', description: 'Code-optimized Qwen — needs ~20GB VRAM', provider: 'Local (Ollama)' },
+  // Qwen 3
+  'ollama-qwen3-0.6b': { id: 'ollama-qwen3-0.6b', name: 'Qwen 3 0.6B (Local)', modelId: 'qwen3:0.6b', description: 'Tiny Qwen 3', provider: 'Local (Ollama)' },
+  'ollama-qwen3-1.7b': { id: 'ollama-qwen3-1.7b', name: 'Qwen 3 1.7B (Local)', modelId: 'qwen3:1.7b', description: 'Small Qwen 3', provider: 'Local (Ollama)' },
+  'ollama-qwen3-4b': { id: 'ollama-qwen3-4b', name: 'Qwen 3 4B (Local)', modelId: 'qwen3:4b', description: 'Qwen 3 4B — fast', provider: 'Local (Ollama)' },
+  'ollama-qwen3-8b': { id: 'ollama-qwen3-8b', name: 'Qwen 3 8B (Local)', modelId: 'qwen3:8b', description: 'Qwen 3 8B — solid', provider: 'Local (Ollama)' },
+  'ollama-qwen3-14b': { id: 'ollama-qwen3-14b', name: 'Qwen 3 14B (Local)', modelId: 'qwen3:14b', description: 'Qwen 3 14B — strong', provider: 'Local (Ollama)' },
+  'ollama-qwen3-30b': { id: 'ollama-qwen3-30b', name: 'Qwen 3 30B (Local)', modelId: 'qwen3:30b', description: 'Qwen 3 30B — needs ~18GB VRAM', provider: 'Local (Ollama)' },
+  'ollama-qwen3-32b': { id: 'ollama-qwen3-32b', name: 'Qwen 3 32B (Local)', modelId: 'qwen3:32b', description: 'Qwen 3 32B — needs ~20GB VRAM', provider: 'Local (Ollama)' },
+  // Qwen 3.5
+  'ollama-qwen3.5-0.8b': { id: 'ollama-qwen3.5-0.8b', name: 'Qwen 3.5 0.8B (Local)', modelId: 'qwen3.5:0.8b', description: 'Qwen 3.5 tiny — edge/prototyping', provider: 'Local (Ollama)' },
+  'ollama-qwen3.5-2b': { id: 'ollama-qwen3.5-2b', name: 'Qwen 3.5 2B (Local)', modelId: 'qwen3.5:2b', description: 'Qwen 3.5 fast — edge deployment', provider: 'Local (Ollama)' },
+  'ollama-qwen3.5-4b': { id: 'ollama-qwen3.5-4b', name: 'Qwen 3.5 4B (Local)', modelId: 'qwen3.5:4b', description: 'Qwen 3.5 4B — multimodal, 262K context', provider: 'Local (Ollama)' },
+  'ollama-qwen3.5-9b': { id: 'ollama-qwen3.5-9b', name: 'Qwen 3.5 9B (Local)', modelId: 'qwen3.5:9b', description: 'Qwen 3.5 9B — beats GPT-o3-mini class', provider: 'Local (Ollama)' },
+  // Other local
+  'ollama-llama3.1-8b': { id: 'ollama-llama3.1-8b', name: 'Llama 3.1 8B (Local)', modelId: 'llama3.1:8b', description: 'Local Llama 3.1 8B', provider: 'Local (Ollama)' },
   // Auto
   'auto': {
     id: 'auto',
@@ -572,6 +601,9 @@ type TaskKey = keyof typeof TASK_TYPES;
 const BOT_ENV_PATH = process.env.PIPECAT_BOT_ENV_PATH || 
   path.join(process.cwd(), '..', 'pipecat-daily-bot', '.env');
 
+const OPENCLAW_CONFIG_PATH = '/root/.openclaw/openclaw.json';
+const LAB_MODE_FLAG = path.join(path.dirname(BOT_ENV_PATH), '.lab-mode-active');
+
 interface ModelConfig {
   voice: ModelKey;
   tools: ModelKey;
@@ -585,10 +617,10 @@ interface ModelConfig {
  */
 function readCurrentConfig(): ModelConfig {
   const defaults: ModelConfig = {
-    voice: 'sonnet',
+    voice: 'sonnet-4',
     tools: 'glm-5',
-    swarm: 'opus',
-    thinking: 'sonnet',
+    swarm: 'opus-4.6',
+    thinking: 'sonnet-4',
     vision: 'gpt-4o',
   };
 
@@ -710,15 +742,114 @@ function updateEnvFile(config: ModelConfig): { success: boolean; error?: string 
 }
 
 /**
+ * Update OpenClaw agent config to match model selections.
+ * Maps BOT_VOICE_MODEL → "voice" agent's model.primary
+ * Only runs when lab mode is active to avoid disrupting Discord/other bindings.
+ */
+function updateOpenClawConfig(config: Partial<ModelConfig>): { success: boolean; error?: string } {
+  try {
+    if (!fs.existsSync(OPENCLAW_CONFIG_PATH)) {
+      log.warn('OpenClaw config not found, skipping agent update');
+      return { success: true }; // Not an error — just skip
+    }
+
+    const isLabMode = fs.existsSync(LAB_MODE_FLAG);
+    if (!isLabMode) {
+      log.info('Lab mode not active, skipping OpenClaw config update');
+      return { success: true };
+    }
+
+    const raw = fs.readFileSync(OPENCLAW_CONFIG_PATH, 'utf-8');
+    const openclawConfig = JSON.parse(raw);
+
+    const agents: any[] = openclawConfig.agents?.list || [];
+    const bindings: any[] = openclawConfig.bindings || [];
+    let changed = false;
+
+    // Update voice agent model
+    if (config.voice) {
+      const modelInfo = AVAILABLE_MODELS[config.voice];
+      if (modelInfo) {
+        let voiceAgent = agents.find((a: any) => a.id === 'voice');
+        if (!voiceAgent) {
+          // Create voice agent if it doesn't exist
+          voiceAgent = { id: 'voice', workspace: '/root/.openclaw/workspace', model: { primary: modelInfo.modelId } };
+          agents.push(voiceAgent);
+        } else {
+          if (!voiceAgent.model) voiceAgent.model = {};
+          voiceAgent.model.primary = modelInfo.modelId;
+        }
+        // Ensure voice binding points to "voice" agent
+        const voiceBinding = bindings.find((b: any) => b.match?.channel === 'voice');
+        if (voiceBinding && voiceBinding.agentId !== 'voice') {
+          voiceBinding.agentId = 'voice';
+        }
+        changed = true;
+        log.info('Updated OpenClaw voice agent model', { model: modelInfo.modelId });
+      }
+    }
+
+    if (changed) {
+      openclawConfig.agents.list = agents;
+      openclawConfig.bindings = bindings;
+      fs.writeFileSync(OPENCLAW_CONFIG_PATH, JSON.stringify(openclawConfig, null, 4), 'utf-8');
+      
+      // Signal OpenClaw to restart (fire-and-forget)
+      fetch('http://localhost:18789/api/gateway/restart', { method: 'POST' }).catch(() => {});
+    }
+
+    return { success: true };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    log.error('Failed to update OpenClaw config', { error: errorMsg });
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Read raw BOT_*_MODEL env vars from .env file (single source of truth)
+ */
+function readRawEnvModels(): Record<string, string> {
+  const result: Record<string, string> = {};
+  try {
+    if (!fs.existsSync(BOT_ENV_PATH)) return result;
+    const content = fs.readFileSync(BOT_ENV_PATH, 'utf-8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx > 0) {
+          const key = trimmed.substring(0, eqIdx).trim();
+          if (key.startsWith('BOT_') && key.endsWith('_MODEL')) {
+            let value = trimmed.substring(eqIdx + 1).trim();
+            if ((value.startsWith("'") && value.endsWith("'")) || 
+                (value.startsWith('"') && value.endsWith('"'))) {
+              value = value.slice(1, -1);
+            }
+            result[key] = value;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    log.error('Failed to read raw env models', { error });
+  }
+  return result;
+}
+
+/**
  * GET /api/bot/model-settings
- * Returns current model configuration
+ * Returns current model configuration.
+ * rawEnvValues contains the actual .env values (single source of truth).
  */
 export async function GET() {
   const config = readCurrentConfig();
   const envExists = fs.existsSync(BOT_ENV_PATH);
+  const rawEnvValues = readRawEnvModels();
   
   return NextResponse.json({
     config,
+    rawEnvValues,
     availableModels: AVAILABLE_MODELS,
     taskTypes: TASK_TYPES,
     envPath: BOT_ENV_PATH,
@@ -816,6 +947,11 @@ export async function POST(request: NextRequest) {
       const result = updateEnvFile(config);
       if (!result.success) {
         return NextResponse.json({ error: result.error || 'Failed to update model settings' }, { status: 500 });
+      }
+      // Also update OpenClaw agent config (only when lab mode is active)
+      const openclawResult = updateOpenClawConfig(config);
+      if (!openclawResult.success) {
+        log.warn('OpenClaw config update failed (non-fatal)', { error: openclawResult.error });
       }
     }
 

@@ -85,7 +85,7 @@ export function TaskFeedbackModal({
 
   return (
     <div
-      className="fixed inset-0 z-[900] flex items-center justify-center"
+      className="fixed inset-0 z-[650] flex items-center justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
@@ -96,7 +96,7 @@ export function TaskFeedbackModal({
       {/* Modal */}
       <div
         className="
-          relative z-10 w-[90vw] max-w-[440px]
+          relative z-[700] w-[90vw] max-w-[440px]
           bg-[#1a1025]/95 backdrop-blur-xl
           border border-white/15 rounded-2xl
           shadow-2xl shadow-black/50

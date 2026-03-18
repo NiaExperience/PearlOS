@@ -1,0 +1,25 @@
+{
+  "jest.debugMode": false,
+  "jest.jestCommandLine": "./node_modules/.bin/jest --detectOpenHandles --config jest.config.mjs",
+  "jest.nodeEnv": { "NODE_ENV": "test" },
+  "jest.runMode": "on-demand",
+  "testExplorer.useNativeTesting": true,
+  "testExplorer.codeLens": true,
+  "testExplorer.showOnRun": true,
+  "testExplorer.onReload": "retire",
+  "testExplorer.onStart": "reset",
+  "testExplorer.gutterDecoration": true,
+  "testExplorer.sort": "byLocation",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": [
+    "apps/pipecat-daily-bot/bot/tests"
+  ],
+  "eslint.workingDirectories": [
+    ".",
+    "apps/interface",
+    "apps/dashboard",
+    "apps/mesh",
+    "packages/prism"
+  ]
+}

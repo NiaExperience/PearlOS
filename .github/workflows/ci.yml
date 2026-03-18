@@ -1,0 +1,602 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main, production, staging ]
+  push:
+    branches: [ main, production, staging ]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: |
+          **/package-lock.json
+          interface/package-lock.json
+          dashboard/package-lock.json
+          mesh/package-lock.json
+          nia-universal/package-lock.json
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Install Python dependencies (bot)
+      run: |
+        cd apps/pipecat-daily-bot/bot
+        poetry install --no-interaction --no-root
+      # If dependency resolution becomes slow due to large ML libs, consider pinning or slimming extras.
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Verify events codegen committed
+      run: |
+        set -e
+        npm -w @nia/events run build
+        CHANGED=$(git diff --name-only -- packages/events/src/generated/events.ts packages/events/python/nia_events/events.py || true)
+        if [ -n "$CHANGED" ]; then
+          echo "❌ Generated event files are out of date. Run: npm -w @nia/events run build and commit changes."
+          echo "Changed files:\n$CHANGED"
+          git --no-pager diff -- packages/events/src/generated/events.ts packages/events/python/nia_events/events.py | sed -e 's/^/    /'
+          exit 1
+        fi
+        echo "✅ Events codegen up-to-date"
+
+    - name: Run tests
+      run: ./scripts/debug-test-ci.sh
+      env:
+        CI: true
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+        POSTGRES_DB: testdb
+        CONTAINER_NAME: test-postgres
+        NEXTAUTH_SECRET: test-secret
+        NEXTAUTH_URL: http://localhost:3000
+        GOOGLE_CLIENT_ID: test-google-client-id
+        GOOGLE_CLIENT_SECRET: test-google-client-secret
+        NEXT_PUBLIC_AWS_S3_BUCKET_NAME: nia-photosbucket
+        NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL: admin@niaxp.com
+        NEXT_PUBLIC_DEFAULT_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        AWS_REGION: us-east-2
+        EMAIL_FROM: admin@pearlos.org
+        RESET_TOKEN_PERSISTENCE: enabled
+
+    - name: Upload coverage
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-html
+        path: coverage/lcov-report
+
+    - name: Get coverage percentage
+      id: coverage
+      run: |
+        COV=$(grep -m 1 -Po 'Lines\s*:\s*\K[0-9]+\.[0-9]+' coverage/lcov-report/index.html || echo 0)
+        echo "coverage=$COV" >> $GITHUB_OUTPUT
+
+  docker-mesh:
+    name: Build and Validate Mesh
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Free disk space before build
+      run: |
+        docker system prune -af --volumes || true
+        sudo rm -rf /var/lib/docker/tmp/* || true
+        df -h
+
+    - name: Build Mesh Docker image
+      run: |
+        docker build -f apps/mesh/Dockerfile -t nia-mesh:ci .
+        echo "✅ Mesh Docker image built successfully"
+
+    - name: Aggressive disk reclaim before Trivy (mesh)
+      run: |
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+        sudo rm -rf /usr/share/dotnet || true
+        df -h
+
+    - name: Prepare Trivy scratch space
+      run: |
+        export TRIVY_TEMP_DIR="${RUNNER_TEMP:-/tmp}/trivy-mesh-tmp"
+        export TRIVY_CACHE_DIR="${RUNNER_TEMP:-/tmp}/trivy-mesh-cache"
+        mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+        echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+        echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+    - name: Scan Mesh image with Trivy
+      uses: aquasecurity/trivy-action@0.33.1
+      env:
+        TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-mesh-tmp
+        TMPDIR: ${{ runner.temp }}/trivy-mesh-tmp
+        XDG_CACHE_HOME: ${{ runner.temp }}/trivy-mesh-cache
+        TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-mesh-cache
+      with:
+        image-ref: nia-mesh:ci
+        severity: CRITICAL,HIGH
+        vuln-type: os,library
+        cache: true
+        exit-code: '1'
+        timeout: 10m
+        scanners: vuln
+        cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+    - name: Clear Trivy cache to free space
+      run: |
+        rm -rf ${{ runner.temp }}/trivy-mesh-cache || true
+        df -h
+
+    - name: Setup Node.js for validation
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Validate Mesh deployment
+      run: |
+        node scripts/ci-validate-container.mjs mesh
+
+    - name: Run Mesh health check tests
+      run: |
+        # Test health endpoints against the existing container image
+        npm run test:mesh:health:docker -- --reuse-images
+
+    - name: Upload Mesh validation report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: mesh-deployment-report
+        path: deployment-validation-report.json
+
+  docker-dashboard:
+    name: Build and Validate Dashboard
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Free disk space before build
+      run: |
+        docker system prune -af --volumes || true
+        sudo rm -rf /var/lib/docker/tmp/* || true
+        df -h
+
+    - name: Build shared web base (local)
+      run: |
+        docker build -f apps/web-base/Dockerfile -t nia-web-base:ci .
+        echo "✅ Web base image built (local tag: nia-web-base:ci)"
+
+    - name: Build Dashboard Docker image
+      run: |
+        docker build -f apps/dashboard/Dockerfile -t nia-dashboard:ci --build-arg WEB_BASE_IMAGE=nia-web-base:ci .
+        echo "✅ Dashboard Docker image built successfully"
+
+    - name: Aggressive disk reclaim before Trivy (dashboard)
+      run: |
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+        sudo rm -rf /usr/share/dotnet || true
+        df -h
+
+    - name: Prepare Trivy scratch space
+      run: |
+        export TRIVY_TEMP_DIR="${RUNNER_TEMP:-/tmp}/trivy-dashboard-tmp"
+        export TRIVY_CACHE_DIR="${RUNNER_TEMP:-/tmp}/trivy-cache"
+        mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+        echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+        echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+    - name: Scan Dashboard image with Trivy
+      uses: aquasecurity/trivy-action@0.33.1
+      env:
+        TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-dashboard-tmp
+        TMPDIR: ${{ runner.temp }}/trivy-dashboard-tmp
+        XDG_CACHE_HOME: ${{ runner.temp }}/trivy-dashboard-cache
+        TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-dashboard-cache
+      with:
+        image-ref: nia-dashboard:ci
+        severity: CRITICAL,HIGH
+        vuln-type: os,library
+        cache: true
+        exit-code: '1'
+        timeout: 10m
+        scanners: vuln
+        cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+    - name: Clear Trivy cache to free space
+      run: |
+        rm -rf ${{ runner.temp }}/trivy-dashboard-cache || true
+        df -h
+
+    - name: Setup Node.js for validation
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Validate Dashboard deployment
+      run: |
+        node scripts/ci-validate-container.mjs dashboard
+
+    - name: Run Dashboard health check tests
+      run: |
+        # Test health endpoints against the existing container image
+        npm run test:dashboard:health:docker -- --reuse-images
+
+    - name: Upload Dashboard validation report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: dashboard-deployment-report
+        path: deployment-validation-report.json
+
+  docker-interface:
+    name: Build and Validate Interface
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Free disk space before build
+      run: |
+        docker system prune -af --volumes || true
+        sudo rm -rf /var/lib/docker/tmp/* || true
+        df -h
+
+    - name: Build shared web base (local)
+      run: |
+        docker build -f apps/web-base/Dockerfile -t nia-web-base:ci .
+        echo "✅ Web base image built (local tag: nia-web-base:ci)"
+
+    - name: Build Interface Docker image
+      run: |
+        docker build -f apps/interface/Dockerfile -t nia-interface:ci --build-arg WEB_BASE_IMAGE=nia-web-base:ci .
+        echo "✅ Interface Docker image built successfully"
+
+    - name: Aggressive disk reclaim before Trivy (interface)
+      run: |
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+        sudo rm -rf /usr/share/dotnet || true
+        df -h
+
+    - name: Prepare Trivy scratch space
+      run: |
+        export TRIVY_TEMP_DIR="${RUNNER_TEMP:-/tmp}/trivy-interface-tmp"
+        export TRIVY_CACHE_DIR="${RUNNER_TEMP:-/tmp}/trivy-interface-cache"
+        mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+        echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+        echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+    - name: Scan Interface image with Trivy
+      uses: aquasecurity/trivy-action@0.33.1
+      env:
+        TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-interface-tmp
+        TMPDIR: ${{ runner.temp }}/trivy-interface-tmp
+        XDG_CACHE_HOME: ${{ runner.temp }}/trivy-interface-cache
+        TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-interface-cache
+      with:
+        image-ref: nia-interface:ci
+        severity: CRITICAL,HIGH
+        vuln-type: os,library
+        cache: true
+        exit-code: '1'
+        timeout: 10m
+        scanners: vuln
+        cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+    - name: Clear Trivy cache to free space
+      run: |
+        rm -rf ${{ runner.temp }}/trivy-interface-cache || true
+        df -h
+
+    - name: Setup Node.js for validation
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Validate Interface deployment
+      run: |
+        node scripts/ci-validate-container.mjs interface
+
+    - name: Run Interface health check tests
+      run: |
+        # Test health endpoints against the existing container image
+        npm run test:interface:health:docker -- --reuse-images
+
+    - name: Upload Interface validation report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: interface-deployment-report
+        path: deployment-validation-report.json
+
+  docker-pipecat-bot:
+    name: Build Pipecat Daily Bot
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Bot Docker image (server mode)
+      run: |
+        docker build -f apps/pipecat-daily-bot/Dockerfile -t pipecat-daily-bot:ci-server --build-arg MODE=server .
+        # Tag with expected CI validation name
+        docker tag pipecat-daily-bot:ci-server pipecat-daily-bot:ci
+        docker tag pipecat-daily-bot:ci-server nia-pipecat-daily-bot:ci
+        echo "✅ Pipecat Daily Bot (server) image built successfully"
+
+    - name: Aggressive disk reclaim before Trivy (pipecat)
+      run: |
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+        sudo rm -rf /usr/share/dotnet || true
+        df -h
+
+    - name: Prepare Trivy scratch space
+      run: |
+        export TRIVY_TEMP_DIR="${RUNNER_TEMP:-/tmp}/trivy-pipecat-tmp"
+        export TRIVY_CACHE_DIR="${RUNNER_TEMP:-/tmp}/trivy-pipecat-cache"
+        mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+        echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+        echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+    - name: Scan Pipecat Daily Bot image with Trivy
+      uses: aquasecurity/trivy-action@0.33.1
+      env:
+        TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-pipecat-tmp
+        TMPDIR: ${{ runner.temp }}/trivy-pipecat-tmp
+        XDG_CACHE_HOME: ${{ runner.temp }}/trivy-pipecat-cache
+        TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-pipecat-cache
+      with:
+        image-ref: pipecat-daily-bot:ci-server
+        severity: CRITICAL,HIGH
+        vuln-type: os,library
+        cache: true
+        exit-code: '1'
+        timeout: 10m
+        cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+    
+    - name: Clear Trivy cache to free space
+      run: |
+        rm -rf ${{ runner.temp }}/trivy-pipecat-cache || true
+        df -h
+
+    - name: Smoke Run (server mode)
+      run: |
+        set -e
+        id=$(docker run -d -e MODE=server -e CI_SKIP_PREFETCH=true pipecat-daily-bot:ci-server || true)
+        sleep 5
+        docker logs "$id" | head -60 || true
+        if docker logs "$id" | grep -qi 'ImportError'; then echo '❌ ImportError (server mode)' >&2; exit 1; fi
+        echo '✅ Server mode startup validated'
+        docker rm -f "$id" >/dev/null 2>&1 || true
+
+    - name: Setup Node.js for validation
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Validate Bot deployment (server mode)
+      run: |
+        node scripts/ci-validate-container.mjs pipecat-daily-bot
+
+    - name: Run Pipecat Daily Bot health check tests
+      run: |
+        # Test health endpoints against the existing container image
+        npm run test:pipecat-daily-bot:health:docker -- --reuse-images
+
+    - name: Upload Bot validation report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pipecat-daily-bot-deployment-report
+        path: deployment-validation-report.json
+
+  docker-kokoro-tts:
+    name: Build and Validate Kokoro TTS
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.NIAXP_PAT }}
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install uv
+      run: pip install uv
+
+    - name: Sync dependencies
+      working-directory: apps/chorus-tts
+      run: uv sync --extra dev --frozen
+
+    - name: Run Ruff format check
+      working-directory: apps/chorus-tts
+      run: uv run --extra dev ruff format --check .
+
+    - name: Run Ruff lint
+      working-directory: apps/chorus-tts
+      run: uv run --extra dev ruff check .
+
+    - name: Run mypy
+      working-directory: apps/chorus-tts
+      run: uv run --extra dev mypy .
+
+    - name: Run pytest
+      working-directory: apps/chorus-tts
+      run: PYTHONPATH=. uv run --extra dev pytest --maxfail=1 --disable-warnings -q
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Free disk space before build
+      run: |
+        docker system prune -af --volumes || true
+        sudo rm -rf /var/lib/docker/tmp/* || true
+        df -h
+
+    - name: Build Kokoro TTS Docker image
+      working-directory: apps/chorus-tts
+      run: |
+        docker build -f Dockerfile -t kokoro-tts:ci .
+        docker tag kokoro-tts:ci nia-kokoro-tts:ci
+        echo "✅ Kokoro TTS Docker image built successfully"
+
+    - name: Set up Node.js for validation
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Validate Kokoro TTS deployment
+      run: |
+        node scripts/ci-validate-container.mjs kokoro-tts
+
+    - name: Upload Kokoro TTS validation report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: kokoro-tts-deployment-report
+        path: deployment-validation-report.json
+
+  # Additional job for comprehensive validation
+  deployment-validation:
+    name: Comprehensive Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [docker-dashboard, docker-interface, docker-mesh, docker-pipecat-bot, docker-kokoro-tts]
+    if: always()
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all validation reports
+      uses: actions/download-artifact@v4
+      with:
+        pattern: "*-deployment-report"
+        path: reports/
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Aggregate validation results
+      run: |
+        # Create comprehensive validation summary
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+
+        console.log('📊 Deployment Validation Summary');
+        console.log('================================');
+
+        let totalTests = 0;
+        let totalPassed = 0;
+        let totalFailed = 0;
+        const appResults = {};
+
+        try {
+          const reportFiles = fs.readdirSync('reports', { recursive: true }).filter(f => f.endsWith('.json'));
+
+          for (const file of reportFiles) {
+            const reportPath = path.join('reports', file);
+            if (fs.existsSync(reportPath)) {
+              const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+              totalTests += report.totalTests || 0;
+              totalPassed += report.passed || 0;
+              totalFailed += report.failed || 0;
+
+              for (const result of report.results || []) {
+                appResults[result.app] = result;
+              }
+            }
+          }
+
+          console.log('Results by Application:');
+          for (const [app, result] of Object.entries(appResults)) {
+            const status = result.success ? '✅ PASS' : '❌ FAIL';
+            console.log(\`  \${app}: \${status}\`);
+            if (result.error) {
+              console.log(\`    Error: \${result.error}\`);
+            }
+          }
+
+          console.log(\`\\nOverall Statistics:\`);
+          console.log(\`  Total Tests: \${totalTests}\`);
+          console.log(\`  Passed: \${totalPassed}\`);
+          console.log(\`  Failed: \${totalFailed}\`);
+          console.log(\`  Success Rate: \${totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : 0}%\`);
+
+          if (totalFailed > 0) {
+            console.log('\\n❌ Deployment validation failed!');
+            process.exit(1);
+          } else {
+            console.log('\\n✅ All deployment validations passed!');
+          }
+        } catch (error) {
+          console.log('⚠️ Could not read validation reports, assuming success');
+          console.log('Error:', error.message);
+        }
+        "
+
+  # Final job that depends on all parallel jobs including validation
+  validate:
+    name: Validate All Checks
+    runs-on: ubuntu-latest
+    needs: [test, docker-dashboard, docker-interface, docker-mesh, docker-pipecat-bot, docker-kokoro-tts, deployment-validation]
+    if: always()
+    steps:
+    - name: Check job results
+      run: |
+        # Check if any required job failed
+          if [[ "${{ needs.test.result }}" == "failure" || \
+                "${{ needs.docker-dashboard.result }}" == "failure" || \
+                "${{ needs.docker-interface.result }}" == "failure" || \
+                "${{ needs.docker-mesh.result }}" == "failure" || \
+                "${{ needs.docker-pipecat-bot.result }}" == "failure" || \
+                "${{ needs.docker-kokoro-tts.result }}" == "failure" || \
+                "${{ needs.deployment-validation.result }}" == "failure" ]]; then
+            echo "❌ One or more CI jobs failed"
+            exit 1
+          fi
+
+          echo "✅ All parallel jobs completed successfully"
+          echo "🎉 CI pipeline validation complete"
+          echo "🚀 Ready for deployment!"

@@ -3,6 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
+import { requireAuth } from '@interface/lib/api-auth';
 
 const execAsync = promisify(exec);
 
@@ -17,14 +18,69 @@ function isAllowedPath(dir: string): boolean {
 }
 
 // Commands that are blocked for safety
-const BLOCKED_COMMANDS = ['rm -rf /', 'mkfs', ':(){:|:&};:', 'dd if=/dev/zero'];
+const BLOCKED_PATTERNS: RegExp[] = [
+  // Destructive file operations
+  /rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|-[a-zA-Z]*r[a-zA-Z]*\s+)*\s*\/($|\s)/,  // rm -rf /
+  /rm\s+.*--no-preserve-root/,
+  /rm\s+-[a-zA-Z]*r[a-zA-Z]*\s+-[a-zA-Z]*f/,  // rm -rf variants
+  /rm\s+-[a-zA-Z]*f[a-zA-Z]*\s+-[a-zA-Z]*r/,  // rm -fr variants
+  // Filesystem format/destroy
+  /mkfs/,
+  /mkswap\s+\/dev/,
+  /dd\s+.*of=\/dev/,
+  /wipefs/,
+  /shred\s+/,
+  // Fork bomb
+  /:\(\)\{.*\|.*&.*\};/,
+  /\.{0}:\(\)/,
+  // Permission destruction
+  /chmod\s+000\s/,
+  /chmod\s+-R\s+000/,
+  /chmod\s+.*\/etc/,
+  /chown\s+-R\s+.*\//,
+  // System file tampering
+  />\s*\/etc\//,
+  /tee\s+\/etc\//,
+  /cp\s+.*\/etc\/(passwd|shadow|sudoers)/,
+  /echo\s+.*>\s*\/etc\//,
+  // Remote code execution patterns
+  /curl\s+.*\|\s*(ba)?sh/,
+  /wget\s+.*\|\s*(ba)?sh/,
+  /curl\s+.*\|\s*python/,
+  /wget\s+.*\|\s*python/,
+  /bash\s+-c\s+.*\$\(curl/,
+  // Kill system processes
+  /kill\s+-9\s+1\b/,
+  /killall\s+-9/,
+  // Dangerous system commands
+  /shutdown/,
+  /reboot/,
+  /init\s+0/,
+  /halt\b/,
+  /poweroff/,
+  // iptables flush (lock yourself out)
+  /iptables\s+-F/,
+  // Overwrite MBR
+  /dd\s+.*of=.*sda/,
+  // Python/perl reverse shells
+  /python.*socket.*connect/,
+  /perl.*socket.*INET/,
+  // nohup + background evasion for blocked commands
+  /nohup\s+rm\s/,
+];
 
 function isBlocked(command: string): boolean {
   const lower = command.toLowerCase().trim();
-  return BLOCKED_COMMANDS.some((blocked) => lower.includes(blocked));
+  // Also block simple exact matches
+  const exactBlocks = ['rm -rf /', 'rm -rf /*', ':(){:|:&};:'];
+  if (exactBlocks.some((b) => lower.includes(b))) return true;
+  return BLOCKED_PATTERNS.some((pattern) => pattern.test(lower));
 }
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAuth(req);
+  if (authError) return authError;
+
   let body: { command?: string; cwd?: string };
   try {
     body = await req.json();
@@ -39,7 +95,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate working directory
-  const workDir = cwd && isAllowedPath(cwd) ? path.resolve(cwd) : '/workspace';
+  const workDir = cwd && isAllowedPath(cwd) ? path.resolve(cwd) : '/workspace/nia-universal/';
 
   if (isBlocked(command)) {
     return NextResponse.json(
@@ -54,7 +110,7 @@ export async function POST(req: NextRequest) {
     const target = cdMatch[1]?.trim();
     let newDir: string;
     if (!target || target === '~') {
-      newDir = '/workspace';
+      newDir = '/workspace/nia-universal/';
     } else if (target === '-') {
       newDir = workDir; // can't track OLDPWD easily; stay put
     } else {

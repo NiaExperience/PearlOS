@@ -71,6 +71,10 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   const avatarVisibleBeforeDailyCallRef = useRef(false);
 
   const triggerAvatarPopup = () => {
+    log.info('triggerAvatarPopup called', {
+      source: 'ui_context',
+      isAvatarVisibleBefore: isAvatarVisible,
+    });
     if (!isAvatarVisible) {
       setIsAvatarHiding(false);
       setIsAvatarAnimating(true);
@@ -84,6 +88,10 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const triggerAvatarHide = () => {
+    log.info('triggerAvatarHide called', {
+      source: 'ui_context',
+      isAvatarVisibleBefore: isAvatarVisible,
+    });
     if (isAvatarVisible) {
       setIsAvatarHiding(true);
       setIsAvatarAnimating(true);
