@@ -1,0 +1,150 @@
+name: deploy-web-app
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      dockerfile_path:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+      container_name:
+        required: false
+        type: string
+      context_path:
+        required: false
+        type: string
+      image_tag:
+        required: false
+        type: string
+    secrets:
+      SUBMODULE_PAT:
+        required: false
+      NEXT_PUBLIC_API_URL:
+        required: false
+      NEXT_PUBLIC_INTERFACE_BASE_URL:
+        required: false
+      NEXT_PUBLIC_DAILY_ROOM_URL:
+        required: false
+      NEXT_PUBLIC_BOT_CONTROL_BASE_URL:
+        required: false
+      NEXT_PUBLIC_POSTHOG_KEY:
+        required: false
+      NEXT_PUBLIC_POSTHOG_PROXY_HOST:
+        required: false
+
+jobs:
+  # ----------------------------------------------------------- 
+  # SETUP: RESOLVE IMAGE TAG
+  # ----------------------------------------------------------- 
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.final.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - id: resolve
+        if: inputs.image_tag == ''
+        uses: ./.github/actions/generate-image-tag
+        with:
+          environment: ${{ inputs.environment }}
+
+      - id: final
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "image_tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${{ steps.resolve.outputs.image_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+  # ----------------------------------------------------------- 
+  # BUILD WEB BASE
+  # ----------------------------------------------------------- 
+  web-base:
+    needs: setup
+    uses: ./.github/workflows/build-web-base.yml
+    with:
+      environment: ${{ inputs.environment }}
+      context_path: ${{ inputs.context_path }}
+      image_tag: ${{ needs.setup.outputs.image_tag }}
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
+
+  # ----------------------------------------------------------- 
+  # BUILD WEB APP (consumes shared base)
+  # ----------------------------------------------------------- 
+  build-web-app:
+    needs: [setup, web-base]
+    uses: ./.github/workflows/build-app.yml
+    with:
+      app_name: ${{ inputs.app_name }}
+      dockerfile_path: ${{ inputs.dockerfile_path }}
+      environment: ${{ inputs.environment }}
+      context_path: ${{ inputs.context_path }}
+      web_base_image: ${{ needs.web-base.outputs.web_base_image }}
+      image_tag: ${{ needs.setup.outputs.image_tag }}
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+      NEXT_PUBLIC_INTERFACE_BASE_URL: ${{ secrets.NEXT_PUBLIC_INTERFACE_BASE_URL }}
+      NEXT_PUBLIC_DAILY_ROOM_URL: ${{ secrets.NEXT_PUBLIC_DAILY_ROOM_URL }}
+      NEXT_PUBLIC_BOT_CONTROL_BASE_URL: ${{ secrets.NEXT_PUBLIC_BOT_CONTROL_BASE_URL }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+      NEXT_PUBLIC_POSTHOG_PROXY_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_PROXY_HOST }}
+
+  # ----------------------------------------------------------- 
+  # DEPLOY TO EKS
+  # ----------------------------------------------------------- 
+  deploy:
+    needs: [setup, build-web-app]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read
+    env:
+      REGISTRY: 577124901432.dkr.ecr.us-east-2.amazonaws.com
+      AWS_REGION: us-east-2
+      CLUSTER_NAME: nia
+      IMAGE_NAME: ${{ inputs.app_name }}
+      IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
+    steps:
+      - name: Derive k8s names
+        run: |
+          if [ "${{ inputs.environment }}" = "stg" ]; then
+            echo "K8S_NS=${{ inputs.app_name }}-stg"   >> $GITHUB_ENV
+            echo "DEPLOY_NAME=${{ inputs.app_name }}-stg" >> $GITHUB_ENV
+          elif [ "${{ inputs.environment }}" = "pearl" ]; then
+            echo "K8S_NS=${{ inputs.app_name }}-pearl" >> $GITHUB_ENV
+            echo "DEPLOY_NAME=${{ inputs.app_name }}-pearl" >> $GITHUB_ENV
+          else
+            echo "K8S_NS=${{ inputs.app_name }}"       >> $GITHUB_ENV
+            echo "DEPLOY_NAME=${{ inputs.app_name }}"  >> $GITHUB_ENV
+          fi
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::577124901432:role/gha-eks-deployer
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write kubeconfig
+        run: |
+          aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+
+      - name: Set image on deployment
+        env:
+          CONTAINER_NAME: ${{ inputs.container_name }}
+        run: |
+          IMAGE_URI=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+          CONTAINER=${CONTAINER_NAME:-web}
+          echo "Updating deployment $DEPLOY_NAME container $CONTAINER to $IMAGE_URI"
+          kubectl -n $K8S_NS set image deployment/$DEPLOY_NAME \
+            $CONTAINER=$IMAGE_URI --record
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n $K8S_NS rollout status deployment/$DEPLOY_NAME

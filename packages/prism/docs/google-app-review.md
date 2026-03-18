@@ -41,7 +41,7 @@ We reserve the right to suspend or terminate access at any time, especially in c
 
 We may update these Terms as the product evolves. If changes are made, we’ll notify you. Your continued use after those updates means you accept the new terms.
 
-These Terms are governed by the laws of the State of Delaware. If you have questions, please contact us at [nia@niaxp.com](mailto:nia@niaxp.com).
+These Terms are governed by the laws of the State of Delaware. If you have questions, please contact us at [dev@niaxp.com](mailto:dev@niaxp.com).
 
 ---
 
@@ -57,7 +57,7 @@ You remain in control of your data at all times. You can revoke Nia’s access t
 
 Nia integrates with Google and other third-party platforms strictly for functionality you've authorized. We comply fully with Google’s Limited Use Policy and maintain high privacy standards throughout.
 
-If you have any questions or concerns about this policy, please contact us at [Insert Email] or by mail at [nia@niaxp.com](mailto:nia@niaxp.com).
+If you have any questions or concerns about this policy, please contact us at [Insert Email] or by mail at [dev@niaxp.com](mailto:dev@niaxp.com).
 
 ---
 

@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
+import { requireAuth } from '@interface/lib/api-auth';
 
 const BOT_GATEWAY_URL = process.env.BOT_GATEWAY_URL || process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:4444';
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAuth(req);
+  if (authError) return authError;
   try {
     const body = await req.json();
     const upstream = await fetch(`${BOT_GATEWAY_URL}/api/chat`, {

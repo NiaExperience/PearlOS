@@ -23,6 +23,7 @@ Keep responses concise but helpful. Use a friendly, conversational tone.`,
     'notes', 'htmlContent', 'miniBrowser', 'dailyCall', 'avatar',
     'passwordLogin', 'guestLogin', 'onboarding', 'calculator',
     'youtube', 'soundtrack', 'terminal', 'openclawBridge', 'enhancedBrowser',
+    'news', 'weather', 'wonderCanvas', 'browserAutomation', 'sprites', 'vision',
   ],
   voiceProvider: 'pipecat',
   modePersonalityVoiceConfig: {
@@ -75,11 +76,10 @@ export async function POST(req: NextRequest) {
 
     // Try to create default personality
     try {
-      await PersonalityActions.createPersonality({
+      await PersonalityActions.createPersonality(tenantId, {
         key: 'pearl-default',
         name: 'Pearl',
         description: 'Default personality for Pearl - friendly, helpful, conversational',
-        tenantId,
         primaryPrompt: `You are Pearl, an AI assistant with a warm and friendly personality.
 Core traits: Helpful, knowledgeable, conversational, patient, concise but thorough.
 Use natural language, be encouraging, ask clarifying questions when needed.`,

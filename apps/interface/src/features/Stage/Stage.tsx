@@ -5,7 +5,12 @@ import { getClientLogger } from '@interface/lib/client-logger';
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
 import ExperienceRenderer, { type ExperienceContent } from './ExperienceRenderer';
 import WonderCanvasRenderer from './WonderCanvas/WonderCanvasRenderer';
-import UniversalCanvas from '@interface/components/canvas/UniversalCanvas';
+import CanvasTaskProgress from './WonderCanvas/CanvasTaskProgress';
+// UniversalCanvas REMOVED from Stage — was causing white overlay conflict with WonderCanvas.
+// Both rendered at z-index 1, position absolute inset 0. UniversalCanvas (canvas.render events)
+// would mount ON TOP of WonderCanvas (wonder.scene events), creating the milky white overlay.
+// All canvas content now routes through WonderCanvas templates exclusively.
+// UniversalCanvas still exists in browser-window.tsx for Notes — that's fine.
 import './stage.css';
 
 const logger = getClientLogger('[stage]');
@@ -85,11 +90,12 @@ export default function Stage() {
         onDismiss={handleDismiss}
       />
 
-      {/* Universal Canvas layer — renders structured content (markdown, charts, etc.) */}
-      <UniversalCanvas className="stage__canvas" />
+      {/* UniversalCanvas REMOVED — was causing white overlay. See comment at top. */}
 
-      {/* Pearl avatar layer — the avatar itself is rendered by the parent
-          (GIF avatar lives in DailyCall). This div reserves the z-index layer. */}
+      {/* Canvas task progress indicator */}
+      <CanvasTaskProgress />
+
+      {/* Pearl avatar layer — reserved for future use */}
       <div className="stage__pearl" />
     </div>
   );

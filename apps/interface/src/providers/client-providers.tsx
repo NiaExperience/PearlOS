@@ -18,6 +18,11 @@ import { useGatewaySocket } from '@interface/features/DailyCall/hooks/useGateway
 import { useDailyCallState } from '@interface/features/DailyCall/state/store';
 import { ConsoleNoiseFilter } from '@interface/providers/console-noise-filter';
 import { PostHogProvider } from '@interface/providers/posthog-provider';
+import { AssistantSoundEffects } from '@interface/components/assistant-sound-effects';
+import { getClientLogger } from '@interface/lib/client-logger';
+
+const providersLog = getClientLogger('[client_providers]');
+const AVATAR_TRACE_VERSION = 'avatar-trace-2026-03-02-02';
 
 function LogContextProvider({ children }: { children: React.ReactNode }) {
   const { data, status } = useSession();
@@ -67,6 +72,24 @@ function GatewaySocketBridge() {
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   const soundtrackEnabled = isFeatureEnabled('soundtrack');
 
+  useEffect(() => {
+    providersLog.info('ClientProviders mounted', {
+      source: 'client_providers',
+      avatarTraceVersion: AVATAR_TRACE_VERSION,
+      soundtrackEnabled,
+      floatingPearlMounted: false,
+      assistantSoundEffectsMounted: true,
+    });
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __avatarTraceVersion?: string }).__avatarTraceVersion = AVATAR_TRACE_VERSION;
+      console.info('[AVATAR_TRACE_VERSION]', AVATAR_TRACE_VERSION);
+      console.info('[AVATAR_TRACE_COMPONENTS]', {
+        floatingPearlMounted: false,
+        assistantSoundEffectsMounted: true,
+      });
+    }
+  }, [soundtrackEnabled]);
+
   return (
     <LogContextProvider>
       <PostHogProvider>
@@ -79,6 +102,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
                   <GatewaySocketBridge />
                   <LayoutModeSwitchBridge />
                   <ConsoleNoiseFilter />
+                  <AssistantSoundEffects />
                   {soundtrackEnabled ? (
                     <ErrorBoundary name="Soundtrack" silent>
                       <SoundtrackProvider>
@@ -97,3 +121,4 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     </LogContextProvider>
   );
 }
+

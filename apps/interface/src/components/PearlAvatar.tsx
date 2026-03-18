@@ -1,44 +1,33 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-// ── GIF asset paths ──
-const AVATAR_GIFS = {
+const AVATAR_ASSETS = {
   sleep: "/images/avatar/Pearlinactivenew.png",
   waking: "/images/avatar/StarupPearl.gif",
-  idle: "/images/avatar/pearlIdle1.gif",
   sleeping: "/images/avatar/PearlShutdown.gif",
 } as const;
 
-// Alternate idle GIFs for variety
-const IDLE_GIFS = [
-  "/images/avatar/pearlIdle1.gif",
-  "/images/avatar/Pearlidle2.gif",
-];
+const IDLE_GIFS = ["/images/avatar/pearlIdle1.gif", "/images/avatar/Pearlidle2.gif"];
+const TALKING_GIFS = ["/images/avatar/avatar-talking.gif", "/images/avatar/PearlTalking1.gif"];
 
-// Talking GIFs — cycled with cache-busting so non-looping GIFs replay
-const TALKING_GIFS = [
-  "/images/avatar/avatar-talking.gif",
-  "/images/avatar/PearlTalking1.gif",
-];
+const WAKING_DURATION_MS = 1200;
+const SLEEPING_DURATION_MS = 1000;
+const IDLE_CYCLE_MS = 4000;
+const TALKING_CYCLE_MS = 2800;
 
-type AvatarState = "sleep" | "waking" | "idle" | "talking" | "sleeping";
-
-// Durations for one-shot GIF animations (ms)
-const WAKING_DURATION = 2500;
-const SLEEPING_DURATION = 2000;
+export type PearlAvatarState = "sleep" | "waking" | "idle" | "talking" | "sleeping";
 
 interface PearlAvatarProps {
-  /** Whether the avatar should be "awake" (voice call active) */
   isAwake: boolean;
-  /** Whether the assistant is currently speaking/typing */
   isTalking: boolean;
-  /** Size in px */
   size?: number;
-  /** Click handler */
   onClick?: () => void;
-  /** Additional className */
   className?: string;
+  style?: React.CSSProperties;
+  freezeIdle?: boolean;
+  onTransitionLockChange?: (locked: boolean) => void;
+  onAnimationStateChange?: (state: PearlAvatarState) => void;
 }
 
 const PearlAvatar: React.FC<PearlAvatarProps> = ({
@@ -47,135 +36,169 @@ const PearlAvatar: React.FC<PearlAvatarProps> = ({
   size = 57,
   onClick,
   className = "",
+  style: styleProp,
+  freezeIdle = false,
+  onTransitionLockChange,
+  onAnimationStateChange,
 }) => {
-  const [state, setState] = useState<AvatarState>("sleep");
+  const [state, setState] = useState<PearlAvatarState>("sleep");
+  const [isTransitionLocked, setIsTransitionLocked] = useState(false);
   const [idleIndex, setIdleIndex] = useState(0);
   const [talkingIndex, setTalkingIndex] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleCycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const talkingCycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [displayedSrc, setDisplayedSrc] = useState<string>(AVATAR_ASSETS.sleep);
 
-  // Clean up timers on unmount
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleCycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const talkingCycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const oneShotCacheBustRef = useRef<number>(Date.now());
+
+  const clearTransitionTimer = () => {
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+  };
+
   useEffect(() => {
+    [AVATAR_ASSETS.sleep, AVATAR_ASSETS.waking, AVATAR_ASSETS.sleeping, ...IDLE_GIFS, ...TALKING_GIFS].forEach((asset) => {
+      const img = new Image();
+      img.src = asset;
+    });
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (idleCycleRef.current) clearInterval(idleCycleRef.current);
-      if (talkingCycleRef.current) clearInterval(talkingCycleRef.current);
+      clearTransitionTimer();
+      if (idleCycleTimerRef.current) clearInterval(idleCycleTimerRef.current);
+      if (talkingCycleTimerRef.current) clearInterval(talkingCycleTimerRef.current);
     };
   }, []);
 
-  // ── Wake/Sleep transitions ──
+  useEffect(() => {
+    onTransitionLockChange?.(isTransitionLocked);
+  }, [isTransitionLocked, onTransitionLockChange]);
+
+  useEffect(() => {
+    onAnimationStateChange?.(state);
+  }, [state, onAnimationStateChange]);
+
   useEffect(() => {
     if (isAwake && (state === "sleep" || state === "sleeping")) {
-      // Cancel any pending sleep timer
-      if (timerRef.current) clearTimeout(timerRef.current);
-
+      clearTransitionTimer();
+      oneShotCacheBustRef.current = Date.now();
+      setIsTransitionLocked(true);
       setState("waking");
-      timerRef.current = setTimeout(() => {
+      transitionTimerRef.current = setTimeout(() => {
+        setIsTransitionLocked(false);
         setState(isTalking ? "talking" : "idle");
-      }, WAKING_DURATION);
-    } else if (!isAwake && state !== "sleep" && state !== "sleeping") {
-      if (timerRef.current) clearTimeout(timerRef.current);
-
-      setState("sleeping");
-      timerRef.current = setTimeout(() => {
-        setState("sleep");
-      }, SLEEPING_DURATION);
+      }, WAKING_DURATION_MS);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAwake]); // intentionally only depend on isAwake
 
-  // ── Idle/Talking transitions (only when fully awake) ──
+    if (!isAwake && state !== "sleep" && state !== "sleeping") {
+      clearTransitionTimer();
+      oneShotCacheBustRef.current = Date.now();
+      setIsTransitionLocked(true);
+      setState("sleeping");
+      transitionTimerRef.current = setTimeout(() => {
+        setIsTransitionLocked(false);
+        setState("sleep");
+      }, SLEEPING_DURATION_MS);
+    }
+  }, [isAwake, isTalking, state]);
+
   useEffect(() => {
+    if (!isAwake || isTransitionLocked) return;
     if (state === "idle" && isTalking) {
       setState("talking");
     } else if (state === "talking" && !isTalking) {
       setState("idle");
     }
-  }, [isTalking, state]);
+  }, [isAwake, isTalking, isTransitionLocked, state]);
 
-  // Safety timeout: if stuck in talking state for >30s, force back to idle
-  const talkingSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (state === "talking") {
-      talkingSafetyRef.current = setTimeout(() => {
-        setState("idle");
-      }, 30000);
-      return () => {
-        if (talkingSafetyRef.current) clearTimeout(talkingSafetyRef.current);
-      };
+    if (idleCycleTimerRef.current) {
+      clearInterval(idleCycleTimerRef.current);
+      idleCycleTimerRef.current = null;
     }
+    if (state !== "idle" || freezeIdle) return;
+    idleCycleTimerRef.current = setInterval(() => {
+      setIdleIndex((prev) => (prev + 1) % IDLE_GIFS.length);
+    }, IDLE_CYCLE_MS);
+    return () => {
+      if (idleCycleTimerRef.current) {
+        clearInterval(idleCycleTimerRef.current);
+        idleCycleTimerRef.current = null;
+      }
+    };
+  }, [state, freezeIdle]);
+
+  useEffect(() => {
+    if (talkingCycleTimerRef.current) {
+      clearInterval(talkingCycleTimerRef.current);
+      talkingCycleTimerRef.current = null;
+    }
+    if (state !== "talking") return;
+    talkingCycleTimerRef.current = setInterval(() => {
+      setTalkingIndex((prev) => (prev + 1) % TALKING_GIFS.length);
+    }, TALKING_CYCLE_MS);
+    return () => {
+      if (talkingCycleTimerRef.current) {
+        clearInterval(talkingCycleTimerRef.current);
+        talkingCycleTimerRef.current = null;
+      }
+    };
   }, [state]);
 
-  // ── Cycle idle GIFs every 4 seconds when idle ──
-  // Uses a cache-bust timestamp so non-looping GIFs replay from frame 1
-  const [idleCacheBust, setIdleCacheBust] = useState(0);
-  useEffect(() => {
+  const src = useMemo(() => {
+    if (state === "waking" || state === "sleeping") {
+      return `${AVATAR_ASSETS[state]}?t=${oneShotCacheBustRef.current}`;
+    }
+    if (state === "talking") {
+      return TALKING_GIFS[talkingIndex];
+    }
     if (state === "idle") {
-      // Force initial GIF to replay when entering idle state
-      setIdleCacheBust(Date.now());
-      idleCycleRef.current = setInterval(() => {
-        setIdleIndex(prev => (prev + 1) % IDLE_GIFS.length);
-        setIdleCacheBust(Date.now());
-      }, 4000);
-      return () => {
-        if (idleCycleRef.current) clearInterval(idleCycleRef.current);
-      };
+      return freezeIdle ? IDLE_GIFS[0] : IDLE_GIFS[idleIndex];
     }
-  }, [state]);
+    return AVATAR_ASSETS.sleep;
+  }, [state, talkingIndex, idleIndex, freezeIdle]);
 
-  // ── Cycle talking GIFs every 3 seconds when talking ──
-  // Uses a cache-bust timestamp so non-looping GIFs replay from frame 1
-  // This ensures continuous animation throughout Pearl's entire speech
-  const [talkingCacheBust, setTalkingCacheBust] = useState(0);
+  // Swap image source only after target asset is loaded to avoid visual flashes
+  // and avoid showing any fallback layer "behind" transparent GIF frames.
   useEffect(() => {
-    if (state === "talking") {
-      // Force initial GIF to replay when entering talking state
-      setTalkingCacheBust(Date.now());
-      talkingCycleRef.current = setInterval(() => {
-        setTalkingIndex(prev => {
-          let next;
-          do {
-            next = Math.floor(Math.random() * TALKING_GIFS.length);
-          } while (TALKING_GIFS.length > 1 && next === prev);
-          return next;
-        });
-        setTalkingCacheBust(Date.now());
-      }, 2500 + Math.random() * 1500); // Randomized interval for natural feel
-      return () => {
-        if (talkingCycleRef.current) clearInterval(talkingCycleRef.current);
-      };
-    }
-  }, [state]);
-
-  // Resolve the current GIF source
-  let src: string;
-  if (state === "waking" || state === "sleeping") {
-    // Cache-bust one-shot GIFs so they replay from the start
-    src = `${AVATAR_GIFS[state]}?t=${Date.now()}`;
-  } else if (state === "idle") {
-    src = `${IDLE_GIFS[idleIndex]}?t=${idleCacheBust}`;
-  } else if (state === "talking") {
-    src = `${TALKING_GIFS[talkingIndex]}?t=${talkingCacheBust}`;
-  } else {
-    src = AVATAR_GIFS[state];
-  }
+    if (displayedSrc === src) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setDisplayedSrc(src);
+    };
+    img.onerror = () => {
+      if (!cancelled) setDisplayedSrc(AVATAR_ASSETS.sleep);
+    };
+    img.src = src;
+    return () => {
+      cancelled = true;
+    };
+  }, [src, displayedSrc]);
 
   return (
     <img
-      src={src}
+      src={displayedSrc}
       alt="Pearl"
-      onClick={onClick}
-      className={`shrink-0 rounded-full cursor-pointer ${className}`}
+      data-pearl-state={state}
+      data-pearl-awake={String(isAwake)}
+      data-pearl-locked={String(isTransitionLocked)}
+      onClick={() => {
+        if (!isTransitionLocked) onClick?.();
+      }}
+      className={`shrink-0 rounded-full ${onClick ? "cursor-pointer" : ""} ${className}`}
       style={{
         width: `${size}px`,
         height: `${size}px`,
         objectFit: "cover",
-        opacity: state === "sleep" ? 0.6 : 1,
-        transition: "opacity 0.3s ease",
+        opacity: state === "sleep" ? 0.45 : state === "sleeping" ? 0.7 : 1,
+        transition: "opacity 220ms ease",
+        ...styleProp,
       }}
       onError={(e) => {
-        (e.target as HTMLImageElement).src = "/images/pearl-avatar.png";
+        (e.target as HTMLImageElement).src = "/images/avatar/Pearlinactivenew.png";
       }}
     />
   );

@@ -64,6 +64,12 @@ function connect(url: string) {
       try {
         const data = JSON.parse(ev.data);
 
+        // Handle keepalive pings from server
+        if (data.type === 'ping') {
+          try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* noop */ }
+          return;
+        }
+
         // Filter by sessionUserId if targeted
         if (data.targetSessionUserId) {
           const currentSessionUserId = sessionStorage.getItem('sessionUserId');
@@ -162,12 +168,12 @@ export function startWsEventBridge(url?: string, sessionId?: string) {
       // Default: same host, port 4444
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
-      // RunPod proxy: rewrite port-based hostname (e.g. xxx-3000.proxy.runpod.net → xxx-4444.proxy.runpod.net)
-      const runpodMatch = host.match(/^(.+)-\d+(\.proxy\.runpod\.net)$/);
-      if (runpodMatch) {
-        url = `${proto}//${runpodMatch[1]}-4444${runpodMatch[2]}/ws/events`;
-      } else if (host !== 'localhost' && host !== '127.0.0.1') {
-        // Non-localhost (e.g. Cloudflare tunnel): use same-origin rewrite path
+      // Non-localhost (RunPod proxy, Cloudflare tunnel, etc.):
+      // Always use same-origin rewrite path (/gateway-ws/events).
+      // Next.js rewrites proxy this to localhost:4444/ws/events.
+      // Direct port-based connections (e.g. {pod}-4444.proxy.runpod.net)
+      // fail because RunPod doesn't expose port 4444 externally.
+      if (host !== 'localhost' && host !== '127.0.0.1') {
         url = `${proto}//${window.location.host}/gateway-ws/events`;
       } else {
         url = `${proto}//${host}:4444/ws/events`;

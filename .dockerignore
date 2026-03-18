@@ -1,0 +1,103 @@
+# Core VCS/OS noise
+.git
+.gitignore
+*.swp
+*.swo
+*.log
+.DS_Store
+Thumbs.db
+
+# Dependency stores
+node_modules
+**/.npm
+**/.pnpm-store
+**/.yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/install-state.gz
+
+# Build caches and outputs
+**/.turbo
+**/.next
+**/.cache
+**/.parcel-cache
+**/.vite
+**/.swc
+**/dist
+**/build
+**/coverage
+coverage*
+**/.nyc_output
+**/.eslintcache
+**/.jest
+**/.jest-cache
+**/.ruff_cache
+**/.mypy_cache
+**/.pytest_cache
+**/.tox
+**/.gradle
+**/.svelte-kit
+**/.rollup.cache
+**/.storybook
+**/storybook-static
+**/.angular
+
+# App/test artifacts
+**/__tests__
+**/__tests-e2e__
+**/test-e2e
+**/test
+cypress/screenshots
+cypress/videos
+
+# Env files (keep samples)
+.env.local
+.env.development
+.env.test
+.env.production
+.env
+!.env.example
+!.env.*.example
+
+# Logs and temp files
+logs
+**/logs
+tmp
+**/tmp
+*.pid
+*.seed
+*.coveragerc
+
+# App-specific (reduce build context for web images)
+apps/interface/__tests__
+apps/interface/__tests-e2e__
+apps/interface/cypress
+apps/interface/coverage
+apps/interface/playwright-report
+apps/interface/.playwright
+apps/interface/.next
+apps/interface/.turbo
+apps/interface/.swc
+apps/interface/.vercel
+apps/interface/logs
+apps/interface/tmp
+
+apps/dashboard/__tests__
+apps/dashboard/__tests-e2e__
+apps/dashboard/cypress
+apps/dashboard/coverage
+apps/dashboard/.next
+apps/dashboard/.turbo
+apps/dashboard/.swc
+apps/dashboard/.vercel
+apps/dashboard/logs
+apps/dashboard/tmp
+
+# Editor/project files
+.vscode
+.idea
+.history
+.fleet
+*.iml
+
+# Project docs are tiny, leave them in context by default

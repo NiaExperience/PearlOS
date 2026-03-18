@@ -4,12 +4,12 @@ export type NoteMode = 'personal' | 'work';
 export interface Note {
   _id?: string;
   title: string;
-  content: string;
+  content?: string;
   mode: NoteMode;
   isPinned?: boolean;
   timestamp?: string;
-  userId: string;
-  tenantId: string;
+  userId?: string;
+  tenantId?: string;
   createdAt?: string;
   // Document-related metadata
   sourceFile?: {

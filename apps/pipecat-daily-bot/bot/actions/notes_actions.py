@@ -164,7 +164,13 @@ async def ensure_notes_definition(
 
 
 async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_content: bool = False) -> list[dict]:
-    """Fetch all notes for tenant, optionally filtered by mode.
+    """Fetch all notes for tenant from ALL sources (database + filesystem).
+    
+    Notes live in two places:
+    1. Database (Mesh/notion_blocks) — created via voice, bot tools, or API
+    2. Filesystem (/workspace/user/Documents/*.md) — created by sub-agents, manual edits, etc.
+    
+    Both sources are merged and deduplicated so callers always see the complete picture.
     
     Args:
         tenant_id: Tenant identifier for data isolation
@@ -173,7 +179,7 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
         include_content: If True, include full note content in results (default False for performance)
         
     Returns:
-        List of note documents, sorted by created_at descending
+        List of note documents, sorted by updated_at descending
     """
     try:
         from services import mesh as mesh_client
@@ -183,7 +189,7 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
             logger.warning(f"[notes_actions] Normalized non-UUID user_id '{user_id}' -> '{normalized_user_id}' for list_notes")
         user_id = normalized_user_id
         
-        # Fetch all three note sources in parallel (work, personal, shared)
+        # Fetch all four note sources in parallel (work, personal, shared, filesystem)
         import asyncio
 
         async def _fetch_work():
@@ -195,19 +201,53 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
             return await mesh_client.request("GET", "/content/Notes", params=p)
 
         async def _fetch_personal():
-            where = {"AND": [
+            # Fetch ALL notes owned by user (not filtered by mode) so we catch
+            # legacy notes that have no mode field.  We filter out 'work' notes
+            # in-memory afterwards since those are already returned by _fetch_work.
+            # Query by BOTH parent_id and indexer.userId — notes created via the
+            # bot set userId in the content body but may not have parent_id mapped
+            # by Mesh, so we need both paths to surface all user notes.
+            where_parent = {"AND": [
                 {"indexer": {"path": "tenantId", "equals": tenant_id}},
-                {"indexer": {"path": "mode", "equals": "personal"}},
                 {"parent_id": {"eq": user_id}}
             ]}
-            p = {"tenant": tenant_id, "where": json.dumps(where, separators=(',', ':')), "limit": str(limit)}
-            return await mesh_client.request("GET", "/content/Notes", params=p)
+            where_userid = {"AND": [
+                {"indexer": {"path": "tenantId", "equals": tenant_id}},
+                {"indexer": {"path": "userId", "equals": user_id}}
+            ]}
+            p_parent = {"tenant": tenant_id, "where": json.dumps(where_parent, separators=(',', ':')), "limit": str(limit)}
+            p_userid = {"tenant": tenant_id, "where": json.dumps(where_userid, separators=(',', ':')), "limit": str(limit)}
+            resp_parent, resp_userid = await asyncio.gather(
+                mesh_client.request("GET", "/content/Notes", params=p_parent),
+                mesh_client.request("GET", "/content/Notes", params=p_userid),
+                return_exceptions=True,
+            )
+            # Merge results from both queries, dedup by _id
+            merged = []
+            seen = set()
+            for resp in [resp_parent, resp_userid]:
+                if isinstance(resp, Exception):
+                    logger.warning(f"[notes_actions] Personal notes sub-query failed: {resp}")
+                    continue
+                if resp.get("success"):
+                    for n in resp.get("data", []):
+                        nid = n.get("_id")
+                        if nid and nid not in seen:
+                            seen.add(nid)
+                            merged.append(n)
+            # Filter out work-mode notes (already covered by _fetch_work)
+            merged = [n for n in merged if n.get("mode") != "work"]
+            return {"success": True, "data": merged}
 
         async def _fetch_shared():
             return await sharing_tools.get_user_shared_resources(tenant_id, user_id, content_type="Notes")
 
-        work_resp, personal_resp, shared_resp = await asyncio.gather(
-            _fetch_work(), _fetch_personal(), _fetch_shared(),
+        async def _fetch_file_notes():
+            """Read markdown files from the Documents folder as notes."""
+            return await asyncio.get_event_loop().run_in_executor(None, _read_file_notes, include_content)
+
+        work_resp, personal_resp, shared_resp, file_notes = await asyncio.gather(
+            _fetch_work(), _fetch_personal(), _fetch_shared(), _fetch_file_notes(),
             return_exceptions=True,
         )
 
@@ -243,10 +283,13 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
         # If include_content=True, return full notes with content (for fuzzy search)
         results = []
         visited = set()
+        visited_titles = set()  # Track titles for dedup against file notes
         for note in notes:
             if note.get("_id") in visited:
                 continue
             visited.add(note.get("_id"))
+            title_key = (note.get("title") or "").strip().lower()
+            visited_titles.add(title_key)
             
             if include_content:
                 # Return full note with all fields including content
@@ -254,10 +297,15 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
             else:
                 # Return lightweight payload (for performance when content not needed)
                 sharing_info = note.get('_sharing', {})
+                # Build a short content preview so the LLM can identify notes by content
+                raw_content = _extract_note_content(note)
+                content_preview = raw_content[:100].strip() if raw_content else ""
                 payload = {
                     "_id": note.get("_id"),
                     "title": note.get("title"),
+                    "content_preview": content_preview,
                     "mode": note.get("mode"),
+                    "updated_at": note.get("updated_at") or note.get("updatedAt") or note.get("created_at") or note.get("createdAt"),
                     "userId": note.get("userId"),
                     "tenantId": note.get("tenantId"),
                     "isShared": bool(sharing_info),
@@ -266,14 +314,100 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
                 }
                 results.append(payload)
 
+        # Merge file-based notes (deduplicated by title against DB notes)
+        if isinstance(file_notes, Exception):
+            logger.error(f"[notes_actions] Failed to read file notes: {file_notes}")
+        elif file_notes:
+            file_count = 0
+            for fnote in file_notes:
+                fid = fnote.get("_id")
+                ftitle = (fnote.get("title") or "").strip().lower()
+                if fid in visited or ftitle in visited_titles:
+                    continue
+                visited.add(fid)
+                visited_titles.add(ftitle)
+                results.append(fnote)
+                file_count += 1
+            logger.debug(f"[notes_actions] Added {file_count} file-based notes from Documents folder")
 
-        logger.debug(f"[notes_actions] returning {len(results)} notes for user scope {user_id}: {json.dumps(results)}")
+        logger.debug(f"[notes_actions] returning {len(results)} total notes for user scope {user_id}")
         return results
 
     except Exception as e:
         # Log exception but don't re-raise - return empty list so caller can handle gracefully
         logger.error(f"[notes_actions] Failed to list notes: {e}", exc_info=True)
         return []
+
+
+# Path to user documents directory (file-based notes)
+_DOCUMENTS_DIR = "/workspace/user/Documents"
+
+
+def _read_file_notes(include_content: bool = False) -> list[dict]:
+    """Read markdown files from the Documents folder and return them as note dicts.
+    
+    This runs in a thread executor since it does synchronous filesystem I/O.
+    
+    Args:
+        include_content: If True, include full file content; otherwise just metadata + preview
+        
+    Returns:
+        List of note-shaped dicts from .md files
+    """
+    import pathlib
+    import datetime
+    
+    docs_dir = pathlib.Path(_DOCUMENTS_DIR)
+    if not docs_dir.is_dir():
+        return []
+    
+    results = []
+    for md_file in docs_dir.glob("*.md"):
+        try:
+            stat = md_file.stat()
+            basename = md_file.stem  # filename without .md
+            
+            # Read content for title extraction and optional full content
+            raw = md_file.read_text(encoding="utf-8", errors="replace")
+            
+            # Extract title from first markdown heading or use filename
+            heading_match = re.match(r'^#\s+(.+)$', raw, re.MULTILINE)
+            title = heading_match.group(1).strip() if heading_match else basename.replace("-", " ")
+            
+            updated_at = datetime.datetime.fromtimestamp(stat.st_mtime, tz=datetime.timezone.utc).isoformat()
+            created_at = datetime.datetime.fromtimestamp(stat.st_ctime, tz=datetime.timezone.utc).isoformat()
+            
+            if include_content:
+                results.append({
+                    "_id": f"file-{basename}",
+                    "title": title,
+                    "content": raw,
+                    "mode": "personal",
+                    "updated_at": updated_at,
+                    "created_at": created_at,
+                    "filePath": str(md_file),
+                    "_source": "file",
+                })
+            else:
+                content_preview = raw[:100].strip() if raw else ""
+                results.append({
+                    "_id": f"file-{basename}",
+                    "title": title,
+                    "content_preview": content_preview,
+                    "mode": "personal",
+                    "updated_at": updated_at,
+                    "userId": None,
+                    "tenantId": None,
+                    "isShared": False,
+                    "accessLevel": "owner",
+                    "isGlobal": False,
+                    "_source": "file",
+                })
+        except Exception as e:
+            logger.warning(f"[notes_actions] Skipping unreadable file {md_file}: {e}")
+            continue
+    
+    return results
 
 
 async def fuzzy_search_notes(tenant_id: str, title: str, user_id: str) -> Optional[list[dict]]:
@@ -291,27 +425,30 @@ async def fuzzy_search_notes(tenant_id: str, title: str, user_id: str) -> Option
     """
     try:
         user_id = _normalize_user_id(user_id)
-        # Request notes with content included to avoid extra fetch
-        notes = await list_notes(tenant_id, user_id, include_content=True)
+        # Fetch lightweight metadata only (no content) for fast title matching
+        notes = await list_notes(tenant_id, user_id, include_content=False)
         
         if not notes:
             return None
         
-        logger.debug(f"[notes_actions] Fuzzy searching for title '{title}' among {len(notes)} notes")
+        logger.debug(f"[notes_actions] Fuzzy searching for title '{title}' among {len(notes)} notes (metadata only)")
         
         # Normalize search term
         search_term = title.lower().strip()
         
-        # Calculate similarity scores
+        # Calculate similarity scores using only titles (no content fetched yet)
         matches = []
         for note in notes:
             note_title = note.get('title') or ''
             if note_title.lower().strip():
-                similarity = SequenceMatcher(None, search_term, note_title).ratio()
+                similarity = SequenceMatcher(None, search_term, note_title.lower().strip()).ratio()
                 matches.append((similarity, note))
         
         # Sort by similarity (descending)
         matches.sort(key=lambda x: x[0], reverse=True)
+        
+        if not matches:
+            return None
         
         best_score, best_note = matches[0]
         runner_up_score, runner_up_note = matches[1] if len(matches) > 1 else (0, None)
@@ -322,18 +459,23 @@ async def fuzzy_search_notes(tenant_id: str, title: str, user_id: str) -> Option
                 f"[notes_actions] Fuzzy matched '{title}' to '{best_note.get('title')}' "
                 f"(similarity: {best_score:.2f})"
             )
-            # Notes already have full content, no need for extra fetch
-            results = [best_note]
-
-            if runner_up_score == best_score:
+            # Now fetch full content ONLY for the matched note(s)
+            matched_ids = [best_note.get('_id')]
+            if runner_up_score == best_score and runner_up_note:
                 logger.debug(
                     f"[notes_actions] Tie in fuzzy match for '{title}': "
                     f"'{best_note.get('title')}' and '{runner_up_note.get('title')}' "
                     f"both at {best_score:.2f}"
                 )
-                results.append(runner_up_note)
+                matched_ids.append(runner_up_note.get('_id'))
 
-            return results
+            # Fetch full content for matched notes in parallel
+            import asyncio
+            full_notes = await asyncio.gather(
+                *[get_note_by_id(tenant_id, note_id) for note_id in matched_ids]
+            )
+            results = [n for n in full_notes if n is not None]
+            return results if results else None
 
         logger.debug(
             f"[notes_actions] No fuzzy match for '{title}' "

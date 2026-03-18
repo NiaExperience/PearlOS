@@ -226,6 +226,7 @@ class SessionInfo:
     "persona",
     "created_ts",
     "launch_body",
+    "_cancel_shutdown",
   )
   def __init__(
     self,
@@ -247,6 +248,21 @@ class SessionInfo:
     self.persona = persona
     self.created_ts = time.time()
     self.launch_body = dict(launch_body or {})
+    self._cancel_shutdown = None  # Set by orchestrator after pipeline starts
+
+  def cancel_pending_shutdown(self):
+    """Cancel any pending idle shutdown on this session.
+    
+    Called by the gateway when reusing a session (e.g., user quickly
+    reconnects after leaving). Without this, the post-leave idle timer
+    can kill the bot before the new participant's join event arrives.
+    """
+    cb = self._cancel_shutdown
+    if callable(cb):
+      try:
+        cb()
+      except Exception:
+        pass
 
 sessions: dict[str, SessionInfo] = {}
 _transitioning_sessions: set[str] = set()
@@ -304,6 +320,8 @@ app.add_middleware(
 )
 
 class ContextUpdate(BaseModel):
+    action: Optional[str] = None
+    userId: Optional[str] = None
     activeNoteId: Optional[str] = None
     activeAppletId: Optional[str] = None
 
@@ -418,11 +436,21 @@ async def get_active_applet(room_url: str):
     }
 
 @app.post("/api/room/context")
-async def update_session_context(room_url: str, update: ContextUpdate):
+async def update_room_context(room_url: str, update: ContextUpdate):
     """Update session context (active note, applet, etc)."""
-    # This endpoint is a placeholder for future context updates pushed from frontend
-    # Currently context is updated via Daily App Messages, but this allows HTTP fallback
+    from room.state import set_active_note_id
+    note_id = update.activeNoteId
+    owner = update.userId
+    if update.action in ("close", "closed"):
+        note_id = None
+    await set_active_note_id(room_url, note_id, owner=owner)
     return {"status": "ok", "updated": True}
+
+
+@app.post("/api/session/{room_url:path}/context")
+async def update_session_context(room_url: str, update: ContextUpdate):
+    """Back-compat endpoint for frontend POST /api/session/<roomUrl>/context."""
+    return await update_room_context(room_url, update)
 
 async def _launch_session(room_url: str, token: str | None, personalityId: str, persona: str, body: dict[str, Any] | None = None) -> SessionInfo:
   # Pass the full body to DailyRunnerArguments so the bot can access tenantId, voice, etc.
@@ -579,8 +607,26 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
       # The gateway needs to stay alive to handle future join requests
       if not USE_REDIS:
         session_logger.info("Direct runner mode: Session ended, keeping gateway alive for future requests")
-        # Just clean up session state, don't kill the process
+        # Clean up session state
         cleanup_room_state(room_url)
+        # Also clean up the gateway's in-memory active_rooms so stale entries
+        # don't linger and cause duplicate session spawns on the next /join.
+        try:
+          from bot_gateway import active_rooms, active_rooms_lock, _cleanup_direct_user_bot_mappings_for_room
+          import asyncio as _aio
+          async with active_rooms_lock:
+            removed = active_rooms.pop(room_url, None)
+            if removed:
+              session_logger.info(
+                f"Direct mode cleanup: removed active_rooms entry for {room_url} "
+                f"(session_id={removed.get('session_id')})"
+              )
+          # Also clean up user_bot mappings pointing to this room
+          cleaned = await _cleanup_direct_user_bot_mappings_for_room(room_url)
+          if cleaned:
+            session_logger.info(f"Direct mode cleanup: removed {cleaned} user_bot mapping(s) for {room_url}")
+        except Exception as cleanup_err:
+          session_logger.warning(f"Direct mode cleanup: failed to clean gateway state: {cleanup_err}")
         return
       
       # If this is a warm pool runner (RUNNER_AUTO_START=0), re-register in pool instead of killing

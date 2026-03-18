@@ -10,16 +10,16 @@ import { DesktopMode } from '@interface/types/desktop-modes';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
 import { requestWindowOpen } from '@interface/features/ManeuverableWindow/lib/windowLifecycleController';
 import PearlAvatar from '@interface/components/PearlAvatar';
+import { getClientLogger } from '@interface/lib/client-logger';
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 const API_BASE = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '';
-// Pearl avatar GIF constants kept for reference (PearlAvatar component handles state machine now)
-const LIVE_AVATAR_IDLE_GIF = '/images/avatar/pearlIdle1.gif';
-const LIVE_AVATAR_TALKING_GIF = '/images/avatar/avatar-talking.gif';
 const CHAT_BAR_LEFT_OFFSET = 'calc(env(safe-area-inset-left, 0px) + clamp(12px, 3vw, 20px))';
 const CHAT_BAR_RIGHT_OFFSET = 'calc(env(safe-area-inset-right, 0px) + clamp(12px, 3vw, 20px))';
+const CHATMODE_TRACE_VERSION = 'chatmode-trace-2026-03-02-01';
 
 const ChatMode: React.FC = () => {
+  const log = getClientLogger('[chat_mode]');
   const { isChatMode, setIsChatMode } = useUI();
   const { currentMode } = useDesktopMode();
   const isHomeOrWorkMode = currentMode === DesktopMode.HOME || currentMode === DesktopMode.WORK;
@@ -28,6 +28,8 @@ const ChatMode: React.FC = () => {
   const { messages, isTyping, historyLoaded, isLoadingMore, hasMore, loadMore, sendMessage, clearMessages } = useChatSession();
   const [input, setInput] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isChatAvatarTalking, setIsChatAvatarTalking] = useState(false);
+
   // Start with the chat bar open so the user can immediately type
   const [isChatBarOpen, setIsChatBarOpen] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -50,14 +52,57 @@ const ChatMode: React.FC = () => {
    *  Prevents the first history load from being treated as "new messages". */
   const initialLoadCompleteRef = useRef(false);
   const latestMessage = messages[messages.length - 1];
-  // Pearl is "responding" when: text streaming, typing indicator, OR voice is actively speaking
   const isPearlResponding = isTyping || (latestMessage?.role === 'assistant' && latestMessage?.isStreaming === true) || isAssistantSpeaking;
-  const liveAvatarSrc = isPearlResponding ? LIVE_AVATAR_TALKING_GIF : LIVE_AVATAR_IDLE_GIF;
   const hasEmptyStreamingAssistantBubble = Boolean(
     latestMessage?.role === 'assistant' &&
     latestMessage?.isStreaming &&
     !latestMessage?.content?.trim()
   );
+
+  // Keep chat-bar avatar speech animation stable.
+  // During loading we force non-talking state, and when active we debounce stop.
+  useEffect(() => {
+    if (callStatus !== 'active') {
+      setIsChatAvatarTalking(false);
+      return;
+    }
+    if (isAssistantSpeaking) {
+      setIsChatAvatarTalking(true);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setIsChatAvatarTalking(false);
+    }, 450);
+    return () => window.clearTimeout(t);
+  }, [callStatus, isAssistantSpeaking]);
+
+  useEffect(() => {
+    log.info('ChatMode mounted', {
+      source: 'chat_mode',
+      chatModeTraceVersion: CHATMODE_TRACE_VERSION,
+    });
+    if (typeof window !== 'undefined') {
+      console.info('[CHATMODE_TRACE_VERSION]', CHATMODE_TRACE_VERSION);
+    }
+  }, [log]);
+
+  useEffect(() => {
+    const handleForceStart = () => {
+      log.warn('assistant:force-start observed in ChatMode context', {
+        source: 'chat_mode',
+        isVoiceActive,
+        callStatus,
+      });
+      console.warn('[CHATMODE_EVENT_TRACE] assistant:force-start', {
+        isVoiceActive,
+        callStatus,
+      });
+    };
+    window.addEventListener('assistant:force-start', handleForceStart);
+    return () => {
+      window.removeEventListener('assistant:force-start', handleForceStart);
+    };
+  }, [log, isVoiceActive, callStatus]);
 
   // ─── Auto-scroll on new messages (only if user is near the bottom) ───
   useEffect(() => {
@@ -160,6 +205,18 @@ const ChatMode: React.FC = () => {
     window.addEventListener('pearl:chat-minimize', handleMinimize);
     return () => window.removeEventListener('pearl:chat-minimize', handleMinimize);
   }, []);
+
+  // Auto-collapse expanded chat when Wonder Canvas scene fires so the
+  // full-screen visual experience is visible (not hidden behind the chat overlay).
+  useEffect(() => {
+    const handleWonderScene = () => {
+      if (isExpanded) {
+        setIsExpanded(false);
+      }
+    };
+    window.addEventListener('nia:wonder.scene', handleWonderScene);
+    return () => window.removeEventListener('nia:wonder.scene', handleWonderScene);
+  }, [isExpanded]);
 
   // Auto-expand only when genuinely NEW messages arrive (not initial history load).
   // On page load / hard refresh, history loads and the message count jumps from 0 → N.
@@ -375,22 +432,31 @@ const ChatMode: React.FC = () => {
     }
   };
 
-  // Handle avatar click - toggle voice call on/off
+  // Handle avatar click - toggle voice call on/off (chat bar Pearl shows both active and inactive state)
   const handleAvatarClick = () => {
-    if (isVoiceActive) {
-      // Voice call is active - end it
-      if (toggleCall) {
-        toggleCall();
-      }
-    } else {
-      // No active call - start one
-      window.dispatchEvent(new CustomEvent('assistant:force-start'));
+    // Chat bar Pearl is the primary voice toggle control.
+    // Avoid routing through assistant-button window events, which can re-introduce
+    // duplicate avatar renderers depending on mode/layout.
+    if (toggleCall) {
+      log.info('Chat bar Pearl clicked', {
+        source: 'chat_bar_avatar',
+        isVoiceActive,
+        callStatus,
+        hasToggleCall: !!toggleCall,
+      });
+      toggleCall();
     }
   };
 
-  // Show chat bar in HOME or WORK desktop mode even when isChatMode is false
+  // Show full chat bar in HOME or WORK desktop mode or when isChatMode is true; otherwise we still show the Pearl bar (minimal) so it never disappears
   const showChatBar = isChatMode || isHomeOrWorkMode;
-  if (!showChatBar) return null;
+
+  // Open the chat bar (and enter chat mode if we're not showing the bar yet)
+  const handleOpenChatBar = useCallback(() => {
+    if (!showChatBar) setIsChatMode(true);
+    setIsChatBarOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [showChatBar, setIsChatMode]);
 
   // ─── Shared sub-components ───
 
@@ -422,7 +488,7 @@ const ChatMode: React.FC = () => {
   // Upload status toast
   const uploadToast = uploadStatus && (
     <div
-      className="fixed left-1/2 -translate-x-1/2 z-[860] px-4 py-2 rounded-full text-[#faf8f5] shadow-lg"
+      className="fixed left-1/2 -translate-x-1/2 z-[110] px-4 py-2 rounded-full text-[#faf8f5] shadow-lg"
       style={{
         bottom: isExpanded ? 80 : 64,
         fontSize: 'clamp(12px, 3.2vw, 14px)',
@@ -438,7 +504,7 @@ const ChatMode: React.FC = () => {
   // Drag overlay
   const dragOverlay = isDragOver && (
     <div
-      className="fixed inset-0 z-[870] flex items-center justify-center pointer-events-none"
+      className="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none"
       style={{
         backgroundColor: 'rgba(10, 6, 20, 0.7)',
         backdropFilter: 'blur(4px)',
@@ -510,28 +576,48 @@ const ChatMode: React.FC = () => {
     </div>
   );
 
+  // Left side: Pearl avatar + indicator — always visible in all chat bar states (collapsed, minimized, expanded)
+  const pearlLeftSide = (
+    <div
+      className="shrink-0 rounded-full overflow-hidden bg-transparent transition-opacity"
+      style={{
+        width: 90,
+        height: 90,
+        minWidth: 90,
+        filter: isVoiceActive
+          ? 'drop-shadow(0 0 6px rgba(147, 51, 234, 0.5))'
+          : 'drop-shadow(2px 2px 2px black)',
+      }}
+    >
+      <PearlAvatar
+        isAwake={isVoiceActive}
+        isTalking={isVoiceActive ? isChatAvatarTalking : isPearlResponding}
+        freezeIdle={callStatus === 'loading'}
+        onClick={handleAvatarClick}
+        size={90}
+        className="w-full h-full object-cover rounded-full"
+        style={{ cursor: 'pointer' }}
+      />
+    </div>
+  );
+
+  // Shared bar chrome: same container for collapsed and full input row so left side is consistent
+  const chatBarContainerStyle = {
+    minHeight: 69,
+    backgroundColor: 'rgba(16, 10, 32, 0.92)',
+    borderRadius: '30px',
+    padding: '6px 8px 6px 6px',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    outline: '2px solid rgba(123, 63, 142, 0.35)',
+    outlineOffset: '2px',
+    overflow: 'hidden' as const,
+  };
+
   // The input row used in both minimized and expanded states
   const inputRow = (
-    <div className="relative flex items-center gap-2" style={{ minHeight: 69, backgroundColor: 'rgba(16, 10, 32, 0.92)', borderRadius: '30px', padding: '6px 8px 6px 6px', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', outline: '2px solid rgba(123, 63, 142, 0.35)', outlineOffset: '2px' }}>
-      {/* Pearl avatar — GIF state machine: sleep → wake → idle ↔ talking → sleep */}
-      <button
-        onClick={handleAvatarClick}
-        className="shrink-0 rounded-full overflow-hidden bg-transparent hover:opacity-90 transition-opacity"
-        style={{ 
-          width: 57, 
-          height: 57, 
-          minWidth: 57
-        }}
-        aria-label={isVoiceActive ? "End call with Pearl" : "Talk to Pearl"}
-        title={isVoiceActive ? "Click to end call" : "Click to start voice call"}
-      >
-        <PearlAvatar
-          isAwake={isVoiceActive}
-          isTalking={isPearlResponding}
-          size={57}
-          className="w-full h-full object-cover rounded-full"
-        />
-      </button>
+    <div className="relative flex items-center gap-2" style={chatBarContainerStyle}>
+      {pearlLeftSide}
       {imagePreview}
       <div
         className="flex items-center px-1.5 py-1.5 focus-within:ring-1 focus-within:ring-[#D94F8E]/40 transition-all gap-1 flex-1 min-w-0"
@@ -597,11 +683,51 @@ const ChatMode: React.FC = () => {
     </div>
   );
 
-  // ─── COLLAPSED STATE: Just a chat icon button ───
+  // Minimal bar: Pearl left side + open chat (always shown when chat bar is not "full", including when chat mode is off so the bar never disappears on refresh)
+  const minimalBar = (
+    <div
+      className="fixed flex items-center"
+      style={{
+        pointerEvents: 'auto',
+        left: CHAT_BAR_LEFT_OFFSET,
+        right: CHAT_BAR_RIGHT_OFFSET,
+        bottom: `calc(env(safe-area-inset-bottom, 0px) + 4px)`,
+      }}
+    >
+      <div className="flex items-center gap-2" style={chatBarContainerStyle}>
+        {pearlLeftSide}
+        <button
+          onClick={handleOpenChatBar}
+          className="flex items-center justify-center rounded-full hover:bg-white/10 transition-colors shrink-0"
+          style={{ width: 44, height: 44, minWidth: 44 }}
+          aria-label="Open chat"
+          title="Chat with Pearl"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d4c0e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  // ─── CHAT MODE OFF: Still show Pearl bar so it never disappears (e.g. after refresh) ───
+  if (!showChatBar) {
+    return (
+      <div
+        className="fixed inset-0 z-[100]"
+        style={{ pointerEvents: 'none' }}
+      >
+        <div style={{ pointerEvents: 'auto' }}>{minimalBar}</div>
+      </div>
+    );
+  }
+
+  // ─── COLLAPSED STATE: Same left side (Pearl avatar + indicator) always visible; open-chat button on the right ───
   if (!isChatBarOpen) {
     return (
       <div
-        className="fixed inset-0 z-[850]"
+        className="fixed inset-0 z-[100]"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -611,32 +737,7 @@ const ChatMode: React.FC = () => {
         {dragOverlay}
         {uploadToast}
         {fileInput}
-        <div
-          className="fixed"
-          style={{
-            pointerEvents: 'auto',
-            left: CHAT_BAR_LEFT_OFFSET,
-            right: CHAT_BAR_RIGHT_OFFSET,
-            bottom: `calc(env(safe-area-inset-bottom, 0px) + 12px)`,
-          }}
-        >
-          <button
-            onClick={handleChatBarToggle}
-            className="w-12 h-12 flex items-center justify-center rounded-full shadow-2xl border border-[#7B3F8E]/25 transition-all hover:scale-105 active:scale-95"
-            style={{
-              backgroundColor: 'rgba(16, 10, 32, 0.88)',
-              backdropFilter: 'blur(24px)',
-              WebkitBackdropFilter: 'blur(24px)',
-              boxShadow: '0 6px 28px rgba(0,0,0,0.4)',
-            }}
-            aria-label="Open chat"
-            title="Chat with Pearl"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d4c0e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </button>
-        </div>
+        {minimalBar}
       </div>
     );
   }
@@ -645,7 +746,7 @@ const ChatMode: React.FC = () => {
   if (!isExpanded) {
     return (
       <div
-        className="fixed inset-0 z-[850]"
+        className="fixed inset-0 z-[100]"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -674,7 +775,7 @@ const ChatMode: React.FC = () => {
   // ─── EXPANDED STATE: Full-screen chat overlay (mobile-first) ───
   return (
     <div
-      className="fixed inset-0 z-[850] flex flex-col"
+      className="fixed inset-0 z-[100] flex flex-col"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

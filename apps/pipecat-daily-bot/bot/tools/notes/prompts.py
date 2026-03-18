@@ -26,7 +26,7 @@ DEFAULT_NOTE_TOOL_PROMPTS: dict[str, str] = {
         "Remove specific text content from the note."
     ),
     'bot_save_note': (
-        "Save the current note's changes to persistent storage."
+        "Save the current note to a file on disk. Notes are already saved to the database; use this when the user explicitly asks to save/export to a file."
     ),
     'bot_download_note': (
         "Trigger a download of the note in a specified format (markdown, PDF, etc.)."
@@ -39,5 +39,17 @@ DEFAULT_NOTE_TOOL_PROMPTS: dict[str, str] = {
     ),
     'bot_back_to_notes': (
         "Navigate back to the notes list view from the current note."
+    ),
+    'bot_scroll_note': (
+        "Scroll the currently open note to a position: 'top', 'bottom', or to a specific heading. "
+        "Use heading parameter for heading-based scroll. User: 'scroll to the top', 'go to the ingredients section'."
+    ),
+    'bot_highlight_note_text': (
+        "Highlight/emphasize a specific text passage in the currently open note so the user can see it visually. "
+        "Set clear=true to remove all highlights. User: 'highlight the part about deadlines', 'show me where it mentions budget'."
+    ),
+    'bot_navigate_note_heading': (
+        "Navigate to a specific heading or section in the currently open note, or move to the next/previous heading. "
+        "User: 'go to the summary section', 'next section', 'previous heading'."
     ),
 }

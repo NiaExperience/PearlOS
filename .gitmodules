@@ -1,0 +1,3 @@
+[submodule "apps/chorus-tts"]
+	path = apps/chorus-tts
+	url = https://github.com/NiaExperience/chorus-tts.git

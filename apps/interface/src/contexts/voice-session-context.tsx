@@ -450,13 +450,15 @@ export const VoiceSessionProvider: React.FC<{
   // When bot.speaking.stopped fires, we suppress audio-level-based speaking for a grace period
   const botSpeakingStoppedAtRef = useRef<number>(0);
   const speakingDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Safety timeout: force speaking=false if stuck for too long (e.g., 30s)
+  // Safety timeout: force speaking=false if stuck for too long (e.g., 10s)
   const speakingSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Debounce for NIA bot.speaking.stopped — holds speaking state during inter-chunk gaps
   const niaSpeakingStoppedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Once NIA bot speaking events are received, they become the authoritative source.
   // Audio-level events should NOT control isAssistantSpeaking after this point.
   const niaEventsReceivedRef = useRef<boolean>(false);
+  // Track isAssistantSpeaking in a ref so event handlers can read current value without re-subscribing
+  const isAssistantSpeakingRef = useRef<boolean>(false);
 
   // DailyCall mutual exclusion: pause voice when video call is active
   const isDailyCallActiveRef = useRef(false);
@@ -473,6 +475,57 @@ export const VoiceSessionProvider: React.FC<{
   useEffect(() => {
     spriteVoiceWasPausedRef.current = spriteVoiceWasPaused;
   }, [spriteVoiceWasPaused]);
+
+  // Keep isAssistantSpeaking ref in sync
+  useEffect(() => {
+    isAssistantSpeakingRef.current = isAssistantSpeaking;
+  }, [isAssistantSpeaking]);
+
+  // Keep isUserSpeaking ref in sync for debounce callback
+  const isUserSpeakingRef = useRef<boolean>(false);
+  useEffect(() => {
+    isUserSpeakingRef.current = isUserSpeaking;
+  }, [isUserSpeaking]);
+
+  // INTERRUPT DETECTION: When user starts speaking, force-reset assistant speaking state.
+  // This handles the case where audio is killed mid-stream and bot.speaking.stopped never fires.
+  // Uses 300ms debounce to filter false positives from mic echo of bot audio.
+  const interruptDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (isUserSpeaking && isAssistantSpeaking) {
+      if (!interruptDebounceRef.current) {
+        interruptDebounceRef.current = setTimeout(() => {
+          interruptDebounceRef.current = null;
+          // Re-check: is user STILL speaking after debounce?
+          if (isUserSpeakingRef.current && isAssistantSpeakingRef.current) {
+            log.info('User interrupt confirmed after debounce — resetting assistant speaking state');
+            if (speakingDebounceTimerRef.current) {
+              clearTimeout(speakingDebounceTimerRef.current);
+              speakingDebounceTimerRef.current = null;
+            }
+            if (speakingSafetyTimerRef.current) {
+              clearTimeout(speakingSafetyTimerRef.current);
+              speakingSafetyTimerRef.current = null;
+            }
+            if (niaSpeakingStoppedDebounceRef.current) {
+              clearTimeout(niaSpeakingStoppedDebounceRef.current);
+              niaSpeakingStoppedDebounceRef.current = null;
+            }
+            botSpeakingStoppedAtRef.current = Date.now();
+            setIsAssistantSpeaking(false);
+            setAudioLevel(0);
+            setAssistantVolumeLevel(0);
+          }
+        }, 300);
+      }
+    } else {
+      // User stopped speaking or assistant stopped — cancel pending interrupt
+      if (interruptDebounceRef.current) {
+        clearTimeout(interruptDebounceRef.current);
+        interruptDebounceRef.current = null;
+      }
+    }
+  }, [isUserSpeaking, isAssistantSpeaking, log]);
 
   // CRITICAL: Call object lifecycle must be in a SEPARATE effect with empty deps
   // to prevent the call object from being destroyed on state changes
@@ -552,11 +605,11 @@ export const VoiceSessionProvider: React.FC<{
           
           if (speakingSafetyTimerRef.current) clearTimeout(speakingSafetyTimerRef.current);
           speakingSafetyTimerRef.current = setTimeout(() => {
-            log.warn('Safety timeout: forcing isAssistantSpeaking=false after 30s');
+            log.warn('Safety timeout: forcing isAssistantSpeaking=false after 10s');
             setIsAssistantSpeaking(false);
             setAudioLevel(0);
             setAssistantVolumeLevel(0);
-          }, 30000);
+          }, 10000);
         } else {
           if (!speakingDebounceTimerRef.current) {
             speakingDebounceTimerRef.current = setTimeout(() => {
@@ -690,25 +743,36 @@ export const VoiceSessionProvider: React.FC<{
     // Listen for bot speaking events from the Nia event router
     // These are dispatched when the bot gateway sends bot.speaking.started/stopped
     const handleBotSpeakingStarted = () => {
-      if (isDailyCallActiveRef.current) return;
+      console.log('%c[SPEAKING DEBUG] handleBotSpeakingStarted FIRED, isDailyCallActive=' + isDailyCallActiveRef.current, 'color: #00FF00; font-weight: bold; font-size: 16px;');
+      // NOTE: Do NOT gate on isDailyCallActive here. NIA bot speaking events come from
+      // whichever bot is currently active (sprite OR DailyCall). The DailyCall UI reads
+      // isAssistantSpeaking for lip animation, so blocking these events during DailyCall
+      // kills the avatar animation. The isDailyCallActive guard is only needed for the
+      // audio-level fallback path (which monitors the sprite voice bot's audio track).
       log.info('Bot speaking started (nia event)');
       // Mark that NIA events are available — they become the authoritative source
       niaEventsReceivedRef.current = true;
       // Clear the stopped timestamp so audio levels are respected again
       botSpeakingStoppedAtRef.current = 0;
-      // Clear any pending "not speaking" debounce (audio-level based)
+      // FORCE-CLEAR ALL stale timers — this is a fresh speech start, ignore everything prior.
+      // This prevents stale stopped-debounce callbacks from incorrectly resetting speaking=false
+      // right after a new speech segment begins (the "missed start" bug).
       if (speakingDebounceTimerRef.current) {
         clearTimeout(speakingDebounceTimerRef.current);
         speakingDebounceTimerRef.current = null;
       }
-      // Cancel any pending NIA stopped debounce — new chunk arrived before gap expired
       if (niaSpeakingStoppedDebounceRef.current) {
         clearTimeout(niaSpeakingStoppedDebounceRef.current);
         niaSpeakingStoppedDebounceRef.current = null;
       }
+      if (speakingSafetyTimerRef.current) {
+        clearTimeout(speakingSafetyTimerRef.current);
+        speakingSafetyTimerRef.current = null;
+      }
+      // Force set speaking=true regardless of current state
       setIsAssistantSpeaking(true);
-      // Start safety timeout
-      if (speakingSafetyTimerRef.current) clearTimeout(speakingSafetyTimerRef.current);
+      // Start safety timeout (30s — if stuck speaking with no stop event, force reset)
+      // 30s allows for long responses; each new bot.speaking.started resets this timer
       speakingSafetyTimerRef.current = setTimeout(() => {
         log.warn('Safety timeout: forcing isAssistantSpeaking=false after 30s (from bot.speaking.started)');
         setIsAssistantSpeaking(false);
@@ -718,7 +782,7 @@ export const VoiceSessionProvider: React.FC<{
     };
 
     const handleBotSpeakingStopped = () => {
-      if (isDailyCallActiveRef.current) return;
+      // NOTE: Do NOT gate on isDailyCallActive here — see comment in handleBotSpeakingStarted.
       log.info('Bot speaking stopped (nia event) — debouncing 500ms for inter-chunk gaps');
       // Mark that NIA events are available — they become the authoritative source
       niaEventsReceivedRef.current = true;
@@ -729,7 +793,7 @@ export const VoiceSessionProvider: React.FC<{
         clearTimeout(speakingDebounceTimerRef.current);
         speakingDebounceTimerRef.current = null;
       }
-      // Debounce the stopped event: wait 1500ms before marking as not speaking.
+      // Debounce the stopped event: wait 500ms before marking as not speaking.
       // This bridges inter-chunk gaps where one TTS segment ends and the next
       // hasn't started yet. If bot.speaking.started fires within this window,
       // the debounce is cancelled and speaking state stays true.

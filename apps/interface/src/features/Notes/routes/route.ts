@@ -114,9 +114,13 @@ export async function GET_impl(request: NextRequest) : Promise<NextResponse> {
                 const sharedNotes = await Promise.all(
                     sharedResources.map(async (resource) => {
                         try {
-                            const note = await findNoteById(resource.resourceId, tenantId);
+                            const note = await findNoteById(resource.resourceId, tenantId!);
                             if (note) {
                                 // Fetch owner's details to display in SharedByBadge
+                                if (!note.userId) {
+                                    return null;
+                                }
+
                                 let ownerDisplayName = note.userId; // fallback to userId
                                 try {
                                     const owner = await getUserById(note.userId);
@@ -231,7 +235,7 @@ export async function POST_impl(request: NextRequest) : Promise<NextResponse> {
             log.info('Fetched tenant ID from assistant', { tenantId, assistantName });
     }
     const { title, content, mode } = await request.json()
-    if (!title || !content || !mode || !session.user.id || !tenantId) {
+    if (!title || content == null || !mode || !session.user.id || !tenantId) {
                 log.error('Missing required fields when creating note', {
                         title,
                         contentLength: content?.length,

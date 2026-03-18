@@ -6,6 +6,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getClientLogger } from '@interface/lib/client-logger';
 
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const API_BASE = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '';
+
 interface ChatMessage {
   id: string;
   text: string;
@@ -13,6 +16,8 @@ interface ChatMessage {
   senderName: string;
   timestamp: Date;
   isLocal: boolean;
+  imageUrl?: string; // Optional image attachment
+  imageName?: string; // Optional image filename
 }
 
 interface ChatProps {
@@ -179,6 +184,13 @@ const Chat: React.FC<ChatProps> = ({
   const [lastFilteredMessage, setLastFilteredMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Image attachment state
+  const [attachedImage, setAttachedImage] = useState<{ dataUrl: string; filename: string } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const dragCountRef = useRef(0);
   
   // Admin messaging states - admin users default to bot mode, non-admin default to room
   const [messagingMode, setMessagingMode] = useState<'room' | 'bot'>(isAdmin ? 'bot' : 'room'); 
@@ -418,11 +430,15 @@ const Chat: React.FC<ChatProps> = ({
           
           const message: ChatMessage = {
             id: Date.now() + Math.random().toString(),
-            text: filteredText,
+            text: filteredText || (event.data.imageUrl ? '[Image]' : ''),
             sender: event.fromId,
             senderName,
             timestamp: new Date(),
             isLocal: event.fromId === localSessionId,
+            ...(event.data.imageUrl && {
+              imageUrl: event.data.imageUrl,
+              imageName: event.data.imageName
+            }),
           };
           
           setMessages(prev => {
@@ -497,6 +513,78 @@ const Chat: React.FC<ChatProps> = ({
     }
   }, [isVisible, daily, requestChatHistory, onUnreadCountChange]);
 
+  // ─── Image handling functions ───
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((item) => IMAGE_TYPES.includes(item.type));
+    if (imageItem) {
+      e.preventDefault();
+      const blob = imageItem.getAsFile();
+      if (blob) {
+        const ext = imageItem.type.split('/')[1] ?? 'png';
+        const filename = `paste-${Date.now()}.${ext}`;
+        const reader = new FileReader();
+        reader.onload = () => {
+          setAttachedImage({ dataUrl: reader.result as string, filename });
+        };
+        reader.readAsDataURL(blob);
+      }
+    }
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCountRef.current++;
+    if (dragCountRef.current === 1) setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCountRef.current--;
+    if (dragCountRef.current <= 0) {
+      dragCountRef.current = 0;
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCountRef.current = 0;
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && IMAGE_TYPES.includes(file.type)) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachedImage({ dataUrl: reader.result as string, filename: file.name });
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && IMAGE_TYPES.includes(file.type)) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachedImage({ dataUrl: reader.result as string, filename: file.name });
+      };
+      reader.readAsDataURL(file);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const handleRemoveImage = () => {
+    setAttachedImage(null);
+  };
+
   /**
    * Send a chat message (room chat or admin-to-bot message)
    */
@@ -510,12 +598,14 @@ const Chat: React.FC<ChatProps> = ({
       return; // Block the message completely
     }
     
-    if (!daily || !newMessage.trim()) {
+    if (!daily || (!newMessage.trim() && !attachedImage)) {
       return;
     }
 
     const messageText = newMessage.trim();
+    const currentAttachment = attachedImage;
     setNewMessage('');
+    setAttachedImage(null);
 
     // Apply content filter
     const { filtered: filteredText, wasFiltered } = filterAbusiveContent(messageText);
@@ -584,13 +674,21 @@ const Chat: React.FC<ChatProps> = ({
           type: 'chat-message',
           message: textToSend, // Use filtered text
           senderName: daily.participants().local.user_name || 'You',
+          ...(currentAttachment && {
+            imageUrl: currentAttachment.dataUrl,
+            imageName: currentAttachment.filename
+          }),
         };
         
 
         
         await daily.sendAppMessage(messagePayload);
         
-        posthog?.capture('chat_message_sent', { mode: 'room', length: textToSend.length });
+        posthog?.capture('chat_message_sent', { 
+          mode: 'room', 
+          length: textToSend.length,
+          hasImage: !!currentAttachment 
+        });
 
         
       } else {
@@ -612,11 +710,15 @@ const Chat: React.FC<ChatProps> = ({
         
         const message: ChatMessage = {
           id: Date.now().toString(),
-          text: textToSend,
+          text: textToSend || (currentAttachment ? '[Image]' : ''),
           sender: localSessionId || 'local',
           senderName: daily.participants().local.user_name || 'You',
           timestamp: new Date(),
           isLocal: true,
+          ...(currentAttachment && {
+            imageUrl: currentAttachment.dataUrl,
+            imageName: currentAttachment.filename
+          }),
         };
 
         setMessages(prev => {
@@ -650,7 +752,7 @@ const Chat: React.FC<ChatProps> = ({
       }
       setTimeout(() => setLastFilteredMessage(null), 5000);
     }
-  }, [adminMessageMode, daily, isAdmin, localSessionId, log, messagingMode, newMessage, roomUrl, saveMessagesToStorage, stealth, tenantId]);
+  }, [adminMessageMode, daily, isAdmin, localSessionId, log, messagingMode, newMessage, roomUrl, saveMessagesToStorage, stealth, tenantId, attachedImage, posthog]);
 
   /**
    * Handle key press in input
@@ -685,7 +787,19 @@ const Chat: React.FC<ChatProps> = ({
     <div 
       className={`chat-overlay ${isVisible ? 'visible' : ''}`}
       onClick={handleBackdropClick}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
+      {isDragOver && (
+        <div className="chat-drag-overlay">
+          <div className="drag-content">
+            <div className="drag-icon">📷</div>
+            <span className="drag-text">Drop image to attach</span>
+          </div>
+        </div>
+      )}
       <div className="chat-container">
         {/* Chat Header */}
         <div className="chat-header">
@@ -719,7 +833,22 @@ const Chat: React.FC<ChatProps> = ({
                   </span>
                   <span className="message-time">{formatTime(message.timestamp)}</span>
                 </div>
-                <div className="message-text">{message.text}</div>
+                {message.imageUrl && (
+                  <div className="message-image">
+                    <img 
+                      src={message.imageUrl} 
+                      alt={message.imageName || 'Shared image'} 
+                      title={message.imageName}
+                      style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', marginBottom: '8px' }}
+                    />
+                    {message.imageName && (
+                      <div className="image-name" style={{ fontSize: '0.85em', color: '#888', marginBottom: '4px' }}>
+                        {message.imageName}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {message.text && <div className="message-text">{message.text}</div>}
               </div>
             ))
           )}
@@ -807,13 +936,56 @@ const Chat: React.FC<ChatProps> = ({
 
         {/* Message Input */}
         <div className="chat-input-area">
+          {/* Image preview */}
+          {attachedImage && (
+            <div className="chat-image-preview">
+              <div className="preview-content">
+                <img 
+                  src={attachedImage.dataUrl} 
+                  alt="Preview" 
+                  className="preview-image"
+                  style={{ maxHeight: '80px', borderRadius: '8px' }}
+                />
+                <div className="preview-info">
+                  <span className="preview-filename">{attachedImage.filename}</span>
+                  <span className="preview-status">Ready to send</span>
+                </div>
+                <button 
+                  onClick={handleRemoveImage}
+                  className="preview-remove"
+                  title="Remove image"
+                  type="button"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileInputChange}
+            style={{ display: 'none' }}
+          />
+          
           <div className="chat-input-container">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="chat-attach-btn"
+              title="Attach image"
+              type="button"
+            >
+              📎
+            </button>
             <input
               ref={inputRef}
               type="text"
               value={newMessage}
               onChange={e => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
+              onPaste={handlePaste}
               placeholder={
                 isAdmin && messagingMode === 'bot' 
                   ? "Send command to bot..." 
@@ -824,7 +996,7 @@ const Chat: React.FC<ChatProps> = ({
             />
             <button
               onClick={sendMessage}
-              disabled={!newMessage.trim()}
+              disabled={!newMessage.trim() && !attachedImage}
               className={`chat-send-btn ${isAdmin && messagingMode === 'bot' ? 'admin-mode' : ''}`}
               title={
                 isAdmin && messagingMode === 'bot' 

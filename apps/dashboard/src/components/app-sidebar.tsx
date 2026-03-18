@@ -26,7 +26,7 @@ import { cn } from '@dashboard/lib/utils';
 const data = {
   user: {
     name: 'Nia',
-    email: 'nia@niaxp.com',
+    email: 'dev@niaxp.com',
     avatar: '/avatars/shadcn.jpg',
   },
   navMain: [

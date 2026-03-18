@@ -220,33 +220,49 @@ export async function findNotesByUserAndTitle(userId: string, tenantId: string, 
     const normalized = normalizeTitle(title);
 
     // First attempt: query using normalizedTitle (new field)
-    const normalizedQuery: PrismContentQuery = {
-        contentType: NotesDefinition.dataModel.block,
-        tenantId,
-        where: {
-            indexer: { path: 'normalizedTitle', equals: normalized },
-            parent_id: { eq: userId }
-        },
-        orderBy: { createdAt: 'desc' as const },
-        limit: 1000,
-    };
+    // Query by both parent_id and indexer.userId to catch bot-created notes
     const runQuery = async (q: PrismContentQuery) => ensureNotesDefinition(() => prism.query(q), tenantId);
-
-    let result = await runQuery(normalizedQuery);
-
-    // Fallback for legacy notes without normalizedTitle: fall back to original title (case-sensitive match)
-    if (!result.items || result.items.length === 0) {
-        const legacyQuery: PrismContentQuery = {
+    const runDualOwnerQuery = async (titlePath: string, titleValue: string) => {
+        const qParent: PrismContentQuery = {
             contentType: NotesDefinition.dataModel.block,
             tenantId,
             where: {
-                indexer: { path: 'title', equals: title },
+                indexer: { path: titlePath, equals: titleValue },
                 parent_id: { eq: userId }
             },
             orderBy: { createdAt: 'desc' as const },
             limit: 1000,
         };
-        result = await runQuery(legacyQuery);
+        const qUserId: PrismContentQuery = {
+            contentType: NotesDefinition.dataModel.block,
+            tenantId,
+            where: {
+                AND: [
+                    { indexer: { path: titlePath, equals: titleValue } },
+                    { indexer: { path: 'userId', equals: userId } }
+                ]
+            },
+            orderBy: { createdAt: 'desc' as const },
+            limit: 1000,
+        };
+        const [rP, rU] = await Promise.all([
+            runQuery(qParent).catch(() => ({ items: [] })),
+            runQuery(qUserId).catch(() => ({ items: [] })),
+        ]);
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const item of [...(rP.items || []), ...(rU.items || [])]) {
+            const id = (item as any).page_id || (item as any)._id;
+            if (id && !seen.has(id)) { seen.add(id); merged.push(item); }
+        }
+        return { items: merged };
+    };
+
+    let result = await runDualOwnerQuery('normalizedTitle', normalized);
+
+    // Fallback for legacy notes without normalizedTitle: fall back to original title (case-sensitive match)
+    if (!result.items || result.items.length === 0) {
+        result = await runDualOwnerQuery('title', title);
     }
 
     if (!result.items || result.items.length === 0) return null;
@@ -298,11 +314,11 @@ export async function findNoteByUserAndMode(userId: string, tenantId: string, mo
     }
     const prism = await Prism.getInstance();
 
-    // Ensure the user exists
-    const user = await UserActions.getUserById(userId);
+    // Log user lookup but don't block on it — notes may exist for
+    // test/fallback users that lack a formal User record in the DB.
+    const user = await UserActions.getUserById(userId).catch(() => null);
     if (!user) {
-        log.warn('User not found while fetching notes by mode', { userId, tenantId, mode });
-        return [];
+        log.info('User record not found, proceeding with note query anyway', { userId, tenantId, mode });
     }
 
     // Business logic:
@@ -327,8 +343,10 @@ export async function findNoteByUserAndMode(userId: string, tenantId: string, mo
         };
     } else {
         // Personal mode: fetch all user notes and filter in memory to include legacy notes (missing mode)
-        // Use 'any' tenantId to find personal notes across all tenants since they are user-owned
-        query = {
+        // Query by BOTH parent_id and indexer.userId — notes created via the bot
+        // set userId in the content body but may not have parent_id mapped by
+        // Prism, so we need both queries to surface all user notes.
+        const queryByParent: PrismContentQuery = {
             contentType: NotesDefinition.dataModel.block,
             tenantId: tenantId,
             where: {
@@ -337,8 +355,57 @@ export async function findNoteByUserAndMode(userId: string, tenantId: string, mo
             orderBy: { createdAt: 'desc' as const },
             limit: 1000,
         };
+        const queryByUserId: PrismContentQuery = {
+            contentType: NotesDefinition.dataModel.block,
+            tenantId: tenantId,
+            where: {
+                indexer: { path: 'userId', equals: userId }
+            },
+            orderBy: { createdAt: 'desc' as const },
+            limit: 1000,
+        };
+        // Run both queries and merge results
+        const funcParent = async () => prism.query(queryByParent);
+        const funcUserId = async () => prism.query(queryByUserId);
+        const [resultParent, resultUserId] = await Promise.all([
+            ensureNotesDefinition(funcParent, tenantId).catch(() => ({ items: [] })),
+            ensureNotesDefinition(funcUserId, tenantId).catch(() => ({ items: [] })),
+        ]);
+        // Merge and deduplicate by _id/page_id
+        const seenIds = new Set<string>();
+        const mergedItems: any[] = [];
+        for (const item of [...(resultParent.items || []), ...(resultUserId.items || [])]) {
+            const id = (item as any).page_id || (item as any)._id;
+            if (id && !seenIds.has(id)) {
+                seenIds.add(id);
+                mergedItems.push(item);
+            }
+        }
+        if (mergedItems.length === 0) {
+            return [];
+        }
+        // Skip the single-query path below; proceed directly to filtering
+        let items = mergedItems as (Note & { normalizedTitle?: string; page_id?: string; _id?: string })[];
+        // Filter in memory to include legacy notes (missing mode)
+        items = items.filter(item => item.mode === 'personal' || !item.mode);
+        const normalizeFn = (t?: string) => (t || '').trim().toLowerCase();
+        for (const item of items) {
+            if (!item.normalizedTitle && item.title) {
+                try {
+                    const id = (item as any).page_id || (item as any)._id;
+                    await prism.update(NotesDefinition.dataModel.block, id, { normalizedTitle: normalizeFn(item.title) }, tenantId);
+                    item.normalizedTitle = normalizeFn(item.title);
+                } catch (e) {
+                    log.warn('Failed to backfill normalizedTitle for note', {
+                        noteId: (item as any).page_id || (item as any)._id,
+                        error: e,
+                    });
+                }
+            }
+        }
+        return items as Note[];
     }
-    // Querying notes based on mode and user/tenant context
+    // Querying notes based on mode and user/tenant context (work mode path)
     const func = async () => {
         return await prism.query(query);
     };
@@ -348,11 +415,6 @@ export async function findNoteByUserAndMode(userId: string, tenantId: string, mo
     }
     
     let items = result.items as (Note & { normalizedTitle?: string; page_id?: string; _id?: string })[];
-
-    // Filter in memory if we are in personal mode to include legacy notes
-    if (mode === 'personal') {
-        items = items.filter(item => item.mode === 'personal' || !item.mode);
-    }
 
     const normalizeFn = (t?: string) => (t || '').trim().toLowerCase();
     for (const item of items) {
@@ -535,45 +597,67 @@ export async function findNotesByUserId(
             limit: 1000,
         };
     } else if (mode === 'personal') {
-        // Personal notes belong to user
-        // Fetch all user notes first, then filter in memory for personal mode
-        // This avoids using NOT operator which isn't supported by the GraphQL schema
-        query = {
-            contentType: NotesDefinition.dataModel.block,
-            tenantId,
-            where: {
-                parent_id: { eq: userId }
-            },
-            orderBy: { createdAt: 'desc' as const },
-            limit: 1000,
-        };
-    } else {
-        // All notes for user
-        query = {
+        // Personal notes belong to user — query by both parent_id and indexer.userId
+        // to catch notes created via bot (which set userId in content but may lack parent_id)
+        const qParent: PrismContentQuery = {
             contentType: NotesDefinition.dataModel.block,
             tenantId,
             where: { parent_id: { eq: userId } },
             orderBy: { createdAt: 'desc' as const },
             limit: 1000,
         };
+        const qUserId: PrismContentQuery = {
+            contentType: NotesDefinition.dataModel.block,
+            tenantId,
+            where: { indexer: { path: 'userId', equals: userId } },
+            orderBy: { createdAt: 'desc' as const },
+            limit: 1000,
+        };
+        const [rParent, rUserId] = await Promise.all([
+            ensureNotesDefinition(async () => prism.query(qParent), tenantId).catch(() => ({ items: [] })),
+            ensureNotesDefinition(async () => prism.query(qUserId), tenantId).catch(() => ({ items: [] })),
+        ]);
+        const seenIds = new Set<string>();
+        const merged: Note[] = [];
+        for (const item of [...(rParent.items || []), ...(rUserId.items || [])]) {
+            const id = (item as any).page_id || (item as any)._id;
+            if (id && !seenIds.has(id)) { seenIds.add(id); merged.push(item as Note); }
+        }
+        return merged.filter(note => note.mode === 'personal' || !note.mode);
+    } else {
+        // All notes for user — query by both parent_id and indexer.userId
+        const qParent: PrismContentQuery = {
+            contentType: NotesDefinition.dataModel.block,
+            tenantId,
+            where: { parent_id: { eq: userId } },
+            orderBy: { createdAt: 'desc' as const },
+            limit: 1000,
+        };
+        const qUserId: PrismContentQuery = {
+            contentType: NotesDefinition.dataModel.block,
+            tenantId,
+            where: { indexer: { path: 'userId', equals: userId } },
+            orderBy: { createdAt: 'desc' as const },
+            limit: 1000,
+        };
+        const [rParent, rUserId] = await Promise.all([
+            ensureNotesDefinition(async () => prism.query(qParent), tenantId).catch(() => ({ items: [] })),
+            ensureNotesDefinition(async () => prism.query(qUserId), tenantId).catch(() => ({ items: [] })),
+        ]);
+        const seenIds = new Set<string>();
+        const merged: Note[] = [];
+        for (const item of [...(rParent.items || []), ...(rUserId.items || [])]) {
+            const id = (item as any).page_id || (item as any)._id;
+            if (id && !seenIds.has(id)) { seenIds.add(id); merged.push(item as Note); }
+        }
+        return merged;
     }
 
-    const func = async () => {
-        return await prism.query(query);
-    };
-    
+    // Work mode path: execute the query built above
+    const func = async () => prism.query(query);
     const result = await ensureNotesDefinition(func, tenantId);
-    
     if (!result.items || result.items.length === 0) {
         return [];
     }
-    
-    let items = result.items as Note[];
-    
-    // For personal mode, filter in memory to include notes with mode='personal' or no mode (legacy)
-    if (mode === 'personal') {
-        items = items.filter(note => note.mode === 'personal' || !note.mode);
-    }
-    
-    return items;
+    return result.items as Note[];
 }

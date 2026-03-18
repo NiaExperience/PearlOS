@@ -20,25 +20,25 @@ from tools.logging_utils import bind_tool_logger
 
 # Default functional prompts (fallbacks if no DB entry exists)
 DEFAULT_VIEW_TOOL_PROMPTS = {
-    'bot_close_browser_window': 'Close specific apps (Gmail, Terminal, Drive, Notes, etc.) or all windows. Use the "apps" parameter to specify which apps to close (e.g., ["gmail", "terminal"]). If no apps specified, closes all windows. Speech-to-text variants like "closed" should be treated as "close".',
-    'bot_close_applet_creation_engine': 'Close the creation engine or content creation tool window. Triggers: "close creation engine", "closed creation engine", "exit creation engine", "close content creator", "exit content creator".',
-    'bot_close_view': 'Close specific apps or the current view. Use the "apps" parameter to specify which apps to close (Gmail, Terminal, Drive, Notes, etc.). If no apps specified, closes all windows. Speech-to-text may transcribe "close" as "closed" — always treat as a command.',
-    'bot_close_terminal': 'Close the terminal application. Triggers: "close terminal", "closed terminal", "exit terminal", "shut terminal". Treat "closed terminal" from speech-to-text as a command.',
-    'bot_close_gmail': 'Close Gmail. Triggers: "close gmail", "closed gmail", "exit gmail". Treat "closed gmail" from speech-to-text as a command.',
-    'bot_close_notes': 'Close the notes application. Triggers: "close notes", "closed notes", "exit notes", "close notepad", "shut notes", "hide notes". NOTE: Speech-to-text may transcribe "close" as "closed" — treat "closed notes" as a command to close notes, not a statement.',
-    'bot_close_google_drive': 'Close Google Drive. Triggers: "close drive", "closed drive", "exit drive". Treat "closed drive" from speech-to-text as a command.',
-    'bot_close_youtube': 'Close the YouTube player interface. Triggers: "close youtube", "closed youtube", "stop video", "exit youtube". Treat "closed youtube" from speech-to-text as a command.',
-    'bot_open_browser': 'Open a web browser window. Optionally navigate to a specified URL. Triggers: "open browser", "launch browser", "open web browser", "go to [URL]".',
-    'bot_open_creation_engine': 'Open the creation engine or content creation tool. Triggers: "open creation engine", "load creation tool", "start content creation", "create html content".',
-    'bot_open_enhanced_browser': "Open an enhanced browser window with advanced features (dev tools, extensions, etc.).",
-    'bot_open_gmail': 'Open Gmail in the application or browser. Triggers: "open gmail", "load gmail app", "check email", "open email".',
-    'bot_open_google_drive': 'Open Google Drive in the application or browser. Triggers: "open drive", "load google drive app", "open google drive", "open my files".',
-    'bot_open_notes': 'Open the Notepad application. Triggers: "open notes", "open notepad", "load notes app", "open portal", "open library". For opening a SPECIFIC note by name or description, ALWAYS use bot_open_note instead.',
-    'bot_open_terminal': 'Open a terminal or command line interface. Triggers: "open terminal", "load terminal app", "open command line", "open shell".',
-    'bot_open_news': 'Open the built-in PearlOS News app. This is a full news reader with headlines from multiple sources (NY Times, BBC, NPR, Ars Technica, The Verge, etc.). Triggers: "open news", "show me the news", "open the news", "load news", "what\'s in the news", "show news", "news app", "check the news", "the news". IMPORTANT: This opens the EXISTING built-in news app — do NOT generate new HTML or use Wonder Canvas templates for news. The news app auto-fetches live headlines from RSS feeds.',
-    'bot_open_youtube': 'Open the YouTube player interface.  Triggers: "open youtube", "load youtube app", "open video", "play video". Use bot_search_youtube_videos to search and play videos based on user input.',
-    'bot_switch_layout_mode': 'Switch between desktop-sized and mobile-sized UI LAYOUT. This controls viewport/responsive layout ONLY (wide vs narrow). Triggers: "desktop layout", "mobile layout", "switch layout to desktop", "switch layout to mobile". NOTE: This is RARELY what users mean. If the user says "switch to desktop", "desktop", "go to desktop", "home mode", "work mode", "quiet mode", or "create mode", they mean bot_switch_desktop_mode instead — NOT this tool.',
-    'bot_switch_desktop_mode': 'Switch PearlOS desktop background/theme mode. Available modes: "home", "work", "quiet", "create". CRITICAL: When the user says "switch to desktop", "go to desktop", "desktop", "go home", or "home mode", use mode "home". When the user says "work mode", "switch to work", or "workspace", use mode "work". When the user says "quiet mode", "go quiet", or "chill mode", use mode "quiet". When the user says "create mode", "creation mode", or "switch to create", use mode "create". DEFAULT: If the user says just "desktop" without specifying a mode, ALWAYS use "home". The word "desktop" in PearlOS ALWAYS refers to these background/theme modes — never to Windows/macOS/Linux desktop. IMPORTANT: This is NOT note privacy mode. If the user is talking about Notes/Notepad "personal" vs "work" visibility, use bot_switch_note_mode instead.',
+    'bot_close_browser_window': 'Close specific apps or all windows. Pass "apps" array (e.g. ["notes","terminal"]) or omit to close all. "Closed X" from STT = "close X".',
+    'bot_close_applet_creation_engine': 'Close the creation engine window.',
+    'bot_close_view': 'Close specific apps (pass "apps" array) or all windows if omitted.',
+    'bot_close_terminal': 'Close the terminal.',
+    'bot_close_gmail': 'Close Gmail.',
+    'bot_close_notes': 'Close the notes app. "Closed notes" from STT = "close notes".',
+    'bot_close_google_drive': 'Close Google Drive.',
+    'bot_close_youtube': 'Close the YouTube player.',
+    'bot_open_browser': 'Open a browser window, optionally to a URL.',
+    'bot_open_creation_engine': 'Open the creation engine for HTML content creation.',
+    'bot_open_enhanced_browser': 'Open an enhanced browser with dev tools.',
+    'bot_open_gmail': 'Open Gmail.',
+    'bot_open_google_drive': 'Open Google Drive.',
+    'bot_open_notes': 'Open the Notes app. For a SPECIFIC note by name, use bot_open_note instead.',
+    'bot_open_terminal': 'Open a terminal/command line.',
+    'bot_open_news': 'Open the built-in PearlOS News app with live headlines. Optional category: world, science, politics, entertainment, health, tech. Do NOT generate HTML for news.',
+    'bot_open_youtube': 'Open YouTube player. Use bot_search_youtube_videos to find/play videos.',
+    'bot_switch_layout_mode': 'Switch UI layout between desktop and mobile viewport. RARELY needed. If user says "desktop"/"home mode"/"work mode", use bot_switch_desktop_mode instead.',
+    'bot_switch_desktop_mode': 'Switch desktop mode: "home" (default), "work", "quiet", or "create". "Desktop"/"go to desktop" = "home". NOT for note privacy (use bot_switch_note_mode).',
 }
 
 # Lazy import helper to avoid circular import
@@ -56,24 +56,9 @@ def _get_room_tenant_id(room_url: str):
 # ============================================================================
 
 
-@bot_tool(
-    name="bot_close_view",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_close_view"],
-    feature_flag="browserAutomation",
-    parameters={
-        "apps": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail']). If not provided, closes all windows."
-        },
-        "request_text": {
-            "type": "string",
-            "description": "Optional raw user request text for context (e.g., 'close terminal and gmail')"
-        }
-    },
-    passthrough=True
-)
-async def bot_close_view(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — duplicate of bot_close_browser_window
+# @bot_tool(name="bot_close_view", ...)
+async def _disabled_bot_close_view(params: FunctionCallParams):
     """Close specific apps or all views.
     
     If apps array is provided, closes only those specific apps.
@@ -262,13 +247,12 @@ async def bot_close_browser_window(params: FunctionCallParams):
             app_list = ", ".join(apps)
             user_message = f"Closing {app_list}."
         else:
-            # Legacy: close all windows
-            log.warning(f"⚠️ [bot_close_browser_window] FALLBACK - EMITTING browser.close event (apps was: {apps})")
-            await forwarder.emit_tool_event(events.BROWSER_CLOSE, {})
-            # Also clear Wonder Canvas content (news, weather, etc.) which lives
-            # outside the window manager and won't be closed by browser.close
+            # Fallback: close canvas + apps but NOT browser.close (which can cascade into Daily teardown)
+            log.warning(f"⚠️ [bot_close_browser_window] FALLBACK - clearing canvas only (apps was: {apps})")
             await forwarder.emit_tool_event(events.WONDER_CANVAS_CLEAR, {})
-            log.info("[bot_close_browser_window] Also emitted wonder.clear to dismiss canvas content")
+            # Emit apps.close for common window types instead of the dangerous browser.close
+            await forwarder.emit_tool_event(events.APPS_CLOSE, {"apps": ["wonder_canvas", "news", "weather", "browser"]})
+            log.info("[bot_close_browser_window] Emitted wonder.clear + apps.close (safe path, no browser.close)")
             user_message = "Closing all windows."
     else:
         log.error("❌ [bot_close_browser_window] No forwarder available!")
@@ -280,14 +264,9 @@ async def bot_close_browser_window(params: FunctionCallParams):
     }, properties=FunctionCallResultProperties(run_llm=False))
 
 
-@bot_tool(
-    name="bot_open_google_drive",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_google_drive"],
-    feature_flag="googleDrive",
-    parameters={},
-    passthrough=True
-)
-async def bot_open_google_drive(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Google Drive removed from PearlOS tools
+# @bot_tool(name="bot_open_google_drive", ...)
+async def _disabled_bot_open_google_drive(params: FunctionCallParams):
     """Open Google Drive."""
     forwarder = params.forwarder
     
@@ -300,14 +279,9 @@ async def bot_open_google_drive(params: FunctionCallParams):
     }, properties=FunctionCallResultProperties(run_llm=False))
 
 
-@bot_tool(
-    name="bot_open_gmail",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_gmail"],
-    feature_flag="gmail",
-    parameters={},
-    passthrough=True
-)
-async def bot_open_gmail(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Gmail removed from PearlOS tools
+# @bot_tool(name="bot_open_gmail", ...)
+async def _disabled_bot_open_gmail(params: FunctionCallParams):
     """Open Gmail."""
     forwarder = params.forwarder
     
@@ -385,19 +359,9 @@ async def bot_open_terminal(params: FunctionCallParams):
     }, properties=FunctionCallResultProperties(run_llm=False))
 
 
-@bot_tool(
-    name="bot_open_browser",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_browser"],
-    feature_flag="miniBrowser",
-    parameters={
-        "url": {
-            "type": "string",
-            "description": "Optional URL to navigate to when opening the browser"
-        }
-    },
-    passthrough=True
-)
-async def bot_open_browser(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Browser removed from PearlOS tools
+# @bot_tool(name="bot_open_browser", ...)
+async def _disabled_bot_open_browser(params: FunctionCallParams):
     """Open browser with optional URL."""
     arguments = params.arguments
     forwarder = params.forwarder
@@ -420,24 +384,9 @@ async def bot_open_browser(params: FunctionCallParams):
     }, properties=FunctionCallResultProperties(run_llm=False))
 
 
-@bot_tool(
-    name="bot_open_enhanced_browser",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_enhanced_browser"],
-    feature_flag="miniBrowser",
-    parameters={
-        "url": {
-            "type": "string",
-            "description": "URL to open in the enhanced browser"
-        },
-        "features": {
-            "type": "array",
-            "description": "Optional list of features to enable (devtools, extensions, etc.)",
-            "items": {"type": "string"}
-        }
-    },
-    passthrough=True
-)
-async def bot_open_enhanced_browser(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Enhanced browser removed from PearlOS tools
+# @bot_tool(name="bot_open_enhanced_browser", ...)
+async def _disabled_bot_open_enhanced_browser(params: FunctionCallParams):
     """Open an enhanced browser window with advanced features."""
     log = bind_tool_logger(params, tag="[view_tools]")
     arguments = params.arguments
@@ -504,32 +453,37 @@ async def bot_open_creation_engine(params: FunctionCallParams):
     name="bot_open_news",
     description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_news"],
     feature_flag="wonderCanvas",
-    parameters={},
+    parameters={
+        "type": "object",
+        "properties": {
+            "category": {
+                "type": "string",
+                "description": (
+                    "Optional category to open directly: 'world', 'science', 'politics', "
+                    "'entertainment', 'health', 'tech'. Aliases work too: 'technology'→'tech', "
+                    "'ent'→'entertainment', etc. If omitted, opens at the default (world)."
+                ),
+            },
+        },
+        "required": [],
+    },
     passthrough=True
 )
 async def bot_open_news(params: FunctionCallParams):
     """Open the built-in PearlOS News app on Wonder Canvas.
     
-    This opens the existing news reader app which auto-fetches live
-    headlines from configured RSS feeds (NY Times, BBC, NPR, etc.).
-    Do NOT use Wonder Canvas templates or generate HTML for news —
-    this tool opens the real, full-featured news app.
-
-    Emits wonder.scene directly (like weather) to avoid the app.open →
-    re-dispatch path whose 3s frontend dedup window can silently drop
-    the scene if Wonder Canvas content was recently shown.
+    Emits app.open event so the frontend opens the same News UI
+    used by the desktop icon click — one unified news experience.
     """
-    from tools.news_app_html import build_news_html
-
+    args = params.arguments
+    category = (args.get("category") or "").strip().lower() or None
     forwarder = params.forwarder
 
     if forwarder:
-        await forwarder.emit_tool_event(events.WONDER_CANVAS_SCENE, {
-            "html": build_news_html(),
-            "css": "",
-            "transition": "fade",
-            "layer": "main",
-        })
+        payload = {"app": "news"}
+        if category:
+            payload["category"] = category
+        await forwarder.emit_tool_event(events.APP_OPEN, payload)
 
     await params.result_callback({
         "success": True,
@@ -583,14 +537,9 @@ async def bot_close_terminal(params: FunctionCallParams):
     }, properties=FunctionCallResultProperties(run_llm=False))
 
 
-@bot_tool(
-    name="bot_close_gmail",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_close_gmail"],
-    feature_flag="gmail",
-    parameters={},
-    passthrough=True
-)
-async def bot_close_gmail(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Gmail removed from PearlOS tools
+# @bot_tool(name="bot_close_gmail", ...)
+async def _disabled_bot_close_gmail(params: FunctionCallParams):
     """Close Gmail application."""
     log = bind_tool_logger(params, tag="[view_tools]")
     forwarder = params.forwarder
@@ -651,14 +600,9 @@ async def bot_close_applet_creation_engine(params: FunctionCallParams):
     }, properties=FunctionCallResultProperties(run_llm=False))
 
 
-@bot_tool(
-    name="bot_close_google_drive",
-    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_close_google_drive"],
-    feature_flag="googleDrive",
-    parameters={},
-    passthrough=True
-)
-async def bot_close_google_drive(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Google Drive removed from PearlOS tools
+# @bot_tool(name="bot_close_google_drive", ...)
+async def _disabled_bot_close_google_drive(params: FunctionCallParams):
     """Close Google Drive application."""
     log = bind_tool_logger(params, tag="[view_tools]")
     forwarder = params.forwarder

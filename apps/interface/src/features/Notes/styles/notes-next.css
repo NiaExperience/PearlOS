@@ -276,3 +276,208 @@
   animation: pearl-shimmer 1.5s ease-in-out infinite;
   z-index: 100;
 }
+
+/* Pearl highlight pulse animation (bot-initiated highlights) */
+@keyframes pearl-highlight-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pearl-highlight {
+  transition: background-color 0.5s ease;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ENHANCED MARKDOWN RENDERING (Notion/Obsidian-style)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Task list checkboxes (GFM) */
+.nn-ul li input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.nn-ul li input[type="checkbox"]:checked {
+  background: rgba(99, 102, 241, 0.8);
+  border-color: rgba(99, 102, 241, 0.8);
+}
+
+.nn-ul li input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 2px;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Tables (GFM) */
+.nn-table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.nn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.nn-th {
+  background: rgba(148, 163, 184, 0.1);
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  white-space: nowrap;
+}
+
+.nn-td {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  color: rgba(203, 213, 225, 0.85);
+}
+
+.nn-table tr:last-child .nn-td {
+  border-bottom: none;
+}
+
+.nn-table tr:hover .nn-td {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+/* Blockquotes — Notion-style left border */
+.nn-blockquote {
+  border-left: 3px solid rgba(99, 102, 241, 0.5);
+  padding: 8px 16px;
+  margin: 12px 0;
+  background: rgba(99, 102, 241, 0.04);
+  border-radius: 0 6px 6px 0;
+  color: rgba(203, 213, 225, 0.8);
+  font-style: italic;
+}
+
+/* Code blocks — enhanced */
+.nn-pre {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.nn-code-inline {
+  background: rgba(99, 102, 241, 0.12);
+  color: rgba(199, 146, 234, 0.95);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', monospace;
+}
+
+/* Horizontal rules */
+.nn-hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.2), transparent);
+  margin: 24px 0;
+}
+
+/* Images — enhanced */
+.nn-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Links */
+.nn-a {
+  color: rgba(129, 140, 248, 0.9);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.nn-a:hover {
+  color: rgba(165, 180, 252, 1);
+  border-bottom-color: rgba(129, 140, 248, 0.5);
+}
+
+/* Strikethrough (GFM) */
+.nn-streaming-container del {
+  color: rgba(148, 163, 184, 0.5);
+  text-decoration: line-through;
+}
+
+/* Headings — enhanced spacing */
+.nn-h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  color: rgba(241, 245, 249, 0.95);
+  letter-spacing: -0.02em;
+}
+
+.nn-h2 {
+  font-size: 1.4rem;
+  font-weight: 650;
+  margin: 20px 0 10px;
+  color: rgba(226, 232, 240, 0.92);
+  letter-spacing: -0.01em;
+}
+
+.nn-h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+/* Paragraphs */
+.nn-p {
+  line-height: 1.7;
+  margin: 8px 0;
+  color: rgba(203, 213, 225, 0.85);
+}
+
+/* Lists */
+.nn-ul, .nn-ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.nn-li {
+  line-height: 1.65;
+  margin: 4px 0;
+  color: rgba(203, 213, 225, 0.85);
+}
+
+/* Strong/Em */
+.nn-strong {
+  font-weight: 650;
+  color: rgba(241, 245, 249, 0.95);
+}
+
+.nn-em {
+  font-style: italic;
+  color: rgba(203, 213, 225, 0.9);
+}

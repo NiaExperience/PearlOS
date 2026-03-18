@@ -1,4 +1,9 @@
-"""ComfyUI async client for Photo Magic — text-to-image and image editing via Qwen."""
+"""ComfyUI async client for Photo Magic — Flux Kontext Dev (GGUF) image editing.
+
+Uses native Kontext reference latent conditioning: each input image is
+VAE-encoded separately and chained via ReferenceLatent nodes on the
+positive conditioning.  No pixel-space stitching hacks.
+"""
 
 import os
 import json
@@ -10,186 +15,155 @@ from loguru import logger
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 COMFYUI_OUTPUT_DIR = "/workspace/runpod-slim/ComfyUI/output"
-CHECKPOINT = "Qwen-Rapid-AIO-SFW-v23.safetensors"
+
+# Flux Kontext Dev — split model loading
+UNET_GGUF = "flux1-kontext-dev-Q5_k-marduk191.gguf"
+CLIP_T5 = "t5xxl_fp8_e4m3fn.safetensors"
+CLIP_L = "clip_l.safetensors"
+VAE_NAME = "ae.safetensors"
 
 
 # ---------------------------------------------------------------------------
-# Workflow builders — return the API-format prompt dict
+# Shared model-loader nodes (reused across workflows)
 # ---------------------------------------------------------------------------
 
-def _build_txt2img_workflow(prompt: str) -> dict:
-    """Text-to-image (no input photo): EmptyLatentImage → KSamplerAdvanced → VAEDecode → SaveImage.
-
-    Uses Pearl Photo Magic v.04 node IDs and settings.
-    """
+def _model_loader_nodes() -> dict:
+    """UnetLoaderGGUF + DualCLIPLoader + VAELoader."""
     return {
-        # Checkpoint loader
-        "1032": {
-            "class_type": "CheckpointLoaderSimple",
-            "inputs": {"ckpt_name": CHECKPOINT},
+        "10": {
+            "class_type": "UnetLoaderGGUF",
+            "inputs": {"unet_name": UNET_GGUF},
         },
-        # Prompt
-        "970": {
-            "class_type": "String Literal",
-            "inputs": {"string": prompt},
-        },
-        # POSITIVE conditioning (no images for txt2img)
-        "1430": {
-            "class_type": "TextEncodeQwenImageEditPlus",
+        "11": {
+            "class_type": "DualCLIPLoader",
             "inputs": {
-                "clip": ["1032", 1],
-                "vae": ["1032", 2],
-                "prompt": ["970", 0],
+                "clip_name1": CLIP_T5,
+                "clip_name2": CLIP_L,
+                "type": "flux",
             },
         },
-        # NEGATIVE conditioning (empty, no images)
-        "1418": {
-            "class_type": "TextEncodeQwenImageEditPlus",
-            "inputs": {
-                "clip": ["1032", 1],
-                "vae": ["1032", 2],
-                "prompt": "",
-            },
-        },
-        # Empty latent (no input image)
-        "1423": {
-            "class_type": "EmptyLatentImage",
-            "inputs": {"width": 1600, "height": 1000, "batch_size": 1},
-        },
-        # KSamplerAdvanced
-        "1417": {
-            "class_type": "KSamplerAdvanced",
-            "inputs": {
-                "model": ["1032", 0],
-                "positive": ["1430", 0],
-                "negative": ["1418", 0],
-                "latent_image": ["1423", 0],
-                "noise_seed": _rand_seed(),
-                "add_noise": "enable",
-                "steps": 12,
-                "cfg": 1,
-                "sampler_name": "euler",
-                "scheduler": "simple",
-                "start_at_step": 0,
-                "end_at_step": 10000,
-                "return_with_leftover_noise": "disable",
-            },
-        },
-        # VAEDecode
-        "1427": {
-            "class_type": "VAEDecode",
-            "inputs": {
-                "samples": ["1417", 0],
-                "vae": ["1032", 2],
-            },
-        },
-        # SaveImage
-        "1432": {
-            "class_type": "SaveImage",
-            "inputs": {
-                "images": ["1427", 0],
-                "filename_prefix": "ComfyUI",
-            },
+        "12": {
+            "class_type": "VAELoader",
+            "inputs": {"vae_name": VAE_NAME},
         },
     }
+
+
+def _conditioning_nodes(prompt: str) -> dict:
+    """Positive + negative CLIP text encode."""
+    return {
+        "30": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {"text": prompt, "clip": ["11", 0]},
+        },
+        "31": {
+            "class_type": "CLIPTextEncode",
+            "inputs": {"text": "", "clip": ["11", 0]},
+        },
+    }
+
+
+def _sampler_decode_save(positive_ref: list, latent_ref: list, denoise: float = 1.0) -> dict:
+    """KSampler → VAEDecode → SaveImage."""
+    return {
+        "50": {
+            "class_type": "KSampler",
+            "inputs": {
+                "model": ["10", 0],
+                "positive": positive_ref,
+                "negative": ["31", 0],
+                "latent_image": latent_ref,
+                "seed": _rand_seed(),
+                "steps": 28,
+                "cfg": 1.0,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": denoise,
+            },
+        },
+        "60": {
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["50", 0], "vae": ["12", 0]},
+        },
+        "70": {
+            "class_type": "SaveImage",
+            "inputs": {"images": ["60", 0], "filename_prefix": "ComfyUI"},
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Workflow builders
+# ---------------------------------------------------------------------------
+
+def _build_txt2img_workflow(prompt: str, width: int = 1024, height: int = 1024) -> dict:
+    """Text-to-image: EmptyLatentImage → KSampler → VAEDecode → SaveImage."""
+    wf = {}
+    wf.update(_model_loader_nodes())
+    wf.update(_conditioning_nodes(prompt))
+    wf["40"] = {
+        "class_type": "EmptyLatentImage",
+        "inputs": {"width": width, "height": height, "batch_size": 1},
+    }
+    wf.update(_sampler_decode_save(["30", 0], ["40", 0]))
+    return wf
 
 
 def _build_edit_workflow(prompt: str, image_names: list[str]) -> dict:
-    """Image edit using Pearl Photo Magic v.04 workflow.
+    """Image edit via Flux Kontext native reference latent conditioning.
 
-    Image1 → POSITIVE TextEncode + VAEEncode (latent).
-    Image2/3 → POSITIVE TextEncode only (references).
-    NEGATIVE TextEncode gets clip+vae only, no images, empty prompt.
-    KSamplerAdvanced with v.04 settings.
+    Each input image is:
+      1. Loaded via LoadImage
+      2. Scaled via FluxKontextImageScale (optimal Kontext resolution)
+      3. VAE-encoded to latent
+      4. Chained onto positive conditioning via ReferenceLatent
+
+    The output latent is an EmptyLatentImage at the first image's Kontext-scaled
+    resolution.  KSampler denoises fully (denoise=1.0) conditioned by the
+    reference latents and the text prompt.
     """
-    # Image node IDs matching workflow
-    image_node_ids = ["1407", "1439", "1440"]
+    wf = {}
+    wf.update(_model_loader_nodes())
+    wf.update(_conditioning_nodes(prompt))
 
-    wf: dict = {
-        # Checkpoint loader
-        "1032": {
-            "class_type": "CheckpointLoaderSimple",
-            "inputs": {"ckpt_name": CHECKPOINT},
-        },
-        # Prompt
-        "970": {
-            "class_type": "String Literal",
-            "inputs": {"string": prompt},
-        },
-    }
+    # For each input image: LoadImage → FluxKontextImageScale → VAEEncode
+    # Then chain ReferenceLatent nodes on positive conditioning
+    prev_cond_ref = ["30", 0]  # Start with base positive conditioning
 
-    # Load images
     for i, name in enumerate(image_names[:3]):
-        wf[image_node_ids[i]] = {
+        load_nid = str(20 + i * 3)       # 20, 23, 26
+        scale_nid = str(20 + i * 3 + 1)  # 21, 24, 27
+        vae_nid = str(20 + i * 3 + 2)    # 22, 25, 28
+        ref_nid = str(35 + i)            # 35, 36, 37
+
+        wf[load_nid] = {
             "class_type": "LoadImage",
             "inputs": {"image": name},
         }
+        wf[scale_nid] = {
+            "class_type": "FluxKontextImageScale",
+            "inputs": {"image": [load_nid, 0]},
+        }
+        wf[vae_nid] = {
+            "class_type": "VAEEncode",
+            "inputs": {"pixels": [scale_nid, 0], "vae": ["12", 0]},
+        }
+        wf[ref_nid] = {
+            "class_type": "ReferenceLatent",
+            "inputs": {
+                "conditioning": prev_cond_ref,
+                "latent": [vae_nid, 0],
+            },
+        }
+        prev_cond_ref = [ref_nid, 0]
 
-    # VAEEncode first image for latent
-    wf["1423"] = {
-        "class_type": "VAEEncode",
-        "inputs": {
-            "pixels": [image_node_ids[0], 0],
-            "vae": ["1032", 2],
-        },
+    # Output latent: empty at 1024x1024 (Kontext generates the edited output)
+    wf["40"] = {
+        "class_type": "EmptyLatentImage",
+        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
     }
 
-    # POSITIVE TextEncodeQwenImageEditPlus with images
-    pos_inputs: dict = {
-        "clip": ["1032", 1],
-        "vae": ["1032", 2],
-        "prompt": ["970", 0],
-    }
-    for i in range(min(len(image_names), 3)):
-        pos_inputs[f"image{i+1}"] = [image_node_ids[i], 0]
-
-    wf["1430"] = {
-        "class_type": "TextEncodeQwenImageEditPlus",
-        "inputs": pos_inputs,
-    }
-
-    # NEGATIVE TextEncodeQwenImageEditPlus (no images, empty prompt)
-    wf["1418"] = {
-        "class_type": "TextEncodeQwenImageEditPlus",
-        "inputs": {
-            "clip": ["1032", 1],
-            "vae": ["1032", 2],
-            "prompt": "",
-        },
-    }
-
-    # KSamplerAdvanced
-    wf["1417"] = {
-        "class_type": "KSamplerAdvanced",
-        "inputs": {
-            "model": ["1032", 0],
-            "positive": ["1430", 0],
-            "negative": ["1418", 0],
-            "latent_image": ["1423", 0],
-            "noise_seed": _rand_seed(),
-            "add_noise": "enable",
-            "steps": 12,
-            "cfg": 1,
-            "sampler_name": "euler",
-            "scheduler": "simple",
-            "start_at_step": 0,
-            "end_at_step": 10000,
-            "return_with_leftover_noise": "disable",
-        },
-    }
-
-    # VAEDecode
-    wf["1427"] = {
-        "class_type": "VAEDecode",
-        "inputs": {"samples": ["1417", 0], "vae": ["1032", 2]},
-    }
-
-    # SaveImage
-    wf["1432"] = {
-        "class_type": "SaveImage",
-        "inputs": {"images": ["1427", 0], "filename_prefix": "ComfyUI"},
-    }
-
+    wf.update(_sampler_decode_save(prev_cond_ref, ["40", 0]))
     return wf
 
 
@@ -229,7 +203,7 @@ async def _queue_prompt(session: aiohttp.ClientSession, workflow: dict, client_i
 
 
 async def _wait_for_completion(prompt_id: str, client_id: str, timeout: float = 600) -> dict:
-    """Wait for prompt completion by polling history endpoint. Returns history entry."""
+    """Wait for prompt completion by polling history endpoint."""
     poll_interval = 2.0
     elapsed = 0.0
 
@@ -249,7 +223,6 @@ async def _wait_for_completion(prompt_id: str, client_id: str, timeout: float = 
             except Exception as e:
                 logger.warning(f"[comfyui] Poll error: {e}")
 
-            # Also check if it's still queued/running
             if elapsed % 30 < poll_interval:
                 try:
                     async with session.get(f"{COMFYUI_URL}/api/queue") as resp:
@@ -257,7 +230,6 @@ async def _wait_for_completion(prompt_id: str, client_id: str, timeout: float = 
                         running_ids = [x[1] for x in q.get("queue_running", [])]
                         pending_ids = [x[1] for x in q.get("queue_pending", [])]
                         if prompt_id not in running_ids and prompt_id not in pending_ids:
-                            # Not in queue and not in history = might have errored
                             async with session.get(f"{COMFYUI_URL}/api/history/{prompt_id}") as resp2:
                                 h = await resp2.json()
                                 entry = h.get(prompt_id)
@@ -293,7 +265,7 @@ def _extract_output_images(history: dict) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API (unchanged signatures)
 # ---------------------------------------------------------------------------
 
 async def generate_image(prompt: str, output_dir: str = "/tmp/photo-magic") -> str:
@@ -320,7 +292,7 @@ async def edit_image(prompt: str, image_path: str, output_dir: str = "/tmp/photo
 
 
 async def edit_multi_image(prompt: str, image_paths: list[str], output_dir: str = "/tmp/photo-magic") -> str:
-    """Multi-image composition (up to 3 images). Returns path to output image."""
+    """Multi-image editing (up to 3 images). Returns path to output image."""
     if not image_paths:
         raise ValueError("At least one image_path is required")
     if len(image_paths) > 3:
@@ -328,7 +300,6 @@ async def edit_multi_image(prompt: str, image_paths: list[str], output_dir: str 
 
     client_id = uuid.uuid4().hex
 
-    # Upload images
     async with aiohttp.ClientSession() as session:
         uploaded_names = []
         for p in image_paths:
@@ -351,7 +322,7 @@ async def edit_multi_image(prompt: str, image_paths: list[str], output_dir: str 
 
 
 async def inpaint_image(prompt: str, image_path: str, mask_path: str, output_dir: str = "/tmp/photo-magic") -> str:
-    """Inpaint an image using a mask. White mask areas = edit, black = keep. Returns path to output image."""
+    """Inpaint an image using a mask. White = edit, black = keep."""
     client_id = uuid.uuid4().hex
 
     async with aiohttp.ClientSession() as session:
@@ -360,36 +331,20 @@ async def inpaint_image(prompt: str, image_path: str, mask_path: str, output_dir
 
     workflow = _build_edit_workflow(prompt, [image_name])
 
-    # VAEEncodeForInpaint crashes with Qwen VAE (tuple downscale_ratio bug).
-    # Instead: keep VAEEncode as-is, then apply mask via SetLatentNoiseMask.
-    # This constrains noise to mask regions during sampling.
-
-    # Add LoadImage node for the mask
-    workflow["1450"] = {
+    # Add mask via SetLatentNoiseMask on the output latent
+    workflow["80"] = {
         "class_type": "LoadImage",
         "inputs": {"image": mask_name},
     }
-
-    # Convert IMAGE → MASK (use red channel)
-    workflow["1451"] = {
+    workflow["81"] = {
         "class_type": "ImageToMask",
-        "inputs": {
-            "image": ["1450", 0],
-            "channel": "red",
-        },
+        "inputs": {"image": ["80", 0], "channel": "red"},
     }
-
-    # Insert SetLatentNoiseMask between VAEEncode (1423) and KSamplerAdvanced (1417)
-    workflow["1452"] = {
+    workflow["82"] = {
         "class_type": "SetLatentNoiseMask",
-        "inputs": {
-            "samples": ["1423", 0],
-            "mask": ["1451", 0],
-        },
+        "inputs": {"samples": ["40", 0], "mask": ["81", 0]},
     }
-
-    # Redirect KSampler's latent_image input from VAEEncode to SetLatentNoiseMask
-    workflow["1417"]["inputs"]["latent_image"] = ["1452", 0]
+    workflow["50"]["inputs"]["latent_image"] = ["82", 0]
 
     async with aiohttp.ClientSession() as session:
         prompt_id = await _queue_prompt(session, workflow, client_id)

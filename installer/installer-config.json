@@ -1,0 +1,71 @@
+{
+  "installDir": {
+    "windows": "%USERPROFILE%\\.pearlos",
+    "macos": "~/.pearlos",
+    "linux": "~/.pearlos"
+  },
+  "components": {
+    "core": {
+      "required": true,
+      "label": "PearlOS Core (Interface + Mesh + Prism)",
+      "size": "~200MB"
+    },
+    "bot": {
+      "required": false,
+      "label": "Voice Bot (Pipecat + Daily.co)",
+      "default": true,
+      "size": "~150MB"
+    },
+    "chorus": {
+      "required": false,
+      "label": "Chorus TTS (local, open-source)",
+      "default": false,
+      "size": "~550MB"
+    },
+    "dashboard": {
+      "required": false,
+      "label": "Admin Dashboard",
+      "default": true,
+      "size": "~50MB"
+    }
+  },
+  "ttsProviders": [
+    {
+      "id": "chorus",
+      "label": "Chorus TTS (local, open-source)",
+      "requiresComponent": "chorus"
+    },
+    {
+      "id": "elevenlabs",
+      "label": "ElevenLabs (cloud, requires API key)",
+      "requiresApiKey": "ELEVENLABS_API_KEY"
+    }
+  ],
+  "apiKeys": [
+    {
+      "key": "DAILY_API_KEY",
+      "label": "Daily.co API Key",
+      "url": "https://dashboard.daily.co",
+      "required": true
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "label": "OpenAI API Key",
+      "url": "https://platform.openai.com/api-keys",
+      "required": true
+    },
+    {
+      "key": "DEEPGRAM_API_KEY",
+      "label": "Deepgram API Key",
+      "url": "https://console.deepgram.com/",
+      "required": true
+    },
+    {
+      "key": "ELEVENLABS_API_KEY",
+      "label": "ElevenLabs API Key",
+      "url": "https://elevenlabs.io/app/settings/api-keys",
+      "required": false
+    }
+  ]
+}
+

@@ -384,7 +384,7 @@ Remember: You're here to help the user accomplish their goals while making the i
     // WELCOME NOTE - Sample content showing the system works
     // ========================================================================
     {
-      type: 'Note',
+      type: 'Notes',
       page_id: WELCOME_NOTE_ID,
       parent_id: PEARLOS_ASSISTANT_ID,
       content: {

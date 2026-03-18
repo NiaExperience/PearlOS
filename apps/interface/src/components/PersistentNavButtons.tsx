@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Home, Monitor, Settings } from 'lucide-react';
 import { SettingsModal } from '@interface/components/settings-modal';
 import { SoundtrackNavButton } from '@interface/components/SoundtrackNavButton';
@@ -13,7 +13,21 @@ interface PersistentNavButtonsProps {
 
 export function PersistentNavButtons({ tenantId }: PersistentNavButtonsProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [wonderCanvasActive, setWonderCanvasActive] = useState(false);
   const { currentMode, setMode } = useDesktopMode();
+
+  useEffect(() => {
+    const handleWonderScene = (e: Event) => {
+      if ((e as CustomEvent).detail?.payload?.hideChrome) setWonderCanvasActive(true);
+    };
+    const handleWonderClear = () => setWonderCanvasActive(false);
+    window.addEventListener('nia:wonder.scene', handleWonderScene);
+    window.addEventListener('nia:wonder.clear', handleWonderClear);
+    return () => {
+      window.removeEventListener('nia:wonder.scene', handleWonderScene);
+      window.removeEventListener('nia:wonder.clear', handleWonderClear);
+    };
+  }, []);
 
   // True when on the home/default screen; false when in desktop (work/creative/quiet/etc.) mode
   const isHome = currentMode === DesktopMode.HOME || currentMode === DesktopMode.DEFAULT;
@@ -56,8 +70,8 @@ export function PersistentNavButtons({ tenantId }: PersistentNavButtonsProps) {
   return (
     <>
       <div
-        className="pointer-events-auto fixed left-3 top-3 z-[800] flex flex-row gap-2"
-        style={{ fontFamily: 'Gohufont, monospace' }}
+        className="pointer-events-auto fixed left-3 top-3 z-[60] flex flex-row gap-2 transition-opacity duration-200"
+        style={{ opacity: wonderCanvasActive ? 0 : 1, visibility: wonderCanvasActive ? 'hidden' as const : 'visible' as const, fontFamily: 'Gohufont, monospace' }}
       >
         {/* Home/Desktop toggle — shows Home icon in desktop mode, Monitor icon on home screen */}
         {isHome ? (

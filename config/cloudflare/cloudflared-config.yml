@@ -1,0 +1,21 @@
+# Cloudflare Tunnel Configuration for PearlOS
+# This file configures the tunnel to route traffic to the Next.js interface
+
+tunnel: TUNNEL_ID_PLACEHOLDER
+credentials-file: /root/.cloudflared/TUNNEL_ID_PLACEHOLDER.json
+
+ingress:
+  # Route all traffic to Next.js running on localhost:3000
+  - service: http://localhost:3000
+    originRequest:
+      # Disable TLS verification for local dev server
+      noTLSVerify: true
+      # Keep connections alive
+      connectTimeout: 30s
+      # Disable HTTP/2 if experiencing issues
+      disableChunkedEncoding: false
+      # WebSocket support
+      http2Origin: false
+  
+  # Catch-all rule (required by cloudflared)
+  - service: http_status:404

@@ -79,6 +79,42 @@ export function useSprites() {
   const [activeSprite, setActiveSprite] = useState<SpriteData | null>(null);
   const [selectedSprite, setSelectedSprite] = useState<SpriteData | null>(null);
   const [progressLog, setProgressLog] = useState<string>('');
+  const [loaded, setLoaded] = useState(false);
+
+  // Load persisted sprites from Prism on mount
+  useEffect(() => {
+    if (loaded) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/summon-ai-sprite/list?includeGif=1&limit=50');
+        if (!res.ok) return;
+        const data = await res.json();
+        const persisted: SpriteData[] = (data.sprites || [])
+          .filter((s: Record<string, unknown>) => s.gifData)
+          .map((s: Record<string, unknown>) => ({
+            id: s._id as string,
+            name: (s.name as string) || 'Sprite',
+            prompt: (s.originalRequest as string) || '',
+            imageUrl: `data:${(s.gifMimeType as string) || 'image/gif'};base64,${s.gifData as string}`,
+            type: 'character' as const,
+            createdAt: new Date((s.createdAt as string) || Date.now()),
+            isAnimated: true,
+          }));
+        if (persisted.length > 0) {
+          setSprites(prev => {
+            // Merge: keep any locally-generated sprites not yet in Prism
+            const prismIds = new Set(persisted.map(p => p.id));
+            const localOnly = prev.filter(s => !prismIds.has(s.id));
+            return [...localOnly, ...persisted];
+          });
+        }
+      } catch (e) {
+        console.error('Failed to load sprites from Prism:', e);
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, [loaded]);
 
   const summon = useCallback(async (prompt: string) => {
     if (!prompt.trim()) return;

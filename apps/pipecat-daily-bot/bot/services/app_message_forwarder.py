@@ -95,6 +95,38 @@ class AppMessageForwarder:
             return ''
 
     async def _send(self, envelope: dict[str, Any]):
+        # ── URL-based payload delivery for oversized canvas HTML ────────
+        # If the envelope exceeds the Daily app-message limit and contains
+        # an HTML payload (e.g. wonder.scene), store the HTML on the gateway
+        # and replace it with a lightweight ``html_url`` reference.  The
+        # frontend fetches the full HTML from ``/canvas/{key}.html``.
+        try:
+            payload_json = json.dumps(envelope)
+            if len(payload_json.encode('utf-8')) > DAILY_APP_MSG_MAX_BYTES:
+                payload = envelope.get('payload')
+                if isinstance(payload, dict):
+                    html = payload.get('html', '')
+                    if html and len(html) > 1000:
+                        try:
+                            from bot_gateway import canvas_store_html
+                            key = canvas_store_html(html)
+                            payload['html_url'] = f'/canvas/{key}.html'
+                            payload.pop('html', None)
+                            envelope['payload'] = payload
+                            self._log.info(
+                                'oversized HTML offloaded to canvas store',
+                                key=key,
+                                original_bytes=len(html),
+                                event=envelope.get('event', '?'),
+                            )
+                        except Exception as exc:
+                            self._log.warning(
+                                'canvas_store_html failed; sending via WS only',
+                                error=str(exc),
+                            )
+        except Exception:
+            pass  # serialisation probe failed — let downstream handle it
+
         if self._mode == 'html':
             if not (self._api_key and self._room_name and aiohttp is not None):
                 if not self._warned_missing:
@@ -288,6 +320,14 @@ class AppMessageForwarder:
     async def _handle(self, topic: str, payload: dict[str, Any]):
         import time
 
+        # ── Anti-echo guard ─────────────────────────────────────────────
+        # If this event was published by the app-message handler (i.e., it
+        # arrived via Daily app-message → event bus → here), DON'T re-forward
+        # it.  Re-forwarding creates an echo loop with exponentially nested
+        # payloads that crash the WS channel.
+        if isinstance(payload, dict) and payload.get('_source') == 'app-message-handler':
+            return
+
         # Filter out stealth participants from interface events
         if topic in [evt.DAILY_PARTICIPANT_JOIN, evt.DAILY_PARTICIPANT_FIRST_JOIN, evt.DAILY_PARTICIPANT_LEAVE]:
             pid = payload.get('participant')
@@ -330,6 +370,7 @@ class AppMessageForwarder:
                     'ts': ts_val,
                     'event': topic,
                     'payload': payload,
+                    'source': 'forwarder',  # Anti-echo: prevents bot from re-forwarding this
                 }
                 try:
                     from eventbus import BOT_SPEAKING_STARTED as _S1  # type: ignore
@@ -407,7 +448,7 @@ class AppMessageForwarder:
         except Exception as e:
             self._log.error('error publishing event', topic=topic, error=str(e))
 
-    async def emit_tool_event(self, topic: str, data: dict[str, Any], target_session_user_id: str | None = None) -> None:
+    async def emit_tool_event(self, topic: str, data: dict[str, Any], target_session_user_id: str | None = None, *, ts: int | None = None) -> None:
         """Public method for tools to emit events directly to browser interface.
         
         This method sends events directly via the app-message transport, bypassing
@@ -438,7 +479,7 @@ class AppMessageForwarder:
                 'v': BRIDGE_VERSION,
                 'kind': BRIDGE_KIND,
                 'seq': self.seq,
-                'ts': int(time.time() * 1000),
+                'ts': ts if ts is not None else int(time.time() * 1000),
                 'event': topic,
                 'payload': payload,
             }

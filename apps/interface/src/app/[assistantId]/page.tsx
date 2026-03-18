@@ -9,21 +9,18 @@ import { getSessionSafely } from '@nia/prism/core/auth';
 import { UserTenantRoleBlock } from '@nia/prism/core/blocks';
 // Import TenantRole from testing/types which re-exports enums in published dist
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import * as React from 'react';
 
 import { getAssistantConfig } from '@interface/actions/getAssistant';
 import FeaturesInitializer from '@interface/components/FeaturesInitializer';
 import InitializeDesktopMode from '@interface/components/InitializeDesktopMode';
 import AssistantWrapper from '@interface/components/assistant-canvas';
-// Import client component directly (Next.js App Router will split client bundle automatically).
-// Removed dynamic(..., { ssr: false }) usage because it's not allowed in a Server Component.
-import BrowserWindow from '@interface/components/browser-window';
+// Heavy client components loaded via next/dynamic (ssr: false) to reduce initial JS bundle.
+// dynamic() is called in a 'use client' barrel so it works from this Server Component.
+import { LazyDailyCallClientManager as DailyCallClientManager, LazyBrowserWindow as BrowserWindow, LazyChatMode as ChatMode, LazyFileDropZone as FileDropZone } from './lazy-components';
 import DesktopBackgroundSwitcher from '@interface/components/desktop-background-switcher';
 // ProfileDropdown removed — user menu now handled via PersistentNavButtons Settings
-import ChatMode from '@interface/features/ChatMode/components/ChatMode';
-import FileDropZone from '@interface/components/FileDropZone';
-import DailyCallClientManager from '@interface/features/DailyCall/components/ClientManager';
 import { getDailyRoomUrl } from '@interface/features/DailyCall/lib/config';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger, setLogContext } from '@interface/lib/logger';
@@ -54,6 +51,13 @@ export default async function AssistantPage({
   let session = null;
   // Resolve assistant name early so we can construct a proper callback URL if we need to redirect
   const { assistantId: assistantName } = await params;
+
+  // Reject paths that are clearly not assistant names (e.g. favicon.ico, robots.txt)
+  // These should be served from /public or explicit routes, not the catch-all.
+  const RESERVED_SLUGS = ['favicon.ico', 'robots.txt', 'sitemap.xml', 'manifest.json', '.well-known'];
+  if (RESERVED_SLUGS.includes(assistantName) || /\.[a-z]{2,5}$/i.test(assistantName)) {
+    notFound();
+  }
   const resolvedSearchParams = await searchParams;
   const shareSource = typeof resolvedSearchParams.source === 'string' ? resolvedSearchParams.source : undefined;
   // Welcome overlay disabled for now — will revisit in better form later
@@ -164,6 +168,7 @@ export default async function AssistantPage({
           'notes', 'htmlContent', 'miniBrowser', 'dailyCall', 'avatar',
           'passwordLogin', 'guestLogin', 'onboarding', 'calculator',
           'youtube', 'soundtrack', 'terminal', 'openclawBridge', 'enhancedBrowser',
+          'news', 'weather', 'wonderCanvas', 'browserAutomation', 'sprites', 'vision',
         ],
         modePersonalityVoiceConfig: {
           default: {

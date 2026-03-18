@@ -1,0 +1,69 @@
+--- a/apps/interface/src/components/settings-panels/ConnectionsPanel.tsx
++++ b/apps/interface/src/components/settings-panels/ConnectionsPanel.tsx
+@@ -214,6 +214,15 @@ export function ConnectionsPanel() {
+   // Key visibility
+   const [keyVisible, setKeyVisible] = useState<Record<string, boolean>>({});
+ 
++  // Settings page lock toggle
++  const [settingsDisabled, setSettingsDisabled] = useState<boolean>(() => {
++    if (typeof window !== 'undefined') {
++      return localStorage.getItem('pearl_settings_disabled') === 'true';
++    }
++    return false;
++  });
++
+   // Load current model and provider statuses
+   useEffect(() => {
+     const load = async () => {
+@@ -347,6 +356,20 @@ export function ConnectionsPanel() {
+     }
+   };
+ 
++  const handleToggleSettingsLock = (enabled: boolean) => {
++    if (typeof window !== 'undefined') {
++      if (enabled) {
++        localStorage.setItem('pearl_settings_disabled', 'true');
++      } else {
++        localStorage.removeItem('pearl_settings_disabled');
++      }
++    }
++    setSettingsDisabled(enabled);
++    
++    // Notify other tabs/panels
++    window.dispatchEvent(new Event('storage'));
++  };
++
+   if (loading) {
+     return (
+       <Card className="border-gray-700 bg-gray-800" style={FONT}>
+@@ -651,6 +674,30 @@ export function ConnectionsPanel() {
+         </CardContent>
+       </Card>
+ 
++      {/* Settings Lock Toggle */}
++      <Card className="border-gray-700 bg-gray-800" style={FONT}>
++        <CardHeader>
++          <CardTitle className="flex items-center gap-3 text-white" style={FONT}>
++            <span className="text-xl">🔒</span>
++            Advanced Settings
++          </CardTitle>
++          <CardDescription style={FONT}>
++            Control access to configuration panels
++          </CardDescription>
++        </CardHeader>
++        <CardContent className="space-y-4">
++          <div className="flex items-center justify-between">
++            <div className="space-y-0.5">
++              <Label className="text-gray-300" style={FONT}>Lock Pearl Mind Settings</Label>
++              <p className="text-sm text-gray-500" style={FONT}>
++                Disable the Pearl Mind settings page to prevent accidental configuration changes
++              </p>
++            </div>
++            <Switch checked={settingsDisabled} onCheckedChange={handleToggleSettingsLock} />
++          </div>
++        </CardContent>
++      </Card>
++
+     </div>
+   );
+ }

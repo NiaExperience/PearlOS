@@ -10,7 +10,7 @@ interface TerminalLine {
   timestamp: string;
 }
 
-const HOME = '/workspace';
+const HOME = '/workspace/nia-universal/';
 
 // Use empty string for timestamps to avoid hydration mismatch (server vs client Date differs).
 // The timestamp is never displayed in the UI, so this is safe.
@@ -55,7 +55,7 @@ const TerminalView: React.FC = () => {
     fetch('/api/terminal/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'pwd', cwd: '/workspace' }),
+      body: JSON.stringify({ command: 'pwd', cwd: '/workspace/nia-universal/' }),
     })
       .then((r) => r.json())
       .then((data) => {

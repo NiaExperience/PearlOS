@@ -293,6 +293,8 @@ function DailyCallView({
         persistentDailyState.localUsername = '';
         persistentDailyState.roomUrl = '';
         persistentDailyState.stealth = false;
+        // Update React state so Call component unmounts and avatar disappears
+        setLocalJoined(false);
         try {
           onLeave();
         } catch (_) {
@@ -800,6 +802,8 @@ function DailyCallView({
         persistentDailyState.localJoined = false;
         persistentDailyState.localUsername = '';
         persistentDailyState.roomUrl = '';
+        // Update React state so Call unmounts (avatar disappears)
+        setLocalJoined(false);
         if (typeof updateDailyProviderState === 'function') {
           updateDailyProviderState('', false);
         }

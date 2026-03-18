@@ -108,7 +108,7 @@ type VoiceParameters = VoiceParametersInput & {
   applyGreenscreen?: boolean;
 };
 
-interface BrowserWindowProps {
+export interface BrowserWindowProps {
   assistantName: string;
   tenantId: string;
   isAdmin?: boolean;
@@ -455,6 +455,10 @@ const BrowserWindow = ({
 
   useEffect(() => {
     openWindowsRef.current = openWindows;
+    // Notify autohide hook when all windows are closed
+    if (openWindows.length === 0) {
+      window.dispatchEvent(new Event('nia:all-windows-closed'));
+    }
   }, [openWindows]);
 
   useEffect(() => {
@@ -1470,6 +1474,7 @@ const BrowserWindow = ({
     url?: string;
     useEnhanced?: boolean;
     allowDuplicate?: boolean;
+    category?: string;
     source: string;
   };
 
@@ -1587,7 +1592,7 @@ const BrowserWindow = ({
   );
 
   const handleAppLaunch = React.useCallback(
-    ({ appName, url, useEnhanced, allowDuplicate, source }: AppLaunchOptions) => {
+    ({ appName, url, useEnhanced, allowDuplicate, category, source }: AppLaunchOptions) => {
       if (!appName) {
         log.warn('⚠️ handleAppLaunch called without appName', { source });
         return;
@@ -1668,7 +1673,7 @@ const BrowserWindow = ({
           const { NIA_EVENT_WONDER_SCENE } = require('@interface/features/Stage/WonderCanvas/WonderCanvasRenderer');
           window.dispatchEvent(
             new CustomEvent(NIA_EVENT_WONDER_SCENE, {
-              detail: { payload: { html: buildNewsHTML(), layer: 'main', transition: 'fade' } },
+              detail: { payload: { html: buildNewsHTML(category), layer: 'main', transition: 'fade' } },
             })
           );
           log.info('[BrowserWindow] Opened built-in News app via Wonder Canvas');
@@ -2239,6 +2244,22 @@ const BrowserWindow = ({
     };
   }, [isSingletonActive, processWindowCloseRequest, processWindowOpenRequest]);
 
+  // Hide global UI chrome (nav, active jobs, chat bar) while Terminal is open,
+  // mirroring the same behaviour Discord has via the wonder-scene mechanism.
+  // We watch openWindows rather than lifecycle events because the X button calls
+  // removeWindow() directly and never fires WINDOW_CLOSE_EVENT.
+  const terminalIsOpen = openWindows.some(w => w.viewType === 'terminal');
+  const terminalWasOpenRef = React.useRef(false);
+  useEffect(() => {
+    if (!isSingletonActive) return;
+    if (terminalIsOpen && !terminalWasOpenRef.current) {
+      window.dispatchEvent(new CustomEvent('nia:wonder.scene', { detail: { payload: { hideChrome: true } } }));
+    } else if (!terminalIsOpen && terminalWasOpenRef.current) {
+      window.dispatchEvent(new CustomEvent('nia:wonder.clear'));
+    }
+    terminalWasOpenRef.current = terminalIsOpen;
+  }, [isSingletonActive, terminalIsOpen]);
+
   useEffect(() => {
     // FIX: Only the active singleton should attach bot/automation event listeners
     if (!isSingletonActive) return;
@@ -2271,13 +2292,15 @@ const BrowserWindow = ({
         const url = typeof payload?.url === 'string' ? payload.url : undefined;
         const useEnhanced = typeof payload?.useEnhanced === 'boolean' ? payload.useEnhanced : undefined;
         const allowDuplicate = typeof payload?.allowDuplicate === 'boolean' ? payload.allowDuplicate : undefined;
-        log.info('[BrowserWindow] Received app.open event', { appName, url, useEnhanced, allowDuplicate });
+        const category = typeof payload?.category === 'string' ? payload.category : undefined;
+        log.info('[BrowserWindow] Received app.open event', { appName, url, useEnhanced, allowDuplicate, category });
 
         handleAppLaunch({
           appName,
           url,
           useEnhanced,
           allowDuplicate,
+          category,
           source: 'nia.event:app.open',
         });
       }
@@ -3109,20 +3132,16 @@ const BrowserWindow = ({
       }
     };
 
-    // Handle canvas.render events — open canvas window
+    // canvas.render listener REMOVED — was opening a BrowserWindow with UniversalCanvas
+    // which created a white milky overlay on top of WonderCanvas. All canvas content
+    // now routes through WonderCanvas (wonder.scene events) exclusively.
+    // The bot_canvas_show_image/chart/article/table tools are being migrated to
+    // emit wonder.scene instead of canvas.render.
     const canvasRenderListener: EventListener = () => {
-      log.info('[BrowserWindow] Received canvas.render event, opening canvas window');
-      requestWindowOpen({
-        viewType: 'canvas',
-        source: 'nia.event:canvas.render',
-        options: { allowDuplicate: false },
-      });
+      log.info('[BrowserWindow] canvas.render event SUPPRESSED — use WonderCanvas instead');
     };
-
-    // Handle canvas.clear events — close canvas window
     const canvasClearListener: EventListener = () => {
-      log.info('[BrowserWindow] Received canvas.clear event, closing canvas window');
-      requestWindowClose({ viewType: 'canvas', source: 'nia.event:canvas.clear' });
+      log.info('[BrowserWindow] canvas.clear event SUPPRESSED');
     };
 
     const subscriptions: Array<[string, EventListener]> = [

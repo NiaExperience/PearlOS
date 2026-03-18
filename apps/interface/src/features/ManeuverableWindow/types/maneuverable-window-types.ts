@@ -74,6 +74,10 @@ export interface WindowInstance {
         contentId?: string;
         contentQuery?: any;
         
+        // Notes — open a specific note by file ID
+        openNoteId?: string;
+        filePath?: string;
+        
         // Add other view-specific states as needed
     };
 }

@@ -334,15 +334,42 @@ export function useVoiceSession({
     }
   }, []);
 
+  // Track whether we've already auto-retried on timeout
+  const timeoutRetryAttemptedRef = useRef(false);
+
   const armLoadingTimeout = useCallback(() => {
     clearLoadingTimeout();
-    loadingTimeoutRef.current = setTimeout(() => {
+    loadingTimeoutRef.current = setTimeout(async () => {
       if (callStatusRef.current === CALL_STATUS.LOADING) {
-        voiceLogger.warn('Bot join timed out after 20s — marking unavailable', {
+        // Auto-retry once before showing UNAVAILABLE
+        if (!timeoutRetryAttemptedRef.current) {
+          timeoutRetryAttemptedRef.current = true;
+          voiceLogger.warn('Bot join timed out after 20s — auto-retrying once', {
+            event: 'voice_bot_join_timeout_retry',
+            timeoutMs: LOADING_TIMEOUT_MS,
+            meetingState: getCallObject?.()?.meetingState?.() ?? 'unknown',
+          });
+          startInFlightRef.current = false;
+          try {
+            if (stopRef.current) await stopRef.current();
+            // Brief pause before retry
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (startRef.current) await startRef.current();
+          } catch {
+            voiceLogger.error('Auto-retry after timeout failed', { event: 'voice_timeout_retry_failed' });
+            setCallStatus(CALL_STATUS.UNAVAILABLE);
+            startInFlightRef.current = false;
+          }
+          return;
+        }
+
+        // Second timeout — give up
+        voiceLogger.warn('Bot join timed out after 20s (retry exhausted) — marking unavailable', {
           event: 'voice_bot_join_timeout',
           timeoutMs: LOADING_TIMEOUT_MS,
           meetingState: getCallObject?.()?.meetingState?.() ?? 'unknown',
         });
+        timeoutRetryAttemptedRef.current = false;
         setCallStatus(CALL_STATUS.UNAVAILABLE);
         startInFlightRef.current = false;
       }
@@ -402,6 +429,9 @@ export function useVoiceSession({
    * Start voice session
    */
   const start = useCallback(async () => {
+    const MAX_RETRIES = 3;
+    const RETRY_BACKOFF_MS = [2000, 4000, 6000];
+
     try {
       if (callStatusRef.current === CALL_STATUS.LOADING || startInFlightRef.current) {
         voiceLogger.warn('Start request ignored; already loading', {
@@ -528,7 +558,7 @@ export function useVoiceSession({
       // OPTIMIZATION: Run bot spawn and client join in PARALLEL to reduce total latency
       // This also prevents the bot's initial_idle timeout from firing in an empty room
       // since the client joins concurrently with the bot
-      const botJoinPromise = requestBotJoin({
+      const botJoinArgs = {
         roomUrl: voiceRoom.roomUrl,
         personalityId: effectivePersonalityId,
         voiceId: effectiveVoiceId,
@@ -547,14 +577,35 @@ export function useVoiceSession({
         config,
         // Pass sprite mode flag if starting with sprite
         ...(pendingSpriteConfig && { mode: 'sprite' }),
-      }).catch((err) => {
-        // Log but don't fail - allow client to join even if bot spawn fails
-        voiceLogger.error('Bot join failed', {
-          event: 'voice_bot_join_failed',
-          error: err instanceof Error ? err.message : String(err),
+      };
+
+      // Bot join with automatic retry (up to 2 retries with 2s backoff)
+      const botJoinWithRetry = async () => {
+        const BOT_JOIN_MAX_RETRIES = 2;
+        for (let attempt = 0; attempt <= BOT_JOIN_MAX_RETRIES; attempt++) {
+          try {
+            await requestBotJoin(botJoinArgs);
+            return 'ok';
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            voiceLogger.warn('Bot join attempt failed', {
+              event: 'voice_bot_join_attempt_failed',
+              attempt: attempt + 1,
+              maxAttempts: BOT_JOIN_MAX_RETRIES + 1,
+              error: errMsg,
+            });
+            if (attempt < BOT_JOIN_MAX_RETRIES) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+        }
+        voiceLogger.error('Bot join failed after all retries', {
+          event: 'voice_bot_join_failed_final',
         });
         return null;
-      });
+      };
+
+      const botJoinPromise = botJoinWithRetry();
       
       // Join room with token and userData
       // User joins with their display name (e.g., "Jeffrey Klug"), bot joins separately with persona
@@ -600,6 +651,7 @@ export function useVoiceSession({
       });
       await ensureRecordingActive(callObject);
       clearLoadingTimeout();
+      timeoutRetryAttemptedRef.current = false; // Reset retry flag on successful connect
       setCallStatus(CALL_STATUS.ACTIVE);
       startInFlightRef.current = false;
 
@@ -616,10 +668,52 @@ export function useVoiceSession({
         onSessionStart();
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       voiceLogger.error('Failed to start session', {
         event: 'voice_start_failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
       });
+
+      // Auto-retry with backoff for transient failures (timeouts, network errors, 5xx)
+      const isRetryable = /timed out|abort|network|fetch|5\d\d/i.test(errorMsg);
+      const retryCountRef = (start as any).__retryCount || 0;
+
+      if (isRetryable && retryCountRef < MAX_RETRIES) {
+        const backoff = RETRY_BACKOFF_MS[retryCountRef] || 6000;
+        voiceLogger.info('Auto-retrying voice session start', {
+          event: 'voice_start_auto_retry',
+          attempt: retryCountRef + 1,
+          maxRetries: MAX_RETRIES,
+          backoffMs: backoff,
+          error: errorMsg,
+        });
+
+        // Clean up current attempt
+        clearLoadingTimeout();
+        startInFlightRef.current = false;
+
+        // Try to leave any partial session
+        try {
+          const callObject = getCallObject();
+          const state = callObject.meetingState?.() as unknown as string | undefined;
+          if (state === 'joined' || state === 'joining') {
+            await callObject.leave();
+          }
+        } catch (_) { /* ignore cleanup errors */ }
+
+        // Wait then retry
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        (start as any).__retryCount = retryCountRef + 1;
+        try {
+          await start();
+        } finally {
+          (start as any).__retryCount = 0;
+        }
+        return;
+      }
+
+      // Reset retry count on final failure
+      (start as any).__retryCount = 0;
       clearLoadingTimeout();
       startInFlightRef.current = false;
       setCallStatus(CALL_STATUS.UNAVAILABLE);
@@ -768,24 +862,20 @@ export function useVoiceSession({
       const currentStatus = callStatusRef.current;
       const roomUrl = roomUrlRef.current;
 
-      // Best-effort: tell bot gateway that we're leaving this room using a beacon
-      if (roomUrl && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        try {
-          const payload = JSON.stringify({ room_url: roomUrl });
-          const blob = new Blob([payload], { type: 'application/json' });
-          navigator.sendBeacon('/api/bot/leave', blob);
-        } catch {
-          // Swallow errors – unload should not be blocked by telemetry failures
-        }
-      }
+      // REMOVED: sendBeacon to /api/bot/leave
+      // This was killing the bot on every page reload, causing 90% of reconnection failures.
+      // The bot's own idle shutdown timer handles cleanup naturally when no participants remain.
 
-      // Also trigger local stop logic so Daily + room manager can clean up
+      // Soft disconnect: leave Daily call locally so the transport disconnects cleanly,
+      // but do NOT tell the bot gateway to shut down the bot process.
       if (
-        (currentStatus === CALL_STATUS.ACTIVE || currentStatus === CALL_STATUS.LOADING) &&
-        stopRef.current
+        roomUrl &&
+        (currentStatus === CALL_STATUS.ACTIVE || currentStatus === CALL_STATUS.LOADING)
       ) {
         try {
-          void stopRef.current();
+          const callObject = getCallObject();
+          // Direct Daily leave — no gateway notification
+          callObject.leave();
         } catch {
           // Ignore errors during unload
         }
@@ -1207,8 +1297,11 @@ async function requestBotJoin({
       mode,
     });
 
+    const botJoinCtrl = new AbortController();
+    const botJoinTimeout = setTimeout(() => botJoinCtrl.abort(), 20000); // 20s timeout for pipeline setup
     const response = await fetch('/api/bot/join', {
       method: 'POST',
+      signal: botJoinCtrl.signal,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -1235,6 +1328,8 @@ async function requestBotJoin({
         debugTraceId,
       }),
     });
+
+    clearTimeout(botJoinTimeout);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));

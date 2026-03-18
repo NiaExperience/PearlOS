@@ -182,9 +182,13 @@ export async function PUT_impl(request: NextRequest, { params }: { params: { id:
             // TODO: do we update timestamp for updated note?
             // timestamp: new Date().toISOString()
         }
-        await updateNote(id, updateData, tenantId);
+        const updatedNote = await updateNote(id, updateData, tenantId);
         log.info('Note updated via PUT', { noteId: id, tenantId, updateData });
-        return NextResponse.json({ message: 'Note updated successfully' }, { status: 200 });
+        if (updatedNote && typeof updatedNote === 'object' && ('_id' in updatedNote || 'page_id' in updatedNote)) {
+            return NextResponse.json(updatedNote, { status: 200 });
+        }
+        const refetched = await findNoteById(id, tenantId);
+        return NextResponse.json(refetched || { _id: id, ...updateData }, { status: 200 });
    } catch (error) {
         log.error('Error updating note via PUT', { error });
         return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
@@ -230,9 +234,16 @@ export async function PATCH_impl(request: NextRequest, { params }: { params: { i
         if (content !== undefined) updateData.content = content;
         if (isPinned !== undefined) updateData.isPinned = isPinned;
         
-        await updateNote(id, updateData, tenantId);
+        const updatedNote = await updateNote(id, updateData, tenantId);
         log.info('Note updated via PATCH', { noteId: id, tenantId, updateData });
-        return NextResponse.json({ message: 'Note updated successfully' }, { status: 200 });
+        // Return the updated note object so the frontend can update state directly
+        // (previously returned { message } which broke state management)
+        if (updatedNote && typeof updatedNote === 'object' && ('_id' in updatedNote || 'page_id' in updatedNote)) {
+            return NextResponse.json(updatedNote, { status: 200 });
+        }
+        // Fallback: re-fetch the note to return current state
+        const refetched = await findNoteById(id, tenantId);
+        return NextResponse.json(refetched || { _id: id, ...updateData }, { status: 200 });
    } catch (error) {
         log.error('Error updating note via PATCH', { error });
         return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });

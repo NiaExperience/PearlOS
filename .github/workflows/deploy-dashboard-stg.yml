@@ -1,0 +1,24 @@
+name: deploy-dashboard-stg
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'apps/dashboard/**'
+      - '.github/workflows/deploy-web-app.yml'
+      - '.github/workflows/deploy-dashboard.yml'
+  workflow_dispatch:  # <-- manual trigger
+
+jobs:
+  dashboard:
+    uses: ./.github/workflows/deploy-web-app.yml
+    with:
+      app_name: dashboard
+      dockerfile_path: apps/dashboard/Dockerfile
+      environment: stg
+    secrets:
+      NEXT_PUBLIC_INTERFACE_BASE_URL: ${{ secrets.NEXT_PUBLIC_INTERFACE_BASE_URL }}
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read

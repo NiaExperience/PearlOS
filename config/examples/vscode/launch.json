@@ -1,0 +1,85 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Debug Server (pg:debug:servers)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "pg:debug:servers"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "NODE_ENV": "development",
+                "NODE_OPTIONS": "--inspect"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "restart": true,
+            "autoAttachChildProcesses": true
+        },
+        {
+            "name": "Debug Restart Server (pg:debug:restart-servers)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "pg:debug:restart-servers"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "NODE_ENV": "development",
+                "NODE_OPTIONS": "--inspect"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "restart": true,
+            "autoAttachChildProcesses": true
+        },
+        {
+            "name": "Debug Migration (pg:debug:migrate)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "pg:debug:migrate"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "NODE_ENV": "development",
+                "NODE_OPTIONS": "--inspect"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "restart": true,
+            "autoAttachChildProcesses": true
+        },
+        {
+            "name": "Debug dynamicConfig",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "pg:debug:dynamicConfig"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "NODE_ENV": "development",
+                "NODE_OPTIONS": "--inspect"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "restart": true,
+            "autoAttachChildProcesses": true
+        }
+    ]
+}

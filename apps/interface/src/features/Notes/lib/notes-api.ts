@@ -4,6 +4,14 @@ import { fuzzySearch } from './fuzzy-search';
 
 const log = getClientLogger('Notes');
 
+// ─── Dual-source notes: filesystem + database ──────────────────────────────
+// File notes: .md files in /workspace/user/Documents/ via /api/notes/files
+// DB notes: stored in the database via /api/notes?agent=<name>
+// Both sources are merged and deduplicated by title.
+
+const FILE_API = '/api/notes/files';
+const DB_API = '/api/notes';
+
 export interface Note {
     _id: string;
     title: string;
@@ -12,10 +20,13 @@ export interface Note {
     createdAt?: string;
     updatedAt?: string;
     isPinned?: boolean;
+    filePath?: string;
+    fileName?: string;
     sharedVia?: {
         organization?: any;
         role?: string;
     };
+    _source?: 'file' | 'db';
 }
 
 export interface FindNoteResult {
@@ -39,303 +50,263 @@ export interface NoteBatch {
 /** Callback for when a batch arrives */
 export type OnNoteBatchCallback = (batch: NoteBatch) => void;
 
-export async function fetchNotes(mode: 'personal' | 'work' | undefined, assistantName: string) {
-    const query = mode ? `&mode=${mode}` : '';
-    const res = await fetch('/api/notes?agent=' + assistantName + query);
-    if (!res.ok) throw new Error('Failed to fetch notes');
-    return res.json();
+// ─── Helpers: fetch from each source and merge ──────────────────────────────
+
+async function fetchFileNotes(): Promise<Note[]> {
+    try {
+        const res = await fetch(FILE_API);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch (e) {
+        log.error('Failed to fetch file notes', { error: e });
+        return [];
+    }
+}
+
+async function fetchDbNotes(assistantName: string): Promise<Note[]> {
+    if (!assistantName) return [];
+    try {
+        // Fetch both personal and work notes from the database so all stored
+        // documents are visible in the UI, not just one mode.
+        const [personalRes, workRes] = await Promise.all([
+            fetch(`${DB_API}?agent=${encodeURIComponent(assistantName)}&mode=personal`).catch(() => null),
+            fetch(`${DB_API}?agent=${encodeURIComponent(assistantName)}&mode=work`).catch(() => null),
+        ]);
+
+        const parse = async (res: Response | null): Promise<any[]> => {
+            if (!res || !res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
+        };
+
+        const [personalNotes, workNotes] = await Promise.all([
+            parse(personalRes),
+            parse(workRes),
+        ]);
+
+        // Combine and deduplicate by _id (same note may appear in both queries)
+        const seenIds = new Set<string>();
+        const combined: Note[] = [];
+        for (const n of [...personalNotes, ...workNotes]) {
+            const id = n._id || n.page_id;
+            if (id && seenIds.has(id)) continue;
+            if (id) seenIds.add(id);
+            combined.push({ ...n, _source: 'db' as const });
+        }
+        return combined;
+    } catch (e) {
+        log.error('Failed to fetch DB notes', { error: e });
+        return [];
+    }
 }
 
 /**
- * Fetch notes incrementally using Server-Sent Events (SSE).
- * Batches arrive progressively: personal → work → shared-to-user → shared-to-all
- * 
- * @param assistantName - Assistant name for API context
- * @param mode - Mode filter ('personal' | 'work' | 'all')
- * @param onBatch - Callback invoked for each batch
- * @returns Promise that resolves when all batches complete, with cleanup function
+ * Merge file-based and database notes.
+ * File notes take priority — DB notes whose titles already exist as file
+ * notes are skipped (file is the canonical copy). Multiple DB notes with
+ * the same title but different IDs are all kept so no user content is hidden.
+ */
+function mergeNotes(fileNotes: Note[], dbNotes: Note[]): Note[] {
+    const fileTitles = new Set<string>();
+    const seenIds = new Set<string>();
+    const merged: Note[] = [];
+
+    // Add file notes first (they take priority)
+    for (const note of fileNotes) {
+        const normTitle = note.title.trim().toLowerCase();
+        fileTitles.add(normTitle);
+        seenIds.add(note._id);
+        merged.push(note);
+    }
+
+    // Add DB notes that don't duplicate file notes (by title) or any note (by id)
+    for (const note of dbNotes) {
+        const normTitle = note.title.trim().toLowerCase();
+        if (fileTitles.has(normTitle) || seenIds.has(note._id)) continue;
+        seenIds.add(note._id);
+        merged.push(note);
+    }
+
+    // Sort by updatedAt descending
+    merged.sort((a, b) => {
+        const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return tb - ta;
+    });
+
+    return merged;
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export async function fetchNotes(_mode: 'personal' | 'work' | undefined, assistantName: string) {
+    const [fileNotes, dbNotes] = await Promise.all([
+        fetchFileNotes(),
+        fetchDbNotes(assistantName),
+    ]);
+    return mergeNotes(fileNotes, dbNotes);
+}
+
+/**
+ * File-based incremental fetch — returns all notes in a single batch.
+ * Maintains the same interface as the SSE-based version for compatibility.
  */
 export function fetchNotesIncremental(
     assistantName: string,
-    mode: 'personal' | 'work' | 'all' = 'all',
+    _mode: 'personal' | 'work' | 'all' = 'all',
     onBatch: OnNoteBatchCallback
 ): { promise: Promise<Note[]>; abort: () => void } {
-    const allNotes: Note[] = [];
-    const seenIds = new Set<string>();
-    let eventSource: EventSource | null = null;
     let aborted = false;
+    const abort = () => { aborted = true; };
 
-    const abort = () => {
-        aborted = true;
-        if (eventSource) {
-            eventSource.close();
-            eventSource = null;
+    const promise = (async () => {
+        const [fileNotes, dbNotes] = await Promise.all([
+            fetchFileNotes(),
+            fetchDbNotes(assistantName),
+        ]);
+        const notes = mergeNotes(fileNotes, dbNotes);
+
+        if (!aborted) {
+            onBatch({
+                batch: 'personal',
+                items: notes,
+                done: true,
+            });
         }
-    };
 
-    const promise = new Promise<Note[]>((resolve, reject) => {
-        const url = `/api/notes/incremental?agent=${encodeURIComponent(assistantName)}&mode=${mode}&stream=true`;
-        log.info('Starting incremental notes fetch (SSE)', { url, mode });
-
-        eventSource = new EventSource(url);
-
-        eventSource.onmessage = (event) => {
-            if (aborted) return;
-            
-            try {
-                const batch: NoteBatch = JSON.parse(event.data);
-                log.debug('Received notes batch', { 
-                    batch: batch.batch, 
-                    itemCount: batch.items.length, 
-                    done: batch.done 
-                });
-
-                // Deduplicate and collect items
-                for (const item of batch.items) {
-                    const id = item._id;
-                    if (id && !seenIds.has(id)) {
-                        seenIds.add(id);
-                        allNotes.push(item);
-                    }
-                }
-
-                // Invoke callback
-                onBatch(batch);
-
-                // Check if complete
-                if (batch.done) {
-                    eventSource?.close();
-                    eventSource = null;
-                    log.info('Incremental notes fetch complete', { totalNotes: allNotes.length });
-                    resolve(allNotes);
-                }
-            } catch (err) {
-                log.error('Failed to parse SSE batch', { err, data: event.data });
-            }
-        };
-
-        eventSource.onerror = (err) => {
-            if (aborted) return;
-            
-            log.error('SSE connection error', { err });
-            eventSource?.close();
-            eventSource = null;
-            
-            // Don't reject - return what we have
-            if (allNotes.length > 0) {
-                resolve(allNotes);
-            } else {
-                reject(new Error('Connection error while loading notes'));
-            }
-        };
-    });
+        return notes;
+    })();
 
     return { promise, abort };
 }
 
 /**
- * Fetch notes incrementally using standard JSON (fallback for non-SSE environments)
+ * File-based incremental JSON fetch (fallback).
  */
 export async function fetchNotesIncrementalJSON(
     assistantName: string,
-    mode: 'personal' | 'work' | 'all' = 'all'
+    _mode: 'personal' | 'work' | 'all' = 'all'
 ): Promise<{ batches: NoteBatch[]; items: Note[] }> {
-    const url = `/api/notes/incremental?agent=${encodeURIComponent(assistantName)}&mode=${mode}&stream=false`;
-    log.info('Fetching notes incremental (JSON)', { url, mode });
-
-    const res = await fetch(url);
-    if (!res.ok) {
-        throw new Error('Failed to fetch notes');
-    }
-
-    const data = await res.json();
+    const [fileNotes, dbNotes] = await Promise.all([
+        fetchFileNotes(),
+        fetchDbNotes(assistantName),
+    ]);
+    const items = mergeNotes(fileNotes, dbNotes);
     return {
-        batches: data.batches || [],
-        items: data.items || [],
+        batches: [{ batch: 'personal', items, done: true }],
+        items,
     };
 }
 
-export async function createNote(note: { title: string; content: string; mode: 'personal' | 'work' }, assistantName: string) {
-    const res = await fetch('/api/notes?agent=' + assistantName, {
+export async function createNote(
+    note: { title: string; content: string; mode: 'personal' | 'work' },
+    _assistantName: string
+) {
+    const res = await fetch(FILE_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json'},
-        body: JSON.stringify(note),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: note.title, content: note.content }),
     });
     if (!res.ok) throw new Error('Failed to create note');
     return res.json();
 }
 
-export async function updateNote(id: string, note: { title: string; content: string; isPinned?: boolean }, assistantName: string) {
-    const res = await fetch(`/api/notes/${id}?agent=` + assistantName, {
+export async function updateNote(
+    id: string,
+    note: { title: string; content: string; isPinned?: boolean },
+    _assistantName: string
+) {
+    const res = await fetch(FILE_API, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(note),
+        body: JSON.stringify({ id, title: note.title, content: note.content }),
     });
     if (!res.ok) throw new Error('Failed to update note');
     return res.json();
 }
 
-export async function deleteNote(id: string, assistantName: string) {
-    const res = await fetch(`/api/notes/${id}?agent=` + assistantName, {
+export async function deleteNote(id: string, _assistantName: string) {
+    const res = await fetch(FILE_API, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
     });
     if (!res.ok) throw new Error('Failed to delete note');
     return res.json();
 }
 
 /**
- * Find a note by ID or title with fuzzy search fallback
- * 
- * Strategy:
- * 1. If ID is provided, search by ID directly
- * 2. If title is provided, try exact title match first
- * 3. If no exact match, perform fuzzy search across all notes
- * 4. Return the best match or all notes if no good match found
- * 
- * @param params - Search parameters (id or title)
- * @param assistantName - Assistant name for API calls
- * @returns FindNoteResult with found status and note data
+ * Find a note by ID or title with fuzzy search fallback.
+ * File-based implementation: fetches all notes, then searches locally.
  */
 export async function findNoteWithFuzzySearch(
     params: { id?: string; title?: string },
-    assistantName: string
+    _assistantName: string
 ): Promise<FindNoteResult> {
     const { id, title } = params;
-    
-    try {
-        // Strategy 1: Search by ID (most specific)
-        if (id) {
-            const queryParams = new URLSearchParams();
-            queryParams.set('agent', assistantName);
-            
-            const response = await fetch(`/api/notes/${id}?${queryParams.toString()}`);
 
-            if (response.ok) {
-                const notes = await response.json();
-                log.debug('fetch(/api/notes/:id) returned results', {
-                    id,
-                    results: notes.length,
-                });
-                if (Array.isArray(notes) && notes.length > 0) {
+    try {
+        // Strategy 1: Search by ID (filename)
+        if (id) {
+            try {
+                const res = await fetch(`${FILE_API}?id=${encodeURIComponent(id)}`);
+                if (res.ok) {
+                    const note = await res.json();
+                    return { found: true, note, searchPerformed: false };
+                }
+            } catch {
+                // fall through
+            }
+        }
+
+        // Strategy 2+3: Title search with fuzzy fallback
+        if (title) {
+            const [fileNotes, dbNotes] = await Promise.all([
+                fetchFileNotes(),
+                fetchDbNotes(_assistantName),
+            ]);
+            const allNotes = mergeNotes(fileNotes, dbNotes);
+            if (allNotes.length > 0) {
+
+                // Exact title match
+                const exact = allNotes.find(
+                    n => n.title.toLowerCase() === title.toLowerCase()
+                );
+                if (exact) {
+                    return { found: true, note: exact, searchPerformed: false };
+                }
+
+                // Fuzzy search
+                const filteredTitle = title
+                    .trim()
+                    .toLowerCase()
+                    .replace(/(^|\s)note(\s|$)/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const fuzzyResults = fuzzySearch<Note>(
+                    allNotes,
+                    filteredTitle,
+                    (note) => note.title,
+                    { minScore: 0.6, maxResults: 1, sortByScore: true }
+                );
+
+                if (fuzzyResults.length > 0) {
                     return {
                         found: true,
-                        note: notes[0],
-                        searchPerformed: false
-                    };
-                }
-                log.warn('fetch(/api/notes/:id) returned no results or non-array', { id });
-            }
-            else {
-                log.warn('Note by id not found', { id, status: response.status });
-            }
-            
-            // ID not found, fall through to fetch all notes
-        }
-        
-        // Strategy 2: Try exact title match first
-        if (title) {
-            const queryParams = new URLSearchParams();
-            queryParams.set('agent', assistantName);
-            queryParams.set('title', title);
-            
-            const response = await fetch(`/api/notes?${queryParams.toString()}`);
-            
-            if (response.ok) {
-                const notes = await response.json();
-                log.debug('fetch(/api/notes?title) returned results', {
-                    title,
-                    results: notes.length,
-                });
-                if (Array.isArray(notes) && notes.length > 0) {
-                    log.debug('Note found by title', {
-                        title,
-                        contentLength: notes[0]?.content?.length || 0,
-                    });
-                    return {
-                        found: true,
-                        note: notes[0],
-                        searchPerformed: false
-                    };
-                }
-                log.warn('fetch(/api/notes?title) returned no results or non-array', { title });
-            }
-        }
-        
-        // Strategy 3: Fuzzy search across all notes (all modes)
-        if (title) {
-            log.info('Note not found by exact title, performing fuzzy search', { title });
-            
-            const filteredTitle = title
-                .trim()
-                .toLowerCase()
-                .replace(/(^|\s)note(\s|$)/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-            // Fetch all notes (don't specify mode to get everything)
-            const allNotesParams = new URLSearchParams();
-            allNotesParams.set('agent', assistantName);
-            const allNotesResponse = await fetch(`/api/notes?${allNotesParams.toString()}`);
-            
-            if (allNotesResponse.ok) {
-                const allNotes = await allNotesResponse.json();
-                
-                if (Array.isArray(allNotes) && allNotes.length > 0) {
-                    log.info('Fuzzy searching across notes', { totalNotes: allNotes.length, title });
-                    
-                    // Perform fuzzy search
-                    const fuzzyResults = fuzzySearch<Note>(
+                        note: fuzzyResults[0].item,
                         allNotes,
-                        filteredTitle,
-                        (note) => note.title,
-                        { minScore: 0.6, maxResults: 1, sortByScore: true }
-                    );
-                    
-                    if (fuzzyResults.length > 0) {
-                        log.info('Fuzzy search found match', {
-                            title,
-                            matchTitle: fuzzyResults[0].item.title,
-                            score: fuzzyResults[0].score,
-                            mode: fuzzyResults[0].item.mode,
-                        });
-                        return {
-                            found: true,
-                            note: fuzzyResults[0].item,
-                            allNotes,
-                            searchPerformed: true
-                        };
-                    }
-                    
-                    // No fuzzy match found, return all notes for context
-                    log.info('No fuzzy match found for title', { title });
-                    return {
-                        found: false,
-                        allNotes,
-                        searchPerformed: true
+                        searchPerformed: true,
                     };
                 }
-                
-                // Empty array returned - no notes exist
-                if (Array.isArray(allNotes) && allNotes.length === 0) {
-                    return {
-                        found: false,
-                        searchPerformed: false // Can't search if there are no notes
-                    };
-                }
+
+                return { found: false, allNotes, searchPerformed: true };
             }
         }
-        
-        // No match found and unable to fetch notes
-        return {
-            found: false,
-            searchPerformed: false
-        };
-        
+
+        return { found: false, searchPerformed: false };
     } catch (error) {
         log.error('Error in findNoteWithFuzzySearch', { error });
-        return {
-            found: false,
-            searchPerformed: false
-        };
+        return { found: false, searchPerformed: false };
     }
 }

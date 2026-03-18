@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# MSAM database backup with WAL checkpoint
+# Usage: msam-backup [backup_dir]
+
+# Resolve DB path from Python config (same source of truth as the runtime)
+DB_PATH="$(python3 -c "
+from msam.config import get_config, get_data_dir
+cfg = get_config()
+print(get_data_dir() / cfg('storage', 'db_path', 'msam.db'))
+" 2>/dev/null)"
+
+if [ -z "$DB_PATH" ]; then
+    echo "ERROR: Could not resolve MSAM database path"
+    exit 1
+fi
+
+BACKUP_DIR="${1:-$(dirname "$DB_PATH")/backups}"
+mkdir -p "$BACKUP_DIR"
+DATE=$(date +%Y%m%d-%H%M%S)
+
+if [ ! -f "$DB_PATH" ]; then
+    echo "ERROR: MSAM database not found at $DB_PATH"
+    exit 1
+fi
+
+# Use Python's sqlite3 (always available) instead of sqlite3 CLI
+python3 -c "
+import sqlite3, shutil, sys
+db = '$DB_PATH'
+dst = '$BACKUP_DIR/msam-$DATE.db'
+conn = sqlite3.connect(db)
+conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+conn.close()
+# Safe backup via stdlib
+src = sqlite3.connect(db)
+bak = sqlite3.connect(dst)
+src.backup(bak)
+bak.close()
+src.close()
+print(f'Backup: {dst}')
+"
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Backup failed"
+    exit 1
+fi
+
+# Keep only last 7 backups (compatible with macOS and Linux)
+ls -t "$BACKUP_DIR"/msam-*.db 2>/dev/null | tail -n +8 | while read f; do rm "$f"; done
+echo "Retained: $(ls "$BACKUP_DIR"/msam-*.db 2>/dev/null | wc -l) backups"

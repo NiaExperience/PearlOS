@@ -1,0 +1,25 @@
+name: deploy-interface-pearl
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # <-- manual trigger
+jobs:
+  interface:
+    uses: ./.github/workflows/deploy-web-app.yml
+    with:
+      app_name: interface
+      dockerfile_path: apps/interface/Dockerfile
+      environment: pearl
+      container_name: web
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read
+    secrets:
+      NEXT_PUBLIC_API_URL: ${{ secrets.PEARL_NEXT_PUBLIC_API_URL }}
+      NEXT_PUBLIC_DAILY_ROOM_URL: ${{ secrets.PEARL_NEXT_PUBLIC_DAILY_ROOM_URL }}
+      NEXT_PUBLIC_BOT_CONTROL_BASE_URL: ${{ secrets.PEARL_NEXT_PUBLIC_BOT_CONTROL_BASE_URL }}
+      NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.PEARL_NEXT_PUBLIC_POSTHOG_KEY }}
+      NEXT_PUBLIC_POSTHOG_PROXY_HOST: ${{ secrets.PEARL_NEXT_PUBLIC_POSTHOG_PROXY_HOST }}
+
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}

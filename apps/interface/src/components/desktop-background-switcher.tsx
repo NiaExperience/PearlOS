@@ -395,9 +395,9 @@ const DesktopBackgroundSwitcher = ({
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden bg-black" data-desktop-mode={currentMode}>
+    <div className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden" style={{ background: 'linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%)' }} data-desktop-mode={currentMode}>
       {/* Background Container with Slide Transition */}
-      <div className="relative h-full w-full bg-black">
+      <div className="relative h-full w-full" style={{ background: 'linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%)' }}>
         {/* Quiet Background */}
         <div
           data-testid="quiet-bg-container"

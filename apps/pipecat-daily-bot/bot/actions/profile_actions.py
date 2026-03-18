@@ -233,8 +233,8 @@ async def upsert_user_profile(
             
             if response["success"]:
                 logger.info(f"[profile_actions] Updated profile for user {user_id}")
-                # Fetch and return updated profile
-                return await get_user_profile(user_id)
+                # Return response data directly instead of re-fetching (saves 2 API calls)
+                return response.get("data") or existing
             
             logger.error(f"[profile_actions] Failed to update profile: {response.get('error')}")
             return None
@@ -408,8 +408,11 @@ async def clear_profile_metadata(user_id: str) -> bool:
         return False
 
 
-# Configurable via BOT_MAX_SESSION_HISTORY environment variable (default: 100)
-MAX_SESSION_HISTORY = int(os.getenv("BOT_MAX_SESSION_HISTORY", "100"))
+# Configurable via BOT_MAX_SESSION_HISTORY environment variable (default: 20)
+MAX_SESSION_HISTORY = int(os.getenv("BOT_MAX_SESSION_HISTORY", "20"))
+
+# Max chars for summary text stored in sessionHistory refIds
+MAX_HISTORY_SUMMARY_CHARS = int(os.getenv("BOT_MAX_HISTORY_SUMMARY_CHARS", "200"))
 
 
 async def add_session_history_entry(
@@ -455,7 +458,15 @@ async def add_session_history_entry(
         }
         
         if ref_ids and len(ref_ids) > 0:
-            new_entry["refIds"] = ref_ids
+            # Truncate description fields to prevent bloat
+            trimmed_refs = []
+            for ref in ref_ids:
+                ref_copy = dict(ref)
+                desc = ref_copy.get("description", "")
+                if isinstance(desc, str) and len(desc) > MAX_HISTORY_SUMMARY_CHARS:
+                    ref_copy["description"] = desc[:MAX_HISTORY_SUMMARY_CHARS] + "..."
+                trimmed_refs.append(ref_copy)
+            new_entry["refIds"] = trimmed_refs
         
         # Get existing history or create new array
         existing_history = existing.get("sessionHistory", [])
@@ -506,13 +517,15 @@ async def save_conversation_summary(
 ) -> bool:
     """Save conversation summary to user profile.
     
-    Before saving the new summary, archives any existing lastConversationSummary
-    to sessionHistory with action 'session-summary'.
+    Performs a SINGLE fetch + SINGLE PATCH to avoid redundant API calls.
+    Archives any existing lastConversationSummary to sessionHistory,
+    then sets the new summary — all in one PATCH operation.
     
     Args:
         user_id: User ID
         summary: Conversation summary text
         session_id: Session/room identifier
+        room_id: Room identifier for reference
         assistant_name: Name of the assistant/personality
         participant_count: Number of participants in conversation
         duration_seconds: Duration of conversation in seconds
@@ -523,32 +536,54 @@ async def save_conversation_summary(
     try:
         from datetime import datetime, timezone
         
-        # Fetch current profile to check for existing conversation summary
-        existing = await get_user_profile(user_id)
-        if existing and existing.get("lastConversationSummary"):
-            # Archive the previous summary to sessionHistory
-            prev_summary = existing["lastConversationSummary"]
+        # === SINGLE FETCH: get existing profile ===
+        existing = await _fetch_profile({"indexer": {"path": "userId", "equals": user_id}})
+        if not existing:
+            logger.warning(f"[profile_actions] No profile found for userId {user_id}, cannot save summary")
+            return False
+        
+        profile_id = existing.get("_id")
+        if not profile_id:
+            logger.error(f"[profile_actions] Profile missing _id for userId {user_id}")
+            return False
+        
+        # Build the combined update payload (sessionHistory + lastConversationSummary)
+        update_content = {}
+        
+        # --- Archive previous summary to sessionHistory ---
+        existing_history = existing.get("sessionHistory", [])
+        if not isinstance(existing_history, list):
+            existing_history = []
+        
+        prev_summary = existing.get("lastConversationSummary")
+        if prev_summary and isinstance(prev_summary, dict):
             prev_timestamp = prev_summary.get("timestamp")
             prev_session_id = prev_summary.get("sessionId")
             
             if prev_timestamp and prev_session_id:
-                logger.debug(
-                    f"[profile_actions] Archiving previous conversation summary to sessionHistory "
-                    f"(session: {prev_session_id})"
-                )
-                ref_ids = [
-                    {"type": "conversation-summary", "id": room_id, "description": prev_summary.get("summary")}
-                ]
-                await add_session_history_entry(
-                    user_id=user_id,
-                    action="session-summary",
-                    session_id=prev_session_id,
-                    timestamp=prev_timestamp,
-                    ref_ids=ref_ids
-                )
+                # Truncate summary description to avoid bloat
+                prev_desc = prev_summary.get("summary", "")
+                if len(prev_desc) > MAX_HISTORY_SUMMARY_CHARS:
+                    prev_desc = prev_desc[:MAX_HISTORY_SUMMARY_CHARS] + "..."
+                
+                archive_entry = {
+                    "time": prev_timestamp,
+                    "action": "session-summary",
+                    "sessionId": prev_session_id,
+                    "refIds": [
+                        {"type": "conversation-summary", "id": room_id, "description": prev_desc}
+                    ]
+                }
+                existing_history = [archive_entry] + existing_history
         
-        # Build new conversation summary object matching IConversationSummary schema
-        conversation_summary = {
+        # Cap sessionHistory to MAX_SESSION_HISTORY
+        if len(existing_history) > MAX_SESSION_HISTORY:
+            existing_history = existing_history[:MAX_SESSION_HISTORY]
+        
+        update_content["sessionHistory"] = existing_history
+        
+        # --- Set new conversation summary ---
+        update_content["lastConversationSummary"] = {
             "summary": summary,
             "sessionId": session_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -557,21 +592,26 @@ async def save_conversation_summary(
             "durationSeconds": duration_seconds
         }
         
-        # Use update_user_profile to save the new summary
-        success = await update_user_profile(
-            user_id=user_id,
-            updates={"lastConversationSummary": conversation_summary}
+        # === SINGLE PATCH: update both fields at once ===
+        params = {"tenant": "any"}
+        payload = {"content": update_content}
+        
+        response = await mesh_client.request(
+            "PATCH",
+            f"/content/UserProfile/{profile_id}",
+            params=params,
+            json_body=payload
         )
         
-        if success:
+        if response.get("success"):
             logger.info(
                 f"[profile_actions] Saved conversation summary for user {user_id} "
-                f"(session: {session_id}, {len(summary)} chars)"
+                f"(session: {session_id}, {len(summary)} chars, history: {len(existing_history)} entries)"
             )
-        else:
-            logger.error(f"[profile_actions] Failed to save conversation summary for user {user_id}")
+            return True
         
-        return success
+        logger.error(f"[profile_actions] Failed to save conversation summary: {response.get('error')}")
+        return False
         
     except Exception as e:
         logger.error(f"[profile_actions] Failed to save conversation summary: {e}", exc_info=True)

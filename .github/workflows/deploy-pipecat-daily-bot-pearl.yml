@@ -1,0 +1,17 @@
+name: deploy-pipecat-daily-bot-pearl
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-pipecat-daily-bot-base.yml
+    with:
+      environment: pearl
+    permissions:
+      id-token: write
+      contents: read
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}

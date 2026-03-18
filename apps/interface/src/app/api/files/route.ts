@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { requireAuth } from '@interface/lib/api-auth';
 
 export interface FSEntry {
   name: string;
@@ -24,6 +25,8 @@ function getExt(name: string): string | undefined {
 }
 
 export async function GET(req: NextRequest) {
+  const authError = await requireAuth(req);
+  if (authError) return authError;
   const { searchParams } = new URL(req.url);
   const HOME = os.homedir();
   const requestedPath = searchParams.get('path') ?? HOME;

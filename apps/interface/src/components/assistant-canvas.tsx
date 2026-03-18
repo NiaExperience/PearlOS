@@ -137,7 +137,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   
   // State for current personality - now stores composite key
   const [currentPersonalityKey, setCurrentPersonalityKey] = useState<string | undefined>(getInitialPersonalityKey);
-  
+
   // Gateway WebSocket is handled globally by GatewaySocketBridge in client-providers.tsx
   // No need for a second connection here.
 
@@ -264,6 +264,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
 
   // Audio element ref for playing bot audio in voice-only sessions
   const audioElementRef = React.useRef<HTMLAudioElement>(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [isLocalScreenSharing, setIsLocalScreenSharing] = useState(false);
   const [screenSharePromptVisible, setScreenSharePromptVisible] = useState(false);
   const [screenSharePromptDismissed, setScreenSharePromptDismissed] = useState(false);
@@ -315,9 +316,49 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
     }
   }, []);
   
-  // Monitor Daily participants and attach bot audio tracks to audio element
+  // Pre-warm the audio element on user gesture (click to start session).
+  // Chrome's autoplay policy requires .play() to be called in a user gesture
+  // call stack. By playing a silent/empty source during the click, the audio
+  // element is "unlocked" and subsequent .play() calls from async event
+  // handlers (Daily track-started, participant-updated) will succeed.
+  //
+  // This also covers the second-attempt success pattern: by the second click,
+  // the site already has user interaction, so autoplay is no longer blocked.
   useEffect(() => {
-    if (callStatus !== CALL_STATUS.ACTIVE) return;
+    if (callStatus !== CALL_STATUS.LOADING) return;
+    
+    // The callStatus just transitioned to LOADING, which means the user
+    // clicked to start a session. We're still in the synchronous React
+    // commit phase triggered by the click. Pre-warm the audio element now.
+    const audioEl = audioElementRef.current;
+    if (audioEl) {
+      // Create a silent audio context and play it to unlock the element.
+      // An empty MediaStream with no tracks allows .play() to resolve
+      // and marks the element as user-gesture-activated.
+      try {
+        audioEl.srcObject = audioEl.srcObject || new MediaStream();
+        audioEl.play().then(() => {
+          logger.info('Audio element pre-warmed successfully during LOADING');
+          setAutoplayBlocked(false);
+        }).catch(() => {
+          logger.warn('Audio pre-warm failed during LOADING — will retry on user gesture');
+          setAutoplayBlocked(true);
+        });
+      } catch {
+        // Ignore — best effort
+      }
+    }
+  }, [callStatus]);
+  
+  // Monitor Daily participants and attach bot audio tracks to audio element.
+  // CRITICAL: Start monitoring during LOADING (not just ACTIVE) so the bot's
+  // greeting audio is captured. With createCallObject() (custom mode), Daily
+  // does NOT auto-play remote audio — we must manually attach tracks to an
+  // <audio> element. The bot speaks its greeting ~1-2s after joining, which
+  // happens while callStatus is still LOADING. If we wait for ACTIVE, the
+  // greeting audio is lost and the first session appears silent.
+  useEffect(() => {
+    if (callStatus !== CALL_STATUS.ACTIVE && callStatus !== CALL_STATUS.LOADING) return;
     
     const callObject = getCallObject();
     if (!callObject || !audioElementRef.current) return;
@@ -344,11 +385,18 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
         audioElementRef.current.srcObject = new MediaStream([audioTrack]);
         
         // Ensure playback (handle autoplay restrictions)
-        audioElementRef.current.play().catch((err) => {
-          logger.warn('Audio autoplay blocked, user interaction required', {
-            error: err instanceof Error ? err.message : String(err),
+        const playPromise = audioElementRef.current.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise.then(() => {
+            setAutoplayBlocked(false);
+            logger.info('Bot audio playback started successfully');
+          }).catch((err) => {
+            setAutoplayBlocked(true);
+            logger.warn('Audio autoplay blocked, user interaction required', {
+              error: err instanceof Error ? err.message : String(err),
+            });
           });
-        });
+        }
       }
     };
     
@@ -366,6 +414,27 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       callObject.off('track-started', handleParticipantUpdated);
     };
   }, [callStatus, getCallObject, persona]);
+
+  // Global user-gesture recovery: retry audio playback on any pointer interaction.
+  // This mirrors the pattern in Tile.tsx. If autoplay was blocked (e.g., Chrome
+  // policy on first page load before user gesture), any subsequent click/tap will
+  // retry .play() and clear the blocked state.
+  useEffect(() => {
+    if (!autoplayBlocked) return;
+    const handler = () => {
+      const audioEl = audioElementRef.current;
+      if (audioEl && audioEl.paused) {
+        audioEl.play()
+          .then(() => {
+            setAutoplayBlocked(false);
+            logger.info('Audio playback resumed after user gesture');
+          })
+          .catch(() => {});
+      }
+    };
+    window.addEventListener('pointerdown', handler, { once: true });
+    return () => window.removeEventListener('pointerdown', handler);
+  }, [autoplayBlocked]);
 
   useEffect(() => {
     if (callStatus !== CALL_STATUS.ACTIVE) {
@@ -671,7 +740,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   const handleVoiceInput = async ({ text, file: _file }: { text: string; file?: File }) => {
     if (!text.trim()) return;
     try {
-      await fetch('http://localhost:4444/api/chat', {
+      await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, assistantName }),
@@ -692,27 +761,13 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       <VoiceInputBox onSubmit={handleVoiceInput} />
       
       <div
-        className={`mt-auto fixed ${isChatMode ? 'z-[900]' : 'z-[851]'} flex flex-col items-center justify-center ${!seatrade && 'p-3'} rounded-t-lg`}
+        className={`${isChatMode ? 'pointer-events-none' : 'pointer-events-auto'} mt-auto fixed z-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center ${!seatrade && 'p-3'} rounded-t-lg transition-opacity duration-200`}
         style={{
-          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-          ...(isChatMode ? {
-            // Chat mode: Pearl's container needs to be visible and positioned within the chat bar
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
-            left: '12px',
-            width: '40px', // Fixed width for the container
-            height: '40px', // Fixed height for the container
-            transform: 'none', // Ensure container is not scaled down
-            opacity: 1,         // Ensure container is visible
-            pointerEvents: 'none' as const, // Wrapper itself is not clickable, AssistantButton handles clicks
-            position: 'absolute', // Critical for correct positioning relative to chat bar
-            zIndex: 999, // Ensure it's above other elements within the chat bar if necessary
-          } : {
-            // Default state: Pearl anchored lower-left, vertically aligned with the chat bar
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
-            left: '12px',
-            transform: 'none',
-            pointerEvents: isAvatarVisible ? 'none' as const : 'auto' as const,
-          }),
+          transition: 'all 0.3s ease-in-out',
+          bottom: seatrade ? (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? '50%' : 20 : 72,
+          transform: seatrade && (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? 'translateY(50%) translateX(-50%)' : 'translateX(-50%)',
+          opacity: isChatMode ? 0 : 1,
+          visibility: isChatMode ? 'hidden' as const : 'visible' as const,
         }}
       >
         <AssistantButton

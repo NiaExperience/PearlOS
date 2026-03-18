@@ -63,6 +63,16 @@ export default function NoteShareControls({
       return;
     }
 
+    if (!currentNote.userId) {
+      log.error('Cannot share note: userId is missing', { noteId: currentNote._id });
+      toast({
+        title: 'Cannot Share',
+        description: 'This note is missing ownership information. Please reload and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsCreatingSharingOrg(true);
     try {
       const org = await createSharingOrganization(
@@ -117,8 +127,8 @@ export default function NoteShareControls({
           isOpen={showSharingModal}
           onClose={() => setShowSharingModal(false)}
           organization={sharingOrganization}
-          tenantId={currentNote.tenantId}
-          currentUserId={currentNote.userId}
+          tenantId={(currentNote.tenantId || fallbackTenantId) as string}
+          currentUserId={currentNote.userId as string}
           resourceId={currentNote._id}
           resourceTitle={currentNote.title || 'Untitled Note'}
           onSharingUpdated={handleSharingUpdated}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 from loguru import logger
@@ -54,12 +55,17 @@ class SessionEventHandlers:
     def register(self, transport: Any, task: Any):
         """Register all event handlers."""
         
+        # Track participants greeted during on_joined to prevent double-greeting
+        # when Daily also fires on_first_participant_joined for the same participants.
+        self._greeted_in_on_joined: set[str] = set()
+        
         # Transport events
         transport.event_handler("on_joined")(self.on_joined)
         transport.event_handler("on_first_participant_joined")(self.on_first_participant_joined)
         transport.event_handler("on_participant_joined")(self.on_participant_joined)
         transport.event_handler("on_participant_left")(self.on_participant_left)
         transport.event_handler("on_error")(self.on_error)
+        transport.event_handler("on_app_message")(self.on_app_message)
         
         # Task events
         task.event_handler("on_frame_reached_upstream")(self.on_frame_reached_upstream)
@@ -84,6 +90,27 @@ class SessionEventHandlers:
         except Exception:
             pass
 
+    async def on_app_message(self, transport, message, sender):
+        """Intercept Daily app-messages BEFORE Pipecat's RTVI processor.
+
+        Pipecat's RTVIProcessor drops all non-RTVI app-messages (label != "rtvi-ai")
+        with "Ignoring not RTVI message".  This handler fires via the transport
+        event system which runs *before* the frame enters the pipeline, so NIA
+        messages (nia.tool_invoke, nia.event, req, gap) reach the session manager
+        even though RTVI will later discard the corresponding frame.
+        """
+        if not isinstance(message, dict):
+            return
+        kind = message.get("kind")
+        if kind in ("nia.tool_invoke", "nia.tool_result", "nia.event", "req", "gap"):
+            logger.info(
+                f"[{BOT_PID}] [app-message-intercept] Routing kind={kind} to session manager (bypasses RTVI)"
+            )
+            try:
+                self.managers._process_incoming_kind(message)
+            except Exception as e:
+                logger.error(f"[{BOT_PID}] [app-message-intercept] Error: {e}")
+
     async def on_joined(self, transport, data):
         """Called when the bot has joined the Daily room.
         
@@ -97,6 +124,28 @@ class SessionEventHandlers:
         """
         log = logger.bind(tag="[events]", botPid=BOT_PID)
         log.info(f"[{BOT_PID}] [events] Bot joined room")
+
+        # Register this bot as the authoritative session for the room.
+        # Any older bot still alive in the same room will detect it has been
+        # superseded and suppress duplicate soundtrack / melody events.
+        try:
+            await self.lifecycle.register_authoritative()
+        except Exception as _auth_err:
+            log.warning(f"[{BOT_PID}] [events] Failed to register authoritative session: {_auth_err}")
+
+        # Write "session started" to activity log immediately on join
+        # (must be here, not in on_first_participant_joined which may be skipped by dedup guard)
+        try:
+            from datetime import datetime, timezone
+            _ws = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
+            _log_path = os.path.join(_ws, "memory", "activity-log.md")
+            os.makedirs(os.path.dirname(_log_path), exist_ok=True)
+            _now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+            with open(_log_path, "a", encoding="utf-8") as _f:
+                _f.write(f"[{_now}] [voice] — Voice session started\n")
+            log.info(f"[{BOT_PID}] ✅ Wrote voice session start to activity log")
+        except Exception as _e:
+            log.warning(f"[{BOT_PID}] Failed to write voice session start to activity log: {_e}")
         
         # Check for existing participants (user may have joined before bot)
         existing_count = 0
@@ -107,7 +156,7 @@ class SessionEventHandlers:
                     # Filter out bot participants (usually named "Pearl" or similar)
                     for pid, pdata in participants.items():
                         pinfo = pdata.get('info', {}) if isinstance(pdata, dict) else {}
-                        is_local = pdata.get('local', False) if isinstance(pdata, dict) else False
+                        is_local = (pdata.get('local', False) if isinstance(pdata, dict) else False) or pid == 'local'
                         user_name = pinfo.get('userName', '')
                         # Skip local (bot) participant
                         if is_local:
@@ -119,8 +168,38 @@ class SessionEventHandlers:
         
         if existing_count > 0:
             log.info(f"[{BOT_PID}] [events] {existing_count} participant(s) already in room - cancelling any pending idle shutdown")
-            # Register them with participant manager and cancel idle timer
-            self.lifecycle.cancel_pending_shutdown()
+            # Cancel idle timer WITHOUT resetting greeting state (greeting hasn't happened yet).
+            # We must NOT call cancel_pending_shutdown() here because it resets greeting state,
+            # which would cause double-greeting when Daily fires on_first_participant_joined next.
+            if self.lifecycle.shutdown_task and not self.lifecycle.shutdown_task.done():
+                self.lifecycle.shutdown_task.cancel()
+                self.lifecycle.shutdown_task = None
+
+            # Trigger greeting for existing participants (fixes race where user joins Daily before bot).
+            # The on_first_participant_joined event WILL ALSO fire for these participants,
+            # so we track them in _greeted_in_on_joined to deduplicate.
+            try:
+                if hasattr(transport, 'participants') and callable(transport.participants):
+                    participants = transport.participants()
+                    if participants:
+                        for pid, pdata in participants.items():
+                            is_local = (pdata.get('local', False) if isinstance(pdata, dict) else False) or pid == 'local'
+                            if is_local:
+                                continue
+                            pinfo = pdata.get('info', {}) if isinstance(pdata, dict) else {}
+                            user_name = pinfo.get('userName', 'Guest')
+                            log.info(f"[{BOT_PID}] [events] Triggering greeting flow for existing participant {pid} ({user_name})")
+                            # Track this participant so on_first_participant_joined skips the duplicate
+                            self._greeted_in_on_joined.add(pid)
+                            from session.participant_data import derive_name_and_context_enhanced
+                            pname, pctx = await derive_name_and_context_enhanced(
+                                pid, pdata, self.managers.participant_manager.lookup_participant_meta
+                            )
+                            from eventbus import emit_first_participant_join
+                            emit_first_participant_join(self.room_url, pid, pname, pctx)
+                            await transport.capture_participant_transcription(pid)
+            except Exception as e:
+                log.warning(f"[{BOT_PID}] [events] Failed to trigger greeting for existing participants: {e}")
         
         # Start the idle timer (if no participants, timer will handle shutdown)
         if not self._idle_timer_started:
@@ -131,6 +210,11 @@ class SessionEventHandlers:
         multi_user_aggregator = getattr(self.context_agg, "_multi_user_agg", None)
         name = participant.get('info', {}).get('userName', 'Guest')
         pid = participant.get('id')
+        
+        # Deduplicate: if on_joined already greeted this participant, skip
+        if pid and pid in self._greeted_in_on_joined:
+            logger.info(f"[{BOT_PID}] [events] Skipping duplicate first_participant_joined for {pid} (already greeted in on_joined)")
+            return
         
         # Resolve identity using IdentityManager (same as on_participant_joined)
         try:
@@ -174,6 +258,9 @@ class SessionEventHandlers:
         except Exception:
             pass
         logger.info(f"[{BOT_PID}] First participant joined: {pid} name={name}")
+
+        # Activity log "session started" is now written in on_joined (always fires)
+
         if self.flow_manager and hasattr(self.flow_manager, "initialize"):
             logger.debug(f"[{BOT_PID}] Initializing flow")
             await self.flow_manager.initialize()
@@ -214,6 +301,10 @@ class SessionEventHandlers:
         multi_user_aggregator = getattr(self.context_agg, "_multi_user_agg", None)
         pid = participant.get('id') if isinstance(participant, dict) else None
         is_local = bool(participant.get('local')) if isinstance(participant, dict) else False
+        
+        # Deduplicate: if on_joined already processed this participant, skip event emission
+        # (but still do identity resolution and participant tracking)
+        _already_greeted_in_joined = pid and pid in self._greeted_in_on_joined
         
         # Resolve identity using IdentityManager
         try:
