@@ -65,16 +65,12 @@ export function useGatewayWebSocket(options: UseGatewayWebSocketOptions = {}) {
           pageHost !== 'localhost' &&
           pageHost !== '127.0.0.1'
         ) {
-          const gatewayPort = envUrl.port || '4444';
-          // RunPod proxy: hostname contains port like "{pod}-{port}.proxy.runpod.net"
-          const runpodMatch = pageHost.match(/^(.+)-\d+\.(proxy\.runpod\.net)$/);
-          if (runpodMatch) {
-            const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-            baseUrl = `${proto}://${runpodMatch[1]}-${gatewayPort}.${runpodMatch[2]}`;
-          } else {
-            envUrl.hostname = pageHost;
-            baseUrl = envUrl.toString().replace(/\/$/, '');
-          }
+          // Non-localhost page: use same-origin rewrite path.
+          // Next.js rewrites /gateway-ws/* to localhost:4444/ws/*.
+          // Direct port-based connections (e.g. RunPod {pod}-4444.proxy.runpod.net)
+          // fail because external proxies don't expose port 4444.
+          const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          baseUrl = `${wsProto}//${window.location.host}/gateway-ws`;
         }
       } catch {
         // leave baseUrl as-is

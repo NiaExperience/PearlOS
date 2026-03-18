@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+import sharp from 'sharp';
 import * as SpriteActions from '@nia/prism/core/actions/sprite-actions';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { NextRequest, NextResponse } from 'next/server';
@@ -206,7 +207,7 @@ const ORIGIN_WORKFLOW_API = 'origin-sprite-creator_API_no_llm.json';
 // Prefer transparent output workflow; fallback to older GIF workflow if missing
 const ANIMATION_WORKFLOW_API = 'SingleAnimationfromPic_ClearGifOutput.json';
 const ANIMATION_WORKFLOW_FALLBACK_API = 'SingleAnimationfromPic_GifOutput_API.json';
-const PROMPT_NODE_ID = '970';
+const PROMPT_NODE_ID = '486';
 const LOAD_IMAGE_NODE_ID = '1405';
 const POLL_INTERVAL_MS = 1000;
 
@@ -243,13 +244,32 @@ function normalizeBaseUrl(base: string): string {
     return base.endsWith('/') ? base.slice(0, -1) : base;
 }
 
+function wrapInSpritePromptTemplate(userPrompt: string): string {
+    return `Foreground: \nStyle - Pixel art. Sprite sheet cutout. 16Bit Color. 256x256. Detailed Classic Video Game Sprite.\n\nSubject - ${userPrompt}\n\nBackground: CLEAR WHITE #FFFFFF, RGB(255, 255, 255), CMYK(0, 0, 0, 0)`;
+}
+
+/** Randomize all KSampler seeds to bust ComfyUI cache */
+function randomizeSeeds(template: Workflow): Workflow {
+    const clone = JSON.parse(JSON.stringify(template)) as Workflow;
+    if (!('nodes' in clone)) {
+        // API format
+        for (const node of Object.values(clone as ApiWorkflow)) {
+            const inputs = node?.inputs as Record<string, unknown> | undefined;
+            if (inputs && typeof inputs.seed === 'number') {
+                inputs.seed = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+            }
+        }
+    }
+    return clone;
+}
+
 function injectPrompt(template: Workflow, prompt: string): Workflow {
     const clone = JSON.parse(JSON.stringify(template)) as Workflow;
 
     if (!('nodes' in clone)) {
         const node = (clone as ApiWorkflow)[PROMPT_NODE_ID];
         if (node?.inputs) {
-            (node.inputs as Record<string, unknown>).string = prompt;
+            (node.inputs as Record<string, unknown>).string = wrapInSpritePromptTemplate(prompt);
             return clone;
         }
     }
@@ -320,6 +340,151 @@ function setLoadImage(template: Workflow, imagePath: string, subfolder?: string,
         loadNode.widgets_values[5] = subfolder ?? '';
     }
     return clone;
+}
+
+/**
+ * Classic sprite cleanup pipeline:
+ * 1. Binary alpha threshold (no semi-transparency)
+ * 2. Erode alpha 1px to trim dark fringe pixels from background removal
+ * 3. Add 1px black outline (classic sprite border)
+ * 4. Quantize to 32-color palette (true retro look)
+ * Downloads from ComfyUI, processes with sharp, re-uploads as cleaned version.
+ */
+async function cleanSpriteAlpha(
+    baseUrl: string,
+    image: ComfyImage,
+    threshold = 128,
+): Promise<ComfyImage> {
+    const viewUrl = buildViewUrl(baseUrl, image);
+    const resp = await fetch(viewUrl);
+    if (!resp.ok) {
+        log.warn('Failed to download sprite for alpha cleanup', { status: resp.status });
+        return image;
+    }
+    const buffer = Buffer.from(await resp.arrayBuffer());
+
+    const { data, info } = await sharp(buffer)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+    const w = info.width;
+    const h = info.height;
+    const pixels = new Uint8Array(data);
+
+    // Helper to get alpha at (x,y)
+    const getA = (x: number, y: number) => pixels[(y * w + x) * 4 + 3];
+
+    // Step 1: Binary alpha threshold
+    for (let i = 3; i < pixels.length; i += 4) {
+        pixels[i] = pixels[i] > threshold ? 255 : 0;
+    }
+
+    // Step 2: Erode alpha by 1px (if any neighbor is transparent, become transparent)
+    // This trims dark fringe pixels from background removal
+    const erodedAlpha = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const idx = y * w + x;
+            if (pixels[idx * 4 + 3] === 0) { erodedAlpha[idx] = 0; continue; }
+            // Check 4-connected neighbors
+            let hasTransparentNeighbor = false;
+            if (x > 0 && pixels[((y) * w + (x - 1)) * 4 + 3] === 0) hasTransparentNeighbor = true;
+            if (x < w - 1 && pixels[((y) * w + (x + 1)) * 4 + 3] === 0) hasTransparentNeighbor = true;
+            if (y > 0 && pixels[((y - 1) * w + (x)) * 4 + 3] === 0) hasTransparentNeighbor = true;
+            if (y < h - 1 && pixels[((y + 1) * w + (x)) * 4 + 3] === 0) hasTransparentNeighbor = true;
+            erodedAlpha[idx] = hasTransparentNeighbor ? 0 : 255;
+        }
+    }
+
+    // Step 3: Add 1px black outline (dilate eroded mask, difference = outline)
+    const outlineAlpha = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const idx = y * w + x;
+            if (erodedAlpha[idx] > 0) { outlineAlpha[idx] = 0; continue; } // not outline, it's interior
+            // Check if any neighbor is opaque in eroded mask
+            let nearOpaque = false;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h && erodedAlpha[ny * w + nx] > 0) {
+                        nearOpaque = true; break;
+                    }
+                }
+                if (nearOpaque) break;
+            }
+            outlineAlpha[idx] = nearOpaque ? 255 : 0;
+        }
+    }
+
+    // Step 4: Build color histogram for quantization (32 colors)
+    // Collect opaque pixel colors
+    const colorCounts = new Map<number, number>();
+    for (let i = 0; i < w * h; i++) {
+        if (erodedAlpha[i] > 0) {
+            const pi = i * 4;
+            // Reduce to 5-bit per channel for grouping
+            const r5 = (pixels[pi] >> 3) << 3;
+            const g5 = (pixels[pi + 1] >> 3) << 3;
+            const b5 = (pixels[pi + 2] >> 3) << 3;
+            const key = (r5 << 16) | (g5 << 8) | b5;
+            colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+        }
+    }
+    // Get top 32 colors
+    const palette = [...colorCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 32)
+        .map(([key]) => [(key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF]);
+
+    // Map each pixel to nearest palette color
+    const findNearest = (r: number, g: number, b: number): [number, number, number] => {
+        let bestDist = Infinity;
+        let best = palette[0] || [0, 0, 0];
+        for (const c of palette) {
+            const dr = r - c[0], dg = g - c[1], db = b - c[2];
+            const dist = dr * dr + dg * dg + db * db;
+            if (dist < bestDist) { bestDist = dist; best = c; }
+        }
+        return best as [number, number, number];
+    };
+
+    // Step 5: Assemble final image
+    const output = new Uint8Array(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+        const pi = i * 4;
+        if (outlineAlpha[i] > 0) {
+            // Black outline pixel
+            output[pi] = 0; output[pi + 1] = 0; output[pi + 2] = 0; output[pi + 3] = 255;
+        } else if (erodedAlpha[i] > 0) {
+            // Interior pixel, quantized
+            const [qr, qg, qb] = findNearest(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            output[pi] = qr; output[pi + 1] = qg; output[pi + 2] = qb; output[pi + 3] = 255;
+        } else {
+            // Transparent
+            output[pi] = 0; output[pi + 1] = 0; output[pi + 2] = 0; output[pi + 3] = 0;
+        }
+    }
+
+    const cleanedBuffer = await sharp(Buffer.from(output), {
+        raw: { width: w, height: h, channels: 4 },
+    }).png().toBuffer();
+
+    // Upload back to ComfyUI
+    const formData = new FormData();
+    formData.append('image', new Blob([new Uint8Array(cleanedBuffer)], { type: 'image/png' }), image.filename);
+    formData.append('overwrite', 'true');
+    const uploadResp = await fetch(`${baseUrl}/upload/image`, { method: 'POST', body: formData });
+
+    if (uploadResp.ok) {
+        const result = await uploadResp.json();
+        log.info('Classic sprite cleanup complete', { filename: result.name });
+        return { ...image, filename: result.name, type: 'input' };
+    }
+
+    log.warn('Failed to re-upload cleaned sprite', { status: uploadResp.status });
+    return image;
 }
 
 function buildViewUrl(baseUrl: string, image: ComfyImage): string {
@@ -470,9 +635,13 @@ async function runWorkflowStream(
 
         const history = await fetchHistory(baseUrl, promptId);
         const entry = history?.[promptId];
-        if (entry?.outputs) {
+        if (entry?.outputs && Object.keys(entry.outputs).length > 0) {
             historyEntry = entry;
             break;
+        }
+        // Also break on explicit completion status even if outputs empty
+        if (entry?.status?.status_str === 'error') {
+            return { error: entry.status.messages?.find((m: unknown[]) => m[0] === 'execution_error')?.[1]?.exception_message || 'Workflow execution error' };
         }
     }
 
@@ -726,7 +895,7 @@ export async function POST(request: NextRequest) {
                 const originPath = await resolveWorkflowPath(ORIGIN_WORKFLOW_API);
                 const originRaw = await fs.readFile(originPath, 'utf8');
                 const originJson = JSON.parse(originRaw) as Workflow;
-                const originWorkflow = injectPrompt(originJson, enhancedPrompt);
+                const originWorkflow = randomizeSeeds(injectPrompt(originJson, enhancedPrompt));
 
                 log.debug('Origin prompt', { prompt });
 
@@ -794,54 +963,58 @@ export async function POST(request: NextRequest) {
                     log.info('Sprite passed QA', { score: qaResult.score });
                 }
 
+                // Clean semi-transparent pixels from sprite edges
+                sendLog('Cleaning alpha channel...');
+                const cleanedImage = await cleanSpriteAlpha(originBaseUrl, sourceImage);
+
                 // Upload output so animation workflow can load it
                 sendLog('Processing source image...');
                 const tUploadStart = Date.now();
-                const uploaded = await uploadImageToComfyUI(animationBaseUrl, sourceImage, originBaseUrl);
+                const uploaded = await uploadImageToComfyUI(animationBaseUrl, cleanedImage, originBaseUrl);
                 const tUploadDone = Date.now();
                 const imagePath = uploaded?.name || sourceImage.filename;
                 const imageSubfolder = uploaded?.subfolder ?? '';
                 const imageType = uploaded?.type ?? 'input';
 
-                // 2) Run animation workflow using the origin image as input
-                sendLog('Preparing animation workflow...');
-                let animationPath: string;
-                try {
-                    animationPath = await resolveWorkflowPath(ANIMATION_WORKFLOW_API);
-                } catch {
-                    animationPath = await resolveWorkflowPath(ANIMATION_WORKFLOW_FALLBACK_API);
-                }
-                const animationRaw = await fs.readFile(animationPath, 'utf8');
-                const animationJson = JSON.parse(animationRaw) as Workflow;
-
-                const animationPrompt = `${prompt} subtle mouth movement`;
-                log.debug('Animation prompt', { animationPrompt });
-                const animationWithPrompt = injectPrompt(animationJson, animationPrompt);
-                // Ensure dimensions are 256x256
-                const dimensionedWorkflow = setDimensions(animationWithPrompt, 256, 256);
-                const animationWorkflow = setLoadImage(dimensionedWorkflow, imagePath, imageSubfolder, imageType);
-
-                const tAnimSubmit = Date.now();
-                sendLog('Running animation generation (this may take a minute)...');
+                // 2) Run animation workflow (optional — gracefully degrade to static sprite)
+                let animationOutputs: ReturnType<typeof buildOutputs> = [];
+                let gifOutput: ReturnType<typeof buildOutputs>[number] | undefined;
                 
-                const animationRun = await runWorkflowStream(animationBaseUrl, animationWorkflow, (msg) => {
-                    // Forward progress logs
-                    sendLog(`[Animation] ${msg}`);
-                });
+                try {
+                    sendLog('Preparing animation workflow...');
+                    let animationPath: string;
+                    try {
+                        animationPath = await resolveWorkflowPath(ANIMATION_WORKFLOW_API);
+                    } catch {
+                        animationPath = await resolveWorkflowPath(ANIMATION_WORKFLOW_FALLBACK_API);
+                    }
+                    const animationRaw = await fs.readFile(animationPath, 'utf8');
+                    const animationJson = JSON.parse(animationRaw) as Workflow;
 
-                const tAnimDone = Date.now();
-                if ('error' in animationRun) {
-                    send({ 
-                        type: 'error', 
-                        error: 'Failed to run animation workflow', 
-                        details: animationRun.error 
+                    const animationPrompt = `${prompt} subtle mouth movement`;
+                    log.debug('Animation prompt', { animationPrompt });
+                    const animationWithPrompt = injectPrompt(animationJson, animationPrompt);
+                    const dimensionedWorkflow = setDimensions(animationWithPrompt, 256, 256);
+                    const animationWorkflow = setLoadImage(dimensionedWorkflow, imagePath, imageSubfolder, imageType);
+
+                    sendLog('Running animation generation (this may take a minute)...');
+                    
+                    const animationRun = await runWorkflowStream(animationBaseUrl, animationWorkflow, (msg) => {
+                        sendLog(`[Animation] ${msg}`);
                     });
-                    controller.close();
-                    return;
-                }
 
-                const animationOutputs = buildOutputs(animationBaseUrl, animationRun.historyEntry);
-                const gifOutput = animationOutputs.find(media => media.filename?.toLowerCase().endsWith('.gif'));
+                    if (!('error' in animationRun)) {
+                        animationOutputs = buildOutputs(animationBaseUrl, animationRun.historyEntry);
+                        gifOutput = animationOutputs.find(media => media.filename?.toLowerCase().endsWith('.gif'));
+                    } else {
+                        log.warn('Animation workflow run failed', { error: animationRun.error });
+                    }
+                } catch (animError) {
+                    log.warn('Animation workflow unavailable, using static sprite', { 
+                        error: animError instanceof Error ? animError.message : animError 
+                    });
+                    sendLog('Animation unavailable, using static sprite...');
+                }
 
                 const tEnd = Date.now();
                 log.info('Sprite generation timings (ms)', {
@@ -849,23 +1022,23 @@ export async function POST(request: NextRequest) {
                     originSubmit: tOriginSubmit - t0,
                     originRun: tOriginDone - tOriginSubmit,
                     upload: tUploadDone - tUploadStart,
-                    animSubmit: tAnimSubmit - tUploadDone,
-                    animRun: tAnimDone - tAnimSubmit,
-                    postProcess: tEnd - tAnimDone,
                 });
 
                 // Select voice based on character gender inference
                 const selectedVoiceId = selectSpriteVoice(prompt);
                 
-                // Persist Sprite record to Prism
+                // Persist Sprite record to Prism (use GIF if available, else static PNG)
                 let spriteId: string | undefined;
-                if (gifOutput?.url && userId !== 'anonymous') {
+                const hasGif = gifOutput?.url;
+                const persistImage = hasGif ? gifOutput!.url : buildViewUrl(originBaseUrl, sourceImage);
+                if (persistImage) {
                     try {
                         sendLog('Finalizing sprite record...');
-                        const gifResponse = await fetch(gifOutput.url, { cache: 'no-store' });
-                        if (gifResponse.ok) {
-                            const gifBuffer = await gifResponse.arrayBuffer();
-                            const gifBase64 = Buffer.from(gifBuffer).toString('base64');
+                        const imgResponse = await fetch(persistImage, { cache: 'no-store' });
+                        if (imgResponse.ok) {
+                            const imgBuffer = await imgResponse.arrayBuffer();
+                            const imgBase64 = Buffer.from(imgBuffer).toString('base64');
+                            const mimeType = hasGif ? 'image/gif' : 'image/png';
 
                             const sprite = await SpriteActions.create({
                                 parent_id: userId,
@@ -873,8 +1046,8 @@ export async function POST(request: NextRequest) {
                                 name: generateSpriteName(prompt),
                                 description: `Sprite summoned from: "${prompt}"`,
                                 originalRequest: prompt,
-                                gifData: gifBase64,
-                                gifMimeType: 'image/gif',
+                                gifData: imgBase64,
+                                gifMimeType: mimeType,
                                 primaryPrompt: generateSpritePersonalityPrompt(prompt),
                                 voiceProvider: DEFAULT_SPRITE_VOICE_PROVIDER,
                                 voiceId: selectedVoiceId,
@@ -883,7 +1056,7 @@ export async function POST(request: NextRequest) {
                             spriteId = sprite._id;
                             log.info('Sprite record created', { spriteId, name: sprite.name });
                         } else {
-                            log.warn('Failed to fetch GIF for persistence', { url: gifOutput.url, status: gifResponse.status });
+                            log.warn('Failed to fetch image for persistence', { url: persistImage, status: imgResponse.status });
                         }
                     } catch (spriteError) {
                         log.error('Failed to persist Sprite record', { error: spriteError });
@@ -893,19 +1066,30 @@ export async function POST(request: NextRequest) {
                 // const responseVoiceId = spriteId ? selectedVoiceId : selectSpriteVoice(prompt);
                 const responseVoiceId = undefined;
                 
+                // Fetch source image as base64 so it's accessible through the tunnel
+                let sourceImageDataUrl = '';
+                try {
+                    const srcUrl = buildViewUrl(originBaseUrl, sourceImage);
+                    const srcRes = await fetch(srcUrl, { cache: 'no-store' });
+                    if (srcRes.ok) {
+                        const srcBuf = await srcRes.arrayBuffer();
+                        sourceImageDataUrl = `data:image/png;base64,${Buffer.from(srcBuf).toString('base64')}`;
+                    }
+                } catch { /* fall back to direct URL */ }
+
                 // Send final success result
                 send({ 
                     type: 'result', 
                     data: {
                         promptId: originRun.promptId,
-                        animationPromptId: animationRun.promptId,
-                        sourceImage: { ...sourceImage, url: buildViewUrl(originBaseUrl, sourceImage) },
+                        sourceImage: { 
+                            ...sourceImage, 
+                            url: sourceImageDataUrl || buildViewUrl(originBaseUrl, sourceImage),
+                        },
                         gif: gifOutput,
                         images: animationOutputs,
                         spriteId,
                         spriteName: generateSpriteName(prompt),
-                        // voiceProvider: DEFAULT_SPRITE_VOICE_PROVIDER,
-                        // voiceId: responseVoiceId,
                     } 
                 });
                 

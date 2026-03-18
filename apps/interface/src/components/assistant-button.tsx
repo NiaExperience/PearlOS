@@ -48,6 +48,8 @@ const AssistantButton = ({
   allowedPersonalities?: Record<string, PersonalityVoiceConfig>;
   currentPersonalityKey?: string; // Now composite key instead of UUID
   onPersonalityChange?: (config: PersonalityVoiceConfig) => void;
+  isAssistantSpeaking?: boolean;
+  assistantVolumeLevel?: number;
 } & Partial<ReturnType<typeof useVoiceSession>>) => {
   const logger = getClientLogger('[assistant_button]');
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
@@ -206,20 +208,17 @@ const AssistantButton = ({
       playSound(callUnavailableBuffer);
       setTextPrompt(true);
     }
-    // Only play call end sound if transitioning to INACTIVE from another state
-    if (
-      prevCallStatusRef.current !== undefined &&
-      prevCallStatusRef.current !== CALL_STATUS.INACTIVE &&
-      callStatus === CALL_STATUS.INACTIVE &&
-      callEndBuffer
-    ) {
-      playSound(callEndBuffer);
-    }
+    // End chime is handled by AssistantSoundEffects — no duplicate here
     prevCallStatusRef.current = callStatus;
   }, [callStatus, callUnavailableBuffer, callEndBuffer, playSound]);
 
   useEffect(() => {
     const handleForceStart = () => {
+      logger.info('Received assistant:force-start', {
+        source: 'window_event',
+        callStatus,
+        hasToggleCall: !!toggleCall,
+      });
       // Ensure we capture the button rect before triggering avatar popup
       if (buttonRef.current) {
         try {
@@ -247,9 +246,14 @@ const AssistantButton = ({
     };
 
     const handleForceStop = () => {
+      logger.info('Received assistant:force-stop', {
+        source: 'window_event',
+        callStatus,
+        hasToggleCall: !!toggleCall,
+      });
       if ((callStatus === CALL_STATUS.ACTIVE || callStatus === CALL_STATUS.LOADING) && toggleCall) {
         toggleCall();
-        if (callEndBuffer) { playSound(callEndBuffer); }
+        // chime handled by useEffect watching callStatus transition (single source of truth)
         window.dispatchEvent(new CustomEvent('clearViewStateCache', { detail: { reason: 'user_closed_conversation' } }));
       }
     };
@@ -300,10 +304,7 @@ const AssistantButton = ({
     // the user is already in) without forcing a WORK-mode transition.
     previousDesktopModeRef.current = currentDesktopMode;
     
-    // Do NOT trigger avatar popup — Pearl stays in sleeping/inactive state.
-    // The parent container in assistant-canvas animates Pearl to lower-left via CSS.
-    
-    // Set chat mode state
+    // Set chat mode state — RiveAvatar shows when isChatMode (always bottom-left)
     setIsChatMode(true);
   }, [isChatMode, isDailyCallActive, isAvatarVisible, setIsChatMode, currentDesktopMode, setDesktopMode]);
 
@@ -398,7 +399,7 @@ const AssistantButton = ({
         }
 
         toggleCall();
-        playSound(callEndBuffer);
+        // chime handled by useEffect watching callStatus transition (single source of truth)
         // Avatar hide handled by GIF state machine
         const clearViewStateEvent = new CustomEvent('clearViewStateCache', {
           detail: { reason: 'user_closed_conversation' }
@@ -526,6 +527,33 @@ const AssistantButton = ({
   const isHomeOrWorkMode = currentDesktopMode === DesktopMode.HOME || currentDesktopMode === DesktopMode.WORK;
   const chatBarShowing = isChatMode || isHomeOrWorkMode;
   const shouldHideBell = chatBarShowing || (avatarFeatureOn && isAvatarVisible) || (isDailyCallActive && isFeatureEnabled('dailyCall', supportedFeatures)) || (isCallInactive && isNotesWindowOpen && isMobile);
+  useEffect(() => {
+    logger.info('AssistantButton visibility decision', {
+      source: 'assistant_button_render',
+      shouldHideBell,
+      chatBarShowing,
+      isChatMode,
+      isHomeOrWorkMode,
+      isAvatarVisible,
+      isDailyCallActive,
+      isCallInactive,
+      isNotesWindowOpen,
+      isMobile,
+      callStatus,
+    });
+  }, [
+    shouldHideBell,
+    chatBarShowing,
+    isChatMode,
+    isHomeOrWorkMode,
+    isAvatarVisible,
+    isDailyCallActive,
+    isCallInactive,
+    isNotesWindowOpen,
+    isMobile,
+    callStatus,
+    logger,
+  ]);
   if (shouldHideBell) return null;
 
   return (
@@ -609,7 +637,7 @@ const AssistantButton = ({
             onTouchStart={dismissPearlWelcome}
             onTouchEnd={(e) => { e.preventDefault(); handleAction(); }}
             onTouchCancel={handleHoverEnd}
-            title="Click to start session"
+            title="flick to start session"
           />
         </div>
       </Button>

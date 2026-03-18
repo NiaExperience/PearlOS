@@ -1,0 +1,16 @@
+{
+    "testExplorer": {
+        "enabled": true,
+        "showOnRun": true,
+        "showOnReload": true,
+        "gutterDecoration": true,
+        "errorDecoration": true,
+        "errorDecorationHover": true,
+        "addToEditorContextMenu": true,
+        "mergeSuites": false,
+        "showOutput": "onFailure",
+        "autoRun": false,
+        "autoWatch": false,
+        "jest": true
+    }
+} 

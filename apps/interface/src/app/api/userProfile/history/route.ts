@@ -69,23 +69,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getSessionSafely(undefined, interfaceAuthOptions);
-    if (session?.user) {
-      const sessionId =
-        'sessionId' in session.user && typeof session.user.sessionId === 'string'
-          ? session.user.sessionId
-          : session.user.id;
-      setLogContext({
-        sessionId: sessionId ?? undefined,
-        userId: session.user.id ?? undefined,
-        userName:
-          'name' in session.user && typeof session.user.name === 'string'
-            ? session.user.name
-            : 'email' in session.user && typeof session.user.email === 'string'
-              ? session.user.email
-              : undefined,
-        tag: '[api_user_profile_history]',
-      });
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized: no valid session' },
+        { status: 401 }
+      );
     }
+    
+    const sessionId =
+      'sessionId' in session.user && typeof session.user.sessionId === 'string'
+        ? session.user.sessionId
+        : session.user.id;
+    setLogContext({
+      sessionId: sessionId ?? undefined,
+      userId: session.user.id ?? undefined,
+      userName:
+        'name' in session.user && typeof session.user.name === 'string'
+          ? session.user.name
+          : 'email' in session.user && typeof session.user.email === 'string'
+            ? session.user.email
+            : undefined,
+      tag: '[api_user_profile_history]',
+    });
+    
     const { action, refIds } = await request.json();
 
     const result = await UserProfileActions.addSessionHistoryEntry(

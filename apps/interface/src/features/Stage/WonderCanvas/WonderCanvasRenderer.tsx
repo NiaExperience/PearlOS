@@ -47,6 +47,8 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
   const [active, setActive] = useState(false);
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   // ── Avatar state awareness ────────────────────────────────────────
   const { isAssistantSpeaking } = useVoiceSessionContext();
@@ -56,6 +58,19 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
 
   // Queue messages until iframe is ready
   const pendingRef = useRef<Array<Record<string, unknown>>>([]);
+
+  // Render confirmation timeout ref
+  const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Start a render confirmation timeout — if iframe doesn't confirm within 5s, dismiss
+  const startRenderTimeout = useCallback(() => {
+    if (renderTimeoutRef.current) clearTimeout(renderTimeoutRef.current);
+    renderTimeoutRef.current = setTimeout(() => {
+      logger.warn('Wonder Canvas render timeout — iframe did not confirm render within 5s, dismissing');
+      setActive(false);
+      renderTimeoutRef.current = null;
+    }, 5000);
+  }, []);
 
   // Use ref-based ready check to avoid stale closures
   const postToIframe = useCallback((msg: Record<string, unknown>) => {
@@ -72,16 +87,43 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
   const flushPending = useCallback(() => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
-    for (const msg of pendingRef.current) {
+    const pending = pendingRef.current;
+    if (pending.length === 0) return;
+    // If any pending message is a scene, activate the canvas now
+    const hasScene = pending.some(msg => msg.type === 'wonder.scene');
+    for (const msg of pending) {
       win.postMessage(msg, '*');
     }
     pendingRef.current = [];
-  }, []);
+    if (hasScene) {
+      setActive(true);
+      startRenderTimeout();
+    }
+  }, [startRenderTimeout]);
 
+  // ── Send parent-side orientation to iframe ───────────────────────────
+  // The parent page has access to the real device orientation and window size;
+  // posting it into the iframe lets the iframe apply body classes without
+  // relying solely on its own inner dimensions (which can differ in iframes).
+  // IMPORTANT: This must run BEFORE flushPending so the iframe has the correct
+  // orientation class before template CSS is evaluated.
+  const sendOrientation = useCallback(() => {
+    // Use width-based detection (matching the 768px CSS breakpoint) rather than
+    // pure aspect-ratio orientation. A desktop browser window that is taller than
+    // wide should NOT trigger portrait/mobile layout if it's wider than 768px.
+    // Only fall back to orientation check for narrow viewports (true mobile).
+    const isPortrait = typeof window !== 'undefined'
+      ? window.innerWidth < 768
+      : false;
+    postToIframe({ type: 'wonder.orientation', portrait: isPortrait });
+  }, [postToIframe]);
+
+  // Send orientation first when iframe becomes ready, then flush pending scenes
   useEffect(() => {
     if (!ready) return;
+    sendOrientation();
     flushPending();
-  }, [ready, flushPending]);
+  }, [ready, sendOrientation, flushPending]);
 
   // ── Forward avatar state to iframe ───────────────────────────────────
   useEffect(() => {
@@ -89,33 +131,12 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     postToIframe({ type: 'wonder.avatarState', state: avatarState });
   }, [avatarState, active, ready, postToIframe]);
 
-  // ── Send parent-side orientation to iframe ───────────────────────────
-  // The parent page has access to the real device orientation and window size;
-  // posting it into the iframe lets the iframe apply body classes without
-  // relying solely on its own inner dimensions (which can differ in iframes).
-  const sendOrientation = useCallback(() => {
-    const isPortrait = typeof window !== 'undefined'
-      ? window.matchMedia('(orientation: portrait)').matches
-      : false;
-    postToIframe({ type: 'wonder.orientation', portrait: isPortrait });
-  }, [postToIframe]);
-
-  // Send once when the iframe first becomes ready
-  useEffect(() => {
-    if (!ready) return;
-    sendOrientation();
-  }, [ready, sendOrientation]);
-
   // Re-send on every viewport resize / orientation change
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(orientation: portrait)');
-    const onMqChange = () => sendOrientation();
     const onResize = () => sendOrientation();
-    mq.addEventListener('change', onMqChange);
     window.addEventListener('resize', onResize);
     return () => {
-      mq.removeEventListener('change', onMqChange);
       window.removeEventListener('resize', onResize);
     };
   }, [sendOrientation]);
@@ -142,19 +163,30 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     // Dedup: ignore rapid scene pushes within 3s window (server-side dedup is primary,
     // this is a safety net for race conditions or duplicate WebSocket deliveries)
     let lastSceneTs = 0;
-    const SCENE_DEDUP_MS = 3000;
+    let lastSceneHash = '';
+    const SCENE_DEDUP_MS = 200; // was 1000 — event-dedup.ts ring buffer handles true dupes
 
     const handleScene = (e: Event) => {
       const { payload } = (e as CustomEvent).detail ?? {};
       if (!payload?.html) return;
       const now = Date.now();
-      if (now - lastSceneTs < SCENE_DEDUP_MS) {
-        logger.info('Wonder scene DEDUPED on frontend', { age: now - lastSceneTs });
+      const contentHash = `${payload.html.length}:${payload.html.slice(0, 100)}`;
+      if (now - lastSceneTs < SCENE_DEDUP_MS && contentHash === lastSceneHash) {
+        logger.info('Wonder scene DEDUPED on frontend (same content)', { age: now - lastSceneTs });
         return;
       }
       lastSceneTs = now;
-      logger.info('Wonder scene received', { layer: payload.layer, chars: payload.html.length });
-      setActive(true);
+      lastSceneHash = contentHash;
+      logger.info('Wonder scene received', { layer: payload.layer, chars: payload.html.length, iframeReady: readyRef.current });
+      setCurrentSceneId(typeof payload.sceneId === 'string' ? payload.sceneId : null);
+      // Only activate the canvas (make it visible) once the iframe is ready.
+      // If the iframe hasn't loaded yet, the scene is queued in pendingRef and
+      // we defer activation until flushPending runs — preventing a "black screen"
+      // where the dark stage background shows through an empty transparent iframe.
+      if (readyRef.current) {
+        setActive(true);
+        startRenderTimeout();
+      }
       postToIframe({ type: 'wonder.scene', ...payload });
     };
 
@@ -176,7 +208,24 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
       if (payload?._source) return;
       logger.info('Wonder canvas clear');
       postToIframe({ type: 'wonder.clear', ...payload });
-      // Don't set active=false yet — wait for iframe to confirm clear
+      // Phase 2 fix: fallback timeout — if iframe doesn't confirm clear within
+      // 500ms (e.g. iframe is unresponsive), force-hide the canvas anyway.
+      // The normal path is: iframe processes clear → sends wonder.cleared →
+      // setActive(false). This timeout is a safety net.
+      const fallbackTimer = setTimeout(() => {
+        logger.warn('Wonder canvas clear fallback — iframe did not confirm within 500ms');
+        setActive(false);
+      }, 500);
+      // Listen for the iframe's confirmation to cancel the fallback
+      const confirmHandler = (evt: MessageEvent) => {
+        if (evt.source === iframeRef.current?.contentWindow && evt.data?.type === 'wonder.cleared') {
+          clearTimeout(fallbackTimer);
+          window.removeEventListener('message', confirmHandler);
+        }
+      };
+      window.addEventListener('message', confirmHandler);
+      // Cleanup: remove listener after timeout fires (prevents leaks)
+      setTimeout(() => window.removeEventListener('message', confirmHandler), 600);
     };
 
     const handleAnimate = (e: Event) => {
@@ -198,7 +247,18 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
       window.removeEventListener(NIA_EVENT_WONDER_CLEAR, handleClear);
       window.removeEventListener(NIA_EVENT_WONDER_ANIMATE, handleAnimate);
     };
-  }, [postToIframe]);
+  }, [postToIframe, startRenderTimeout]);
+
+  // Track viewport so we can tweak close button placement only on mobile
+  useEffect(() => {
+    const updateViewport = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobileViewport(window.innerWidth < 768);
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   // ── Clear Wonder Canvas on new voice session ───────────────────────
   // Prevents stale canvas content from a previous session leaking into the
@@ -252,8 +312,62 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
         if (!readyRef.current) {
           logger.info('Wonder Canvas runtime ready');
           readyRef.current = true;
+
+          // ── P0 optimisation: bypass React state chain ──────────────
+          // Send orientation + flush pending messages synchronously in
+          // this handler instead of waiting for a React re-render cycle
+          // triggered by setReady(true). Saves 50-150 ms.
+          const win = iframeRef.current?.contentWindow;
+          if (win) {
+            // Send orientation first (width-based, matching 768px breakpoint)
+            const isPortrait = typeof window !== 'undefined'
+              ? window.innerWidth < 768
+              : false;
+            win.postMessage({ type: 'wonder.orientation', portrait: isPortrait }, '*');
+
+            // Flush pending messages immediately
+            const pending = pendingRef.current;
+            if (pending.length > 0) {
+              const hasScene = pending.some(msg => msg.type === 'wonder.scene');
+              for (const msg of pending) {
+                win.postMessage(msg, '*');
+              }
+              pendingRef.current = [];
+              if (hasScene) {
+                setActive(true);
+                // Start render timeout for flushed scene
+                if (renderTimeoutRef.current) clearTimeout(renderTimeoutRef.current);
+                renderTimeoutRef.current = setTimeout(() => {
+                  logger.warn('Wonder Canvas render timeout (flush) — dismissing');
+                  setActive(false);
+                  renderTimeoutRef.current = null;
+                }, 5000);
+              }
+            }
+          }
+
+          // Still set React state for other effects that depend on `ready`
           setReady(true);
         }
+        return;
+      }
+
+      if (e.data?.type === 'wonder.scene.rendered') {
+        // Scene rendered successfully — clear the timeout
+        if (renderTimeoutRef.current) {
+          clearTimeout(renderTimeoutRef.current);
+          renderTimeoutRef.current = null;
+        }
+        return;
+      }
+
+      if (e.data?.type === 'wonder.scene.error') {
+        logger.warn('Wonder Canvas scene error — dismissing', { error: e.data.error, line: e.data.line });
+        if (renderTimeoutRef.current) {
+          clearTimeout(renderTimeoutRef.current);
+          renderTimeoutRef.current = null;
+        }
+        setActive(false);
         return;
       }
 
@@ -302,6 +416,8 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     clearWonderCanvas('react-close-button');
   }, [clearWonderCanvas]);
 
+  const isNewsMobile = isMobileViewport && currentSceneId === 'news';
+
   return (
     <div
       className={`wonder-canvas ${active ? 'wonder-canvas--active' : 'wonder-canvas--inactive'}`}
@@ -322,7 +438,8 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
         <button
           onClick={handleCloseClick}
           aria-label="Close Wonder Canvas"
-          className="wonder-canvas__close-btn"
+          className="wonder-canvas__close-btn wonder-close-button"
+          style={isNewsMobile ? { top: 12, right: 1 } : undefined}
         >
           ✕
         </button>

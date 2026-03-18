@@ -274,7 +274,7 @@ async def _share_and_activate_note(
         )
         
         # Set as active note
-        _get_room_state().set_active_note_id(room_url, note_id, owner=owner_user_id)
+        await _get_room_state().set_active_note_id(room_url, note_id, owner=owner_user_id)
         
         # Emit NOTE_OPEN event (modern event system)
         if forwarder:

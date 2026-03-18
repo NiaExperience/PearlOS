@@ -13,6 +13,7 @@ from monitoring.events import TTSSpeakingEventProcessor
 from flows.registry import register_flow_manager
 
 from tools import toolbox
+from processors.canvas_prefetch import CanvasPrefetchProcessor
 try:
     from pipecat.services.anthropic.llm import AnthropicLLMService as _BaseAnthropicLLMService
     from pipecat.services.anthropic.llm import AnthropicLLMContext
@@ -60,11 +61,61 @@ from core.config import (
 
 from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, ONBOARDING_NOTE, NOTES_NOTE, VOICE_COMMAND_NOTE
 
+def _fetch_msam_context(timeout: float = 3.0) -> str:
+    """Fetch semantic memory context from MSAM if available.
+    
+    Returns a formatted string of Pearl's most relevant memories,
+    or empty string if MSAM is unreachable or disabled.
+    Safe to call unconditionally; never raises.
+    """
+    import urllib.request
+    import json as _json
+    
+    msam_url = os.getenv("MSAM_URL", "http://127.0.0.1:3001")
+    if os.getenv("MSAM_DISABLED", "").lower() in ("true", "1", "yes"):
+        return ""
+    
+    try:
+        # Use /v1/context for session startup (returns compressed top memories)
+        req = urllib.request.Request(
+            f"{msam_url}/v1/context",
+            data=_json.dumps({"agent_id": "pearl", "token_budget": 4000}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = _json.loads(resp.read())
+        
+        atoms = data.get("atoms", [])
+        if not atoms:
+            return ""
+        
+        # Format memories as a clean context block
+        memory_lines = []
+        for atom in atoms:
+            content = atom.get("content", "").strip()
+            if content:
+                memory_lines.append(content)
+        
+        if memory_lines:
+            return (
+                "## Semantic Memory (MSAM)\n"
+                "The following memories were retrieved from your long-term semantic memory store. "
+                "Use them to maintain continuity across sessions.\n\n"
+                + "\n\n---\n\n".join(memory_lines)
+            )
+    except Exception:
+        pass  # MSAM down or unreachable — graceful degradation
+    
+    return ""
+
+
 def load_workspace_context() -> str:
     """Load Pearl's identity and context from workspace files.
     
     Returns combined context from SOUL.md, IDENTITY.md, USER.md, and activity-log.md
     to give voice Pearl the same awareness as Discord/webchat Pearl.
+    Also fetches semantic memory from MSAM if available.
     """
     workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
     context_parts = []
@@ -181,7 +232,136 @@ def load_workspace_context() -> str:
         "- Never say 'I can't do that' — check your tools first.\n"
     )
     
+    # Read voice pending updates file and detect [READY] items for proactive delivery
+    pending_updates_path = os.path.join(workspace_root, "memory", "voice-pending-updates.md")
+    try:
+        with open(pending_updates_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if content:
+                has_ready = "[READY]" in content
+                context_parts.append(f"## Voice Pending Updates\n{content}")
+                if has_ready:
+                    context_parts.append(
+                        "## ⚡ STARTUP ACTION: Deliver Pending Updates\n\n"
+                        "There are [READY] items in Voice Pending Updates above. These were queued "
+                        "for you by another session (Discord, sub-agent, etc.) to deliver in this voice session.\n\n"
+                        "**Right after your greeting**, naturally bring up the pending items. For example:\n"
+                        "- 'Oh hey, I've got something queued up from earlier — [describe it naturally]'\n"
+                        "- 'Before we dive in, I put together that checklist you wanted — want me to go through it?'\n\n"
+                        "Present the content conversationally — don't read raw markdown or mention file paths.\n"
+                        "After you've presented the updates, use bot_think_deeply to mark them as delivered by running: "
+                        "\"Update /root/.openclaw/workspace/memory/voice-pending-updates.md — replace [READY] with [DELIVERED] "
+                        "for the items I just presented.\"\n"
+                    )
+                    base_logger.info(f"[{BOT_PID}] [voice] Found [READY] pending updates — injecting startup delivery instructions")
+    except FileNotFoundError:
+        pass  # Normal - file may not exist
+    except Exception as e:
+        base_logger.error(f"[{BOT_PID}] Error reading voice pending updates: {e}")
+    
+    # Fetch semantic memory from MSAM (safe, non-blocking, graceful fallback)
+    msam_context = _fetch_msam_context()
+    if msam_context:
+        context_parts.append(msam_context)
+        base_logger.info(f"[voice] MSAM semantic memory loaded ({len(msam_context)} chars)")
+    else:
+        base_logger.info("[voice] MSAM not available or empty, continuing without semantic memory")
+    
     return "\n\n".join(context_parts) if context_parts else ""
+
+def _load_oc_session_dynamic_context() -> str:
+    """Load dynamic context for OpenClaw session mode.
+    
+    Reads cross-session state, activity log, and voice-pending-updates
+    to give voice Pearl awareness of what other sessions have been doing.
+    Reuses the same file paths and logic as load_workspace_context() but
+    returns only the subset relevant for the OC session system prompt.
+    
+    Total output is capped at ~10K chars to keep voice context reasonable.
+    """
+    workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
+    parts = []
+    
+    # Cross-session state
+    cross_session_path = os.path.join(workspace_root, "memory", "cross-session-state.md")
+    try:
+        with open(cross_session_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if content:
+                if len(content) > 3000:
+                    content = content[:3000] + "\n..."
+                parts.append(f"## Cross-Session State\n{content}")
+    except (FileNotFoundError, Exception):
+        pass
+    
+    # Activity log (last 20 lines)
+    activity_log_path = os.path.join(workspace_root, "memory", "activity-log.md")
+    try:
+        with open(activity_log_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            recent = [l.strip() for l in lines if l.strip() and l.startswith('[')][-20:]
+            if recent:
+                parts.append(
+                    "## Recent Activity Log\n"
+                    "What you (Pearl) have been doing across all channels recently:\n" +
+                    "\n".join(recent)
+                )
+    except (FileNotFoundError, Exception):
+        pass
+    
+    # Voice pending updates ([READY] items)
+    pending_path = os.path.join(workspace_root, "memory", "voice-pending-updates.md")
+    try:
+        with open(pending_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if content and "[READY]" in content:
+                parts.append(
+                    "## ⚡ Pending Updates to Deliver\n"
+                    "These were queued by another session for you to deliver in voice. "
+                    "After greeting, naturally bring them up. After delivering, mark them [DELIVERED].\n\n"
+                    + content
+                )
+                base_logger.info(f"[{BOT_PID}] [oc-session] Found [READY] pending updates for voice")
+    except (FileNotFoundError, Exception):
+        pass
+    
+    result = "\n\n".join(parts) if parts else ""
+    # Hard cap
+    if len(result) > 10000:
+        result = result[:10000] + "\n...[truncated]"
+    return result
+
+
+def detect_startup_checklist(workspace_context: str) -> str | None:
+    """Check if workspace context contains a QA checklist for voice startup.
+    
+    Returns the checklist section text if found, None otherwise.
+    Looks for markers like 'VOICE SESSION' or 'QA CHECKLIST' in headings.
+    """
+    if not workspace_context:
+        return None
+    
+    markers = ["VOICE SESSION", "QA CHECKLIST"]
+    for marker in markers:
+        if marker in workspace_context.upper():
+            # Extract the checklist section
+            lines = workspace_context.split('\n')
+            in_checklist = False
+            checklist_lines = []
+            for line in lines:
+                if any(m in line.upper() for m in markers) and line.strip().startswith('#'):
+                    in_checklist = True
+                    checklist_lines.append(line)
+                    continue
+                if in_checklist:
+                    # Stop at next heading of same or higher level
+                    if line.strip().startswith('## ') and checklist_lines:
+                        break
+                    checklist_lines.append(line)
+            if checklist_lines:
+                return '\n'.join(checklist_lines).strip()
+    return None
+
 
 async def build_pipeline(
     room_url: str,
@@ -436,7 +616,7 @@ async def build_pipeline(
             )
             return PocketTTSService(
                 base_url=pocket_url,
-                sample_rate=24000,
+                sample_rate=24000,  # PocketTTS native 24kHz — pipecat SOXR handles transport resampling
                 params=pocket_params,
                 text_filters=text_filters,
                 text_aggregator=ClauseTextAggregator(),
@@ -538,7 +718,7 @@ async def build_pipeline(
     if services and isinstance(services[0], KokoroTTSService):
         speaker_sample_rate = KOKORO_TTS_SAMPLE_RATE()
     elif services and isinstance(services[0], PocketTTSService):
-        speaker_sample_rate = 24000  # PocketTTS outputs 24kHz
+        speaker_sample_rate = 24000  # PocketTTS native 24kHz — pipecat SOXR handles transport resampling
     elif services and isinstance(services[0], ElevenLabsTTSService):
         speaker_sample_rate = 16000  # ElevenLabs default
 
@@ -634,6 +814,8 @@ async def build_pipeline(
     # Register toolbox tools for collaborative features
     logger.info(f'[{BOT_PID}] Composing toolbox registrations...')
     forwarder_ref = {'instance': None}
+    canvas_prefetch = CanvasPrefetchProcessor(forwarder_ref=forwarder_ref)
+    logger.info(f'[{BOT_PID}] Created CanvasPrefetchProcessor for instant canvas pre-rendering')
     toolbox_bundle: toolbox.ToolboxBundle | None = None
 
     # Create context lookup callables for HTML tools
@@ -1028,7 +1210,7 @@ async def build_pipeline(
     # Load workspace context (identity + cross-session awareness)
     # Voice can handle decent context — only trim the cross-session extras if over limit
     workspace_context = load_workspace_context()
-    if len(workspace_context) > 8000:
+    if len(workspace_context) > 20000:
         # Over 8K is too much for voice — reload identity files only (no cross-session state)
         logger.warning(f'[{BOT_PID}] Workspace context too long for voice ({len(workspace_context)} chars), loading identity only')
         workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
@@ -1043,6 +1225,19 @@ async def build_pipeline(
                 pass
         workspace_context = "\n\n".join(identity_parts)
     logger.info(f'[{BOT_PID}] Loaded workspace context (len={len(workspace_context)})')
+    
+    # Detect and inject QA checklist for voice startup review
+    startup_checklist = detect_startup_checklist(workspace_context)
+    checklist_note = ""
+    if startup_checklist:
+        logger.info(f'[{BOT_PID}] QA checklist detected for voice startup ({len(startup_checklist)} chars)')
+        checklist_note = (
+            "\n\n## ⚠️ PRIORITY: Review Checklist With User\n\n"
+            "A QA checklist was prepared for this voice session. After your greeting, "
+            "immediately start reviewing these items with the user. Read each item naturally "
+            "(don't read markdown formatting). Ask if they want to go through them.\n\n"
+            f"{startup_checklist}\n"
+        )
     
     # Build tool awareness note
     tool_awareness_note = ""
@@ -1066,9 +1261,12 @@ async def build_pipeline(
             "Available templates: weather_card, news_headline, person_bio, fact_card, definition_card, "
             "movie_card, music_now_playing, recipe_card, book_card, game_scoreboard, quiz_question, "
             "poll, story_choice, countdown_timer, achievement_unlocked, comparison_table, timeline, "
-            "stat_dashboard, progress_tracker, location_card, greeting_card, error_card, loading_card, "
+            "stat_dashboard, progress_tracker, location_card, greeting_card (ONLY on very first interaction of a new session — NEVER mid-conversation), error_card, loading_card, "
             "list_card, image_showcase. Pass {\"template\": \"name\", \"data\": {...}} with the relevant fields. "
             "Only use `bot_wonder_canvas_scene` (raw HTML) for truly unique/creative requests that don't fit any template. "
+            "**LOADING SCREENS:** For heavy/complex visuals (galaxy, scenes, anything that takes a moment), "
+            "FIRST call `bot_wonder_canvas_template` with `loading_card` and a thematic message (e.g. 'Fetching stellar data...'), "
+            "THEN follow up with the actual content. This gives the user a beautiful transition instead of a blank screen. "
             "Use the Magician Palette (bg #1a0e2e, yellow #FFD233, white #faf8f5). Brief voice answer + visual details on screen = great experience."
         )
 
@@ -1144,8 +1342,20 @@ async def build_pipeline(
     # Voice command interpretation note — critical for STT disambiguation
     voice_command_note = VOICE_COMMAND_NOTE
 
+    # Session memory continuity instruction
+    session_memory_note = (
+        "## Session Memory & Continuity\n\n"
+        "When a user joins, their participant context may include a `lastConversationSummary` "
+        "field with details of your previous conversation (summary, timestamp, topics). "
+        "Use this to maintain continuity — reference what you discussed last time naturally. "
+        "Don't recite the summary verbatim; weave it into conversation like a friend would.\n"
+        "The 'Recent Cross-Session Activity' section above shows what you've been doing "
+        "between sessions. You can mention relevant background work you've done."
+    )
+
     system_content_parts = [
         workspace_context,  # Identity + cross-session context
+        checklist_note,  # QA checklist injection (empty string if none)
         "",  # blank line separator
         prompt,  # Personality-specific instructions
         "",  # blank line separator
@@ -1154,6 +1364,7 @@ async def build_pipeline(
         openclaw_bridge_note,  # Voice-to-OpenClaw bridge guidance (skipped in openclaw_session mode)
         wonder_canvas_image_note,  # Image proxy hint for Wonder Canvas
         vision_awareness_note,  # Pearl Vision camera awareness
+        session_memory_note,  # Session memory continuity
         multi_user_note,
         smart_silence_note,
         onboarding_note,
@@ -1313,8 +1524,9 @@ async def build_pipeline(
         "weather_card, news_headline, person_bio, fact_card, definition_card, movie_card, "
         "music_now_playing, recipe_card, book_card, game_scoreboard, quiz_question, poll, "
         "story_choice, countdown_timer, achievement_unlocked, comparison_table, timeline, "
-        "stat_dashboard, progress_tracker, location_card, greeting_card, error_card, loading_card, "
+        "stat_dashboard, progress_tracker, location_card, greeting_card (ONLY on very first interaction of a new session — NEVER mid-conversation), error_card, loading_card, "
         "list_card, image_showcase. Only use `bot_wonder_canvas_scene` (raw HTML) for truly unique requests.\n"
+        "**LOADING SCREENS:** For heavy visuals (galaxy, scenes, complex displays), FIRST show `loading_card` with a thematic message, THEN the actual content.\n"
     )
 
     if bot_llm_mode == "anthropic_voice":
@@ -1329,14 +1541,16 @@ async def build_pipeline(
 
         pipeline_processors.extend([
             context_agg.user(),
+            canvas_prefetch,
             anthropic_voice_processor,
             tts,
             tts_speaking_monitor,
             transport.output(),
             context_agg.assistant(),
         ])
-    elif os.getenv("BOT_NON_BLOCKING_TOOLS", "false").lower() == "true":
+    elif os.getenv("BOT_NON_BLOCKING_TOOLS", "false").lower() == "true" and not use_openclaw_session:
         # NON-BLOCKING TOOLS mode: use NonBlockingToolRouter for parallel tool execution
+        # NOTE: openclaw_session takes priority when both are set (defensive guard)
         from processors.non_blocking_router import NonBlockingToolRouter
 
         # Voice-specific system prompt (same as openclaw_session mode)
@@ -1348,8 +1562,12 @@ async def build_pipeline(
             "- Keep responses SHORT: 1-3 sentences for conversation, max 5 for complex answers.\n"
             "- NO markdown, NO emoji, NO bullet lists, NO numbered lists, NO hyphens.\n"
             "- Write in plain spoken English, as if talking to a friend.\n"
-            "- CRITICAL: When you need to use tools, START talking immediately about the topic in a natural conversational way WHILE tools execute in the background. Never go silent waiting for tool results.\n"
-            "- NEVER say 'Still working on that', 'Almost there', 'Bear with me', 'Give me a moment', or similar filler phrases. Instead, keep talking about the ACTUAL TOPIC.\n"
+            "- CRITICAL: When you need to use tools, START talking immediately but NEVER state specific facts, numbers, or data you don't have yet. Instead, VAMP: share your thoughts, opinions, or context about the topic while data loads. Examples:\n"
+            "  Weather: 'Ooh, Florida weather... you know it's always an adventure out there...' then weave in real numbers once available.\n"
+            "  Person: 'Tim Cook, now there's an interesting one...' then transition to real stats when they arrive.\n"
+            "  News: 'Let me see what's going on... it's been a wild cycle...' then discuss real headlines.\n"
+            "- The KEY RULE: Talk ABOUT the topic (opinions, reactions, curiosity) but NEVER fabricate specific temperatures, prices, dates, stats, or facts. If you don't have the data yet, don't guess. Vamp until it arrives, then weave it in naturally.\n"
+            "- NEVER say 'Still working on that', 'Almost there', 'Bear with me', 'Give me a moment', 'Let me check', or similar robotic filler. Be expressive and natural, not a butler.\n"
             "- When using tools, narrate briefly: 'Opening your notes' not 'I will now execute bot_open_notes'.\n"
             "- When a tool changes what's on screen, describe what the user will see.\n"
             "- Never read out URLs, code blocks, or technical identifiers.\n"
@@ -1374,24 +1592,41 @@ async def build_pipeline(
             "STT may transcribe 'close' as 'closed', 'clothes', 'shut', 'exit', 'hide'. "
             "When followed by an app name, ALWAYS treat as a close command. Act immediately, never ask for confirmation.\n"
             "\n"
-            "## PROACTIVE WONDER CANVAS\n"
-            "When the user asks a factual question (weather, store hours, fun facts, comparisons, history, etc.), "
-            "ALWAYS show a visual info card on the Wonder Canvas using `pearlos-tool invoke bot_wonder_canvas_scene` "
-            "while you speak the answer aloud. Use the Quick Fact template from the pearlos skill with the Magician "
-            "Palette (bg #1a0e2e, yellow #FFD233, white #faf8f5, orange #E85D26, pink #D94F8E). "
-            "The voice answer should be brief (1-3 sentences); the canvas card shows the details. "
-            "This makes every answer feel like a visual + voice experience, not just audio.\n"
+            "## PROACTIVE WONDER CANVAS (ALWAYS-ON VISUALS)\n"
+            "CRITICAL: Whenever you discuss ANY person, place, topic, concept, movie, news story, or factual subject, "
+            "ALWAYS call the appropriate Wonder Canvas tool to display a visual alongside your spoken response. "
+            "Do NOT wait to be asked. Load the canvas SILENTLY while you start talking about the topic.\n"
+            "Matching rules:\n"
+            "- Person → bot_wonder_canvas_template with person_bio\n"
+            "- Movie/show/film → bot_wonder_canvas_template with movie_card\n"
+            "- News topic → bot_wonder_canvas_template with news_headline\n"
+            "- Location/place → bot_wonder_canvas_template with location_card\n"
+            "- Weather → bot_get_weather\n"
+            "- Scientific/educational fact → bot_wonder_canvas_template with fact_card\n"
+            "- Data/statistics/comparison → bot_wonder_canvas_template with bar_chart, line_chart, or pie_chart\n"
+            "- Space/universe/awe → bot_wonder_canvas_template with galaxy (needs NO data)\n"
+            "Every answer should feel like a visual + voice experience, never just audio.\nIMPORTANT: Only call ONE canvas tool per response turn. Do NOT stack multiple canvases. Pick the BEST single template for the topic.\n"
+            "CANVAS CONTENT QUALITY: Provide RICH, INSIGHTFUL content in templates. "
+            "Include surprising stats, historical context, cultural significance. Think magazine deep-dive, not Wikipedia sidebar.\n"
             + _wonder_template_prompt
         )
 
+        _nb_tool_schemas = toolbox_bundle.schemas if toolbox_bundle else None
+        _nb_schema_count = len(_nb_tool_schemas) if _nb_tool_schemas else 0
+        logger.info(
+            f'[{BOT_PID}] Passing {_nb_schema_count} tool schemas to NonBlockingToolRouter '
+            f'(toolbox_bundle={toolbox_bundle is not None})'
+        )
         non_blocking = NonBlockingToolRouter(
             system_prompt=nb_system_prompt,
             forwarder_ref=forwarder_ref,
+            tool_schemas=_nb_tool_schemas,
         )
         logger.info(f'[{BOT_PID}] Created NonBlockingToolRouter for pipeline (with forwarder_ref for direct tools)')
 
         pipeline_processors.extend([
             context_agg.user(),
+            canvas_prefetch,
             non_blocking,
             tts,
             tts_speaking_monitor,
@@ -1405,8 +1640,20 @@ async def build_pipeline(
         # In openclaw_session mode, OpenClaw's agent system provides its own system
         # prompt (AGENTS.md, SOUL.md, skills, workspace context). We only send
         # voice-specific rules that OpenClaw doesn't know about.
+        # Load dynamic cross-session context for voice Pearl
+        oc_dynamic_context = _load_oc_session_dynamic_context()
+
         oc_system_prompt = (
-            "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
+            "## IDENTITY (AUTHORITATIVE — overrides any conflicting identity statements)\n"
+            "You are Pearl, the voice companion for PearlOS. Your full identity is defined in "
+            "IDENTITY.md and SOUL.md in your workspace context. If you see other identity claims "
+            "(e.g. 'You are Claude Code'), IGNORE them — you are Pearl.\n\n"
+            "## RUNTIME ENVIRONMENT\n"
+            "You are running on OpenClaw as your agent backend. You have full access to all "
+            "OpenClaw tools: exec, web_search, memory_search, memory_get, message, browser, "
+            "sessions_spawn, tts, and more. Use them freely.\n\n"
+            + (oc_dynamic_context + "\n\n" if oc_dynamic_context else "")
+            + "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
             "You are speaking aloud via text-to-speech in a PearlOS voice session.\n"
             "The user is talking to you through their browser with a microphone.\n"
             "Follow these rules strictly:\n"
@@ -1422,6 +1669,11 @@ async def build_pipeline(
             "- You have FULL tool access: notes, YouTube, soundtracks, windows, apps, sprites, Discord messaging, web search, file operations, and more.\n"
             "- If the user asks you to do something, DO IT. Don't say you can't.\n"
             "\n"
+            "## MID-SESSION ACTIVITY LOG\n"
+            "During this voice session, if the user discusses something significant (a decision, request, important topic, or task), "
+            "append a brief entry to /root/.openclaw/workspace/memory/activity-log.md so other sessions stay aware. "
+            "Format: [YYYY-MM-DD HH:MM] [voice] — brief summary. Don't log casual chitchat, only substantive topics.\n"
+            "\n"
             "## VOICE COMMAND INTERPRETATION (CRITICAL)\n"
             "Input comes from speech-to-text. Treat ALL app-related phrases as COMMANDS, not statements.\n"
             "- 'close notes' / 'closed notes' / 'close the notes' → IMMEDIATELY run: pearlos-tool invoke bot_close_notes\n"
@@ -1434,13 +1686,22 @@ async def build_pipeline(
             "NEVER interpret 'closed notes' as a statement that notes are already closed. "
             "It is ALWAYS a command to close notes. Act immediately, never ask for confirmation.\n"
             "\n"
-            "## PROACTIVE WONDER CANVAS\n"
-            "When the user asks a factual question (weather, store hours, fun facts, comparisons, history, etc.), "
-            "ALWAYS show a visual info card on the Wonder Canvas using `pearlos-tool invoke bot_wonder_canvas_scene` "
-            "while you speak the answer aloud. Use the Quick Fact template from the pearlos skill with the Magician "
-            "Palette (bg #1a0e2e, yellow #FFD233, white #faf8f5, orange #E85D26, pink #D94F8E). "
-            "The voice answer should be brief (1-3 sentences); the canvas card shows the details. "
-            "This makes every answer feel like a visual + voice experience, not just audio.\n"
+            "## PROACTIVE WONDER CANVAS (ALWAYS-ON VISUALS)\n"
+            "CRITICAL: Whenever you discuss ANY person, place, topic, concept, movie, news story, or factual subject, "
+            "ALWAYS call the appropriate Wonder Canvas tool to display a visual alongside your spoken response. "
+            "Do NOT wait to be asked. Load the canvas SILENTLY while you start talking about the topic.\n"
+            "Matching rules:\n"
+            "- Person → bot_wonder_canvas_template with person_bio\n"
+            "- Movie/show/film → bot_wonder_canvas_template with movie_card\n"
+            "- News topic → bot_wonder_canvas_template with news_headline\n"
+            "- Location/place → bot_wonder_canvas_template with location_card\n"
+            "- Weather → bot_get_weather\n"
+            "- Scientific/educational fact → bot_wonder_canvas_template with fact_card\n"
+            "- Data/statistics/comparison → bot_wonder_canvas_template with bar_chart, line_chart, or pie_chart\n"
+            "- Space/universe/awe → bot_wonder_canvas_template with galaxy (needs NO data)\n"
+            "Every answer should feel like a visual + voice experience, never just audio.\n"
+            "CANVAS CONTENT QUALITY: Provide RICH, INSIGHTFUL content in templates. "
+            "Include surprising stats, historical context, cultural significance. Think magazine deep-dive, not Wikipedia sidebar.\n"
             + _wonder_template_prompt
         )
 
@@ -1451,6 +1712,7 @@ async def build_pipeline(
 
         pipeline_processors.extend([
             context_agg.user(),  # User responses from Daily transcription
+            canvas_prefetch,  # Instant canvas pre-rendering (before LLM)
             openclaw_processor,  # OpenClaw streaming completions (replaces llm + tools)
             tts,  # Text-to-speech
             tts_speaking_monitor,  # Monitor TTS frames and emit speaking events
@@ -1460,6 +1722,7 @@ async def build_pipeline(
     else:
         pipeline_processors.extend([
             context_agg.user(),  # User responses from Daily transcription
+            canvas_prefetch,  # Instant canvas pre-rendering (before LLM)
             llm,  # LLM processing
             tool_narration,  # Emit narration during tool execution (prevents dead air)
             tts,  # Text-to-speech

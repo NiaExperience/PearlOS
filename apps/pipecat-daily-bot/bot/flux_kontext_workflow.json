@@ -1,0 +1,73 @@
+{
+  "_comment": "Flux Kontext Dev GGUF - Single image edit. Reference images are VAE-encoded and chained via ReferenceLatent nodes on conditioning.",
+
+  "10": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": { "unet_name": "flux1-kontext-dev-Q5_k-marduk191.gguf" }
+  },
+  "11": {
+    "class_type": "DualCLIPLoader",
+    "inputs": { "clip_name1": "t5xxl_fp16.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux" }
+  },
+  "12": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" }
+  },
+
+  "20": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "input.png" }
+  },
+  "21": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": { "image": ["20", 0] }
+  },
+  "22": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["21", 0], "vae": ["12", 0] }
+  },
+
+  "30": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "Edit this image", "clip": ["11", 0] }
+  },
+  "31": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "", "clip": ["11", 0] }
+  },
+
+  "35": {
+    "class_type": "ReferenceLatent",
+    "inputs": { "conditioning": ["30", 0], "latent": ["22", 0] }
+  },
+
+  "40": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
+  },
+
+  "50": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["10", 0],
+      "positive": ["35", 0],
+      "negative": ["31", 0],
+      "latent_image": ["40", 0],
+      "seed": 42,
+      "steps": 28,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    }
+  },
+
+  "60": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["50", 0], "vae": ["12", 0] }
+  },
+  "70": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["60", 0], "filename_prefix": "ComfyUI" }
+  }
+}

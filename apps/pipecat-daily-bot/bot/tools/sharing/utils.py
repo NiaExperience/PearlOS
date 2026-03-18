@@ -265,7 +265,7 @@ async def get_user_shared_resources(
         raw_resources = []
     
         resources = await sharing_actions.get_resources_by_id(tenant_id, list(resource_index.keys()), content_type=content_type)
-        for resource in resources:
+        for resource in (resources or []):
             if resource:
                 # Inject sharing metadata so consumers know context
                 resource['_sharing'] = {

@@ -1,0 +1,86 @@
+name: build-web-base
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      context_path:
+        required: false
+        type: string
+      image_tag:
+        required: true
+        type: string
+    secrets:
+      SUBMODULE_PAT:
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      REGISTRY: 577124901432.dkr.ecr.us-east-2.amazonaws.com
+      REGISTRY_ID: 577124901432
+      AWS_REGION: us-east-2
+      IMAGE_TAG: ${{ inputs.image_tag }}
+    outputs:
+      web_base_image: ${{ steps.meta.outputs.web_base_image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUBMODULE_PAT != '' && secrets.SUBMODULE_PAT || github.token }}
+          submodules: recursive
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::577124901432:role/gha-eks-deployer
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repository exists (web base)
+        run: |
+          set -euo pipefail
+          aws ecr describe-repositories --registry-id $REGISTRY_ID --repository-names nia-web-base >/dev/null 2>&1 || \
+            aws ecr create-repository --registry-id $REGISTRY_ID --repository-name nia-web-base --image-scanning-configuration scanOnPush=true --image-tag-mutability IMMUTABLE
+
+      - name: Check if web base tag exists
+        id: check-tag
+        run: |
+          set -euo pipefail
+          IMAGE_URI="${REGISTRY}/nia-web-base:${IMAGE_TAG}"
+          if aws ecr describe-images --registry-id "$REGISTRY_ID" --repository-name nia-web-base --image-ids imageTag="${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+          echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+
+      - name: Login to ECR
+        if: steps.check-tag.outputs.exists != 'true'
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | \
+          docker login --username AWS --password-stdin $REGISTRY
+
+      - name: Set up Docker Buildx
+        if: steps.check-tag.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push web base
+        if: steps.check-tag.outputs.exists != 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context_path || '.' }}
+          file: apps/web-base/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/nia-web-base:${{ env.IMAGE_TAG }}
+
+      - name: Emit image output
+        id: meta
+        run: |
+          echo "web_base_image=${{ steps.check-tag.outputs.image_uri }}" >> $GITHUB_OUTPUT

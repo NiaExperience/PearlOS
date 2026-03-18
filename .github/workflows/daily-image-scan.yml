@@ -1,0 +1,450 @@
+name: daily-image-scan
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  push:
+    branches:
+      - fix-cron-scan
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run full builds or a sample-only dry run
+        type: choice
+        options:
+          - full
+          - sample
+        default: full
+
+permissions:
+  contents: read
+
+jobs:
+  scan-dashboard:
+    if: "${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'full' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Free disk space before build
+        run: |
+          docker system prune -af --volumes || true
+          sudo rm -rf /var/lib/docker/tmp/* || true
+          df -h
+
+      - name: Build shared web base (local)
+        run: |
+          docker build -f apps/web-base/Dockerfile -t nia-web-base:ci .
+          echo "✅ Web base image built (local tag: nia-web-base:ci)"
+
+      - name: Build Dashboard Docker image
+        run: |
+          docker build -f apps/dashboard/Dockerfile -t nia-dashboard:ci --build-arg WEB_BASE_IMAGE=nia-web-base:ci .
+          echo "✅ Dashboard Docker image built successfully"
+
+      - name: Aggressive disk reclaim before Trivy (dashboard)
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Prepare Trivy scratch space (dashboard)
+        run: |
+          export TRIVY_TEMP_DIR="${{ runner.temp }}/trivy-dashboard-tmp"
+          export TRIVY_CACHE_DIR="${{ runner.temp }}/trivy-dashboard-cache"
+          mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+          echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+          echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+      - name: Scan dashboard image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        env:
+          TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-dashboard-tmp
+          TMPDIR: ${{ runner.temp }}/trivy-dashboard-tmp
+          XDG_CACHE_HOME: ${{ runner.temp }}/trivy-dashboard-cache
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-dashboard-cache
+        with:
+          image-ref: nia-dashboard:ci
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+          cache: true
+          exit-code: '0'
+          timeout: 10m
+          scanners: vuln
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+          format: json
+          output: trivy-dashboard.json
+
+      - name: Clear Trivy cache to free space (dashboard)
+        run: |
+          rm -rf ${{ runner.temp }}/trivy-dashboard-cache || true
+          df -h
+
+      - name: Upload Trivy report (dashboard)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-dashboard
+          path: trivy-dashboard.json
+
+  scan-interface:
+    if: "${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'full' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Free disk space before build
+        run: |
+          docker system prune -af --volumes || true
+          sudo rm -rf /var/lib/docker/tmp/* || true
+          df -h
+
+      - name: Build shared web base (local)
+        run: |
+          docker build -f apps/web-base/Dockerfile -t nia-web-base:ci .
+          echo "✅ Web base image built (local tag: nia-web-base:ci)"
+
+      - name: Build Interface Docker image
+        run: |
+          docker build -f apps/interface/Dockerfile -t nia-interface:ci --build-arg WEB_BASE_IMAGE=nia-web-base:ci .
+          echo "✅ Interface Docker image built successfully"
+
+      - name: Aggressive disk reclaim before Trivy (interface)
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Prepare Trivy scratch space (interface)
+        run: |
+          export TRIVY_TEMP_DIR="${{ runner.temp }}/trivy-interface-tmp"
+          export TRIVY_CACHE_DIR="${{ runner.temp }}/trivy-interface-cache"
+          mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+          echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+          echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+      - name: Scan interface image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        env:
+          TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-interface-tmp
+          TMPDIR: ${{ runner.temp }}/trivy-interface-tmp
+          XDG_CACHE_HOME: ${{ runner.temp }}/trivy-interface-cache
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-interface-cache
+        with:
+          image-ref: nia-interface:ci
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+          cache: true
+          exit-code: '0'
+          timeout: 10m
+          scanners: vuln
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+          format: json
+          output: trivy-interface.json
+
+      - name: Clear Trivy cache to free space (interface)
+        run: |
+          rm -rf ${{ runner.temp }}/trivy-interface-cache || true
+          df -h
+
+      - name: Upload Trivy report (interface)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-interface
+          path: trivy-interface.json
+
+  scan-mesh:
+    if: "${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'full' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Free disk space before build
+        run: |
+          docker system prune -af --volumes || true
+          sudo rm -rf /var/lib/docker/tmp/* || true
+          df -h
+
+      - name: Build Mesh Docker image
+        run: |
+          docker build -f apps/mesh/Dockerfile -t nia-mesh:ci .
+          echo "✅ Mesh Docker image built successfully"
+
+      - name: Aggressive disk reclaim before Trivy (mesh)
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Prepare Trivy scratch space (mesh)
+        run: |
+          export TRIVY_TEMP_DIR="${{ runner.temp }}/trivy-mesh-tmp"
+          export TRIVY_CACHE_DIR="${{ runner.temp }}/trivy-mesh-cache"
+          mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+          echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+          echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+      - name: Scan mesh image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        env:
+          TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-mesh-tmp
+          TMPDIR: ${{ runner.temp }}/trivy-mesh-tmp
+          XDG_CACHE_HOME: ${{ runner.temp }}/trivy-mesh-cache
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-mesh-cache
+        with:
+          image-ref: nia-mesh:ci
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+          cache: true
+          exit-code: '0'
+          timeout: 10m
+          scanners: vuln
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+          format: json
+          output: trivy-mesh.json
+
+      - name: Clear Trivy cache to free space (mesh)
+        run: |
+          rm -rf ${{ runner.temp }}/trivy-mesh-cache || true
+          df -h
+
+      - name: Upload Trivy report (mesh)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-mesh
+          path: trivy-mesh.json
+
+  scan-pipecat:
+    if: "${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'full' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Pipecat Daily Bot image (server mode)
+        run: |
+          docker build -f apps/pipecat-daily-bot/Dockerfile -t pipecat-daily-bot:ci-server --build-arg MODE=server .
+          echo "✅ Pipecat Daily Bot (server) image built successfully"
+
+      - name: Aggressive disk reclaim before Trivy (pipecat)
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Prepare Trivy scratch space (pipecat)
+        run: |
+          export TRIVY_TEMP_DIR="${{ runner.temp }}/trivy-pipecat-tmp"
+          export TRIVY_CACHE_DIR="${{ runner.temp }}/trivy-pipecat-cache"
+          mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+          echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+          echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+      - name: Scan pipecat image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        env:
+          TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-pipecat-tmp
+          TMPDIR: ${{ runner.temp }}/trivy-pipecat-tmp
+          XDG_CACHE_HOME: ${{ runner.temp }}/trivy-pipecat-cache
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-pipecat-cache
+        with:
+          image-ref: pipecat-daily-bot:ci-server
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+          cache: true
+          exit-code: '0'
+          timeout: 10m
+          scanners: vuln
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+          format: json
+          output: trivy-pipecat.json
+
+      - name: Clear Trivy cache to free space (pipecat)
+        run: |
+          rm -rf ${{ runner.temp }}/trivy-pipecat-cache || true
+          df -h
+
+      - name: Upload Trivy report (pipecat)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-pipecat
+          path: trivy-pipecat.json
+
+  scan-kokoro:
+    if: "${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'full' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.NIAXP_PAT }}
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Kokoro TTS image
+        run: |
+          docker build -f apps/chorus-tts/Dockerfile -t kokoro-tts:ci apps/chorus-tts
+          echo "✅ Kokoro TTS image built successfully"
+
+      - name: Aggressive disk reclaim before Trivy (kokoro)
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Prepare Trivy scratch space (kokoro)
+        run: |
+          export TRIVY_TEMP_DIR="${{ runner.temp }}/trivy-kokoro-tmp"
+          export TRIVY_CACHE_DIR="${{ runner.temp }}/trivy-kokoro-cache"
+          mkdir -p "$TRIVY_TEMP_DIR" "$TRIVY_CACHE_DIR"
+          echo "TRIVY_TEMP_DIR=$TRIVY_TEMP_DIR" >> "$GITHUB_ENV"
+          echo "TRIVY_CACHE_DIR=$TRIVY_CACHE_DIR" >> "$GITHUB_ENV"
+
+      - name: Scan kokoro image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        env:
+          TRIVY_TEMP_DIR: ${{ runner.temp }}/trivy-kokoro-tmp
+          TMPDIR: ${{ runner.temp }}/trivy-kokoro-tmp
+          XDG_CACHE_HOME: ${{ runner.temp }}/trivy-kokoro-cache
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-kokoro-cache
+        with:
+          image-ref: kokoro-tts:ci
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+          cache: true
+          exit-code: '0'
+          timeout: 10m
+          scanners: vuln
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+          format: json
+          output: trivy-kokoro.json
+
+      - name: Clear Trivy cache to free space (kokoro)
+        run: |
+          rm -rf ${{ runner.temp }}/trivy-kokoro-cache || true
+          df -h
+
+      - name: Upload Trivy report (kokoro)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-kokoro
+          path: trivy-kokoro.json
+
+  aggregate-full:
+    if: "${{ github.event_name != 'workflow_dispatch' || inputs.mode == 'full' }}"
+    runs-on: ubuntu-latest
+    needs:
+      - scan-dashboard
+      - scan-interface
+      - scan-mesh
+      - scan-pipecat
+      - scan-kokoro
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download Trivy reports
+        uses: actions/download-artifact@v4
+        with:
+          path: trivy-reports
+
+      - name: Create issues for new vulnerabilities
+        env:
+          TRIVY_REPORTS: |
+            [
+              {"image":"nia-dashboard:ci","file":"trivy-dashboard.json"},
+              {"image":"nia-interface:ci","file":"trivy-interface.json"},
+              {"image":"nia-mesh:ci","file":"trivy-mesh.json"},
+              {"image":"pipecat-daily-bot:ci-server","file":"trivy-pipecat.json"},
+              {"image":"kokoro-tts:ci","file":"trivy-kokoro.json"}
+            ]
+        run: |
+          node scripts/security/trivy-issue-aggregator.mjs \
+            --input-dir trivy-reports \
+            --reports "$TRIVY_REPORTS"
+
+  sample-report:
+    if: "${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'sample' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download sample Trivy report
+        run: |
+          curl -fsSL "https://gist.githubusercontent.com/julianoborba/b1c8803f3e4e0eaa3c806f60652f4d08/raw/export-trivy-json-as-csv.txt" -o sample.txt
+
+      - name: Extract JSON payload
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const lines = fs.readFileSync('sample.txt', 'utf8').split('\n');
+          const start = lines.findIndex((line) => line.trim() === '# {');
+          const end = lines.findIndex((line, index) => index > start && line.trim() === '# }');
+          if (start === -1 || end === -1) {
+            throw new Error('Failed to locate JSON block in sample file.');
+          }
+          const jsonLines = lines.slice(start, end + 1).map((line) => line.replace(/^#\s?/, ''));
+          fs.writeFileSync('trivy-sample.json', `${jsonLines.join('\n')}\n`);
+          NODE
+
+      - name: Upload sample report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sample
+          path: trivy-sample.json
+
+  aggregate-sample:
+    if: "${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'sample' }}"
+    runs-on: ubuntu-latest
+    needs:
+      - sample-report
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download sample report
+        uses: actions/download-artifact@v4
+        with:
+          path: trivy-reports
+
+      - name: Dry-run issue aggregation
+        env:
+          TRIVY_REPORTS: |
+            [{"image":"sample-image","file":"trivy-sample.json"}]
+        run: |
+          node scripts/security/trivy-issue-aggregator.mjs \
+            --input-dir trivy-reports \
+            --reports "$TRIVY_REPORTS" \
+            --dry-run

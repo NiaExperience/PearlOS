@@ -1,0 +1,20 @@
+name: deploy-mesh
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - 'apps/mesh/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/deploy-mesh.yml'
+  workflow_dispatch:  # <-- manual trigger
+jobs:
+  mesh:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app_name: mesh
+      dockerfile_path: apps/mesh/Dockerfile
+      environment: prod
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read

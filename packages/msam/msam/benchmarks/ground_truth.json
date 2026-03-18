@@ -1,0 +1,332 @@
+{
+  "queries": [
+    {
+      "query": "What is Alex's job?",
+      "relevant_atom_ids": [
+        "7ebbd2d650973315",
+        "7426fd166e583a09",
+        "085737a5c7655566"
+      ],
+      "partial_atom_ids": [
+        "32c6a1a6ed756364",
+        "6179ceeb592807b7",
+        "ffcb840d3e3b4ce2",
+        "ede7287799323b7d",
+        "29fec4edb9c298ee"
+      ],
+      "relevant_count": 8,
+      "expected_empty": false
+    },
+    {
+      "query": "Where does Alex live?",
+      "relevant_atom_ids": [
+        "8c0ea16edbcbc943",
+        "085737a5c7655566"
+      ],
+      "partial_atom_ids": [
+        "3b695c762ec299e3"
+      ],
+      "relevant_count": 3,
+      "expected_empty": false
+    },
+    {
+      "query": "Tell me about Alex's family.",
+      "relevant_atom_ids": [
+        "af83af69f2fb76b4",
+        "a5098306373a8fa3",
+        "69edad12bb09bf33",
+        "4fbfc64af1f55328"
+      ],
+      "partial_atom_ids": [
+        "8c0ea16edbcbc943",
+        "ccd6cd14048f4905",
+        "8c694b93944c448f"
+      ],
+      "relevant_count": 7,
+      "expected_empty": false
+    },
+    {
+      "query": "What programming languages does Alex know?",
+      "relevant_atom_ids": [
+        "8ff6af341cba4338",
+        "32c6a1a6ed756364"
+      ],
+      "partial_atom_ids": [
+        "e3415c46bef11ddd",
+        "a7d930f9bdb7a713"
+      ],
+      "relevant_count": 4,
+      "expected_empty": false
+    },
+    {
+      "query": "Who is Jordan?",
+      "relevant_atom_ids": [
+        "69edad12bb09bf33",
+        "4fbfc64af1f55328"
+      ],
+      "partial_atom_ids": [
+        "1546f9076a633603",
+        "3fd46ae8779372cd",
+        "c03d951e7ba0626e"
+      ],
+      "relevant_count": 5,
+      "expected_empty": false
+    },
+    {
+      "query": "What are Alex's hobbies?",
+      "relevant_atom_ids": [
+        "6a5463b00367fe1c",
+        "b1d6c0244c839f4a",
+        "6dda6e9e65a16e7d",
+        "b7084a7b3f663e30",
+        "e53348591dfab51a"
+      ],
+      "partial_atom_ids": [
+        "e3415c46bef11ddd",
+        "39c4115e2f37d788"
+      ],
+      "relevant_count": 7,
+      "expected_empty": false
+    },
+    {
+      "query": "What happened in December 2025?",
+      "relevant_atom_ids": [
+        "42efdf40beb1d66c",
+        "bb87f411deb99211",
+        "4e968c1385d56bf1",
+        "6493a3b00a1b61bd",
+        "1546f9076a633603",
+        "ccd6cd14048f4905",
+        "98e11646776671e4"
+      ],
+      "partial_atom_ids": [
+        "39c4115e2f37d788",
+        "b0678d919a04c5c9",
+        "f7744f8564b8dd70"
+      ],
+      "relevant_count": 10,
+      "expected_empty": false
+    },
+    {
+      "query": "What happened recently at work?",
+      "relevant_atom_ids": [
+        "ede7287799323b7d",
+        "8ed3ebc6adb8a23f",
+        "29fec4edb9c298ee"
+      ],
+      "partial_atom_ids": [
+        "d26415f5db1488a8",
+        "97fd9ea025186b5b",
+        "022d5219d79aefb9"
+      ],
+      "relevant_count": 6,
+      "expected_empty": false
+    },
+    {
+      "query": "What did Alex do in November 2025?",
+      "relevant_atom_ids": [
+        "2e9bc6b78c33c331",
+        "09403ba0c632ede4",
+        "c70c117c3f02a4ad",
+        "3a99a3307fc7107f"
+      ],
+      "partial_atom_ids": [
+        "acc972cd6d9fac6d"
+      ],
+      "relevant_count": 5,
+      "expected_empty": false
+    },
+    {
+      "query": "How does Alex feel about work?",
+      "relevant_atom_ids": [
+        "42efdf40beb1d66c",
+        "5a9e916de3a6da64"
+      ],
+      "partial_atom_ids": [
+        "9f13324cbca4d124",
+        "6493a3b00a1b61bd",
+        "29fec4edb9c298ee"
+      ],
+      "relevant_count": 5,
+      "expected_empty": false
+    },
+    {
+      "query": "What makes Alex happy?",
+      "relevant_atom_ids": [
+        "4fbfc64af1f55328",
+        "6a5463b00367fe1c"
+      ],
+      "partial_atom_ids": [
+        "b7084a7b3f663e30",
+        "c70c117c3f02a4ad",
+        "ccd6cd14048f4905",
+        "69edad12bb09bf33"
+      ],
+      "relevant_count": 6,
+      "expected_empty": false
+    },
+    {
+      "query": "How does Alex deploy code?",
+      "relevant_atom_ids": [
+        "64a2cc4f5c174d15"
+      ],
+      "partial_atom_ids": [
+        "5dc1b1c2f45c3a07"
+      ],
+      "relevant_count": 2,
+      "expected_empty": false
+    },
+    {
+      "query": "What is Alex's morning routine?",
+      "relevant_atom_ids": [
+        "7e4bfdae0adf3884",
+        "cf8c153266a65d12"
+      ],
+      "partial_atom_ids": [
+        "88234550c121fcdc",
+        "0972c024bea4e7ce",
+        "76305d43291320e2"
+      ],
+      "relevant_count": 5,
+      "expected_empty": false
+    },
+    {
+      "query": "How does Alex practice guitar?",
+      "relevant_atom_ids": [
+        "5d74d71bb91b9968"
+      ],
+      "partial_atom_ids": [
+        "6a5463b00367fe1c",
+        "39c4115e2f37d788"
+      ],
+      "relevant_count": 3,
+      "expected_empty": false
+    },
+    {
+      "query": "How does Alex make sourdough bread?",
+      "relevant_atom_ids": [
+        "3c93c992f209146d"
+      ],
+      "partial_atom_ids": [
+        "e53348591dfab51a",
+        "3a99a3307fc7107f"
+      ],
+      "relevant_count": 3,
+      "expected_empty": false
+    },
+    {
+      "query": "What is the recipe for chocolate cake?",
+      "relevant_atom_ids": [],
+      "partial_atom_ids": [],
+      "relevant_count": 0,
+      "expected_empty": true
+    },
+    {
+      "query": "What is Alex's favorite movie?",
+      "relevant_atom_ids": [],
+      "partial_atom_ids": [],
+      "relevant_count": 0,
+      "expected_empty": true
+    },
+    {
+      "query": "Does Alex have children?",
+      "relevant_atom_ids": [],
+      "partial_atom_ids": [],
+      "relevant_count": 0,
+      "expected_empty": true
+    },
+    {
+      "query": "What car does Alex drive?",
+      "relevant_atom_ids": [],
+      "partial_atom_ids": [],
+      "relevant_count": 0,
+      "expected_empty": true
+    },
+    {
+      "query": "Does Alex still work at TechCorp?",
+      "relevant_atom_ids": [
+        "7ebbd2d650973315",
+        "7426fd166e583a09",
+        "98e11646776671e4",
+        "ede7287799323b7d"
+      ],
+      "partial_atom_ids": [
+        "6493a3b00a1b61bd",
+        "42efdf40beb1d66c"
+      ],
+      "relevant_count": 6,
+      "expected_empty": false
+    },
+    {
+      "query": "What is Alex's salary?",
+      "relevant_atom_ids": [
+        "6179ceeb592807b7",
+        "ffcb840d3e3b4ce2"
+      ],
+      "partial_atom_ids": [
+        "7426fd166e583a09"
+      ],
+      "relevant_count": 3,
+      "expected_empty": false
+    },
+    {
+      "query": "What is Alex working on right now?",
+      "relevant_atom_ids": [
+        "d26415f5db1488a8",
+        "022d5219d79aefb9",
+        "8ed3ebc6adb8a23f"
+      ],
+      "partial_atom_ids": [
+        "97fd9ea025186b5b",
+        "3c9a927912e80b06",
+        "862209e69da06387"
+      ],
+      "relevant_count": 6,
+      "expected_empty": false
+    },
+    {
+      "query": "What is Alex's schedule this week?",
+      "relevant_atom_ids": [
+        "97fd9ea025186b5b",
+        "ccb34e58e399b52d",
+        "3fd46ae8779372cd"
+      ],
+      "partial_atom_ids": [
+        "c03d951e7ba0626e",
+        "8c38ddc3b9526090",
+        "8c694b93944c448f",
+        "3cfd3c4667067b28"
+      ],
+      "relevant_count": 7,
+      "expected_empty": false
+    },
+    {
+      "query": "Who is Marcus?",
+      "relevant_atom_ids": [
+        "4ec6163c01e204b0"
+      ],
+      "partial_atom_ids": [
+        "3a99a3307fc7107f",
+        "3cfd3c4667067b28"
+      ],
+      "relevant_count": 3,
+      "expected_empty": false
+    },
+    {
+      "query": "How does Alex stay healthy?",
+      "relevant_atom_ids": [
+        "0972c024bea4e7ce",
+        "24cae0d7c7ea4186",
+        "24ddb9270ad53547"
+      ],
+      "partial_atom_ids": [
+        "d891fd9670e94ff1",
+        "b7084a7b3f663e30",
+        "76305d43291320e2",
+        "070e712d5b3e0a4d"
+      ],
+      "relevant_count": 7,
+      "expected_empty": false
+    }
+  ]
+}

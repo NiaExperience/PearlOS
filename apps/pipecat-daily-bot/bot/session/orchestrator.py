@@ -284,13 +284,45 @@ async def run_pipeline_session(
         log.warning(f'[{BOT_PID}] Failed to attach multi_user_aggregator to context_agg (non-fatal)')
 
     # 7. Lifecycle & Events
+    # Build a greeting state resetter for reconnection scenarios
+    def _reset_greeting_state():
+        try:
+            from flows import get_flow_greeting_state
+            st = get_flow_greeting_state(flow_manager, room_url)
+            st['greeted_user_ids'].clear()
+            st['greeting_speech_started'] = False
+            st['grace_participants'].clear()
+            t = st.get('grace_task')
+            if t and not t.done():
+                try:
+                    t.cancel()
+                except Exception:
+                    pass
+            st['grace_task'] = None
+            log.info(f"[{BOT_PID}] Greeting state reset for reconnection")
+        except Exception as e:
+            log.warning(f"[{BOT_PID}] Failed to reset greeting state: {e}")
+
     lifecycle = SessionLifecycle(
         managers.participant_manager,
         task,
         room_url=room_url,
         session_id=session_id,
         headless=headless,
+        greeting_state_resetter=_reset_greeting_state,
     )
+    
+    # Wire cancel_shutdown into SessionInfo so the gateway can cancel pending
+    # shutdowns when reusing this session (prevents first-session-silent bug).
+    try:
+        from runner_main import sessions
+        for _sid, _sinfo in sessions.items():
+            if _sinfo.room_url == room_url and not _sinfo.task.done():
+                _sinfo._cancel_shutdown = lifecycle.cancel_pending_shutdown
+                log.info(f"[{BOT_PID}] Wired cancel_shutdown to SessionInfo {_sid}")
+                break
+    except Exception as _wire_err:
+        log.warning(f"[{BOT_PID}] Could not wire cancel_shutdown to SessionInfo: {_wire_err}")
     
     # NOTE: Initial idle shutdown is now scheduled AFTER transport joins the room
     # (see transport "on_joined" handler below). This prevents race conditions where

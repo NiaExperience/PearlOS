@@ -34,28 +34,10 @@ else:
 
 DEFAULT_HTML_TOOL_PROMPTS: dict[str, str] = {
     'bot_create_app_from_description': (
-        "Request AI generation of an HTML applet/game/tool based on a description. "
-        "DO NOT use for sprite/character requests - use bot_summon_sprite instead for those. "
-        "The design, theme, gameplay and characters should be based on and informed by your "
-        "conversation with the user, but their answers should not be directly used in the experience. "
-        "Make a simple, turn-based, no-sound, 80s arcade style game that is genuinely fun, social, "
-        "and endlessly generative without feeling like a quiz or therapy. The user should be able to "
-        "make one move and then send it to someone else to complete or compete. "
-        "Examples: if the user answers artistically, generate a physics-defying graffiti wall; if the "
-        "users answers are collaborative, generate a magical wishing tree where others can post and "
-        "you affirm their wish with a Gen Z phrase; if they answer competitively, generate a hot-seat "
-        "arcade game where players take turns placing a single token on a glowing board, flipping nearby "
-        "enemy tiles to their color and instantly changing the score. "
-        "Think of it like the user is Player 1 who boots a strange arcade machine and sets its internal "
-        "logic (unknowingly) and when they send it to multiple Player 2s, those players briefly get the "
-        "joystick and interact with the system before it locks. Player 2s can send with their updates "
-        "back to Player 1 or forward on to multiple Player 3s. There should be no instructions or text in "
-        "the gameplay, the interaction must be obvious by the visual design affordance. The payoff for "
-        "each player must be hilarious to Gen Z audiences and deliver a gorgeous screenshot-able final "
-        "visual. All visuals must fit on a single standard mobile screen and not require any scrolling. "
-        "Use this when the user asks you to CREATE a new app, game, or interactive tool. "
-        "You only need to provide a title and description - the AI will generate the full HTML. "
-        "This is the PRIMARY tool for creating new HTML content from user requests."
+        "Generate an HTML applet, game, or interactive tool from a description. "
+        "Provide a title and description; the AI generates the full HTML. "
+        "NOT for sprites/characters (use bot_summon_sprite). "
+        "PRIMARY tool for creating new HTML content from user requests."
         + LIBRARY_TEMPLATE_GUIDANCE
     ),
     'bot_create_html_content': (

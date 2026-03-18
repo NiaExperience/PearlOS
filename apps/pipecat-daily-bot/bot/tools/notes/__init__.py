@@ -22,6 +22,15 @@ from .content import (
     add_note_content_handler as bot_add_note_content,
     remove_note_content_handler as bot_remove_note_content,
 )
+from .view_control import (
+    scroll_note_handler,
+    highlight_note_text_handler,
+    navigate_note_heading_handler,
+    # Implementations
+    bot_scroll_note,
+    bot_highlight_note_text,
+    bot_navigate_note_heading,
+)
 from .navigation import (
     list_notes_handler,
     open_note_handler,
@@ -71,4 +80,13 @@ __all__ = [
     "bot_switch_note_mode",
     "bot_back_to_notes",
     "bot_download_note",
+    
+    # View Control Handlers
+    "scroll_note_handler",
+    "highlight_note_text_handler",
+    "navigate_note_heading_handler",
+    # View Control Implementations
+    "bot_scroll_note",
+    "bot_highlight_note_text",
+    "bot_navigate_note_heading",
 ]

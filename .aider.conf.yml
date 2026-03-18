@@ -1,0 +1,79 @@
+# Aider Configuration for Nia Universal
+# https://aider.chat/docs/config.html
+
+# Model settings
+model: gpt-4
+edit-format: diff
+
+# Context files to load at session start (minimal for token efficiency)
+read:
+  - .github/instructions/QUICK_REFERENCE.md
+  - .github/instructions/AI_SESSION_BOOTSTRAP.instructions.md
+
+# Load these only when needed (ask AI to load specific file):
+# - .github/instructions/ARCHITECTURE.reference.md (platform architecture)
+# - .github/instructions/DEVELOPMENT.reference.md (testing, PRs, CI/CD)
+# - .github/instructions/PIPECAT_BOT.reference.md (voice bot patterns)
+# - .github/instructions/FRONTEND_EVENTS.reference.md (event system)
+# - .github/instructions/LOCALSTORAGE.reference.md (client storage)
+# - .github/instructions/DOMAIN_SPECIFIC.reference.md (new patterns)
+
+# Full documentation (load on-demand only):
+# - ARCHITECTURE.md (complete platform architecture)
+# - DEVELOPER_GUIDE.md (comprehensive development guide)
+# - README.testing.md (full testing documentation)
+
+# Project-specific instructions
+instructions: |
+  You are working on Nia Universal, a monorepo with Next.js apps and Python services.
+  
+  CRITICAL RULES:
+  - Plan first for non-trivial tasks (create mental TODO list)
+  - NEVER use --workspaces with Jest commands
+  - packages/* must NOT import from apps/*
+  - Always run tests after changes: npm test
+  - No secrets or PII in logs
+  - Gate new features with @nia/features feature flags
+  - Use Prism for data access, avoid raw storage queries
+  
+  Default target branch: staging
+  PR template: PULL_REQUEST_TEMPLATE.md
+  
+  When working on specific areas, load appropriate reference files:
+  - Architecture: .github/instructions/ARCHITECTURE.reference.md
+  - Testing/PRs: .github/instructions/DEVELOPMENT.reference.md
+  - Pipecat bot: .github/instructions/PIPECAT_BOT.reference.md
+  - CustomEvent: .github/instructions/FRONTEND_EVENTS.reference.md
+  - localStorage: .github/instructions/LOCALSTORAGE.reference.md
+  
+  Quality gates (must pass):
+  - npm run build
+  - npm run build:types
+  - npm run lint
+  - npm test (or targeted tests)
+
+# Git settings
+git: true
+dirty-commits: false
+commit-prompt: |
+  Write a clear commit message following conventional commits format:
+  
+  type(scope): subject
+  
+  body (optional)
+  
+  Types: feat, fix, docs, style, refactor, test, chore
+  Keep subject under 72 characters.
+
+# Auto-commit after changes
+auto-commits: true
+
+# Show diffs before applying
+show-diffs: true
+
+# Cache settings
+cache-prompts: true
+
+# Misc
+pretty: true
+stream: true

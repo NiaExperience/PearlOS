@@ -6,6 +6,11 @@ import { getLogger } from '@interface/lib/logger';
 const logger = getLogger('YouTubeRoute');
 
 const DEFAULT_INVIDIOUS_INSTANCE = 'https://vid.puffyan.us';
+const INVIDIOUS_FALLBACKS = [
+  'https://inv.tux.pizza',
+  'https://invidious.privacyredirect.com',
+  'https://vid.puffyan.us',
+];
 
 /** Invidious search result item (video type). */
 interface InvidiousVideoItem {
@@ -46,23 +51,39 @@ async function searchViaInvidious(queryEnc: string): Promise<{
   videos: Array<{ videoId: string; title: string; description: string; thumbnail: string; channelTitle: string; publishedAt: string }>;
   totalResults: number;
 }> {
-  const base =
-    (process.env.YOUTUBE_INVIDIOUS_INSTANCE ?? DEFAULT_INVIDIOUS_INSTANCE).replace(/\/$/, '');
-  const url = `${base}/api/v1/search?q=${queryEnc}&type=video`;
-  const response = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(15000) });
-  if (!response.ok) {
-    throw new Error(`Invidious search error: ${response.status}`);
+  const configuredInstance = process.env.YOUTUBE_INVIDIOUS_INSTANCE;
+  const instances = configuredInstance
+    ? [configuredInstance, ...INVIDIOUS_FALLBACKS]
+    : INVIDIOUS_FALLBACKS;
+  // Deduplicate
+  const uniqueInstances = [...new Set(instances.map(i => i.replace(/\/$/, '')))];
+
+  let lastError: Error | null = null;
+  for (const base of uniqueInstances) {
+    try {
+      const url = `${base}/api/v1/search?q=${queryEnc}&type=video`;
+      const response = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(8000) });
+      if (!response.ok) {
+        lastError = new Error(`Invidious search error: ${response.status} from ${base}`);
+        continue;
+      }
+      const data = (await response.json()) as InvidiousVideoItem[];
+      if (!Array.isArray(data)) {
+        lastError = new Error('Invalid Invidious search response');
+        continue;
+      }
+      const videoItems = data.filter((item: InvidiousVideoItem) => item.type === 'video' && item.videoId);
+      const videos = videoItems
+        .slice(0, 5)
+        .map(normalizeInvidiousToVideo)
+        .filter((v) => v.videoId);
+      return { videos, totalResults: videoItems.length };
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      logger.warn(`Invidious instance ${base} failed`, { error: lastError.message });
+    }
   }
-  const data = (await response.json()) as InvidiousVideoItem[];
-  if (!Array.isArray(data)) {
-    throw new Error('Invalid Invidious search response');
-  }
-  const videoItems = data.filter((item: InvidiousVideoItem) => item.type === 'video' && item.videoId);
-  const videos = videoItems
-    .slice(0, 5)
-    .map(normalizeInvidiousToVideo)
-    .filter((v) => v.videoId);
-  return { videos, totalResults: videoItems.length };
+  throw lastError || new Error('All Invidious instances failed');
 }
 
 export async function GET_impl(req: NextRequest) {

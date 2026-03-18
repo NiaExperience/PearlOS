@@ -1,0 +1,22 @@
+name: deploy-interface
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - 'apps/interface/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/deploy-interface.yml'
+  workflow_dispatch:  # <-- manual trigger
+jobs:
+  interface:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app_name: interface
+      dockerfile_path: apps/interface/Dockerfile
+      environment: prod
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read
+    secrets:
+      NEXT_PUBLIC_API_URL:        ${{ secrets.NEXT_PUBLIC_API_URL }}

@@ -28,6 +28,9 @@ try:
     NOTE_SAVED = EventId.NOTE_SAVED.value
     NOTE_DOWNLOAD = EventId.NOTE_DOWNLOAD.value
     NOTE_DELETED = EventId.NOTE_DELETED.value
+    NOTE_SCROLL = EventId.NOTE_SCROLL.value
+    NOTE_HIGHLIGHT = EventId.NOTE_HIGHLIGHT.value
+    NOTE_NAVIGATE_HEADING = EventId.NOTE_NAVIGATE_HEADING.value
     NOTE_MODE_SWITCH = EventId.NOTE_MODE_SWITCH.value
     NOTES_REFRESH = EventId.NOTES_REFRESH.value
     NOTES_LIST = EventId.NOTES_LIST.value
@@ -76,6 +79,11 @@ try:
     WONDER_CANVAS_ANIMATE = 'wonder.animate'
     WONDER_CANVAS_AVATAR_HINT = 'wonder.avatar_hint'
     
+    # Note Control Events (bot-specific, not in nia_events yet)
+    NOTE_SCROLL = 'note.scroll'
+    NOTE_HIGHLIGHT = 'note.highlight'
+    NOTE_HIGHLIGHT_CLEAR = 'note.highlight.clear'
+
     # Applet Events (from nia_events)
     APPLET_OPEN = EventId.APPLET_OPEN.value
     APPLET_CLOSE = EventId.APPLET_CLOSE.value
@@ -99,6 +107,9 @@ except ImportError:
     NOTE_SAVED = 'note.saved'
     NOTE_DOWNLOAD = 'note.download'
     NOTE_DELETED = 'note.deleted'
+    NOTE_SCROLL = 'note.scroll'
+    NOTE_HIGHLIGHT = 'note.highlight'
+    NOTE_NAVIGATE_HEADING = 'note.navigate.heading'
     NOTE_MODE_SWITCH = 'note.mode.switch'
     NOTES_REFRESH = 'notes.refresh'
     NOTES_LIST = 'notes.list'
@@ -130,6 +141,9 @@ except ImportError:
     WONDER_CANVAS_CLEAR = 'wonder.clear'
     WONDER_CANVAS_ANIMATE = 'wonder.animate'
     WONDER_CANVAS_AVATAR_HINT = 'wonder.avatar_hint'
+    NOTE_SCROLL = 'note.scroll'
+    NOTE_HIGHLIGHT = 'note.highlight'
+    NOTE_HIGHLIGHT_CLEAR = 'note.highlight.clear'
     APPLET_OPEN = 'applet.open'
     APPLET_CLOSE = 'applet.close'
     APPLET_UPDATED = 'applet.updated'

@@ -6,6 +6,8 @@ import Image from 'next/image';
  import { requestWindowOpen } from '@interface/features/ManeuverableWindow/lib/windowLifecycleController';
  import { trackSessionHistory } from '@interface/lib/session-history';
 import { getClientLogger } from '@interface/lib/client-logger';
+import { buildNewsHTML } from '@interface/lib/news-app-html';
+import { NIA_EVENT_WONDER_SCENE } from '@interface/features/Stage/WonderCanvas/WonderCanvasRenderer';
  
  import { DesktopMode, type DesktopModeSwitchResponse } from '../types/desktop-modes';
  import ModeCard from './mode-card';
@@ -217,6 +219,14 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
     setTimeout(() => setClickedBuilding(null), 300);
     // Switch to WORK mode and open The News
     dispatchDesktopModeSwitch(DesktopMode.WORK, 'user_click_pearlnews_cutout');
+    // Actually launch the news app on Wonder Canvas
+    window.dispatchEvent(
+      new CustomEvent(NIA_EVENT_WONDER_SCENE, {
+        detail: { payload: { html: buildNewsHTML(), layer: 'main', transition: 'fade' } },
+      })
+    );
+    // Fire nia:request.news so the bot/backend can populate with real headlines
+    window.dispatchEvent(new CustomEvent('nia:request.news', { detail: {} }));
     trackSessionHistory('Opened The News from Pearl News building').catch(() => {});
   }, [dispatchDesktopModeSwitch]);
 

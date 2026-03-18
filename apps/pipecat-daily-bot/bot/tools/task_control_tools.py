@@ -7,7 +7,7 @@ import logging
 import aiohttp
 from typing import Literal
 
-from bot.tools.base import bot_tool
+from tools.decorators import bot_tool
 
 logger = logging.getLogger(__name__)
 

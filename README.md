@@ -1,11 +1,12 @@
 <div align="center">
 
-<!-- ![PearlOS Logo](docs/screenshots/Pearllogo.png) -->
-<img src="docs/screenshots/Pearllogo.png" alt="PearlOS Logo" width="400" />
+<!-- Logo placeholder -->
 
-**Your Intelligent Environment, In Any Browser.**
+# PearlOS
 
-<!-- *PearlOS is always thinking. Always learning. Always here to help you.* -->
+**Your AI-native personal operating system.**
+
+*Pearl is always ready. Always responsive. Always here to help.*
 
 [![License: PSAL-NC](https://img.shields.io/badge/License-PSAL--NC-purple.svg)](./LICENSE)
 [![Discord](https://img.shields.io/discord/placeholder?label=🌌%20PEARL%20VILLAGE&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/gcba4gb6kz)
@@ -14,101 +15,11 @@
 
 ---
 
-PearlOS is an intelligent environment that runs in your browser. The AI isn't an app you open, it IS the interface. Talk to it, tap it, let it handle things. Phone, tablet, laptop, whatever. Pearl has memory, awareness, and control of your visual and audio experience, spins up swarms of intelligence for complex tasks, and gets better the more you use it.
+PearlOS is a browser-based, voice-first desktop environment powered by an AI companion named Pearl. Pearl has full awareness and control of your visual and audio experience inside PearlOS in real time, so you can think out loud, ask for anything, and watch your desktop respond. It is not an assistant embedded in a UI. It is the UI.
 
 <div align="center">
 
 [Website](https://pearlos.org) &nbsp;|&nbsp; [Getting Started](#quick-start) &nbsp;|&nbsp; [🌌 Pearl Village (Discord)](https://discord.gg/gcba4gb6kz) &nbsp;|&nbsp; [GitHub](https://github.com/NiaExperience/PearlOS)
-
-</div>
-
----
-
-## Features
-
-*PearlOS brings a lot to the table. Here's what you can explore:*
-
-### Conversation & Memory
-
-
-- 🎤 **Voice Companion** - Full voice conversations via PearlOS, like talking to a friend who actually helps
-- 🤝 **Conversation Etiquette** - Knows when to talk and when to shut up. Reactions over noise
-- 🧠 **Persistent Memory** - Remembers across sessions. Daily logs, long-term memory, cross-session sync
-- ✨ **Actual Personality** - Opinions, humor, warmth, and zero "I'd be happy to help!" energy
-- 💬 **Multi-Channel Chat** - Discord, Telegram, Signal, WhatsApp, iMessage, Slack, IRC, all from one brain
-- 🔄 **Cross-Session Awareness** - Discord me knows what voice me just did. One entity, many surfaces
-- 🔍 **Memory Search** - Semantic search across all memory files for instant context recall
-
-
-### Automation & Tools
-
-- 🤖 **Sub-Agent Swarms** - Spawn background workers for heavy tasks, get pinged when they finish
-- 🔗 **Node Control** - Camera snaps, screen recording, location, and remote commands on paired devices
-- ⏰ **Cron & Reminders** - Schedule anything: one-shot reminders, recurring jobs, timed agent runs
-- 🌐 **Research & Act** - Search the web, fetch content, then do something with it: build, email, summarize, deploy
-- 🖥️ **Browser Automation** - Full browser control for scraping, testing, or navigating complex sites
-- 💻 **Shell Access** - Run commands, manage processes, deploy services, debug live systems
-- 📁 **File Operations** - Read, write, edit files across the workspace by Voice. Git commits included
-- 🪄 **Frontend Design** - Build production-grade web UIs from descriptions, mockups, screenshots, or vibes
-- 📺 **Real-Time Desktop Content** - Weather, news, visuals, and interactive scenes rendered live on the PearlOS desktop
-- 📧 **Email** - Send emails directly, no app switching required
-
-### Intelligence & Flexibility
-
-- ⚙️ **Skill System** - Skills for weather, image gen, transcription, coding agents, and more. She uses them and builds new ones herself
-- 🎨 **Image Generation** - Create images from prompts (e.g. via OpenAI), built into the environment
-- 🖼️ **Image Analysis** - Vision model for analyzing screenshots, photos, diagrams, whatever
-- 📊 **Model Flexibility** - Sonnet for quick stuff, Opus for heavy lifting, swap on the fly
-- ❤️ **Proactive Heartbeats** - Checks on its own: emails, services, calendar, anything worth flagging
-- 🛡️ **Service Health Monitoring** - Auto-detect downed PearlOS services and restart them
-
-### Your Stack
-
-- 🏠 **Runs Locally** - Full stack on your machine with your own API keys. No cloud lock-in.
-
----
-
-## Screenshots
-
-<div align="center">
-
-<table border="0" cellspacing="0" cellpadding="0">
-<tr>
-<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
-
-### Desktop Interface
-
-![PearlOS Desktop](docs/screenshots/ss2.png)
-
-*PearlOS desktop with application icons, chat interface, and pixel-art fantasy forest background*
-
-</td>
-<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
-
-### Task Management
-
-![Task Management](docs/screenshots/ss3.png)
-
-*Real-time task tracking with job status, progress indicators, and active work monitoring*
-
-</td>
-<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
-
-### Dashboard & Analytics
-
-![Visualization for Data Dashboard](docs/screenshots/ss1.png)
-
-*Interactive dashboard showing stock performance analysis with Pearl's AI-powered insights*
-
-</td>
-</tr>
-</table>
-
-<!-- ### Custom Background Generation
-
-![Custom Background Generation](docs/screenshots/ss4.png)
-
-*AI-powered custom background generation allowing Pearl to create personalized desktop backgrounds on demand* -->
 
 </div>
 
@@ -123,7 +34,7 @@ PearlOS ships with setup scripts that handle everything: dependencies, environme
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-bash scripts/root/new-setup.sh
+bash scripts/new-setup.sh
 ```
 
 The wizard walks you through preset selection (full, minimal, or custom), installs all dependencies (Node, Python, Poetry, uv), creates `.env` files with API key placeholders, seeds the database, and configures the voice bot. It works on Linux, macOS, and Windows (via Git Bash/WSL).
@@ -131,7 +42,7 @@ The wizard walks you through preset selection (full, minimal, or custom), instal
 You can also run it non-interactively:
 
 ```bash
-bash scripts/root/new-setup.sh --preset full --non-interactive
+bash scripts/new-setup.sh --preset full --non-interactive
 ```
 
 ### Option 2: Classic Setup Script
@@ -139,7 +50,7 @@ bash scripts/root/new-setup.sh --preset full --non-interactive
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-bash scripts/root/setup.sh
+bash scripts/setup.sh
 ```
 
 This runs the full setup in one shot. After it finishes, add your API keys to `.env.local` and run:
@@ -216,6 +127,23 @@ PearlOS is three cooperating services. The browser UI talks to the voice bot via
 
 ---
 
+## Features
+
+- **Voice-first AI companion.** Pearl listens and responds in real time using a full WebRTC voice pipeline. No button mashing required.
+- **Full browser desktop environment.** Windowed apps, a taskbar, draggable and resizable panels, and a coherent desktop metaphor all running in the browser.
+- **Wonder Canvas.** A rich, AI-driven canvas layer where Pearl can surface visual content, generated imagery, and interactive displays.
+- **Notes app.** Markdown-powered notes that Pearl can create, edit, and read back to you mid-conversation.
+- **YouTube integration.** Pearl can queue, play, and control YouTube video inside the desktop.
+- **Soundtrack system.** Ambient and contextual background music that Pearl manages based on your activity or on request.
+- **Sprite system.** Animated character overlays that Pearl controls for expressive, visual presence on screen.
+- **50+ bot tools.** Pearl has access to a comprehensive tool library covering every major system action (see [Bot Tools](#bot-tools)).
+- **Feature flag system.** Toggle capabilities on or off at the user or environment level without redeploying.
+- **Mobile-first responsive design.** Works on phones and tablets, not just widescreen desktops.
+- **PocketTTS voice.** Pearl speaks with a custom TTS voice (Azelma) via PocketTTS for a consistent, distinctive personality.
+- **Monorepo architecture.** Three cleanly separated services that are easy to run locally or deploy independently.
+
+---
+
 ## Port Map
 
 | Service | Directory | Port | Description |
@@ -263,12 +191,6 @@ Pipecat handles the conversation orchestration layer: VAD (voice activity detect
 
 PearlOS ships with a set of built-in apps that Pearl can open, control, and interact with on your behalf:
 
-<div align="center">
-
-![Desktop Apps](docs/screenshots/desktop-apps.png)
-
-</div>
-
 | App | Description |
 |---|---|
 | Wonder Canvas | AI-generated visual content, images, and rich displays |
@@ -289,25 +211,34 @@ Pearl has access to 50+ tools organized into functional categories. These tools 
 
 ### Categories
 
-- **🖥️ Desktop and Window Management**
+**Desktop and Window Management**
 Open, close, focus, resize, and arrange app windows. Control the taskbar and desktop layout.
-- **🪄 Wonder Canvas**
+
+**Wonder Canvas**
 Generate and display visual content. Set canvas modes, push images, control transitions.
-- **📝 Notes**
+
+**Notes**
 Create notes, read notes, edit content, search across notes, delete notes.
-- **📺 YouTube**
+
+**YouTube**
 Search YouTube, queue videos, play, pause, skip, seek, control volume.
-- **🎵 Soundtrack**
+
+**Soundtrack**
 Select ambient tracks, adjust volume, fade in/out, pause, resume playback.
-- **🎭 Sprite System**
+
+**Sprite System**
 Set sprite poses, expressions, and animations. Show or hide the overlay character.
-- **🚩 Feature Flags**
+
+**Feature Flags**
 Enable or disable feature flags at runtime without redeployment.
-- **⚡ System and UI**
+
+**System and UI**
 Send notifications, update status displays, navigate between views, trigger UI events.
-- **💬 Conversation and Memory**
+
+**Conversation and Memory**
 Read session context, set reminders, recall prior topics, manage conversation state.
-- **🌐 External Integrations**
+
+**External Integrations**
 Fetch web content, query external APIs, retrieve structured data.
 
 ---
@@ -400,9 +331,11 @@ PearlOS/
 │       └── .env.example
 │
 ├── packages/                   # Shared packages (types, utils)
-├── pnpm-workspace.yaml
+├── tests/                     # Test infrastructure (Jest, Cypress, load tests)
+├── scripts/                   # Dev, setup, and CI scripts
+├── config/                    # Configuration examples
+├── pearl-docs/                # Full project documentation
 ├── package.json
-├── .github/CONTRIBUTING.md
 └── README.md
 ```
 
@@ -417,20 +350,6 @@ PearlOS is open source and built in the open. Contributions, issues, and ideas a
 - **Discussion:** Join the community on [Discord](https://discord.gg/gcba4gb6kz).
 
 Built by Nia Holdings and the PearlOS community.
-
----
-
-## A Quick Note from the Dev Team
-
-PearlOS is a self-evolving operating system. You talk to Pearl in PearlOS, she builds, creates, informs, learns, evolves. This is an open source browser-based, voice and touch desktop environment powered by an intelligent learning companion named Pearl. Pearl has full awareness and control of your visual and audio experience inside PearlOS in real time, so you can think out loud, ask for anything, and watch your desktop respond. She is not an assistant embedded in a UI. She is the UI. Over time she improves understanding how you work and adapts.
-
-We're a small team (NiaXP) and this is a very early access. We want you to help us grow Pearl together. She still has rough edges everywhere. But she is full of possibility. Plus something we believe is a first: Whenever you encounter a bug in our OS, you tell her what you wanted her to do instead. Immediately Pearl dispatches the swarm intelligence to investigate, improve, and evolve the OS code to adapt to you. Our hope is that by making it incredibly easy to build on this open source experience, anyone and everyone can become contributors to a code base run by people all over the world.
-
-Our stack is fully open source: Next.js frontend, OpenClaw agent framework, Pipecat voice pipeline (Deepgram STT, PocketTTS running locally), Daily.co WebRTC. 70+ tools. Everything runs local first with your own keys. The reason this matters: we're at a moment where AI is already being used against the public to benefit a small group of powerful individuals. PearlOS is a complete reimagining of how the same technology which can be used to exploit humanity can instead be used to liberate us. This isn't a product demo or a research paper; it's a working canvas for people all over the world to build just by using their voice.
-
-The goal isn't just transparency. We intend to grow a community of developers, designers, creators, scientists, artists, and innovators who take this foundation and make the power of good intelligence accessible to all.
-
-More info: https://pearlos.org/hello
 
 ---
 

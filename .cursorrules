@@ -1,0 +1,148 @@
+# Nia Universal - Cursor IDE Rules
+
+This file provides Cursor-specific AI assistant rules for the Nia Universal monorepo.
+Cursor automatically loads this file to configure AI behavior.
+
+## Core Instructions
+
+**Load minimal context first. Load detailed references only when needed.**
+
+Load these files at session start (in order):
+
+1. `.github/instructions/QUICK_REFERENCE.md` - **Start here** (essential rules)
+2. `.github/instructions/AI_SESSION_BOOTSTRAP.instructions.md` - Bootstrap protocol
+
+**Load reference guides only when working on specific areas**:
+
+- Architecture: `.github/instructions/ARCHITECTURE.reference.md`
+- Testing/PRs: `.github/instructions/DEVELOPMENT.reference.md`
+- Pipecat bot: `.github/instructions/PIPECAT_BOT.reference.md`
+- CustomEvent: `.github/instructions/FRONTEND_EVENTS.reference.md`
+- localStorage: `.github/instructions/LOCALSTORAGE.reference.md`
+- New patterns: `.github/instructions/DOMAIN_SPECIFIC.reference.md`
+
+**Full documentation** (load on-demand only):
+
+- Complete architecture: `pearl-docs/architecture/ARCHITECTURE.md`
+- Complete development guide: `pearl-docs/development/DEVELOPER_GUIDE.md`
+- Full testing docs: `pearl-docs/development/README.testing.md`
+
+## Domain-Specific Rules
+
+**Only load when working on specific areas**:
+
+- **Pipecat bot** (`apps/pipecat-daily-bot/`): `.github/instructions/PIPECAT_BOT.reference.md`
+- **Cross-component events** (CustomEvent usage): `.github/instructions/FRONTEND_EVENTS.reference.md`
+- **Client persistence** (localStorage usage): `.github/instructions/LOCALSTORAGE.reference.md`
+- **Code quality** (always): `.github/instructions/codacy.instructions.md`
+
+## Key Principles (Quick Reference)
+
+### Planning
+
+- **Always plan first** for non-trivial tasks (multiple steps, multiple files)
+- Create TODO list, mark items in-progress one at a time
+- For trivial tasks (single file, <10 lines), just do it
+
+### Code Changes
+
+- **No secrets or PII in logs** - always redact sensitive data
+- **No deep cross-feature imports** - use barrel exports
+- **Feature flags required** - gate new features with `@nia/features`
+- **Events need descriptors** - update JSON descriptors before emitting
+- **Prism for data access** - use `packages/prism`, avoid raw storage queries
+
+### Testing
+
+- Run tests after changes: `npm test` or targeted with `npm run test:js -- --runTestsByPath <path>`
+- **NEVER use `--workspaces` with Jest** (monorepo rule)
+- E2E tests: `npm run test:e2e` or `npm run cypress:open`
+- Quality gates: build, types, lint, tests must pass before completion
+
+### Branching & PRs
+
+- Default target branch: `staging`
+- Use PR template at `PULL_REQUEST_TEMPLATE.md`
+- Check divergence before final push
+- Include test results and quality gate status
+
+## Monorepo Structure
+
+```text
+apps/
+  interface/        - Next.js frontend (features in src/features/<Name>)
+  dashboard/        - Admin dashboard
+  mesh/            - GraphQL API server (default: localhost:2000/graphql)
+  pipecat-daily-bot/ - Python FastAPI voice bot
+
+packages/
+  prism/           - Data access client library
+  features/        - Feature flags system
+  events/          - Event descriptors and codegen
+```
+
+**Rule**: `packages/*` must NOT import from `apps/*` (maintain layering)
+
+## Common Commands
+
+```bash
+# Development
+npm run start:all                    # Start all apps
+npm run --workspace=interface dev    # Start specific app
+
+# Testing
+npm test                            # All tests
+npm run test:js -- --runTestsByPath <path>  # Targeted unit tests
+npm run test:e2e                    # E2E tests (Cypress)
+npm run test:perf                   # Performance tests
+
+# Quality
+npm run build                       # Build all apps
+npm run build:types                 # Type check
+npm run lint                        # Lint check
+npm run sync:ai-protocol            # Sync AI instructions (after protocol changes)
+
+# Database (local)
+npm run pg:start                    # Start PostgreSQL + clone AWS
+npm run pg:stop                     # Stop and archive
+```
+
+## Anti-Patterns (Don't Do This)
+
+❌ Use `--workspaces` with Jest commands
+❌ Import from `apps/*` into `packages/*`
+❌ Emit events without descriptor JSON
+❌ Store secrets/tokens in localStorage
+❌ Skip planning for multi-file changes
+❌ Use Daily.co participant ID as user identifier (use database User.id)
+❌ Forget cleanup function in event listeners (memory leaks)
+❌ Mix moves and refactors in same commit
+
+## Cursor-Specific Tips
+
+### Using Composer (Multi-file editing)
+
+1. Reference instruction files in chat: "@PIPECAT_BOT.instructions.md"
+2. Use "@codebase" to search for patterns
+3. Reference architectural docs: "@ARCHITECTURE.md"
+
+### Using Cursor Chat
+
+- For quick questions, no need to load full instructions
+- For implementation tasks, start with: "Load bootstrap instructions and plan this feature: [description]"
+
+### Agent Mode
+
+When using Cursor Agent for autonomous work:
+
+1. Provide clear acceptance criteria
+2. Reference quality checklist from domain instructions
+3. Specify test requirements upfront
+4. Review plan before approving execution
+
+## Questions or Issues?
+
+- Check `pearl-docs/development/DEVELOPER_GUIDE.md` for detailed development setup
+- Check `pearl-docs/development/README.testing.md` for test execution details
+- Check `.github/instructions/DOMAIN_SPECIFIC.instructions.md` for specialized patterns
+- Check `pearl-docs/internal/ai-assistant-protocol.md` for full protocol specification

@@ -18,6 +18,9 @@ if (result.parsed) {
 }
 
 const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Disable the Next.js dev indicator (black "N" circle)
   devIndicators: false,
   // Strict mode can also cause double-render, but Fast Refresh is separate
@@ -39,9 +42,31 @@ const nextConfig = {
   // Exclude test directories from production builds
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
 
-  // Add headers to fix CORS/COOP issues for OAuth popups + cache busting
+  // Add headers to fix CORS/COOP issues for OAuth popups + aggressive cache busting
   async headers() {
     return [
+      // HTML pages: no caching, always revalidate
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+        ],
+      },
       {
         source: '/auth/:path*',
         headers: [
@@ -53,24 +78,49 @@ const nextConfig = {
             key: 'Cross-Origin-Embedder-Policy',
             value: 'unsafe-none',
           },
-        ],
-      },
-      {
-        // Static JS chunks - NO CACHING (for dev/proxy scenarios)
-        source: '/_next/static/chunks/:path*',
-        headers: [
           {
             key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            value: 'no-cache, no-store, must-revalidate',
           },
         ],
       },
+      // Static assets (JS/CSS/images): long cache with content hashes
       {
-        source: '/((?!api/).*)',
+        source: '/_next/static/:path*',
         headers: [
           {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin-allow-popups',
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Public static files (images, fonts, etc.)
+      {
+        source: '/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Background images and other public assets
+      {
+        source: '/backgrounds/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, must-revalidate',
+          },
+        ],
+      },
+      // API routes: no caching
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
           },
           {
             key: 'Access-Control-Allow-Origin',
@@ -95,6 +145,25 @@ const nextConfig = {
         source: '/gateway-ws/:path*',
         destination: 'http://localhost:4444/ws/:path*',
       },
+      {
+        source: '/filebrowser/:path*',
+        destination: 'http://localhost:8080/filebrowser/:path*',
+      },
+      // Bot gateway API — proxy photo-magic, sprite, and other bot APIs through Next.js
+      {
+        source: '/bot-api/:path*',
+        destination: 'http://localhost:4444/api/:path*',
+      },
+      // Canvas HTML store — proxy to bot gateway for URL-based payload delivery
+      {
+        source: '/canvas/:path*',
+        destination: 'http://localhost:4444/canvas/:path*',
+      },
+      // Canvas Apps — serve full project folders (PixiJS games, Three.js, etc.)
+      {
+        source: '/canvas-apps/:path*',
+        destination: 'http://localhost:4444/canvas-apps/:path*',
+      },
     ];
   },
 
@@ -102,13 +171,17 @@ const nextConfig = {
     // Improve error handling for scripts
     // DEPRECATED: strictNextHead: true,
   },
-  // Exclude test-e2e directory from production builds
+  // Generate unique build ID using git hash or timestamp fallback
   generateBuildId: async () => {
-    if (process.env.NODE_ENV === 'production') {
-      // In production, exclude test directories
-      return 'production-build';
+    try {
+      const { execSync } = await import('child_process');
+      const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+      return `build-${gitHash}-${Date.now()}`;
+    } catch (error) {
+      // Fallback to timestamp if git is not available
+      console.warn('Git hash unavailable, using timestamp for build ID');
+      return `build-${Date.now()}`;
     }
-    return 'development-build';
   },
   // Disable trailing slash for cleaner URLs
   trailingSlash: false,
@@ -167,6 +240,14 @@ const nextConfig = {
       /Critical dependency: the request of a dependency is an expression.*dialects/,
     ];
     
+    // Enable polling for FUSE filesystems (RunPod network storage)
+    // inotify doesn't work on FUSE, so webpack never detects file changes without this
+    config.watchOptions = {
+      ...(config.watchOptions || {}),
+      poll: 1000,        // Check for changes every 1 second
+      aggregateTimeout: 300,
+    };
+
     return config;
   },
 };

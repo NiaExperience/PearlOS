@@ -1,0 +1,121 @@
+name: deploy-pipecat-daily-bot-base
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: false
+        type: string
+    secrets:
+      SUBMODULE_PAT:
+        required: true
+
+jobs:
+  # ----------------------------------------------------------- 
+  # SETUP: RESOLVE IMAGE TAG
+  # ----------------------------------------------------------- 
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.final.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - id: resolve
+        if: inputs.image_tag == ''
+        uses: ./.github/actions/generate-image-tag
+        with:
+          environment: ${{ inputs.environment }}
+
+      - id: final
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "image_tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${{ steps.resolve.outputs.image_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+  pipecat-daily-bot:
+    needs: setup
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app_name: pipecat-daily-bot
+      dockerfile_path: apps/pipecat-daily-bot/Dockerfile
+      environment: ${{ inputs.environment }}
+      container_name: bot
+      image_tag: ${{ needs.setup.outputs.image_tag }}
+    permissions:
+      id-token: write
+      contents: read
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.SUBMODULE_PAT }}
+
+  update-operator:
+    needs: [setup, pipecat-daily-bot]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-2
+      CLUSTER_NAME: nia
+      REGISTRY: 577124901432.dkr.ecr.us-east-2.amazonaws.com
+      IMAGE_NAME: pipecat-daily-bot
+      IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
+      DEPLOY_NAME: pipecat-daily-bot-${{ inputs.environment }}-operator
+      K8S_NS: pipecat-daily-bot-${{ inputs.environment }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::577124901432:role/gha-eks-deployer
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write kubeconfig
+        run: |
+          aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+
+      - name: Update Operator Image
+        run: |
+          IMAGE_URI=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+          echo "Updating deployment $DEPLOY_NAME container operator to $IMAGE_URI"
+          kubectl -n $K8S_NS set env deployment/$DEPLOY_NAME BOT_IMAGE=$IMAGE_URI -c operator
+          kubectl -n $K8S_NS set image deployment/$DEPLOY_NAME \
+            operator=$IMAGE_URI --record
+          kubectl -n $K8S_NS rollout status deployment/$DEPLOY_NAME
+
+  update-warm-pool:
+    needs: [setup, pipecat-daily-bot]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-2
+      CLUSTER_NAME: nia
+      REGISTRY: 577124901432.dkr.ecr.us-east-2.amazonaws.com
+      IMAGE_NAME: pipecat-daily-bot
+      IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
+      DEPLOY_NAME: pipecat-daily-bot-${{ inputs.environment }}-warm-pool
+      K8S_NS: pipecat-daily-bot-${{ inputs.environment }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::577124901432:role/gha-eks-deployer
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write kubeconfig
+        run: |
+          aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+
+      - name: Update Warm Pool Image
+        run: |
+          IMAGE_URI=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+          echo "Updating deployment $DEPLOY_NAME container runner to $IMAGE_URI"
+          kubectl -n $K8S_NS set image deployment/$DEPLOY_NAME \
+            runner=$IMAGE_URI --record
+          kubectl -n $K8S_NS rollout status deployment/$DEPLOY_NAME

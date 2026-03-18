@@ -1,0 +1,20 @@
+name: deploy-dashboard
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - 'apps/dashboard/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/deploy-dashboard.yml'
+  workflow_dispatch:  # <-- manual trigger
+jobs:
+  dashboard:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app_name: dashboard
+      dockerfile_path: apps/dashboard/Dockerfile
+      environment: prod
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read

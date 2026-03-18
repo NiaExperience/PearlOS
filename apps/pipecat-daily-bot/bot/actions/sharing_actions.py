@@ -409,6 +409,9 @@ async def get_resources_by_id(
         Resource document or None if not found
     """
     try:
+        if not resource_ids:
+            return []
+        
         from services import mesh as mesh_client
         
         # API paths: Both Notes and HtmlGeneration use their exact names (no pluralization)
@@ -436,7 +439,8 @@ async def get_resources_by_id(
             data = response.get("data", [])
             logger.debug(f"[sharing_actions] Found {len(data)} resources")
             return data
-        return None
+        logger.warning(f"[sharing_actions] get_resources_by_id failed: {response.get('error')}")
+        return []
         
     except Exception as e:
         logger.error(f"[sharing_actions] Failed to get resource: {e}", exc_info=True)

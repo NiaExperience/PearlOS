@@ -22,8 +22,9 @@ interface ChatModeDesktopProps {
  * This layer sits behind the ChatMode overlay so icons are visible
  * when the chat panel is minimized.
  *
- * When Wonder Canvas is active, the desktop fades out (opacity 0) and becomes
- * non-interactive so the canvas content is fully visible full-screen.
+ * When Wonder Canvas is active, this layer drops to z-index -1 so the
+ * canvas (inside Stage at z-0) is visible above the desktop icons. Otherwise
+ * the icons layer at z-25 would paint on top and hide the canvas.
  */
 const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
   supportedFeatures,
@@ -36,14 +37,11 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
   const [wonderCanvasActive, setWonderCanvasActive] = useState(false);
   const isWorkMode = currentMode === DesktopMode.WORK;
 
-  // Listen for Wonder Canvas activation/deactivation
   useEffect(() => {
     const handleWonderScene = () => setWonderCanvasActive(true);
     const handleWonderClear = () => setWonderCanvasActive(false);
-
     window.addEventListener(NIA_EVENT_WONDER_SCENE, handleWonderScene);
     window.addEventListener(NIA_EVENT_WONDER_CLEAR, handleWonderClear);
-
     return () => {
       window.removeEventListener(NIA_EVENT_WONDER_SCENE, handleWonderScene);
       window.removeEventListener(NIA_EVENT_WONDER_CLEAR, handleWonderClear);
@@ -55,22 +53,13 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[25]"
+      className="pointer-events-none fixed inset-0"
       data-desktop-mode="work"
       style={{
-        opacity: wonderCanvasActive ? 0 : 1,
-        // When Wonder Canvas is active, use visibility:hidden to disable both
-        // rendering and pointer events on all children (icons). This prevents
-        // invisible icons from blocking clicks on the Wonder Canvas below.
-        // When inactive, visibility:visible lets children with pointer-events-auto
-        // (icon grid) be interactive while the parent stays pointer-events-none,
-        // allowing clicks that miss icons to pass through to Pearl's button.
-        visibility: wonderCanvasActive ? 'hidden' as const : 'visible' as const,
-        // Hiding: fade opacity first (300ms), then hide visibility instantly.
-        // Showing: make visible immediately, then fade opacity in (300ms).
-        transition: wonderCanvasActive
-          ? 'opacity 300ms ease-in-out, visibility 0s linear 300ms'
-          : 'opacity 300ms ease-in-out, visibility 0s linear 0s',
+        zIndex: wonderCanvasActive ? -1 : 25,
+        opacity: 1,
+        visibility: 'visible',
+        transition: 'opacity 300ms ease-in-out, z-index 0s',
       }}
     >
       <DesktopBackgroundWork

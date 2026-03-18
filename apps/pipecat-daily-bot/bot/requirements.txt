@@ -1,0 +1,19 @@
+# PearlOS Pipecat Bot Runtime Dependencies
+# Auto-generated from pyproject.toml for pip-based installs
+pipecat-ai[daily,elevenlabs,openai,silero,runner]>=0.0.97
+python-dotenv>=1.1.1,<2.0.0
+aiohttp>=3.13.3,<4.0.0
+fastapi==0.121.3
+uvicorn>=0.30.0,<1.0.0
+redis[hiredis]>=4.2.0
+kubernetes>=31.0.0
+pipecat-ai-flows>=0.0.21
+requests>=2.32.5
+fakeredis>=2.32.1
+urllib3>=2.6.3
+jaraco.context>=6.1.0
+starlette>=0.49.1
+daily-python>=0.22.0
+websockets>=14.2
+onnxruntime>=1.20.1
+openai-guardrails>=0.2.1

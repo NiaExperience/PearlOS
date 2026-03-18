@@ -1,20 +1,34 @@
 /* ============================================================
    Wonder Canvas — Real-time interactive display layer
-   Fills the Stage area. Pearl's sprite floats above this canvas
-   (avatar z-index 500 > canvas z-index 1).
+   Fills the Stage area. Canvas sits above wallpaper, below UI chrome
+   (avatar, chat bar, taskbar, nav buttons). z-index 1 keeps it in the
+   Stage content layer; UI uses higher z-index so it stays on top.
    ============================================================ */
 
 .wonder-canvas {
   position: absolute;
   inset: 0;
-  z-index: 1; /* Stage content layer — sprite hides itself via JS when canvas is active */
+  z-index: 1; /* Stage content layer — below UI chrome (avatar, chat bar, nav, taskbar) */
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.15s ease;
 }
 
 .wonder-canvas--active {
+  /* When active, stay within the Stage stacking context as a background layer.
+     Sits ABOVE the desktop wallpaper/icons but BELOW all UI chrome
+     (chat bar, taskbar, jobs panel, nav buttons, etc.).
+     Core UI must remain accessible while canvas content is displayed. */
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* Same as Stage content layer — below pearl avatar (2) and input bar (3) */
   opacity: 1;
+  pointer-events: none;
+}
+
+/* Allow interaction only on the iframe and close button within the active canvas */
+.wonder-canvas--active .wonder-canvas__frame,
+.wonder-canvas--active .wonder-canvas__close-btn {
   pointer-events: auto;
 }
 
@@ -26,13 +40,13 @@
      element from the accessibility tree and prevents all interaction. */
   visibility: hidden;
   /* Delay visibility:hidden until the opacity fade completes */
-  transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
 
 /* When transitioning to active, make visible immediately then fade in */
 .wonder-canvas--active {
   visibility: visible;
-  transition: opacity 0.4s ease, visibility 0s linear 0s;
+  transition: opacity 0.15s ease, visibility 0s linear 0s;
 }
 
 .wonder-canvas__frame {
@@ -42,21 +56,16 @@
   background: transparent;
 }
 
-/* ── React-level close button ──────────────────────────────────────
-   Rendered outside the iframe so it's always accessible on all browsers.
-   Positioned top-right, matching the style of the in-iframe close button
-   but guaranteed to work even when inline onclick handlers fail.
+/* ── Shared close button styling ────────────────────────────────────
+   Visual style reused by Wonder Canvas and Maneuverable windows so
+   close affordances stay consistent across the desktop.
    ─────────────────────────────────────────────────────────────────── */
-.wonder-canvas__close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10; /* Above the iframe within the wonder-canvas container */
+.wonder-close-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   background: rgba(15, 8, 32, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -73,13 +82,29 @@
   line-height: 1;
 }
 
-.wonder-canvas__close-btn:hover {
+.wonder-close-button:hover {
   background: rgba(15, 8, 32, 0.9);
   border-color: rgba(255, 211, 51, 0.4);
   color: #FFD233;
 }
 
-.wonder-canvas__close-btn:active {
+.wonder-close-button:active {
   transform: scale(0.92);
   background: rgba(15, 8, 32, 0.95);
+}
+
+/* React-level Wonder Canvas close button — positions the shared
+   close button style within the Stage container. */
+.wonder-canvas__close-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 10; /* Above the iframe within the wonder-canvas container */
+}
+
+@media (max-width: 767px) {
+  .wonder-canvas__close-btn {
+    top: 56px; /* Below the taskbar */
+    right: 12px;
+  }
 }

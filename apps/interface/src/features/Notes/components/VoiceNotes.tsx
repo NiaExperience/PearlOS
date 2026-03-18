@@ -18,7 +18,9 @@ import {
   NIA_EVENT_NOTE_CLOSE,
   NIA_EVENT_NOTE_DOWNLOAD,
   NIA_EVENT_NOTE_MODE_SWITCH,
+  NIA_EVENT_NOTE_OPEN,
   NIA_EVENT_NOTE_SAVED,
+  NIA_EVENT_NOTE_UPDATED,
   NIA_EVENT_NOTES_REFRESH,
   type NiaEventDetail,
 } from '@interface/features/DailyCall/events/niaEventRouter';
@@ -111,13 +113,11 @@ export default function VoiceNotes({ assistantName, onClose, supportedFeatures, 
   const loadNotes = async () => {
     try {
       setIsLoading(true);
+      const allFetched: Note[] = [];
       const { promise } = fetchNotesIncremental(assistantName, mode, (batch) => {
         if (batch.items.length > 0) {
-          setNotes(prev => {
-            const existing = new Set(prev.map(n => n._id));
-            const newNotes = batch.items.filter(n => n._id && !existing.has(n._id));
-            return [...prev, ...newNotes];
-          });
+          allFetched.push(...batch.items);
+          setNotes([...allFetched]);
         }
       });
       
@@ -232,6 +232,56 @@ export default function VoiceNotes({ assistantName, onClose, supportedFeatures, 
 
   // Event listeners for bot commands
   useEffect(() => {
+    const handleNoteOpen = (event: CustomEvent<NiaEventDetail>) => {
+      const data = (event.detail?.payload ?? event.detail) as Record<string, unknown>;
+      const noteId = data.noteId as string | undefined;
+      const note = data.note as Note | undefined;
+      if (note) {
+        setCurrentNote(note);
+        setNotes(prev => {
+          const idx = prev.findIndex(n => n._id === note._id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = note;
+            return updated;
+          }
+          return [note, ...prev];
+        });
+      } else if (noteId) {
+        setNotes(prev => {
+          const found = prev.find(n => n._id === noteId);
+          if (found) setCurrentNote(found);
+          return prev;
+        });
+      }
+    };
+
+    const handleNoteUpdated = (event: CustomEvent<NiaEventDetail>) => {
+      const data = (event.detail?.payload ?? event.detail) as Record<string, unknown>;
+      const note = data.note as Note | undefined;
+      const noteId = data.noteId as string | undefined;
+      const content = data.content as string | undefined;
+      if (note && note._id) {
+        setNotes(prev => {
+          const idx = prev.findIndex(n => n._id === note._id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = note;
+            return updated;
+          }
+          return [note, ...prev];
+        });
+        setCurrentNote(prev => prev && prev._id === note._id ? note : prev);
+      } else if (noteId && content !== undefined) {
+        setNotes(prev => prev.map(n =>
+          n._id === noteId ? { ...n, content } : n
+        ));
+        setCurrentNote(prev =>
+          prev && prev._id === noteId ? { ...prev, content } : prev
+        );
+      }
+    };
+
     const handleNoteSaved = (event: CustomEvent<NiaEventDetail>) => {
       loadNotes();
     };
@@ -257,12 +307,16 @@ export default function VoiceNotes({ assistantName, onClose, supportedFeatures, 
       }
     };
 
+    window.addEventListener(NIA_EVENT_NOTE_OPEN, handleNoteOpen as EventListener);
+    window.addEventListener(NIA_EVENT_NOTE_UPDATED, handleNoteUpdated as EventListener);
     window.addEventListener(NIA_EVENT_NOTE_SAVED, handleNoteSaved as EventListener);
     window.addEventListener(NIA_EVENT_NOTE_CLOSE, handleNoteClose as EventListener);
     window.addEventListener(NIA_EVENT_NOTES_REFRESH, handleNotesRefresh as EventListener);
     window.addEventListener('notepadCommand', handleNotepadCommand as EventListener);
 
     return () => {
+      window.removeEventListener(NIA_EVENT_NOTE_OPEN, handleNoteOpen as EventListener);
+      window.removeEventListener(NIA_EVENT_NOTE_UPDATED, handleNoteUpdated as EventListener);
       window.removeEventListener(NIA_EVENT_NOTE_SAVED, handleNoteSaved as EventListener);
       window.removeEventListener(NIA_EVENT_NOTE_CLOSE, handleNoteClose as EventListener);
       window.removeEventListener(NIA_EVENT_NOTES_REFRESH, handleNotesRefresh as EventListener);

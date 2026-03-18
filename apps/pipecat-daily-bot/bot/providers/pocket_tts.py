@@ -6,11 +6,15 @@ raw PCM frames to the Pipecat pipeline.
 
 PocketTTS runs entirely on CPU, supports voice cloning, and has ~200ms latency
 to first audio chunk.
+
+Audio is output at PocketTTS's native 24kHz. Pipecat's base_output transport
+handles any further resampling via SOXR (VHQ quality) if needed.
 """
 
 from __future__ import annotations
 
 import io
+import os
 import struct
 import wave
 from typing import AsyncGenerator, Optional
@@ -28,6 +32,32 @@ from pipecat.frames.frames import (
 )
 from pipecat.services.tts_service import TTSService
 
+# Output at PocketTTS native 24kHz — pipecat's SOXR resampler in base_output
+# handles any conversion needed by the transport (e.g. 24k→48k for Opus).
+_OUTPUT_SAMPLE_RATE = 24000
+
+# TTS output gain multiplier. PocketTTS (Azelma) outputs audio at a low level
+# that's barely audible in screen recordings. This boosts PCM amplitude.
+# Default 3.0x (~9.5dB gain). Set TTS_GAIN env var to override.
+_TTS_GAIN = float(os.environ.get("TTS_GAIN", "3.0"))
+
+
+def _apply_gain(pcm_bytes: bytes, gain: float) -> bytes:
+    """Amplify 16-bit PCM audio by gain factor with clipping protection."""
+    if gain == 1.0:
+        return pcm_bytes
+    n_samples = len(pcm_bytes) // 2
+    samples = struct.unpack(f"<{n_samples}h", pcm_bytes)
+    boosted = []
+    for s in samples:
+        v = int(s * gain)
+        if v > 32767:
+            v = 32767
+        elif v < -32768:
+            v = -32768
+        boosted.append(v)
+    return struct.pack(f"<{n_samples}h", *boosted)
+
 
 class PocketTTSService(TTSService):
     """TTS service backed by a local PocketTTS HTTP server.
@@ -35,7 +65,7 @@ class PocketTTSService(TTSService):
     Usage:
         svc = PocketTTSService(
             base_url="http://localhost:8766",
-            sample_rate=24000,
+            sample_rate=16000,  # output rate after resampling
         )
     """
 
@@ -48,15 +78,16 @@ class PocketTTSService(TTSService):
         self,
         *,
         base_url: str = "http://localhost:8766",
-        sample_rate: int = 24000,
+        sample_rate: int = _OUTPUT_SAMPLE_RATE,
         params: Optional[InputParams] = None,
         **kwargs,
     ):
-        super().__init__(sample_rate=sample_rate, **kwargs)
+        # Always output at _OUTPUT_SAMPLE_RATE regardless of what caller passes
+        super().__init__(sample_rate=_OUTPUT_SAMPLE_RATE, **kwargs)
         self._base_url = base_url.rstrip("/")
         self._params = params or self.InputParams()
         self._session: Optional[aiohttp.ClientSession] = None
-        logger.info(f"PocketTTSService initialized: base_url={self._base_url}, sample_rate={sample_rate}")
+        logger.info(f"PocketTTSService initialized: base_url={self._base_url}, output_sample_rate={_OUTPUT_SAMPLE_RATE}")
 
     async def _ensure_session(self):
         if self._session is None or self._session.closed:
@@ -145,33 +176,35 @@ class PocketTTSService(TTSService):
                 src_channels = 1
                 src_width = 2  # 16-bit
                 data_offset = 44
-                playback_rate = 24000
                 frame_size = 2  # channels * width
 
-                # How many bytes per 20ms audio chunk
-                chunk_frames = 480  # 24000 / 50
-                chunk_bytes = 960  # chunk_frames * frame_size
+                # Output at native sample rate (no resampling here)
+                out_rate = _OUTPUT_SAMPLE_RATE
+                out_frame_size = 2  # mono 16-bit
 
-                # Prebuffer: accumulate this many chunks before yielding
-                # TTSStartedFrame to prime the transport buffer.
-                PREBUFFER_CHUNKS = 8  # 160ms prebuffer — prevents crackling from buffer underruns
+                # How many bytes per 20ms output chunk
+                out_chunk_frames = out_rate // 50  # 480 frames at 24kHz
+                out_chunk_bytes = out_chunk_frames * out_frame_size
+
+                # Prebuffer: accumulate chunks before yielding TTSStartedFrame
+                PREBUFFER_CHUNKS = 12  # 240ms prebuffer
                 prebuffer = []
                 started = False
                 total_pcm_bytes = 0
+
+                # Output buffer (accumulates PCM for chunking into 20ms frames)
+                out_buf = bytearray()
 
                 async for network_chunk in resp.content.iter_chunked(8192):
                     raw_buf.extend(network_chunk)
 
                     # Step 1: Parse WAV header once we have enough bytes
                     if not header_parsed:
-                        # Standard WAV header is 44 bytes; some have extra
-                        # sub-chunks. Try parsing once we have >=128 bytes.
                         if len(raw_buf) < 128:
                             continue
 
                         result = self._parse_wav_header(bytes(raw_buf))
                         if result is None:
-                            # Try with more data next iteration
                             if len(raw_buf) > 4096:
                                 logger.error("PocketTTS: couldn't parse WAV header after 4KB")
                                 yield ErrorFrame("PocketTTS WAV header parse failed")
@@ -180,42 +213,36 @@ class PocketTTSService(TTSService):
 
                         src_rate, src_channels, src_width, data_offset = result
                         frame_size = src_channels * src_width
-                        chunk_frames = src_rate // 50  # 20ms
-                        chunk_bytes = chunk_frames * frame_size
-
-                        playback_rate = int(src_rate * self._params.speed)
-                        if self._params.speed != 1.0:
-                            logger.debug(
-                                f"PocketTTS speed={self._params.speed}: "
-                                f"reporting rate as {playback_rate} (actual {src_rate})"
-                            )
 
                         logger.debug(
-                            f"PocketTTS streaming: rate={src_rate}, ch={src_channels}, "
-                            f"width={src_width}, data_offset={data_offset}"
+                            f"PocketTTS streaming: src_rate={src_rate}, ch={src_channels}, "
+                            f"width={src_width}, passthrough at {out_rate}Hz"
                         )
 
                         # Strip the header, keep only PCM data
                         raw_buf = raw_buf[data_offset:]
                         header_parsed = True
 
-                    # Step 2: Yield complete 20ms chunks from the buffer
-                    while len(raw_buf) >= chunk_bytes:
-                        chunk = bytes(raw_buf[:chunk_bytes])
-                        del raw_buf[:chunk_bytes]
+                    # Step 2: Pass through native PCM in 20ms chunks
+                    out_buf.extend(raw_buf)
+                    raw_buf.clear()
+
+                    while len(out_buf) >= out_chunk_bytes:
+                        chunk = bytes(out_buf[:out_chunk_bytes])
+                        del out_buf[:out_chunk_bytes]
+                        if _TTS_GAIN != 1.0:
+                            chunk = _apply_gain(chunk, _TTS_GAIN)
                         total_pcm_bytes += len(chunk)
 
                         audio_frame = TTSAudioRawFrame(
                             audio=chunk,
-                            sample_rate=playback_rate,
+                            sample_rate=out_rate,
                             num_channels=src_channels,
                         )
 
                         if not started:
-                            # Accumulate prebuffer before signaling start
                             prebuffer.append(audio_frame)
                             if len(prebuffer) >= PREBUFFER_CHUNKS:
-                                # Signal start FIRST, then yield prebuffered frames
                                 yield TTSStartedFrame()
                                 started = True
                                 for pf in prebuffer:
@@ -224,16 +251,19 @@ class PocketTTSService(TTSService):
                         else:
                             yield audio_frame
 
-                # Flush remaining PCM data in buffer
-                if header_parsed and raw_buf:
-                    remainder = len(raw_buf) % frame_size
-                    if remainder:
-                        raw_buf = raw_buf[:-remainder]
-                    if raw_buf:
-                        total_pcm_bytes += len(raw_buf)
+                # Flush remaining output buffer
+                if out_buf:
+                    out_remainder = len(out_buf) % out_frame_size
+                    if out_remainder:
+                        out_buf = out_buf[:-out_remainder]
+                    if out_buf:
+                        remainder = bytes(out_buf)
+                        if _TTS_GAIN != 1.0:
+                            remainder = _apply_gain(remainder, _TTS_GAIN)
+                        total_pcm_bytes += len(remainder)
                         audio_frame = TTSAudioRawFrame(
-                            audio=bytes(raw_buf),
-                            sample_rate=playback_rate,
+                            audio=remainder,
+                            sample_rate=out_rate,
                             num_channels=src_channels,
                         )
                         if not started:
@@ -250,17 +280,16 @@ class PocketTTSService(TTSService):
                         yield pf
 
                 if started:
-                    # Append 60ms of silence to bridge gap before next TTS segment
-                    # This prevents pops/clicks from abrupt audio cutoff between clauses
-                    silence_frames = src_rate * 60 // 1000  # 60ms worth
-                    silence_bytes = b'\x00' * (silence_frames * frame_size)
+                    # Append 80ms of silence to bridge gap before next TTS segment
+                    silence_frames = out_rate * 80 // 1000
+                    silence_bytes = b'\x00' * (silence_frames * out_frame_size)
                     yield TTSAudioRawFrame(
                         audio=silence_bytes,
-                        sample_rate=playback_rate,
+                        sample_rate=out_rate,
                         num_channels=src_channels,
                     )
-                    duration = total_pcm_bytes / (src_rate * frame_size) if src_rate and frame_size else 0
-                    logger.debug(f"PocketTTS done streaming: {total_pcm_bytes} bytes, {duration:.2f}s")
+                    duration = total_pcm_bytes / (out_rate * out_frame_size) if out_rate and out_frame_size else 0
+                    logger.debug(f"PocketTTS done streaming: {total_pcm_bytes} bytes, {duration:.2f}s (output at {out_rate}Hz)")
                     yield TTSStoppedFrame()
                 else:
                     logger.error("PocketTTS returned no audio data")

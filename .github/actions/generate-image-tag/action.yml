@@ -1,0 +1,18 @@
+name: 'Generate Image Tag'
+description: 'Generates a standardized image tag based on git sha, environment, and run id'
+inputs:
+  environment:
+    description: 'Deployment environment (e.g. stg, pearl, prod)'
+    required: true
+outputs:
+  image_tag:
+    description: "The generated image tag"
+    value: ${{ steps.gen.outputs.image_tag }}
+runs:
+  using: "composite"
+  steps:
+    - id: gen
+      shell: bash
+      run: |
+        TAG="sha-${{ github.sha }}-${{ inputs.environment }}-${{ github.run_id }}"
+        echo "image_tag=$TAG" >> $GITHUB_OUTPUT

@@ -207,9 +207,15 @@ const YouTubeView = ({ query, assistantName }: YouTubeViewProps) => {
 
         logger.info('Initializing YouTube player', { videoId: videoData.videoId });
         
-        // Create a div for the player
+        // Create a div for the player with proper sizing
         const playerDiv = document.createElement('div');
         playerDiv.id = `youtube-player-${videoData.videoId}`;
+        playerDiv.style.position = 'absolute';
+        playerDiv.style.inset = '0';
+        playerDiv.style.width = '100%';
+        playerDiv.style.height = '100%';
+        playerDiv.style.borderRadius = '0.5rem 0.5rem 0 0';
+        playerDiv.style.overflow = 'hidden';
         containerRef.current.appendChild(playerDiv);
 
         try {
@@ -524,9 +530,7 @@ const YouTubeView = ({ query, assistantName }: YouTubeViewProps) => {
           <PixelatedLoader />
         </div>
       )}
-  <div className="absolute inset-0 w-full h-full rounded-t-lg overflow-hidden pointer-events-none">
-        {/* Player container - YouTube API will create iframe here */}
-      </div>
+      {/* Player div is appended here by the YouTube IFrame API via containerRef */}
     </div>
   );
 };

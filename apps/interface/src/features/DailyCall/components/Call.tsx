@@ -265,12 +265,21 @@ const Call: React.FC<CallProps> = ({
   const requireProfile = requireProfileEvaluation.enabled;
 
   // User timeout state - check if user is temporarily kicked
+  // These use both state (for rendering the timeout UI) and refs (for the join effect).
+  // The refs prevent the join useEffect from re-running when timeout state changes,
+  // which was causing the 2-3 restart cycle Blair reported.
   const [timeoutChecked, setTimeoutChecked] = useState(false);
   const [isTimedOut, setIsTimedOut] = useState(false);
   const [timeoutInfo, setTimeoutInfo] = useState<{
     remainingSeconds?: number;
     reason?: string;
   } | null>(null);
+  const timeoutCheckedRef = useRef(false);
+  const isTimedOutRef = useRef(false);
+  const timeoutInfoRef = useRef<{ remainingSeconds?: number; reason?: string } | null>(null);
+  // Single-fire trigger: flips to true once timeout check completes AND user is NOT timed out.
+  // This is the only timeout-related value in the join effect's dependency array.
+  const [timeoutCleared, setTimeoutCleared] = useState(false);
 
   // Layout management state
   const [layoutMode, setLayoutMode] = useState<'grid' | 'speaker' | 'sidebar'>('grid');
@@ -411,24 +420,33 @@ const Call: React.FC<CallProps> = ({
               reason: data.reason,
             });
             setIsTimedOut(true);
-            setTimeoutInfo({
-              remainingSeconds: data.remainingSeconds,
-              reason: data.reason,
-            });
+            isTimedOutRef.current = true;
+            const info = { remainingSeconds: data.remainingSeconds, reason: data.reason };
+            setTimeoutInfo(info);
+            timeoutInfoRef.current = info;
           } else {
             setIsTimedOut(false);
+            isTimedOutRef.current = false;
             setTimeoutInfo(null);
+            timeoutInfoRef.current = null;
           }
         } else {
           // On error, allow join (fail open for better UX)
           log.warn('[Call] Failed to check timeout status', { status: response.status });
           setIsTimedOut(false);
+          isTimedOutRef.current = false;
         }
       } catch (err) {
         log.warn('[Call] Error checking timeout status', { error: String((err as Error)?.message || err) });
         setIsTimedOut(false);
+        isTimedOutRef.current = false;
       } finally {
         setTimeoutChecked(true);
+        timeoutCheckedRef.current = true;
+        // Fire the single-shot trigger for the join effect only if user is allowed to join
+        if (!isTimedOutRef.current) {
+          setTimeoutCleared(true);
+        }
       }
     };
 
@@ -506,23 +524,24 @@ const Call: React.FC<CallProps> = ({
     }
 
     // Wait for timeout check to complete before attempting join
-    if (!timeoutChecked) {
+    // Uses refs to avoid re-triggering the join effect when timeout state changes
+    if (!timeoutCheckedRef.current) {
       log.info('[Call] Waiting for timeout check before join attempt');
       return;
     }
 
     // Gate join if user is currently in timeout (kicked)
-    if (isTimedOut) {
+    if (isTimedOutRef.current) {
       log.warn('[Call] User is in timeout, cannot join', {
         userId: session?.user?.id,
-        remainingSeconds: timeoutInfo?.remainingSeconds,
-        reason: timeoutInfo?.reason,
+        remainingSeconds: timeoutInfoRef.current?.remainingSeconds,
+        reason: timeoutInfoRef.current?.reason,
       });
       logConn({
         phase: 'join.timeout.gated' as any,
         roomUrl,
         username,
-        remainingSeconds: timeoutInfo?.remainingSeconds,
+        remainingSeconds: timeoutInfoRef.current?.remainingSeconds,
       } as any);
       // Trigger a callback or show UI for timeout (will be handled in rendering)
       // Don't call onLeave immediately - let the UI show the timeout message
@@ -1027,9 +1046,11 @@ const Call: React.FC<CallProps> = ({
     // currentMode is only used during the initial join to pick voice config;
     // mode-specific personality hot-swapping is disabled (see comment below).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    timeoutChecked,
-    isTimedOut,
-    timeoutInfo,
+    // NOTE: timeoutChecked, isTimedOut, timeoutInfo intentionally excluded from deps.
+    // They are read via refs inside the effect. Only timeoutCleared is in deps as a
+    // single-shot trigger (false→true, never changes again) to re-run the effect once
+    // the timeout check passes. This fixes the 2-3 restart cycle reported by Blair.
+    timeoutCleared,
   ]);
 
     // Mode-specific personality updates are intentionally disabled for DailyCall sessions
@@ -1840,7 +1861,7 @@ const Call: React.FC<CallProps> = ({
               totalTiles={visibleParticipantIds.length}
               gridColumns={layout.columns}
               gridRows={layout.rows}
-              hidePearl={false} // Hide Pearl bot in Daily call to reduce UI clutter
+              hidePearl={true} // Hide Pearl bot in Daily call to reduce UI clutter
             />
           ))}
         </div>
@@ -1877,7 +1898,7 @@ const Call: React.FC<CallProps> = ({
             totalTiles={visibleParticipantIds.length}
             gridColumns={1}
             gridRows={1}
-            hidePearl={false}
+            hidePearl={true}
           />
         </div>
         {otherParticipants.length > 0 && (
@@ -1893,7 +1914,7 @@ const Call: React.FC<CallProps> = ({
                 totalTiles={visibleParticipantIds.length}
                 gridColumns={1}
                 gridRows={otherParticipants.length}
-                hidePearl={false}
+                hidePearl={true}
               />
             ))}
           </div>
@@ -1921,7 +1942,7 @@ const Call: React.FC<CallProps> = ({
             totalTiles={visibleParticipantIds.length}
             gridColumns={1}
             gridRows={1}
-            hidePearl={false}
+            hidePearl={true}
           />
         </div>
         <div className="sidebar-strip">
@@ -1936,7 +1957,7 @@ const Call: React.FC<CallProps> = ({
               totalTiles={visibleParticipantIds.length}
               gridColumns={1}
               gridRows={otherParticipants.length}
-              hidePearl={false}
+              hidePearl={true}
             />
           ))}
         </div>

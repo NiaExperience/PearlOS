@@ -1,0 +1,98 @@
+name: build-app
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      dockerfile_path:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+      context_path:
+        required: false
+        type: string
+      web_base_image:
+        required: false
+        type: string
+      image_tag:
+        required: true
+        type: string
+    secrets:
+      SUBMODULE_PAT:
+        required: false
+      NEXT_PUBLIC_API_URL:
+        required: false
+      NEXT_PUBLIC_INTERFACE_BASE_URL:
+        required: false
+      NEXT_PUBLIC_DAILY_ROOM_URL:
+        required: false
+      NEXT_PUBLIC_BOT_CONTROL_BASE_URL:
+        required: false
+      NEXT_PUBLIC_POSTHOG_KEY:
+        required: false
+      NEXT_PUBLIC_POSTHOG_PROXY_HOST:
+        required: false
+
+jobs:
+  # ----------------------------------------------------------- 
+  # BUILD IMAGE
+  # ----------------------------------------------------------- 
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read
+    env:
+      REGISTRY: 577124901432.dkr.ecr.us-east-2.amazonaws.com
+      AWS_REGION: us-east-2
+      IMAGE_TAG: ${{ inputs.image_tag }}
+      # Default BOT_AUTO_JOIN to true unless caller overrides input
+      NEXT_PUBLIC_BOT_AUTO_JOIN: ${{ inputs.NEXT_PUBLIC_BOT_AUTO_JOIN || 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUBMODULE_PAT != '' && secrets.SUBMODULE_PAT || github.token }}
+          submodules: recursive
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::577124901432:role/gha-eks-deployer
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repositories exist
+        run: |
+          set -euo pipefail
+          aws ecr describe-repositories --repository-names "${{ inputs.app_name }}" >/dev/null 2>&1 || \
+            aws ecr create-repository --repository-name "${{ inputs.app_name }}" --image-scanning-configuration scanOnPush=true --image-tag-mutability IMMUTABLE
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | \
+          docker login --username AWS --password-stdin $REGISTRY
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ inputs.app_name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context_path || '.' }}
+          file: ${{ inputs.dockerfile_path }}
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            WEB_BASE_IMAGE=${{ inputs.web_base_image || format('{0}/nia-web-base:{1}', env.REGISTRY, env.IMAGE_TAG) }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_INTERFACE_BASE_URL=${{ secrets.NEXT_PUBLIC_INTERFACE_BASE_URL }}
+            NEXT_PUBLIC_DAILY_ROOM_URL=${{ secrets.NEXT_PUBLIC_DAILY_ROOM_URL }}
+            NEXT_PUBLIC_BOT_CONTROL_BASE_URL=${{ secrets.NEXT_PUBLIC_BOT_CONTROL_BASE_URL }}
+            NEXT_PUBLIC_BOT_AUTO_JOIN=${{ env.NEXT_PUBLIC_BOT_AUTO_JOIN }}
+            NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+            NEXT_PUBLIC_POSTHOG_PROXY_HOST=${{ secrets.NEXT_PUBLIC_POSTHOG_PROXY_HOST }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ inputs.app_name }}:${{ env.IMAGE_TAG }}

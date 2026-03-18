@@ -34,7 +34,7 @@ interface BotJoinOptions {
   debugTraceId?: string;
 }
 
-async function fetchJson(url: string, init: RequestInit, timeoutMs = 6000) {
+async function fetchJson(url: string, init: RequestInit, timeoutMs = 15000) {
   const ctrl = new AbortController();
   const timeoutError = new Error('Request timed out');
   const timeoutId = setTimeout(() => ctrl.abort(timeoutError), timeoutMs);

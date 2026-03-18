@@ -1,10 +1,11 @@
-"""PearlOS Universal Canvas tools — display charts, articles, and images.
+"""PearlOS Canvas Content tools — REROUTED to Wonder Canvas.
 
-These tools emit canvas render events to the frontend via the existing
-event forwarding system. The frontend's UniversalCanvas component listens
-for `canvas.render` events and renders the appropriate content type.
+These tools previously emitted `canvas.render` events to the now-removed
+UniversalCanvas component. They have been rerouted to emit `wonder.scene`
+events using Wonder Canvas templates, fixing the white overlay bug.
 
-Requires feature flag: openclawBridge
+History: UniversalCanvas was removed in commit 9e117abe. These tools now
+render their content through WonderCanvas using the template library.
 """
 from __future__ import annotations
 
@@ -18,39 +19,96 @@ from pipecat.services.llm_service import FunctionCallParams
 
 from tools.decorators import bot_tool
 from tools.logging_utils import bind_tool_logger
+from tools import events
+from tools.wonder_canvas_templates import render_template
 
 logger = logging.getLogger(__name__)
 
-CANVAS_RENDER_EVENT = "canvas.render"
-CANVAS_CLEAR_EVENT = "canvas.clear"
 
-
-async def _emit_canvas_event(
+async def _emit_wonder_scene(
     params: FunctionCallParams,
-    event_type: str,
-    payload: dict[str, Any],
+    html: str,
     log_tag: str = "[canvas_content]",
 ) -> bool:
-    """Emit a canvas event through the forwarder."""
+    """Emit a wonder.scene event through the forwarder (rerouted from canvas.render)."""
     log = bind_tool_logger(params, tag=log_tag)
     forwarder = params.forwarder
     if not forwarder:
         log.warning(f"{log_tag} No forwarder available")
         return False
     try:
-        await forwarder.emit_tool_event(event_type, {
-            **payload,
-            "timestamp": int(time.time() * 1000),
+        await forwarder.emit_tool_event(events.WONDER_CANVAS_SCENE, {
+            "html": html,
+            "css": "",
+            "transition": "fade",
+            "layer": "main",
         })
-        log.info(f"{log_tag} Emitted {event_type}")
+        log.info(f"{log_tag} Emitted wonder.scene (rerouted from canvas.render)")
         return True
     except Exception as e:
-        log.error(f"{log_tag} Failed to emit {event_type}: {e}")
+        log.error(f"{log_tag} Failed to emit wonder.scene: {e}")
         return False
 
 
 # ---------------------------------------------------------------------------
-# Tool: Show Chart
+# Tool: Show Image — REROUTED to image_showcase template
+# ---------------------------------------------------------------------------
+
+@bot_tool(
+    name="bot_canvas_show_image",
+    description=(
+        "Display an image on the user's screen with zoom and pan controls. "
+        "Supports any image URL (jpg, png, gif, webp). "
+        "Use pixel_art=true for pixel art (renders with crisp/nearest-neighbor scaling)."
+    ),
+    feature_flag="openclawBridge",
+    parameters={
+        "type": "object",
+        "properties": {
+            "image_url": {
+                "type": "string",
+                "description": "URL of the image to display",
+            },
+            "title": {
+                "type": "string",
+                "description": "Title/caption for the image",
+            },
+            "caption": {
+                "type": "string",
+                "description": "Caption text shown below the image",
+            },
+            "pixel_art": {
+                "type": "boolean",
+                "description": "Render with nearest-neighbor scaling (for pixel art)",
+            },
+        },
+        "required": ["image_url"],
+    },
+)
+async def canvas_show_image_handler(params: FunctionCallParams):
+    """Display an image via Wonder Canvas image_showcase template."""
+    args = params.arguments
+
+    html = render_template(
+        "image_showcase",
+        image_url=args.get("image_url", ""),
+        title=args.get("title", ""),
+        caption=args.get("caption", ""),
+        description=args.get("caption", ""),
+    )
+
+    success = await _emit_wonder_scene(params, html, log_tag="[canvas_image→wonder]")
+
+    result = {
+        "success": success,
+        "user_message": "The image is on your screen." if success
+        else "I had trouble displaying the image.",
+    }
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+
+
+# ---------------------------------------------------------------------------
+# Tool: Show Chart — REROUTED to Wonder Canvas
 # ---------------------------------------------------------------------------
 
 @bot_tool(
@@ -87,8 +145,8 @@ async def _emit_canvas_event(
     },
 )
 async def canvas_show_chart_handler(params: FunctionCallParams):
-    """Display a chart on the canvas."""
-    log = bind_tool_logger(params, tag="[canvas_chart]")
+    """Display a chart via Wonder Canvas fact_card template (fallback)."""
+    log = bind_tool_logger(params, tag="[canvas_chart→wonder]")
     args = params.arguments
 
     title = args.get("title", "Chart")
@@ -105,20 +163,54 @@ async def canvas_show_chart_handler(params: FunctionCallParams):
         await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
         return
 
-    # Build the CanvasContent payload
-    content = {
-        "type": "chart",
-        "title": title,
-        "data": {
-            "chartType": chart_type,
-            **chart_data,
-        },
-    }
+    # Route to proper chart templates
+    template_name = {
+        "bar": "bar_chart",
+        "line": "line_chart",
+        "pie": "pie_chart",
+        "scatter": "scatter_plot",
+        "donut": "pie_chart",
+        "doughnut": "pie_chart",
+    }.get(chart_type, "bar_chart")
 
-    success = await _emit_canvas_event(params, CANVAS_RENDER_EVENT, {
-        "content": content,
-        "transition": "fade",
-    })
+    template_kwargs = {"title": title}
+
+    if chart_type == "bar":
+        # Expected: {"categories": [...], "series": [{"name": "X", "data": [1,2,3]}]}
+        categories = chart_data.get("categories", chart_data.get("labels", []))
+        series = chart_data.get("series", [])
+        values = series[0].get("data", []) if series else chart_data.get("values", [])
+        template_kwargs["labels"] = categories
+        template_kwargs["values"] = values
+    elif chart_type == "line":
+        labels = chart_data.get("labels", [])
+        series = chart_data.get("series", [])
+        if series and not labels:
+            # Extract labels from time series: [{time, value}]
+            first = series[0].get("data", [])
+            if first and isinstance(first[0], dict):
+                labels = [p.get("time", p.get("x", "")) for p in first]
+                series = [{"label": s.get("name", ""), "values": [p.get("value", p.get("y", 0)) for p in s.get("data", [])]} for s in series]
+            else:
+                series = [{"label": s.get("name", ""), "values": s.get("data", [])} for s in series]
+        template_kwargs["labels"] = labels
+        template_kwargs["datasets"] = series
+    elif chart_type in ("pie", "donut", "doughnut"):
+        segments = chart_data.get("segments", chart_data.get("slices", []))
+        if segments:
+            template_kwargs["labels"] = [s.get("label", "") for s in segments]
+            template_kwargs["values"] = [s.get("value", 0) for s in segments]
+        else:
+            template_kwargs["labels"] = chart_data.get("labels", [])
+            template_kwargs["values"] = chart_data.get("values", [])
+    elif chart_type == "scatter":
+        template_kwargs["points"] = chart_data.get("points", chart_data.get("data", []))
+        template_kwargs["x_label"] = chart_data.get("x_label", "X")
+        template_kwargs["y_label"] = chart_data.get("y_label", "Y")
+
+    html = render_template(template_name, **template_kwargs)
+
+    success = await _emit_wonder_scene(params, html, log_tag="[canvas_chart→wonder]")
 
     result = {
         "success": success,
@@ -129,7 +221,7 @@ async def canvas_show_chart_handler(params: FunctionCallParams):
 
 
 # ---------------------------------------------------------------------------
-# Tool: Show Article
+# Tool: Show Article — REROUTED to Wonder Canvas
 # ---------------------------------------------------------------------------
 
 @bot_tool(
@@ -171,15 +263,15 @@ async def canvas_show_chart_handler(params: FunctionCallParams):
     },
 )
 async def canvas_show_article_handler(params: FunctionCallParams):
-    """Display an article on the canvas."""
-    log = bind_tool_logger(params, tag="[canvas_article]")
+    """Display an article via Wonder Canvas news_headline template."""
     args = params.arguments
 
-    url = args.get("url")
-    headline = args.get("headline")
-    body = args.get("body")
+    headline = args.get("headline", "Article")
+    body = args.get("body", "")
+    source = args.get("source", "")
+    image_url = args.get("hero_image", "")
 
-    if not url and not (headline and body):
+    if not args.get("url") and not (args.get("headline") and args.get("body")):
         result = {
             "success": False,
             "error": "Provide either a URL or headline+body",
@@ -188,114 +280,27 @@ async def canvas_show_article_handler(params: FunctionCallParams):
         await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
         return
 
-    article_data: dict[str, Any]
+    html = render_template(
+        "news_headline",
+        headline=headline,
+        source=source or "Article",
+        summary=body[:1000] if body else "",
+        image_url=image_url,
+        timestamp="",
+    )
 
-    if headline and body:
-        # Direct article data
-        article_data = {
-            "headline": headline,
-            "body": body,
-            "source": args.get("source", ""),
-            "author": args.get("author"),
-            "heroImage": args.get("hero_image"),
-            "url": url,
-        }
-    else:
-        # URL scraping — emit with URL; frontend or a server action will handle scraping
-        # For now, create a placeholder that tells the frontend to fetch
-        article_data = {
-            "headline": f"Loading article...",
-            "body": f"Fetching content from {url}...",
-            "source": url,
-            "url": url,
-        }
-        # In production, you'd scrape server-side here. For the MVP,
-        # we pass what we can and let the agent provide the content.
-
-    content = {
-        "type": "article",
-        "title": article_data.get("headline", "Article"),
-        "data": article_data,
-    }
-
-    success = await _emit_canvas_event(params, CANVAS_RENDER_EVENT, {
-        "content": content,
-        "transition": "fade",
-    })
+    success = await _emit_wonder_scene(params, html, log_tag="[canvas_article→wonder]")
 
     result = {
         "success": success,
-        "user_message": f"The article is on your screen." if success
+        "user_message": "The article is on your screen." if success
         else "I had trouble displaying the article.",
     }
     await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 
 # ---------------------------------------------------------------------------
-# Tool: Show Image
-# ---------------------------------------------------------------------------
-
-@bot_tool(
-    name="bot_canvas_show_image",
-    description=(
-        "Display an image on the user's screen with zoom and pan controls. "
-        "Supports any image URL (jpg, png, gif, webp). "
-        "Use pixel_art=true for pixel art (renders with crisp/nearest-neighbor scaling)."
-    ),
-    feature_flag="openclawBridge",
-    parameters={
-        "type": "object",
-        "properties": {
-            "image_url": {
-                "type": "string",
-                "description": "URL of the image to display",
-            },
-            "title": {
-                "type": "string",
-                "description": "Title/caption for the image",
-            },
-            "caption": {
-                "type": "string",
-                "description": "Caption text shown below the image",
-            },
-            "pixel_art": {
-                "type": "boolean",
-                "description": "Render with nearest-neighbor scaling (for pixel art)",
-            },
-        },
-        "required": ["image_url"],
-    },
-)
-async def canvas_show_image_handler(params: FunctionCallParams):
-    """Display an image on the canvas."""
-    args = params.arguments
-
-    content = {
-        "type": "image",
-        "title": args.get("title"),
-        "data": {
-            "src": args.get("image_url", ""),
-            "alt": args.get("title", "Image"),
-            "caption": args.get("caption"),
-            "pixelArt": args.get("pixel_art", False),
-        },
-    }
-
-    success = await _emit_canvas_event(params, CANVAS_RENDER_EVENT, {
-        "content": content,
-        "transition": "fade",
-    })
-
-    result = {
-        "success": success,
-        "user_message": "The image is on your screen." if success
-        else "I had trouble displaying the image.",
-    }
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
-
-
-# ---------------------------------------------------------------------------
-# Tool: Show Table
+# Tool: Show Table — REROUTED to Wonder Canvas
 # ---------------------------------------------------------------------------
 
 @bot_tool(
@@ -325,7 +330,7 @@ async def canvas_show_image_handler(params: FunctionCallParams):
     },
 )
 async def canvas_show_table_handler(params: FunctionCallParams):
-    """Display a table on the canvas."""
+    """Display a table via Wonder Canvas fact_card template (fallback)."""
     args = params.arguments
 
     try:
@@ -340,19 +345,29 @@ async def canvas_show_table_handler(params: FunctionCallParams):
         await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
         return
 
-    content = {
-        "type": "table",
-        "title": args.get("title", "Data"),
-        "data": {
-            "columns": columns,
-            "rows": rows,
-        },
-    }
+    # Build simple HTML table for wonder canvas
+    title = args.get("title", "Data")
+    table_html = f"<table style='width:100%;border-collapse:collapse;color:#f0ece4;font-size:14px'>"
+    table_html += "<tr>" + "".join(
+        f"<th style='text-align:left;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.1);color:#e8c547;font-size:12px;text-transform:uppercase;letter-spacing:0.06em'>{c.get('label', c.get('key', ''))}</th>"
+        for c in columns
+    ) + "</tr>"
+    for row in rows[:20]:  # cap at 20 rows
+        table_html += "<tr>" + "".join(
+            f"<td style='padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04)'>{row.get(c.get('key', ''), '')}</td>"
+            for c in columns
+        ) + "</tr>"
+    table_html += "</table>"
 
-    success = await _emit_canvas_event(params, CANVAS_RENDER_EVENT, {
-        "content": content,
-        "transition": "fade",
-    })
+    html = render_template(
+        "fact_card",
+        title=title,
+        category="Data Table",
+        fact_text=table_html,
+        icon="📋",
+    )
+
+    success = await _emit_wonder_scene(params, html, log_tag="[canvas_table→wonder]")
 
     result = {
         "success": success,
@@ -363,24 +378,10 @@ async def canvas_show_table_handler(params: FunctionCallParams):
 
 
 # ---------------------------------------------------------------------------
-# Tool: Clear Canvas
+# Tool: Clear Canvas — DISABLED (duplicate of bot_wonder_canvas_clear)
 # ---------------------------------------------------------------------------
 
-@bot_tool(
-    name="bot_canvas_clear",
-    description="Clear/dismiss the current canvas content from the user's screen.",
-    feature_flag="openclawBridge",
-    parameters={
-        "type": "object",
-        "properties": {},
-        "required": [],
-    },
-)
-async def canvas_clear_handler(params: FunctionCallParams):
-    """Clear the canvas."""
-    success = await _emit_canvas_event(params, CANVAS_CLEAR_EVENT, {})
-    result = {
-        "success": success,
-        "user_message": "Canvas cleared." if success else "Had trouble clearing the canvas.",
-    }
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+# DISABLED per Blair directive 2026-02-26 — duplicate of bot_wonder_canvas_clear
+async def _disabled_canvas_clear_handler(params: FunctionCallParams):
+    """Clear the canvas — disabled, use bot_wonder_canvas_clear instead."""
+    pass

@@ -1,0 +1,87 @@
+{
+  "version": "2026-03-03",
+  "gold_standard_commit": "24bdd4cc",
+  "phase1_required_tools": [
+    "bot_open_notes",
+    "bot_close_notes",
+    "bot_open_youtube",
+    "bot_close_youtube",
+    "bot_open_terminal",
+    "bot_close_terminal",
+    "bot_open_news",
+    "bot_open_creation_engine",
+    "bot_get_weather",
+    "bot_switch_desktop_mode",
+    "bot_play_soundtrack",
+    "bot_stop_soundtrack",
+    "bot_next_soundtrack_track",
+    "bot_set_soundtrack_volume",
+    "bot_minimize_window",
+    "bot_maximize_window",
+    "bot_end_call",
+    "bot_wonder_canvas_template",
+    "bot_wonder_canvas_clear",
+    "bot_wonder_canvas_add",
+    "bot_wonder_canvas_animate",
+    "bot_wonder_canvas_avatar_hint",
+    "bot_scroll_note",
+    "bot_clear_note_highlights"
+  ],
+  "phase1_routing_only_tools": [
+    "bot_openclaw_task"
+  ],
+  "passthrough_whitelist_required": [
+    "bot_open_notes",
+    "bot_close_notes",
+    "bot_open_youtube",
+    "bot_close_youtube",
+    "bot_open_terminal",
+    "bot_close_terminal",
+    "bot_open_news",
+    "bot_open_creation_engine",
+    "bot_switch_desktop_mode",
+    "bot_play_soundtrack",
+    "bot_stop_soundtrack",
+    "bot_next_soundtrack_track",
+    "bot_set_soundtrack_volume",
+    "bot_minimize_window",
+    "bot_maximize_window",
+    "bot_end_call",
+    "bot_wonder_canvas_template",
+    "bot_wonder_canvas_clear",
+    "bot_wonder_canvas_add",
+    "bot_wonder_canvas_animate",
+    "bot_wonder_canvas_avatar_hint",
+    "bot_scroll_note",
+    "bot_clear_note_highlights"
+  ],
+  "phase2_must_reach_openclaw_gateway": true,
+  "phase2_openclaw_capabilities": [
+    "message",
+    "web_search",
+    "sessions_spawn",
+    "exec"
+  ],
+  "services": {
+    "nextjs": {
+      "port": 3000,
+      "health": "/pearlos"
+    },
+    "bot_gateway": {
+      "port": 4444,
+      "health": "/health"
+    },
+    "openclaw": {
+      "port": 18789,
+      "health": "/v1/models"
+    },
+    "pocket_tts": {
+      "port": 8766,
+      "health": "/health"
+    }
+  },
+  "forbidden_removals": {
+    "bot_openclaw_task": "Agent dispatch \u2014 removing breaks dispatch-to-agent routing",
+    "_run_openclaw_background_legacy": "Gateway path \u2014 removing severs OpenClaw tools"
+  }
+}

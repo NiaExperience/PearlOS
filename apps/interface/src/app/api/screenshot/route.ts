@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chromium } from 'playwright';
+import { requireAuth } from '@interface/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   const url = request.nextUrl.searchParams.get('url') || 'http://localhost:3000/pearlos';
   const width = parseInt(request.nextUrl.searchParams.get('width') || '1280');
   const height = parseInt(request.nextUrl.searchParams.get('height') || '720');
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
     const screenshot = await page.screenshot({ fullPage, type: 'png' });
     await browser.close();
 
-    return new NextResponse(screenshot, {
+    return new NextResponse(new Uint8Array(screenshot) as any, {
       headers: {
         'Content-Type': 'image/png',
         'Content-Disposition': `inline; filename="screenshot-${Date.now()}.png"`,

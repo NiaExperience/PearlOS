@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface ActiveJob {
   id: string;
@@ -26,14 +26,49 @@ export interface CompletedJob extends Omit<ActiveJob, 'status' | 'fadingOut'> {
 }
 
 const POLL_INTERVAL = 5000;
-const FADE_OUT_DELAY = 10000;
 const MAX_COMPLETED_HISTORY = 5;
+
+/**
+ * Internal/system jobs that shouldn't appear in the user-facing widget.
+ * These are OpenClaw cron heartbeats, scheduled checks, and other
+ * infrastructure tasks that would confuse end users.
+ */
+const INTERNAL_JOB_PATTERNS = [
+  /heartbeat/i,
+  /scheduled.?check/i,
+  /health.?check/i,
+  /healthcheck/i,
+  /health.?monitor/i,
+  /discord.?progress/i,
+  /progress.?update/i,
+  /sync.?protocol/i,
+  /memory.?maintenance/i,
+  /activity.?log/i,
+  /cron.?run/i,
+  /inbox.?check/i,
+  /email.?check/i,
+  /calendar.?check/i,
+  /weather.?check/i,
+];
+
+function isInternalSystemJob(job: ActiveJob): boolean {
+  // All cron jobs are internal system tasks — users don't need to see scheduled checks
+  if (job.kind === 'cron') return true;
+
+  // Check label and description against known internal patterns
+  const text = `${job.label} ${job.displayName} ${job.description}`.toLowerCase();
+  return INTERNAL_JOB_PATTERNS.some((pattern) => pattern.test(text));
+}
 
 export function useActiveJobs() {
   const [jobs, setJobs] = useState<ActiveJob[]>([]);
   const [completedHistory, setCompletedHistory] = useState<CompletedJob[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const fadeTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Dismiss a job from the active list (called after user confirms via thumbs up/down)
+  const dismissJob = useCallback((jobId: string) => {
+    setJobs((cur) => cur.filter((c) => c.id !== jobId));
+  }, []);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -45,15 +80,17 @@ export function useActiveJobs() {
       const data = await res.json();
       setError(null);
 
-      const incoming: ActiveJob[] = Array.isArray(data.jobs) ? data.jobs : [];
+      // Filter out internal system jobs that shouldn't be user-facing
+      const incoming: ActiveJob[] = (Array.isArray(data.jobs) ? data.jobs : []).filter(
+        (job: ActiveJob) => !isInternalSystemJob(job)
+      );
 
       setJobs((prev) => {
-        // Merge: keep fading-out jobs, update existing, add new
         const map = new Map<string, ActiveJob>();
 
-        // Keep previously fading-out items
+        // Keep previously completed jobs that haven't been dismissed
         for (const j of prev) {
-          if (j.fadingOut) map.set(j.id, j);
+          if (j.status === 'complete') map.set(j.id, j);
         }
 
         // Update with incoming
@@ -62,40 +99,30 @@ export function useActiveJobs() {
           const wasRunning = existing?.status === 'running';
           const nowComplete = j.status === 'complete';
 
-          // If job just transitioned to complete, start fade-out and add to history
-          if (nowComplete && wasRunning && !existing?.fadingOut) {
-            map.set(j.id, { ...j, fadingOut: true });
+          if (nowComplete && wasRunning) {
+            // Job just completed — mark it but keep it visible (no auto-removal)
+            map.set(j.id, { ...j, fadingOut: false });
             
-            // Add to completed history
+            // Add to completed history for reference
             setCompletedHistory((history) => {
               const completedJob: CompletedJob = {
                 ...j,
                 status: 'complete',
                 completedAt: Date.now(),
               };
-              // Remove duplicates and keep only the last MAX_COMPLETED_HISTORY jobs
               const filtered = history.filter((h) => h.id !== j.id);
               return [completedJob, ...filtered].slice(0, MAX_COMPLETED_HISTORY);
             });
-            
-            if (!fadeTimers.current.has(j.id)) {
-              const timer = setTimeout(() => {
-                setJobs((cur) => cur.filter((c) => c.id !== j.id));
-                fadeTimers.current.delete(j.id);
-              }, FADE_OUT_DELAY);
-              fadeTimers.current.set(j.id, timer);
-            }
           } else {
             map.set(j.id, { ...j, fadingOut: existing?.fadingOut });
           }
         }
 
-        // Mark jobs that disappeared from API for fade-out
+        // Mark jobs that disappeared from API as complete (keep visible)
         for (const j of prev) {
-          if (!incoming.find((i) => i.id === j.id) && !j.fadingOut && j.status === 'running') {
-            map.set(j.id, { ...j, status: 'complete', fadingOut: true });
+          if (!incoming.find((i) => i.id === j.id) && j.status === 'running') {
+            map.set(j.id, { ...j, status: 'complete', fadingOut: false });
             
-            // Add to completed history
             setCompletedHistory((history) => {
               const completedJob: CompletedJob = {
                 ...j,
@@ -105,14 +132,6 @@ export function useActiveJobs() {
               const filtered = history.filter((h) => h.id !== j.id);
               return [completedJob, ...filtered].slice(0, MAX_COMPLETED_HISTORY);
             });
-
-            if (!fadeTimers.current.has(j.id)) {
-              const timer = setTimeout(() => {
-                setJobs((cur) => cur.filter((c) => c.id !== j.id));
-                fadeTimers.current.delete(j.id);
-              }, FADE_OUT_DELAY);
-              fadeTimers.current.set(j.id, timer);
-            }
           }
         }
 
@@ -128,9 +147,8 @@ export function useActiveJobs() {
     const interval = setInterval(fetchJobs, POLL_INTERVAL);
     return () => {
       clearInterval(interval);
-      fadeTimers.current.forEach((t) => clearTimeout(t));
     };
   }, [fetchJobs]);
 
-  return { jobs, completedHistory, error };
+  return { jobs, completedHistory, error, dismissJob };
 }

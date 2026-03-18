@@ -1,0 +1,116 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start Debug Server",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "pg:debug:modular"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^.*$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*Starting inspector.*",
+                    "endsPattern": ".*ready.*"
+                }
+            }
+        },
+        {
+            "label": "Run Cypress Tests (Auto Servers)",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "test:e2e:auto"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Open Cypress UI",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "cypress:open"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Run Specific Cypress Test",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "cypress:run",
+                "--",
+                "--spec",
+                "${input:cypressSpec}"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "dependsOn": "Start Debug Server"
+        },
+        {
+            "label": "Run Current Cypress Test (Auto Servers)",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "test:e2e:auto",
+                "--",
+                "--spec",
+                "${file}"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            }
+        },
+    ],
+    "inputs": [
+        {
+            "id": "cypressSpec",
+            "type": "promptString",
+            "description": "Enter the path to the Cypress spec file",
+            "default": "tests/cypress/e2e/pearlos.cy.js"
+        }
+    ]
+} 
