@@ -19,7 +19,7 @@ if (result.parsed) {
 
 /** @type {import('jest').Config} */
 const config = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/jest.setup.ts'],
   globalSetup: '<rootDir>/scripts/globalSetup.ts',
   globalTeardown: '<rootDir>/scripts/globalTeardown.ts',
   testEnvironment: 'node',
@@ -105,9 +105,9 @@ const config = {
     // Map style imports to a stub so CSS files don't break tests
     '\\.(css|less|sass|scss)$': '<rootDir>/tests/__mocks__/styleMock.js',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/load-tests/'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/load-tests/', '<rootDir>/installer/work/'],
   // No special path ignores needed for test helpers
-  modulePathIgnorePatterns: [],
+  modulePathIgnorePatterns: ['<rootDir>/installer/work/'],
   // Increased global test timeout to 90 seconds to reduce intermittent timeouts in full suite runs
   testTimeout: 90000,
   verbose: false, // Reduce console output

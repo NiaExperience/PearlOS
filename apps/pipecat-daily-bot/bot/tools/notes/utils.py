@@ -128,3 +128,80 @@ def _build_note_event_payload(note: dict[str, Any], note_id: str | None = None) 
 
     payload["note"] = safe_note
     return payload
+
+
+# ============================================================================
+# LLM Context Injection (Active Note)
+# ============================================================================
+
+_NOTE_CONTEXT_MARKER = "## 📝 ACTIVE NOTE CONTEXT"
+
+
+async def _inject_note_context_for_llm(
+    room_url: str,
+    note_id: str | None,
+    title: str | None,
+    content: str | None,
+) -> None:
+    """Inject or update a system message with active note content.
+
+    Keeps the LLM context in sync so it always knows what note is open
+    and what's inside it. Called from note open/create/update/close tools.
+    """
+    try:
+        from flows.registry import get_flow_manager
+        from pipecat.frames.frames import LLMMessagesAppendFrame
+
+        flow_manager = get_flow_manager(room_url)
+        if not flow_manager:
+            return
+
+        task = getattr(flow_manager, "task", None)
+        if not task or not hasattr(task, "queue_frames"):
+            return
+
+        if note_id:
+            preview = (content or "")[:3000]
+            if content and len(content) > 3000:
+                preview += "\n... (content truncated, use bot_read_current_note for full text)"
+
+            context_content = (
+                f"{_NOTE_CONTEXT_MARKER}\n"
+                "The user currently has this note open on screen:\n"
+                f"- **Note ID:** {note_id}\n"
+                f"- **Title:** {title or 'Untitled'}\n"
+                f"- **Content:**\n{preview}\n\n"
+                "If the user says 'edit this note', 'add to the note', etc., "
+                "you already know which note they mean. Use the note tools directly "
+                "without asking which note."
+            )
+        else:
+            context_content = (
+                f"{_NOTE_CONTEXT_MARKER}\n"
+                "No note is currently open. The user closed or navigated away from the note view."
+            )
+
+        # Remove any previous note context message from the context
+        context = getattr(task, "_context", None) or getattr(flow_manager, "context", None)
+        if context and hasattr(context, "messages"):
+            messages = context.messages
+            context.messages = [
+                m for m in messages
+                if not (
+                    isinstance(m, dict)
+                    and isinstance(m.get("content"), str)
+                    and _NOTE_CONTEXT_MARKER in m["content"]
+                )
+            ]
+
+        await task.queue_frames([
+            LLMMessagesAppendFrame(messages=[{
+                "role": "system",
+                "content": context_content,
+            }]),
+        ])
+        log.info(f"[notes] 💉 Injected note context for LLM: note_id={note_id}, title={title}, content_len={len(content or '')}")
+    except Exception as e:
+        # Non-fatal, note tools should still succeed
+        log.warning(f"[notes] Failed to inject note context for LLM: {e}")
+        return

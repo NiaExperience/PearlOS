@@ -12,6 +12,7 @@ import { useEffect, useRef } from 'react';
 import { getClientLogger } from '@interface/lib/client-logger';
 
 import { routeNiaEvent } from '../events/niaEventRouter';
+import { isDuplicateEvent } from '@interface/lib/event-dedup';
 
 const log = getClientLogger('[gateway_ws]');
 
@@ -35,14 +36,11 @@ function getWsUrl(): string | null {
       const pageHost = window.location.hostname;
       const pageProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-      // RunPod proxy: rewrite port segment in hostname
-      const runpodMatch = pageHost.match(/^(.+)-\d+\.(proxy\.runpod\.net)$/);
-      if (runpodMatch) {
-        const gatewayPort = url.port || '4444';
-        return `${pageProto}//${runpodMatch[1]}-${gatewayPort}.${runpodMatch[2]}/ws/events`;
-      }
-
-      // Non-localhost page (e.g. Cloudflare tunnel): use same-origin rewrite path
+      // Non-localhost page (RunPod proxy, Cloudflare tunnel, etc.):
+      // Always use same-origin rewrite path (/gateway-ws/events).
+      // Next.js rewrites proxy this to localhost:4444/ws/events.
+      // Direct port-based connections (e.g. {pod}-4444.proxy.runpod.net)
+      // fail because RunPod doesn't expose port 4444 externally.
       if (pageHost !== 'localhost' && pageHost !== '127.0.0.1') {
         return `${pageProto}//${window.location.host}/gateway-ws/events`;
       }
@@ -116,7 +114,17 @@ export function useGatewaySocket(options: UseGatewaySocketOptions = {}) {
       ws.onmessage = (ev) => {
         try {
           const data = JSON.parse(ev.data);
+          // Handle keepalive pings from server
+          if (data && data.type === 'ping') {
+            try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* noop */ }
+            return;
+          }
           if (data && data.kind === 'nia.event' && typeof data.event === 'string') {
+            // Dedup: mark this event so the Daily app-message path won't re-process it
+            if (isDuplicateEvent(data.seq ?? 0, data.ts ?? 0, data.event)) {
+              log.debug('Gateway WS event DEDUPED', { event: data.event });
+              return;
+            }
             log.debug('Gateway WS event', { event: data.event });
             routeNiaEvent(data);
           }

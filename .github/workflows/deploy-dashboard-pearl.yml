@@ -1,0 +1,19 @@
+name: deploy-dashboard-pearl
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # <-- manual trigger
+jobs:
+  dashboard:
+    uses: ./.github/workflows/deploy-web-app.yml
+    with:
+      app_name: dashboard
+      dockerfile_path: apps/dashboard/Dockerfile
+      environment: pearl
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read
+    secrets:
+      NEXT_PUBLIC_INTERFACE_BASE_URL: ${{ secrets.PEARL_NEXT_PUBLIC_INTERFACE_BASE_URL }}
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}

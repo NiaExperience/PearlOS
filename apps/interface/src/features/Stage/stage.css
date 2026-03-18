@@ -70,7 +70,7 @@
   );
   background-size: 600% 600%;
   animation: pearl-aurora-shift 30s ease infinite;
-  opacity: 0.15;
+  opacity: 0.05;
   pointer-events: none;
   z-index: 0;
 }
@@ -156,7 +156,7 @@
   );
   background-size: 600% 600%;
   animation: pearl-aurora-shift 30s ease infinite;
-  opacity: 0.15;
+  opacity: 0.05;
   pointer-events: none;
   z-index: 0;
 }
@@ -249,4 +249,28 @@
   width: 100%;
   height: 100%;
   background: transparent;
+}
+
+/* ── Wonder Canvas promotion ────────────────────────────────────────
+   When the Wonder Canvas is active, promote the entire Stage above
+   ChatModeDesktop (z-index 25) so canvas content is visible.
+   Uses :has() to detect the active class without JS plumbing.
+   PersistentNavButtons (z-60) and desktop-taskbar (z-300) remain above.
+   ───────────────────────────────────────────────────────────────────── */
+.stage:has(.wonder-canvas--active) {
+  z-index: 30;
+}
+
+/* Universal Canvas layer — z-index fix for image display */
+.stage__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* Same as experience layer, renders in DOM order */
+  background: transparent;
+  pointer-events: none; /* Allow clicks to pass through when inactive */
+}
+
+/* Enable pointer events when canvas has content */
+.stage__canvas .universal-canvas {
+  pointer-events: auto;
 }

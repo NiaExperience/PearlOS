@@ -1,0 +1,66 @@
+version: 1
+
+# Default branch and PR behavior
+defaultBranch: staging
+pr:
+  defaultTarget: staging
+  templatePath: PULL_REQUEST_TEMPLATE.md
+  requireDiffSummary: true
+  requireAheadBehindCheck: true
+  requireQualityGates: [build, types, lint, tests]
+  # Additional reviewer checklist items the AI should include in PR description
+  reviewerChecklist:
+    - Schema/platform changes are additive and optional
+    - APIs updated where needed
+    - UI feature flags respected and labels clear
+    - Tests cover happy path and fallback
+    - Security/PII redactions preserved
+
+# Commands used by the AI
+commands:
+  build: "npm run build"
+  typecheck: "npm run build:types"
+  lint: "npm run lint"
+  testAll: "npm test"
+  testJsByPath: "npm run test:js -- --runTestsByPath"
+  testE2E: "npm run test:e2e"
+  cypressOpen: "npm run cypress:open"
+  perf: "npm run test:perf"
+  profile: "npm run test:profile"
+  flamegraph: "npm run test:flamegraph"
+
+# Jest rules for this monorepo
+jest:
+  prohibitWorkspacesFlag: true
+
+# Monorepo layout
+monorepo:
+  appsDir: apps
+  packagesDir: packages
+  packages:
+    features: packages/features
+    prism: packages/prism
+    events: packages/events
+
+# Events protocol
+events:
+  descriptorDir: packages/events
+  requireRedactionPaths: true
+
+# Security policy
+security:
+  noSecretsLogging: true
+  redactPII: true
+
+# File discovery order (for startup)
+startupDiscoveryOrder:
+  - .github/instructions/copilot.instructions.md
+  - .github/instructions/COPILOT_STARTUP.instructions.md
+  - .github/instructions/COPILOT_PROJECT.instructions.yml
+  - .github/instructions/AI_SESSION_BOOTSTRAP.instructions.md
+  - README.testing.md
+  - PULL_REQUEST_TEMPLATE.md
+  - ARCHITECTURE.md
+  - package.json
+  - turbo.json
+  - tsconfig.json

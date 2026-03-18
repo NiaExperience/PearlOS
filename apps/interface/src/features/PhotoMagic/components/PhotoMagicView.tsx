@@ -7,6 +7,7 @@ import { DropZone } from './DropZone';
 import { ProgressOverlay } from './ProgressOverlay';
 import { ImageResult } from './ImageResult';
 import { InpaintCanvas } from './InpaintCanvas';
+import { PhotoGallery } from './PhotoGallery';
 
 export interface PhotoMagicViewProps {
   /** Optional initial prompt passed from voice command or taskbar */
@@ -298,6 +299,8 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
             →
           </button>
         </div>
+
+        <PhotoGallery />
       </div>
     </div>
   );

@@ -11,13 +11,7 @@ import {
 import { Button } from '@interface/components/ui/button';
 import { Input } from '@interface/components/ui/input';
 import { Label } from '@interface/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@interface/components/ui/select';
+// Select components removed — Active Model card moved to Pearl Mind
 import { Switch } from '@interface/components/ui/switch';
 import { getClientLogger } from '@interface/lib/client-logger';
 
@@ -212,13 +206,18 @@ export function ConnectionsPanel() {
   const [savingProvider, setSavingProvider] = useState<string | null>(null);
   const [providerMessages, setProviderMessages] = useState<Record<string, string>>({});
   
-  // Model selection
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<string>('');
-  const [applyingModel, setApplyingModel] = useState(false);
+  // Model selection removed — handled by Pearl Mind panel
   
   // Key visibility
   const [keyVisible, setKeyVisible] = useState<Record<string, boolean>>({});
+  
+  // Settings page lock toggle
+  const [settingsLocked, setSettingsLocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pearl_settings_disabled') === 'true';
+    }
+    return false;
+  });
 
   // Load current model and provider statuses
   useEffect(() => {
@@ -231,21 +230,6 @@ export function ConnectionsPanel() {
           const data = await configRes.json();
           const model = data.agents?.defaults?.model?.primary || '';
           setCurrentModel(model);
-          
-          // Auto-select provider based on current model
-          const providerPrefix = model.split('/')[0];
-          const matchingProvider = PROVIDERS.find(p => p.id === providerPrefix);
-          if (matchingProvider) {
-            setSelectedProvider(matchingProvider.id);
-            setSelectedModel(model);
-          } else if (model) {
-            // Default to first provider that has this model
-            const hasModel = PROVIDERS.find(p => p.models.some(m => m.id === model));
-            if (hasModel) {
-              setSelectedProvider(hasModel.id);
-              setSelectedModel(model);
-            }
-          }
         }
         
         // Load provider credential statuses
@@ -360,6 +344,19 @@ export function ConnectionsPanel() {
       setSavingProvider(null);
     }
   };
+  
+  const handleToggleSettingsLock = (locked: boolean) => {
+    if (typeof window !== 'undefined') {
+      if (locked) {
+        localStorage.setItem('pearl_settings_disabled', 'true');
+      } else {
+        localStorage.removeItem('pearl_settings_disabled');
+      }
+      // Notify other tabs/panels of the change
+      window.dispatchEvent(new Event('storage'));
+    }
+    setSettingsLocked(locked);
+  };
 
   const handleToggleProvider = async (providerId: string, enabled: boolean) => {
     setSavingProvider(providerId);
@@ -404,47 +401,6 @@ export function ConnectionsPanel() {
     }
   };
 
-  const handleApplyModel = async () => {
-    if (!selectedModel) {
-      alert('Please select a model');
-      return;
-    }
-
-    setApplyingModel(true);
-    try {
-      const response = await fetch('/api/openclaw-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patch: {
-            agents: {
-              defaults: {
-                model: {
-                  primary: selectedModel,
-                },
-              },
-            },
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update config');
-      }
-
-      logger.info('Model updated successfully', { model: selectedModel });
-      setCurrentModel(selectedModel);
-
-      alert(`Model updated to ${selectedModel}. Gateway will restart.`);
-
-    } catch (error: any) {
-      logger.error('Failed to apply model change', { error });
-      alert(`Failed to update model: ${error.message}`);
-    } finally {
-      setApplyingModel(false);
-    }
-  };
-
   const getCurrentProviderInfo = () => {
     if (!currentModel) return null;
     const providerPrefix = currentModel.split('/')[0];
@@ -453,8 +409,6 @@ export function ConnectionsPanel() {
   };
 
   const currentProviderInfo = getCurrentProviderInfo();
-  const currentProvider = PROVIDERS.find(p => p.id === selectedProvider);
-  const availableModels = currentProvider?.models || [];
 
   return (
     <div className="space-y-4">
@@ -671,83 +625,34 @@ export function ConnectionsPanel() {
         </CardContent>
       </Card>
 
-      {/* Model Selection */}
+      {/* Settings Lock Toggle */}
       <Card className="border-gray-700 bg-gray-800" style={FONT}>
         <CardHeader>
-          <CardTitle className="text-white" style={FONT}>
-            🤖 Active Model
+          <CardTitle className="flex items-center gap-3 text-white" style={FONT}>
+            <span className="text-xl">🔒</span>
+            Advanced Settings
           </CardTitle>
           <CardDescription className="text-gray-400" style={FONT}>
-            Choose your default AI model (applies to all sessions)
+            Control access to configuration panels
           </CardDescription>
         </CardHeader>
-        <CardContent style={FONT} className="space-y-4">
-          {loading ? (
-            <div className="text-center text-gray-400">Loading...</div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label className="text-gray-300" style={FONT}>
-                  Provider
-                </Label>
-                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                  <SelectTrigger className="border-gray-700 bg-gray-800 text-white">
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent className="border-gray-700 bg-gray-800">
-                    {PROVIDERS.map(provider => (
-                      <SelectItem
-                        key={provider.id}
-                        value={provider.id}
-                        className="text-white hover:bg-gray-700"
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>{provider.icon}</span>
-                          <span>{provider.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-300" style={FONT}>
-                  Model
-                </Label>
-                <Select value={selectedModel} onValueChange={setSelectedModel}>
-                  <SelectTrigger className="border-gray-700 bg-gray-800 text-white">
-                    <SelectValue placeholder="Select a model" />
-                  </SelectTrigger>
-                  <SelectContent className="border-gray-700 bg-gray-800">
-                    {availableModels.map(model => (
-                      <SelectItem
-                        key={model.id}
-                        value={model.id}
-                        className="text-white hover:bg-gray-700"
-                      >
-                        {model.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={handleApplyModel}
-                disabled={applyingModel || !selectedModel || selectedModel === currentModel}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                style={FONT}
-              >
-                {applyingModel ? 'Applying...' : 'Apply Model Change'}
-              </Button>
-
-              {selectedModel === currentModel && selectedModel && (
-                <p className="text-xs text-gray-500 text-center" style={FONT}>
-                  This model is already active
-                </p>
-              )}
-            </>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-gray-300" style={FONT}>
+                Lock Pearl Mind Settings
+              </Label>
+              <p className="text-sm text-gray-500" style={FONT}>
+                Disable the Pearl Mind settings page to prevent accidental configuration changes
+              </p>
+            </div>
+            <Switch checked={settingsLocked} onCheckedChange={handleToggleSettingsLock} />
+          </div>
+          {settingsLocked && (
+            <div className="text-xs text-orange-400 flex items-center gap-2" style={FONT}>
+              <span>⚠️</span>
+              <span>Pearl Mind settings page is currently locked (read-only mode)</span>
+            </div>
           )}
         </CardContent>
       </Card>

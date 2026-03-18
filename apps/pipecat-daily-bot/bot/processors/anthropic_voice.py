@@ -108,6 +108,10 @@ def _build_system_prompt(workspace: dict[str, str]) -> str:
         "- When showing visual content, use bot_wonder_canvas_template for common types,\n"
         "  bot_wonder_canvas_scene only for unique/creative HTML.\n"
         "- Image proxy: use /api/image?q=SUBJECT for all images in canvas HTML.\n"
+        "- GOODBYE DETECTION: When the user says goodbye, farewell, or any clear 'end call' phrase\n"
+        "  (e.g. 'okay goodbye', 'alright bye', 'talk to you later', 'that's all thanks'),\n"
+        "  say a brief warm goodbye and IMMEDIATELY call bot_end_call to end the session.\n"
+        "  Do NOT continue the conversation after a goodbye. End it.\n"
     )
 
     return "\n\n".join(parts)

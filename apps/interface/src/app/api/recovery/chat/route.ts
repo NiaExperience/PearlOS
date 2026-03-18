@@ -9,9 +9,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 });
     }
 
+    const apiKey = process.env.OPENCLAW_API_KEY ?? '';
     const res = await fetch('http://localhost:18789/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
       body: JSON.stringify({
         model: 'anthropic/claude-sonnet-4-5',
         messages,

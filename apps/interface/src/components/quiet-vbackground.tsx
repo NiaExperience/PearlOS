@@ -16,6 +16,7 @@ type SummonLifecycleDetail = {
 type SpriteReadyDetail = {
   prompt: string;
   requestId?: string;
+  isRecall?: boolean;
 };
 
 type BackgroundPhase = 'idle' | 'progress' | 'splash';
@@ -88,6 +89,8 @@ const QuietVBackground = () => {
 
     const handleSpriteReady = (event: Event) => {
       const customEvent = event as CustomEvent<SpriteReadyDetail>;
+      // Only play splash animation for new summons, not recalls
+      if (customEvent.detail?.isRecall) return;
       playSplash(customEvent.detail);
     };
 

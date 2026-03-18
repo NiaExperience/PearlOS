@@ -1,4 +1,7 @@
 /**
+ * @deprecated This route is unused — all chat goes through /api/chat.
+ * Kept temporarily for reference. Safe to delete after 2026-04-01.
+ *
  * OpenClaw Bridge API Route
  *
  * POST /api/openclaw-bridge

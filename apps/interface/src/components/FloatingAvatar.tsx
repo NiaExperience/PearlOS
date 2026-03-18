@@ -1,10 +1,9 @@
 "use client";
 
-import Image from 'next/image';
 import React, { useEffect, useState } from 'react';
-
-import { useUI } from '@interface/contexts/ui-context';
+import Image from 'next/image';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
+import { useUI } from '@interface/contexts/ui-context';
 
 export type AvatarMood = 'default' | 'neutral' | 'happy' | 'wink' | 'surprised' | 'angry' | 'curious' | 'shocked' | 'smile';
 
@@ -27,9 +26,9 @@ const vowelShapes: Record<VowelShape, { width: number, height: number }> = {
     slit: { width: 65, height: 18 },
     round_big: { width: 75, height: 65 },
     closed: { width: 0, height: 0 },
-    neutral: { width: 40, height: 15 },  // Proper dimensions
-    open: { width: 50, height: 30 },     // Visible size
-    wide: { width: 60, height: 25 }      // Visible size
+    neutral: { width: 40, height: 15 },
+    open: { width: 50, height: 30 },
+    wide: { width: 60, height: 25 }
 };
 
 // Enhanced vowel variety for more realistic lip sync
@@ -39,8 +38,6 @@ const vowels: VowelShape[] = [
 
 interface FloatingAvatarProps {
   mood?: AvatarMood;
-  size?: number; // New size prop
-  forceVisible?: boolean; // New prop to force visibility
 }
 
 const moodImages: Record<AvatarMood, string> = {
@@ -55,8 +52,8 @@ const moodImages: Record<AvatarMood, string> = {
   smile: '/images/avatar/avatar_smile.png'
 };
 
-const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size = 40, forceVisible = false }) => { // Default size to 40, forceVisible to false
-  // Use speech context instead of props
+const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral' }) => {
+  // Use voice session context (replaces old useSpeech)
   const { isAssistantSpeaking, assistantVolumeLevel } = useVoiceSessionContext();
   const { 
     isBrowserWindowVisible, 
@@ -79,9 +76,9 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // setAvatarQuadrant('bottom-left'); // This line is removed as per the new_code
+        // placeholder for visibility logic
       } else {
-        // setAvatarQuadrant('bottom-right'); // This line is removed as per the new_code
+        // placeholder for visibility logic
       }
     };
 
@@ -101,7 +98,7 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
     let animationInterval: NodeJS.Timeout;
 
     if (isAssistantSpeaking) {
-      setIsAnimating(true);  // Add this line back
+      setIsAnimating(true);
       // Start lip sync animation
       animationInterval = setInterval(() => {
         setCurrentVowel(prev => {
@@ -112,14 +109,14 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
       }, 200);
       setCurrentVowel('closed');
     } else {
-      setIsAnimating(false);  // Add this line back
+      setIsAnimating(false);
       setCurrentVowel('closed');
     }
 
     return () => {
       if (animationInterval) clearInterval(animationInterval);
     };
-  }, [isAssistantSpeaking]); // Run effect when speaking state changes
+  }, [isAssistantSpeaking]);
 
   const getCurrentMouthShape = () => {
     if (!isAnimating) return { width: 0, height: 0 };
@@ -136,58 +133,108 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
   const mouthShape = getCurrentMouthShape();
 
   const getAvatarStyles = (): React.CSSProperties => {
+    const avatarSize = 120;
+    
     // If avatar is not visible, don't render
     if (!isAvatarVisible) {
       return { display: 'none' };
     }
 
     let baseStyles: React.CSSProperties = {
-      // position: 'fixed', // Handled by parent container now
-      zIndex: 900,
+      position: 'fixed',
+      zIndex: 50,
     };
 
+    // Handle animations
     if (isAvatarAnimating) {
       if (isAvatarHiding) {
-        // Hide animation
         baseStyles = {
           ...baseStyles,
           transition: 'all 1s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
         };
+        
+        if (isBrowserWindowVisible && browserWindowRect) {
+          const currentTop = browserWindowRect.bottom - avatarSize;
+          const currentLeft = browserWindowRect.left - (avatarSize / 2);
+          baseStyles = { ...baseStyles, top: `${currentTop}px`, left: `${currentLeft}px` };
+        } else {
+          // Default: center screen
+          baseStyles = { ...baseStyles, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+        }
+        
+        setTimeout(() => {
+          const centerX = window.innerWidth / 2;
+          const centerY = window.innerHeight / 2;
+          const avatarElement = document.querySelector('.floating-avatar') as HTMLElement;
+          if (avatarElement) {
+            avatarElement.style.top = `${centerY - avatarSize / 2}px`;
+            avatarElement.style.left = `${centerX - avatarSize / 2}px`;
+          }
+        }, 50);
       } else {
-        // Popup animation
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        
         baseStyles = {
           ...baseStyles,
+          top: `${centerY - avatarSize / 2}px`,
+          left: `${centerX - avatarSize / 2}px`,
           transition: 'all 1s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
         };
+        
+        setTimeout(() => {
+          if (isBrowserWindowVisible && browserWindowRect) {
+            const finalTop = browserWindowRect.bottom - avatarSize;
+            const finalLeft = browserWindowRect.left - (avatarSize / 2);
+            const avatarElement = document.querySelector('.floating-avatar') as HTMLElement;
+            if (avatarElement) {
+              avatarElement.style.top = `${finalTop}px`;
+              avatarElement.style.left = `${finalLeft}px`;
+            }
+          } else {
+            // Animate to center screen
+            const avatarElement = document.querySelector('.floating-avatar') as HTMLElement;
+            if (avatarElement) {
+              avatarElement.style.top = '50%';
+              avatarElement.style.left = '50%';
+              avatarElement.style.transform = 'translate(-50%, -50%)';
+            }
+          }
+        }, 50);
       }
     } else {
       // Normal positioning with smooth transitions
       baseStyles = {
         ...baseStyles,
-        transition: 'none', // No animation on position when handled by parent
+        transition: 'top 700ms ease-in-out, left 700ms ease-in-out',
       };
+
+      if (isBrowserWindowVisible && browserWindowRect) {
+        const top = browserWindowRect.bottom - avatarSize;
+        const left = browserWindowRect.left - (avatarSize / 2);
+        baseStyles = { ...baseStyles, top: `${top}px`, left: `${left}px` };
+      } else {
+        // Default position: CENTER SCREEN
+        baseStyles = { ...baseStyles, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+      }
     }
 
     return baseStyles;
   };
 
-  // Don't render if avatar is not visible and not forced visible
-  if (!isAvatarVisible && !forceVisible) {
+  // Don't render if avatar is not visible
+  if (!isAvatarVisible) {
     return null;
   }
 
   return (
-    <div
+    <div 
       className="floating-avatar"
-      style={{
-        ...getAvatarStyles(),
-        width: `${size}px`,
-        height: `${size}px`
-      }}
+      style={getAvatarStyles()}
     >
-      <div
-        className={`relative w-full h-full ${
-          isAvatarAnimating
+      <div 
+        className={`relative w-[120px] h-[120px] ${
+          isAvatarAnimating 
             ? (isAvatarHiding ? 'animate-avatar-hide' : 'animate-avatar-popup')
             : (!isAnimating ? 'animate-bubble-float' : '')
         }`}
@@ -196,7 +243,7 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
         }}
       >
         {/* Bubble floating container with additional drift animation */}
-        <div
+        <div 
           className={`w-full h-full ${(!isAvatarAnimating && !isAnimating) ? 'animate-bubble-drift' : ''}`}
           style={{
             animationDelay: `${Math.random() * 3}s`,
@@ -205,8 +252,8 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
           <Image
             src={imageUrl}
             alt="Floating Avatar"
-            width={size}
-            height={size}
+            width={150}
+            height={150}
             className="rounded-full border-2 border-purple-200 shadow-lg transition-all duration-300 hover:shadow-2xl hover:border-purple-300"
           />
           
@@ -227,10 +274,9 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
           position: 'absolute',
           top: '70%',
           left: '50%',
-          transform: 'translateX(-50%) scale(0.5)', // change the mouth size
+          transform: 'translateX(-50%) scale(0.5)',
         }}>
           {!isAnimating ? (
-            // The default image has lips, so we render nothing here.
             null
           ) : (
             // Enhanced mouth animation when speaking
@@ -317,4 +363,4 @@ const FloatingAvatar: React.FC<FloatingAvatarProps> = ({ mood = 'neutral', size 
   );
 };
 
-export default FloatingAvatar; 
+export default FloatingAvatar;

@@ -4,7 +4,7 @@
 import { useMediaTrack, useParticipant } from '@daily-co/daily-react';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 
-import { isBotParticipant, useBotSpeakingDetection } from '@interface/lib/daily';
+import { isBotParticipant } from '@interface/lib/daily';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
 import { getClientLogger } from '@interface/lib/client-logger';
 
@@ -28,7 +28,7 @@ const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, 
   const log = getClientLogger('[daily_call]');
   
   // Get current persona name for bot detection
-  const { currentPersonaName, isUserSpeaking, isAssistantSpeaking } = useVoiceSessionContext();
+  const { currentPersonaName, isAssistantSpeaking } = useVoiceSessionContext();
 
   const effectiveId = sessionId || id || '';
   const videoElement = useRef<HTMLVideoElement>(null);
@@ -143,25 +143,12 @@ const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, 
   // Check if participant's audio is muted
   const isAudioMuted = participant?.audio === false;
 
-  // Bot speaking detection using shared hook with throttling for performance
-  const { isSpeaking: isBotSpeaking } = useBotSpeakingDetection(
-    isPearlBot ? effectiveId : '', 
-    {
-      threshold: 0.012,
-      debounceMs: 500,
-      throttleMs: 200, // Throttle for performance with multiple tiles
-      onAudioLevel: (level: number) => {
-        // Update refs for TileGifAvatar lipsync visualization
-        audioLevelRef.current = level;
-        
-        const now = Date.now();
-        if (now - lastAudioUpdateRef.current > 100) {
-          currentAudioLevelRef.current = level;
-          lastAudioUpdateRef.current = now;
-        }
-      }
-    }
-  );
+  // Bot speaking detection using Web Audio API AnalyserNode on actual audio track
+  // This gives ground-truth amplitude from what's actually playing in the browser
+  // Use NIA event-driven speaking detection instead of audio-level analysis.
+  // useBotSpeakingDetection reported constant ~0.7 levels for any 'playable'
+  // Daily track, even during silence, causing perpetual lip animation.
+  const isBotSpeaking = isAssistantSpeaking;
 
   // Handle username label visibility when participant joins
   useEffect(() => {
@@ -488,7 +475,7 @@ const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, 
           }}
         >
           <TileGifAvatar
-            isSpeaking={isAssistantSpeaking && !isUserSpeaking}
+            isSpeaking={isAssistantSpeaking}
             isCallActive={true}
             audioLevelRef={currentAudioLevelRef}
             userName={userName}

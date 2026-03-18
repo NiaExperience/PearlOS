@@ -88,12 +88,16 @@ class SessionLifecycle:
         user_id: str | None = None,
         user_name: str | None = None,
         headless: bool = False,
+        greeting_state_resetter: Any = None,
     ):
         self.participant_manager = participant_manager
         self.task = task
         self.room_url = room_url  # Store for immediate Redis state clearing
+        self._superseded = False  # True when a newer bot has taken over this room
+        self._greeting_state_resetter = greeting_state_resetter
         self.headless = headless
         self.shutdown_task: asyncio.Task | None = None
+        self.shutdown_origin: str | None = None  # Track why shutdown was scheduled
         self.log = logger.bind(
             tag="[lifecycle]",
             botPid=BOT_PID,
@@ -124,15 +128,91 @@ class SessionLifecycle:
         )
 
     def cancel_pending_shutdown(self):
-        if self.shutdown_task and not self.shutdown_task.done():
+        had_pending_shutdown = self.shutdown_task and not self.shutdown_task.done()
+        cancelled_origin = self.shutdown_origin if had_pending_shutdown else None
+        if had_pending_shutdown:
             try:
                 self.log.info(
-                    f"[{BOT_PID}] [participants] cancel_pending_shutdown count={self.participant_manager.human_count()}"
+                    f"[{BOT_PID}] [participants] cancel_pending_shutdown origin={cancelled_origin} count={self.participant_manager.human_count()}"
                 )
             except Exception:
                 pass
             self.shutdown_task.cancel()
             self.shutdown_task = None
+            self.shutdown_origin = None
+
+        # Only reset greeting state on genuine reconnection: a user left,
+        # a post_leave_idle shutdown was scheduled, then someone joined back.
+        # Do NOT reset when cancelling an initial_idle timer — that's just the
+        # first user arriving, and greeting is already in progress.
+        is_reconnection = cancelled_origin == "post_leave_idle"
+        if is_reconnection and self._greeting_state_resetter:
+            try:
+                self._greeting_state_resetter()
+                self.log.info(f"[{BOT_PID}] [participants] Reset greeting state on reconnection (was {cancelled_origin})")
+            except Exception as e:
+                self.log.warning(f"[{BOT_PID}] [participants] Failed to reset greeting state: {e}")
+
+    async def register_authoritative(self) -> None:
+        """Register this bot as the authoritative session for the room in Redis.
+
+        Any older bot session for the same room will see itself as superseded
+        when it calls :meth:`is_authoritative`.
+        """
+        if not self.room_url:
+            return
+        use_redis = os.getenv("USE_REDIS", "true").lower() == "true"
+        if not use_redis:
+            return
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        password = (
+            os.getenv("REDIS_SHARED_SECRET")
+            if os.getenv("REDIS_AUTH_REQUIRED", "false").lower() == "true"
+            else None
+        )
+        try:
+            client = redis.from_url(redis_url, password=password, decode_responses=True)
+            key = f"room_authoritative_bot:{self.room_url}"
+            await client.set(key, BOT_PID, ex=300)  # 5-min TTL as safety net
+            self.log.info(f"[{BOT_PID}] [lifecycle] Registered as authoritative bot for room")
+            await client.aclose()
+        except Exception as e:
+            self.log.warning(f"[{BOT_PID}] [lifecycle] Failed to register authoritative bot: {e}")
+
+    async def is_authoritative(self) -> bool:
+        """Check whether this bot is still the authoritative session for the room.
+
+        Returns ``True`` if Redis is unavailable (fail-open) so that single-bot
+        deployments are unaffected.
+        """
+        if self._superseded:
+            return False
+        if not self.room_url:
+            return True
+        use_redis = os.getenv("USE_REDIS", "true").lower() == "true"
+        if not use_redis:
+            return True
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        password = (
+            os.getenv("REDIS_SHARED_SECRET")
+            if os.getenv("REDIS_AUTH_REQUIRED", "false").lower() == "true"
+            else None
+        )
+        try:
+            client = redis.from_url(redis_url, password=password, decode_responses=True)
+            key = f"room_authoritative_bot:{self.room_url}"
+            current = await client.get(key)
+            await client.aclose()
+            if current and current != BOT_PID:
+                self.log.info(
+                    f"[{BOT_PID}] [lifecycle] Superseded by bot {current} — suppressing events"
+                )
+                self._superseded = True
+                return False
+            return True
+        except Exception as e:
+            self.log.warning(f"[{BOT_PID}] [lifecycle] Auth check failed (fail-open): {e}")
+            return True
 
     async def _clear_room_redis_state(self) -> None:
         """Clear Redis active/keepalive keys for this room immediately.
@@ -191,6 +271,7 @@ class SessionLifecycle:
             )
         except Exception:
             pass
+        self.shutdown_origin = origin
         self.shutdown_task = asyncio.create_task(waiter())
 
     async def save_conversation_summary(

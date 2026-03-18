@@ -10,7 +10,8 @@ export interface PhotoMagicResult {
   prompt: string;
 }
 
-const API_BASE = (process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '') + '/api/photo-magic';
+// Use relative path through Next.js rewrite proxy (works via tunnel + localhost)
+const API_BASE = '/bot-api/photo-magic';
 
 export function usePhotoMagic() {
   const [state, setState] = useState<PhotoMagicState>('idle');

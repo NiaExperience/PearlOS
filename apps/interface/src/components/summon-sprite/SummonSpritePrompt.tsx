@@ -8,6 +8,7 @@ import SpriteBotConfigPanel from './SpriteBotConfigPanel';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
 import { NIA_EVENT_SPRITE_OPEN } from '@interface/features/DailyCall/events/niaEventRouter';
 import { useToast } from '@interface/hooks/use-toast';
+import { useSpriteDisplayAutoHide } from '@interface/hooks/use-sprite-display-auto-hide';
 import { trackSessionHistory } from '@interface/lib/session-history';
 import { MessageTypeEnum, MessageRoleEnum } from '@interface/types/conversation.types';
 
@@ -224,6 +225,9 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
     const [recallDropdownOpen, setRecallDropdownOpen] = useState(false);
     const recallDropdownRef = useRef<HTMLDivElement | null>(null);
     const dialogRef = useRef<HTMLDivElement | null>(null);
+
+    // Auto-hide when sprite is displayed (only in Quiet mode, hook handles that)
+    const { controlsVisible } = useSpriteDisplayAutoHide();
 
     // ═══ Wonder Layer hooks ═══
     const hasSprite = !!(gif || sourceImage);
@@ -961,6 +965,8 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         setChatInput('');
         setChatError(null);
         disableSpriteVoice();
+        // Notify auto-hide hook that sprite is dismissed
+        window.dispatchEvent(new CustomEvent('sprite.dismissed'));
     }, [disableSpriteVoice]);
 
     const dismissSprite = useCallback(() => {
@@ -1213,8 +1219,8 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
     return (
         <>
             <div
-                className="pointer-events-auto fixed top-4 left-1/2 z-[70] -translate-x-1/2 md:left-auto md:right-16 md:translate-x-0 flex flex-col items-center"
-                style={{ fontFamily: 'Gohufont, monospace' }}
+                className={`pointer-events-auto fixed top-4 left-1/2 z-[70] -translate-x-1/2 md:left-auto md:right-16 md:translate-x-0 flex flex-col items-center transition-all duration-300 ease-in-out ${controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
+                style={{ fontFamily: 'Gohufont, monospace', pointerEvents: controlsVisible ? 'auto' : 'none' }}
             >
                 {/* Show button on mobile always, on desktop only when closed */}
                 {(!open || isMobile) && (

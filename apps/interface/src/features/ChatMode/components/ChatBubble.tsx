@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
+
+const ReactMarkdown = React.lazy(() => import('react-markdown'));
+let remarkGfm: any;
+try { remarkGfm = require('remark-gfm').default || require('remark-gfm'); } catch {}
 
 export interface ChatMessage {
   id: string;
@@ -104,8 +108,28 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
             ))}
           </div>
         ) : (
-          <span className={message.isStreaming ? 'after:content-["▊"] after:animate-pulse after:ml-0.5 after:text-[#D94F8E]' : ''}>
-            {message.content}
+          <span className={`chat-bubble-content ${message.isStreaming ? 'after:content-["▊"] after:animate-pulse after:ml-0.5 after:text-[#D94F8E]' : ''}`}>
+            <Suspense fallback={<>{message.content}</>}>
+              <ReactMarkdown
+                remarkPlugins={remarkGfm ? [remarkGfm] : []}
+                components={{
+                  p: ({ children }) => <span style={{ display: 'block', margin: '0.25em 0' }}>{children}</span>,
+                  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#D94F8E', textDecoration: 'underline' }}>{children}</a>,
+                  code: ({ children, className }) => {
+                    const isBlock = className?.includes('language-');
+                    return isBlock
+                      ? <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '6px', overflowX: 'auto', margin: '0.5em 0', fontSize: '0.9em' }}><code>{children}</code></pre>
+                      : <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px', fontSize: '0.9em' }}>{children}</code>;
+                  },
+                  ul: ({ children }) => <ul style={{ margin: '0.25em 0', paddingLeft: '1.2em', listStyleType: 'disc' }}>{children}</ul>,
+                  ol: ({ children }) => <ol style={{ margin: '0.25em 0', paddingLeft: '1.2em' }}>{children}</ol>,
+                  strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+                  em: ({ children }) => <em>{children}</em>,
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </Suspense>
           </span>
         )}
         <style jsx>{`

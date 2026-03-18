@@ -39,27 +39,9 @@ DEFAULT_MISC_TOOL_PROMPTS: dict[str, str] = {
 # ============================================================================
 
 
-@bot_tool(
-    name="bot_search_wikipedia",
-    description=DEFAULT_MISC_TOOL_PROMPTS["bot_search_wikipedia"],
-    feature_flag="wikipedia",
-    parameters={
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "Search query for Wikipedia"
-            },
-            "sentences": {
-                "type": "number",
-                "description": "Number of sentences to return in summary (default 3)",
-                "default": 3
-            }
-        },
-        "required": ["query"]
-    }
-)
-async def bot_search_wikipedia(params: FunctionCallParams):
+# DISABLED per Blair directive 2026-02-26 — Wikipedia removed from PearlOS tools
+# @bot_tool(name="bot_search_wikipedia", ...)
+async def _disabled_bot_search_wikipedia(params: FunctionCallParams):
     """Search Wikipedia for information using the Wikipedia OpenSearch API."""
     from actions.search_actions import search_wikipedia
 

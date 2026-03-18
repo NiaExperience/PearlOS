@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile, writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
+import { requireAuth } from '@interface/lib/api-auth';
 
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH ?? join(homedir(), '.openclaw', 'openclaw.json');
 const SESSIONS_PATH = process.env.OPENCLAW_SESSIONS_PATH ?? join(homedir(), '.openclaw', 'agents', 'main', 'sessions', 'sessions.json');
@@ -57,7 +58,9 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return result;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   try {
     const raw = await readFile(CONFIG_PATH, 'utf-8');
     const config = JSON.parse(raw);
@@ -71,6 +74,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth(request);
+  if (authError) return authError;
   try {
     const body = await request.json();
     const patch = body.patch;

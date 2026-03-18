@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { WINDOW_OPEN_EVENT, type WindowOpenRequest } from '@interface/features/ManeuverableWindow/lib/windowLifecycleController';
 // import TaskbarModelSelector from './taskbar-model-selector';
 import { DesktopMode, type DesktopModeSwitchResponse } from '../types/desktop-modes';
+import { useSpriteDisplayAutoHide } from '@interface/hooks/use-sprite-display-auto-hide';
 
 interface Particle {
   id: number;
@@ -52,6 +53,7 @@ const DesktopTaskbar = ({
   const [isDragging, setIsDragging] = useState(false);
   const [currentMode, setCurrentMode] = useState<DesktopMode>(isWorkMode ? DesktopMode.WORK : DesktopMode.HOME);
   const [isSocialActive, setIsSocialActive] = useState(false);
+
   const [isSocialAppOpen, setIsSocialAppOpen] = useState(false);
   const controls = useAnimation();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -77,6 +79,9 @@ const DesktopTaskbar = ({
       return () => window.removeEventListener('resize', checkMobile);
     }
   }, []);
+
+  // Auto-hide controls when sprite is displayed in Quiet mode
+  const { controlsVisible } = useSpriteDisplayAutoHide();
   
   // Derived states for button visibility
   const isHomeActive = currentMode === DesktopMode.HOME || currentMode === DesktopMode.DEFAULT;
@@ -538,7 +543,7 @@ const DesktopTaskbar = ({
         x: posX,
         y: posY,
         scale,
-        zIndex: 300, // Z-scale: menus/taskbar layer
+        zIndex: 300, // Z-scale: menus/taskbar layer — NOT changed, adversarial review caught z-index risk
         background: 'transparent',
         outline: 'none',
         border: 'none',
@@ -585,7 +590,7 @@ const DesktopTaskbar = ({
         const currentY = posY.get();
         lastPositionRef.current = { x: currentX, y: currentY };
       }}
-      className={`pointer-events-auto absolute ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`pointer-events-auto absolute transition-opacity duration-300 ease-in-out ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       initial={{
         width: isExpanded ? 'auto' : '48px'
       }}

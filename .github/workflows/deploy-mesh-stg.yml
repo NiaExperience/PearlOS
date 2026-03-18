@@ -1,0 +1,23 @@
+name: deploy-mesh-stg
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'apps/mesh/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/deploy-mesh.yml'
+  workflow_dispatch:  # <-- manual trigger
+
+jobs:
+  mesh:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app_name: mesh
+      dockerfile_path: apps/mesh/Dockerfile
+      environment: stg
+    permissions:
+      id-token: write    # obtain OIDC token
+      contents: read
+    secrets:
+      SUBMODULE_PAT: ${{ secrets.NIAXP_PAT }}

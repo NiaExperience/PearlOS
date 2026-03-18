@@ -229,22 +229,7 @@ export const PearlMultiMenu = forwardRef<PearlMultiMenuRef, PearlMultiMenuProps>
                  title="Eyes/Vision (Coming Soon)"
                />
 
-               {/* Bottom-left icon - Inactive */}
-               <div
-                 className="absolute"
-                 style={{
-                   top: '64%',
-                   left: '40%',
-                   width: '10%',
-                   height: '10%',
-                   backgroundColor: 'transparent',
-                   borderRadius: '50%',
-                   transform: 'translate(-50%, -50%)',
-                   pointerEvents: 'none', // Inactive
-                   opacity: 0.3,
-                 }}
-                 title="Question/Help (Coming Soon)"
-               />
+               {/* Question/Help icon removed — deprecated */}
 
                {/* Top-left icon - Inactive */}
                <div

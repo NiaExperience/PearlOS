@@ -16,7 +16,7 @@ If you are an AI assistant (Copilot, Cursor, Claude Code, etc.) helping a contri
 
 ## Architecture Awareness
 
-Before making changes, read [ARCHITECTURE.md](ARCHITECTURE.md) to understand:
+Before making changes, read [ARCHITECTURE.md](pearl-docs/architecture/ARCHITECTURE.md) to understand:
 
 - The monorepo structure (apps + packages)
 - The event system (Daily app-messages, niaEventRouter, CustomEvents)
@@ -45,4 +45,4 @@ Before making changes, read [ARCHITECTURE.md](ARCHITECTURE.md) to understand:
 ## Additional Resources
 
 - [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full contributor guide
-- [docs/getting-started.md](docs/getting-started.md) for development setup
+- [getting-started.md](pearl-docs/internal/getting-started.md) for development setup

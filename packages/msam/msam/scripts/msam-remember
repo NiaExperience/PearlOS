@@ -1,0 +1,4 @@
+#!/bin/bash
+# Convenience wrapper. Prefer: pip install -e . && msam <command>
+SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+exec python3 -m msam.remember "$@"

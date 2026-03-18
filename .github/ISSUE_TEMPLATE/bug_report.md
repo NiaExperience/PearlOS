@@ -1,43 +1,40 @@
 ---
 name: Bug Report
-about: Create a report to help us improve
-title: '[BUG] '
+about: Report something that is not working correctly
+title: "[Bug] "
 labels: bug
 assignees: ''
 ---
 
 ## Description
-A clear and concise description of what the bug is.
+
+A clear description of the bug.
 
 ## Steps to Reproduce
+
 1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+2. Click on '...'
+3. See error
 
 ## Expected Behavior
-A clear and concise description of what you expected to happen.
+
+What you expected to happen.
 
 ## Actual Behavior
-A clear and concise description of what actually happened.
 
-## Screenshots
-If applicable, add screenshots to help explain your problem.
+What actually happened.
 
 ## Environment
-- **OS**: [e.g. Linux, macOS, Windows]
-- **Node Version**: [e.g. 20.0.0]
-- **Browser** (if applicable): [e.g. Chrome 120, Firefox 121]
-- **App/Component**: [e.g. interface, dashboard, mesh, pipecat-daily-bot]
 
-## Logs/Error Messages
-```
-Paste any relevant logs or error messages here
-```
+- **OS:** (e.g., macOS 15, Ubuntu 24.04, Windows 11)
+- **Browser:** (e.g., Chrome 120, Safari 18)
+- **Node.js version:** (e.g., 20.11.0)
+- **PearlOS version/commit:** (e.g., v0.1.0 or commit hash)
+
+## Screenshots / Logs
+
+If applicable, add screenshots or paste relevant log output.
 
 ## Additional Context
-Add any other context about the problem here.
 
-## Possible Solution
-If you have ideas on how to fix this, please describe them here.
-
+Any other context about the problem.

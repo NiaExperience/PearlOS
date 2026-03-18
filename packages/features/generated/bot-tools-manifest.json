@@ -1,25 +1,22 @@
 {
   "version": "1.0.0",
-  "tool_count": 88,
-  "feature_count": 21,
+  "tool_count": 91,
+  "feature_count": 19,
   "tool_names": [
     "bot_add_note_content",
     "bot_adjust_soundtrack_volume",
     "bot_back_to_notes",
-    "bot_canvas_clear",
     "bot_canvas_show",
     "bot_canvas_show_article",
     "bot_canvas_show_chart",
     "bot_canvas_show_file",
     "bot_canvas_show_image",
     "bot_canvas_show_table",
+    "bot_clear_note_highlights",
     "bot_close_applet_creation_engine",
     "bot_close_browser_window",
-    "bot_close_gmail",
-    "bot_close_google_drive",
     "bot_close_notes",
     "bot_close_terminal",
-    "bot_close_view",
     "bot_close_youtube",
     "bot_create_app_from_description",
     "bot_create_app_from_note",
@@ -32,19 +29,22 @@
     "bot_download_note",
     "bot_end_call",
     "bot_get_current_soundtrack",
+    "bot_get_current_time",
+    "bot_get_news",
+    "bot_get_weather",
+    "bot_highlight_note",
+    "bot_highlight_note_text",
     "bot_list_notes",
     "bot_list_recent_tasks",
+    "bot_list_tasks",
     "bot_load_html_applet",
     "bot_look_at_user",
     "bot_maximize_window",
     "bot_minimize_window",
+    "bot_navigate_note_heading",
     "bot_next_soundtrack_track",
     "bot_onboarding_complete",
-    "bot_open_browser",
     "bot_open_creation_engine",
-    "bot_open_enhanced_browser",
-    "bot_open_gmail",
-    "bot_open_google_drive",
     "bot_open_news",
     "bot_open_note",
     "bot_open_notes",
@@ -64,7 +64,7 @@
     "bot_restore_window",
     "bot_rollback_app",
     "bot_save_note",
-    "bot_search_wikipedia",
+    "bot_scroll_note",
     "bot_search_youtube_videos",
     "bot_set_soundtrack_volume",
     "bot_set_user_access_level",
@@ -75,6 +75,7 @@
     "bot_snap_window_right",
     "bot_start_daily_call",
     "bot_stop_soundtrack",
+    "bot_stop_task",
     "bot_summon_sprite",
     "bot_switch_desktop_mode",
     "bot_switch_layout_mode",
@@ -85,6 +86,8 @@
     "bot_update_html_applet",
     "bot_update_user_profile",
     "bot_upgrade_user_access",
+    "bot_web_fetch",
+    "bot_web_search",
     "bot_wonder_canvas_add",
     "bot_wonder_canvas_animate",
     "bot_wonder_canvas_avatar_hint",
@@ -97,11 +100,9 @@
     "browserAutomation",
     "dailyCall",
     "experiences",
-    "gmail",
-    "googleDrive",
     "htmlContent",
     "maneuverableWindow",
-    "miniBrowser",
+    "news",
     "notes",
     "onboarding",
     "openclawBridge",
@@ -111,7 +112,7 @@
     "terminal",
     "userProfile",
     "vision",
-    "wikipedia",
+    "weather",
     "wonderCanvas",
     "youtube"
   ],
@@ -180,17 +181,6 @@
       "name": "bot_back_to_notes",
       "description": "Navigate back to the notes list view from the current note.",
       "feature_flag": "notes",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": false
-    },
-    "bot_canvas_clear": {
-      "name": "bot_canvas_clear",
-      "description": "Clear/dismiss the current canvas content from the user's screen.",
-      "feature_flag": "openclawBridge",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -368,9 +358,20 @@
       },
       "passthrough": false
     },
+    "bot_clear_note_highlights": {
+      "name": "bot_clear_note_highlights",
+      "description": "Clear all highlights from the currently open note. Use this when you're done discussing a section and want to remove visual emphasis. Triggers: 'clear highlights', 'remove highlighting', 'done with that section'.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
     "bot_close_applet_creation_engine": {
       "name": "bot_close_applet_creation_engine",
-      "description": "Close the creation engine or content creation tool window. Triggers: \"close creation engine\", \"closed creation engine\", \"exit creation engine\", \"close content creator\", \"exit content creator\".",
+      "description": "Close the creation engine window.",
       "feature_flag": "htmlContent",
       "parameters": {
         "type": "object",
@@ -381,7 +382,7 @@
     },
     "bot_close_browser_window": {
       "name": "bot_close_browser_window",
-      "description": "Close specific apps (Gmail, Terminal, Drive, Notes, etc.) or all windows. Use the \"apps\" parameter to specify which apps to close (e.g., [\"gmail\", \"terminal\"]). If no apps specified, closes all windows. Speech-to-text variants like \"closed\" should be treated as \"close\".",
+      "description": "Close specific apps or all windows. Pass \"apps\" array (e.g. [\"notes\",\"terminal\"]) or omit to close all. \"Closed X\" from STT = \"close X\".",
       "feature_flag": "browserAutomation",
       "parameters": {
         "apps": {
@@ -398,31 +399,9 @@
       },
       "passthrough": true
     },
-    "bot_close_gmail": {
-      "name": "bot_close_gmail",
-      "description": "Close Gmail. Triggers: \"close gmail\", \"closed gmail\", \"exit gmail\". Treat \"closed gmail\" from speech-to-text as a command.",
-      "feature_flag": "gmail",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": true
-    },
-    "bot_close_google_drive": {
-      "name": "bot_close_google_drive",
-      "description": "Close Google Drive. Triggers: \"close drive\", \"closed drive\", \"exit drive\". Treat \"closed drive\" from speech-to-text as a command.",
-      "feature_flag": "googleDrive",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": true
-    },
     "bot_close_notes": {
       "name": "bot_close_notes",
-      "description": "Close the notes application. Triggers: \"close notes\", \"closed notes\", \"exit notes\", \"close notepad\", \"shut notes\", \"hide notes\". NOTE: Speech-to-text may transcribe \"close\" as \"closed\" \u2014 treat \"closed notes\" as a command to close notes, not a statement.",
+      "description": "Close the notes app. \"Closed notes\" from STT = \"close notes\".",
       "feature_flag": "notes",
       "parameters": {
         "type": "object",
@@ -433,7 +412,7 @@
     },
     "bot_close_terminal": {
       "name": "bot_close_terminal",
-      "description": "Close the terminal application. Triggers: \"close terminal\", \"closed terminal\", \"exit terminal\", \"shut terminal\". Treat \"closed terminal\" from speech-to-text as a command.",
+      "description": "Close the terminal.",
       "feature_flag": "terminal",
       "parameters": {
         "type": "object",
@@ -442,28 +421,9 @@
       },
       "passthrough": true
     },
-    "bot_close_view": {
-      "name": "bot_close_view",
-      "description": "Close specific apps or the current view. Use the \"apps\" parameter to specify which apps to close (Gmail, Terminal, Drive, Notes, etc.). If no apps specified, closes all windows. Speech-to-text may transcribe \"close\" as \"closed\" \u2014 always treat as a command.",
-      "feature_flag": "browserAutomation",
-      "parameters": {
-        "apps": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Optional list of specific app names to close (e.g., ['terminal', 'gmail']). If not provided, closes all windows."
-        },
-        "request_text": {
-          "type": "string",
-          "description": "Optional raw user request text for context (e.g., 'close terminal and gmail')"
-        }
-      },
-      "passthrough": true
-    },
     "bot_close_youtube": {
       "name": "bot_close_youtube",
-      "description": "Close the YouTube player interface. Triggers: \"close youtube\", \"closed youtube\", \"stop video\", \"exit youtube\". Treat \"closed youtube\" from speech-to-text as a command.",
+      "description": "Close the YouTube player.",
       "feature_flag": "youtube",
       "parameters": {
         "type": "object",
@@ -474,7 +434,7 @@
     },
     "bot_create_app_from_description": {
       "name": "bot_create_app_from_description",
-      "description": "Request AI generation of an HTML applet/game/tool based on a description. DO NOT use for sprite/character requests - use bot_summon_sprite instead for those. The design, theme, gameplay and characters should be based on and informed by your conversation with the user, but their answers should not be directly used in the experience. Make a simple, turn-based, no-sound, 80s arcade style game that is genuinely fun, social, and endlessly generative without feeling like a quiz or therapy. The user should be able to make one move and then send it to someone else to complete or compete. Examples: if the user answers artistically, generate a physics-defying graffiti wall; if the users answers are collaborative, generate a magical wishing tree where others can post and you affirm their wish with a Gen Z phrase; if they answer competitively, generate a hot-seat arcade game where players take turns placing a single token on a glowing board, flipping nearby enemy tiles to their color and instantly changing the score. Think of it like the user is Player 1 who boots a strange arcade machine and sets its internal logic (unknowingly) and when they send it to multiple Player 2s, those players briefly get the joystick and interact with the system before it locks. Player 2s can send with their updates back to Player 1 or forward on to multiple Player 3s. There should be no instructions or text in the gameplay, the interaction must be obvious by the visual design affordance. The payoff for each player must be hilarious to Gen Z audiences and deliver a gorgeous screenshot-able final visual. All visuals must fit on a single standard mobile screen and not require any scrolling. Use this when the user asks you to CREATE a new app, game, or interactive tool. You only need to provide a title and description - the AI will generate the full HTML. This is the PRIMARY tool for creating new HTML content from user requests.\nAVAILABLE LIBRARY TEMPLATES:\nWhen the user's request matches one of these templates, include library_type and library_template_id in your tool call.\n\nTOOL TEMPLATES (library_type: \"tool\"):\n- library_template_id: \"counter_widget_v1\"\n  Name: Counter Widget Starter\n  Description: Simple animated counter with increment/decrement, reset, and persistence hooks.\n\n- library_template_id: \"quick_poll_v1\"\n  Name: Quick Poll (Two Option)\n  Description: Two-option poll with percentages and persistence.\n\n- library_template_id: \"party_pack_poll\"\n  Name: Party Pack: Emoji Vote\n  Description: Emoji-based quick vote with live tally and persistence.\n\n- library_template_id: \"party_pack_score\"\n  Name: Party Pack: Score Keeper\n  Description: Two-team score keeper with quick adjust, reset, and persistence.\n\nGAME TEMPLATES (library_type: \"game\"):\n- library_template_id: \"space_invaders_lite\"\n  Name: Space Invaders Lite\n  Description: Simple version of the arcade classic lane shooter with high-score persistence.\n\n- library_template_id: \"checkers_challenge\"\n  Name: Classic Checkers Challenge\n  Description: Classic checkers game with a polished UI and smooth gameplay, both single player and multi-player modes, with turn-based mechanics / game persistence.\n\n- library_template_id: \"chess_persistent\"\n  Name: Chess (Single/Multiplayer)\n  Description: Lightweight chess move tracker that binds white/black to a user and persists moves via NiaAPI.\n\nIf no template matches the user's request, omit library_type and library_template_id to generate from scratch.",
+      "description": "Generate an HTML applet, game, or interactive tool from a description. Provide a title and description; the AI generates the full HTML. NOT for sprites/characters (use bot_summon_sprite). PRIMARY tool for creating new HTML content from user requests.\nAVAILABLE LIBRARY TEMPLATES:\nWhen the user's request matches one of these templates, include library_type and library_template_id in your tool call.\n\nTOOL TEMPLATES (library_type: \"tool\"):\n- library_template_id: \"counter_widget_v1\"\n  Name: Counter Widget Starter\n  Description: Simple animated counter with increment/decrement, reset, and persistence hooks.\n\n- library_template_id: \"quick_poll_v1\"\n  Name: Quick Poll (Two Option)\n  Description: Two-option poll with percentages and persistence.\n\n- library_template_id: \"party_pack_poll\"\n  Name: Party Pack: Emoji Vote\n  Description: Emoji-based quick vote with live tally and persistence.\n\n- library_template_id: \"party_pack_score\"\n  Name: Party Pack: Score Keeper\n  Description: Two-team score keeper with quick adjust, reset, and persistence.\n\nGAME TEMPLATES (library_type: \"game\"):\n- library_template_id: \"space_invaders_lite\"\n  Name: Space Invaders Lite\n  Description: Simple version of the arcade classic lane shooter with high-score persistence.\n\n- library_template_id: \"checkers_challenge\"\n  Name: Classic Checkers Challenge\n  Description: Classic checkers game with a polished UI and smooth gameplay, both single player and multi-player modes, with turn-based mechanics / game persistence.\n\n- library_template_id: \"chess_persistent\"\n  Name: Chess (Single/Multiplayer)\n  Description: Lightweight chess move tracker that binds white/black to a user and persists moves via NiaAPI.\n\nIf no template matches the user's request, omit library_type and library_template_id to generate from scratch.",
       "feature_flag": "htmlContent",
       "parameters": {
         "type": "object",
@@ -773,6 +733,119 @@
       },
       "passthrough": true
     },
+    "bot_get_current_time": {
+      "name": "bot_get_current_time",
+      "description": "Get the current date, time, and day of week. Use when the user asks what time or date it is.",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone name (e.g. 'America/New_York', 'Europe/London'). Defaults to America/New_York."
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_get_news": {
+      "name": "bot_get_news",
+      "description": "Fetch live news headlines by category or search topic. Returns structured headline data that you can summarize and discuss. Categories: top stories, tech, sports, entertainment, science, business, health, world. You can also search any topic. IMPORTANT: To SHOW news on screen, use bot_open_news instead (it opens the full news app). Use bot_get_news only when you need raw headline data for discussion without opening the app.",
+      "feature_flag": "news",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "News category: 'top', 'tech', 'sports', 'entertainment', 'science', 'business', 'health', 'world'. Leave empty if using topic search."
+          },
+          "topic": {
+            "type": "string",
+            "description": "Free-text search topic (e.g. 'AI', 'SpaceX launch', 'climate change'). Overrides category."
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of headlines to return (1-8, default 6)."
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_get_weather": {
+      "name": "bot_get_weather",
+      "description": "Get live weather data for any location. Returns current temperature, condition, humidity, wind speed, feels-like temperature, and a 5-day forecast. AUTOMATICALLY displays a polished weather card on the Wonder Canvas \u2014 do NOT also call bot_wonder_canvas_template with weather_card (it would overwrite this). Use when the user asks about weather, temperature, or forecast for any city or place.",
+      "feature_flag": "weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "City or place name (e.g., 'Orlando', 'New York', 'Tokyo')"
+          }
+        },
+        "required": [
+          "location"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_highlight_note": {
+      "name": "bot_highlight_note",
+      "description": "Highlight specific text in the currently open note to draw the user's attention. Use this while discussing a specific part of a note \u2014 the highlighted text will pulse/glow so the user can see exactly what you're referring to. Triggers: 'look at this part', 'notice the budget line', 'pay attention to paragraph 2'. Also auto-scrolls to the highlighted text.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The text to highlight. Can be a keyword, phrase, sentence, or paragraph. The frontend will find and highlight all occurrences."
+          },
+          "section": {
+            "type": "string",
+            "description": "A section heading to highlight entirely. Highlights the heading and its content until the next heading of the same or higher level."
+          },
+          "color": {
+            "type": "string",
+            "description": "Highlight color. Options: 'yellow' (default), 'blue', 'green', 'pink', 'orange'.",
+            "enum": [
+              "yellow",
+              "blue",
+              "green",
+              "pink",
+              "orange"
+            ]
+          },
+          "duration_seconds": {
+            "type": "number",
+            "description": "How long the highlight should stay visible (default: 8 seconds). Set to 0 for persistent."
+          }
+        }
+      },
+      "passthrough": true
+    },
+    "bot_highlight_note_text": {
+      "name": "bot_highlight_note_text",
+      "description": "Highlight/emphasize a specific text passage in the currently open note so the user can see it visually. Set clear=true to remove all highlights. User: 'highlight the part about deadlines', 'show me where it mentions budget'.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The text passage to highlight in the currently open note (case-insensitive match)."
+          },
+          "clear": {
+            "type": "boolean",
+            "description": "If true, clear all current highlights instead of adding one.",
+            "default": false
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
     "bot_list_notes": {
       "name": "bot_list_notes",
       "description": "List all available notes for the current tenant, providing titles, modes, and IDs (not full content).",
@@ -803,6 +876,17 @@
             "default": 5
           }
         },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_list_tasks": {
+      "name": "bot_list_tasks",
+      "description": "List all running background tasks and sub-agents",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {},
         "required": []
       },
       "passthrough": false
@@ -873,6 +957,30 @@
       },
       "passthrough": true
     },
+    "bot_navigate_note_heading": {
+      "name": "bot_navigate_note_heading",
+      "description": "Navigate to a specific heading or section in the currently open note, or move to the next/previous heading. User: 'go to the summary section', 'next section', 'previous heading'.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string",
+            "description": "The heading text to navigate to (case-insensitive fuzzy match)."
+          },
+          "direction": {
+            "type": "string",
+            "description": "Navigate to the 'next' or 'previous' heading relative to current position.",
+            "enum": [
+              "next",
+              "previous"
+            ]
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
     "bot_next_soundtrack_track": {
       "name": "bot_next_soundtrack_track",
       "description": "Skip to the next track in the soundtrack playlist.",
@@ -895,63 +1003,10 @@
       },
       "passthrough": false
     },
-    "bot_open_browser": {
-      "name": "bot_open_browser",
-      "description": "Open a web browser window. Optionally navigate to a specified URL. Triggers: \"open browser\", \"launch browser\", \"open web browser\", \"go to [URL]\".",
-      "feature_flag": "miniBrowser",
-      "parameters": {
-        "url": {
-          "type": "string",
-          "description": "Optional URL to navigate to when opening the browser"
-        }
-      },
-      "passthrough": true
-    },
     "bot_open_creation_engine": {
       "name": "bot_open_creation_engine",
-      "description": "Open the creation engine or content creation tool. Triggers: \"open creation engine\", \"load creation tool\", \"start content creation\", \"create html content\".",
+      "description": "Open the creation engine for HTML content creation.",
       "feature_flag": "htmlContent",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": true
-    },
-    "bot_open_enhanced_browser": {
-      "name": "bot_open_enhanced_browser",
-      "description": "Open an enhanced browser window with advanced features (dev tools, extensions, etc.).",
-      "feature_flag": "miniBrowser",
-      "parameters": {
-        "url": {
-          "type": "string",
-          "description": "URL to open in the enhanced browser"
-        },
-        "features": {
-          "type": "array",
-          "description": "Optional list of features to enable (devtools, extensions, etc.)",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "passthrough": true
-    },
-    "bot_open_gmail": {
-      "name": "bot_open_gmail",
-      "description": "Open Gmail in the application or browser. Triggers: \"open gmail\", \"load gmail app\", \"check email\", \"open email\".",
-      "feature_flag": "gmail",
-      "parameters": {
-        "type": "object",
-        "properties": {},
-        "required": []
-      },
-      "passthrough": true
-    },
-    "bot_open_google_drive": {
-      "name": "bot_open_google_drive",
-      "description": "Open Google Drive in the application or browser. Triggers: \"open drive\", \"load google drive app\", \"open google drive\", \"open my files\".",
-      "feature_flag": "googleDrive",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -961,11 +1016,16 @@
     },
     "bot_open_news": {
       "name": "bot_open_news",
-      "description": "Open the built-in PearlOS News app. This is a full news reader with headlines from multiple sources (NY Times, BBC, NPR, Ars Technica, The Verge, etc.). Triggers: \"open news\", \"show me the news\", \"open the news\", \"load news\", \"what's in the news\", \"show news\", \"news app\", \"check the news\", \"the news\". IMPORTANT: This opens the EXISTING built-in news app \u2014 do NOT generate new HTML or use Wonder Canvas templates for news. The news app auto-fetches live headlines from RSS feeds.",
+      "description": "Open the built-in PearlOS News app with live headlines. Optional category: world, science, politics, entertainment, health, tech. Do NOT generate HTML for news.",
       "feature_flag": "wonderCanvas",
       "parameters": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Optional category to open directly: 'world', 'science', 'politics', 'entertainment', 'health', 'tech'. Aliases work too: 'technology'\u2192'tech', 'ent'\u2192'entertainment', etc. If omitted, opens at the default (world)."
+          }
+        },
         "required": []
       },
       "passthrough": true
@@ -994,7 +1054,7 @@
     },
     "bot_open_notes": {
       "name": "bot_open_notes",
-      "description": "Open the Notepad application. Triggers: \"open notes\", \"open notepad\", \"load notes app\", \"open portal\", \"open library\". For opening a SPECIFIC note by name or description, ALWAYS use bot_open_note instead.",
+      "description": "Open the Notes app. For a SPECIFIC note by name, use bot_open_note instead.",
       "feature_flag": "notes",
       "parameters": {
         "type": "object",
@@ -1005,7 +1065,7 @@
     },
     "bot_open_terminal": {
       "name": "bot_open_terminal",
-      "description": "Open a terminal or command line interface. Triggers: \"open terminal\", \"load terminal app\", \"open command line\", \"open shell\".",
+      "description": "Open a terminal/command line.",
       "feature_flag": "terminal",
       "parameters": {
         "type": "object",
@@ -1016,7 +1076,7 @@
     },
     "bot_open_youtube": {
       "name": "bot_open_youtube",
-      "description": "Open the YouTube player interface.  Triggers: \"open youtube\", \"load youtube app\", \"open video\", \"play video\". Use bot_search_youtube_videos to search and play videos based on user input.",
+      "description": "Open YouTube player. Use bot_search_youtube_videos to find/play videos.",
       "feature_flag": "youtube",
       "parameters": {
         "type": "object",
@@ -1027,7 +1087,7 @@
     },
     "bot_openclaw_task": {
       "name": "bot_openclaw_task",
-      "description": "Fire-and-forget background task for the OpenClaw AI agent (powered by Claude). Results appear in the PearlOS interface, NOT spoken back to the user. DO NOT use this for Discord/Telegram messaging, web searches, or anything where you need the result spoken back. Use bot_think_deeply instead for those. Only use this for long-running background tasks like: writing code to a file, running multi-step workflows, or heavy analysis that should display in the UI.",
+      "description": "Background OpenClaw task. Results show in UI, NOT spoken back. For results you need to speak, use bot_think_deeply instead.",
       "feature_flag": "openclawBridge",
       "parameters": {
         "type": "object",
@@ -1272,7 +1332,7 @@
     },
     "bot_save_note": {
       "name": "bot_save_note",
-      "description": "Save the current note's changes to persistent storage.",
+      "description": "Save the current note to a file on disk. Notes are already saved to the database; use this when the user explicitly asks to save/export to a file.",
       "feature_flag": "notes",
       "parameters": {
         "type": "object",
@@ -1286,26 +1346,27 @@
       },
       "passthrough": false
     },
-    "bot_search_wikipedia": {
-      "name": "bot_search_wikipedia",
-      "description": "Search Wikipedia for information on ANY topic - people, places, concepts, animals, objects, etc. Use this for any general knowledge question. Returns articles with summaries and opens the article in the browser.",
-      "feature_flag": "wikipedia",
+    "bot_scroll_note": {
+      "name": "bot_scroll_note",
+      "description": "Scroll the currently open note to a position: 'top', 'bottom', or to a specific heading. Use heading parameter for heading-based scroll. User: 'scroll to the top', 'go to the ingredients section'.",
+      "feature_flag": "notes",
       "parameters": {
         "type": "object",
         "properties": {
-          "query": {
+          "position": {
             "type": "string",
-            "description": "Search query for Wikipedia"
+            "description": "Scroll target: 'top', 'bottom', or 'heading:<heading text>' to scroll to a specific heading.",
+            "enum": [
+              "top",
+              "bottom"
+            ]
           },
-          "sentences": {
-            "type": "number",
-            "description": "Number of sentences to return in summary (default 3)",
-            "default": 3
+          "heading": {
+            "type": "string",
+            "description": "If scrolling to a heading, the heading text to scroll to (case-insensitive fuzzy match)."
           }
         },
-        "required": [
-          "query"
-        ]
+        "required": []
       },
       "passthrough": false
     },
@@ -1461,8 +1522,8 @@
               "read",
               "write"
             ],
-            "description": "Permission level: 'read' for read-only (use this default if not specified by user), 'write' for full edit",
-            "default": "read"
+            "description": "Permission level: 'read' for read-only, 'write' for full edit",
+            "default": "write"
           }
         },
         "required": [
@@ -1526,6 +1587,17 @@
       },
       "passthrough": true
     },
+    "bot_stop_task": {
+      "name": "bot_stop_task",
+      "description": "Stop or cancel a running background task or sub-agent. Use when user says 'stop that', 'cancel the task', 'kill it', etc.",
+      "feature_flag": "openclawBridge",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "passthrough": false
+    },
     "bot_summon_sprite": {
       "name": "bot_summon_sprite",
       "description": "Summon a visual AI sprite character from a user-provided description (e.g., 'panda doctor', 'indian driver'). Use when the user asks for a character/persona so the sprite can appear and chat.",
@@ -1546,7 +1618,7 @@
     },
     "bot_switch_desktop_mode": {
       "name": "bot_switch_desktop_mode",
-      "description": "Switch PearlOS desktop background/theme mode. Available modes: \"home\", \"work\", \"quiet\", \"create\". CRITICAL: When the user says \"switch to desktop\", \"go to desktop\", \"desktop\", \"go home\", or \"home mode\", use mode \"home\". When the user says \"work mode\", \"switch to work\", or \"workspace\", use mode \"work\". When the user says \"quiet mode\", \"go quiet\", or \"chill mode\", use mode \"quiet\". When the user says \"create mode\", \"creation mode\", or \"switch to create\", use mode \"create\". DEFAULT: If the user says just \"desktop\" without specifying a mode, ALWAYS use \"home\". The word \"desktop\" in PearlOS ALWAYS refers to these background/theme modes \u2014 never to Windows/macOS/Linux desktop. IMPORTANT: This is NOT note privacy mode. If the user is talking about Notes/Notepad \"personal\" vs \"work\" visibility, use bot_switch_note_mode instead.",
+      "description": "Switch desktop mode: \"home\" (default), \"work\", \"quiet\", or \"create\". \"Desktop\"/\"go to desktop\" = \"home\". NOT for note privacy (use bot_switch_note_mode).",
       "feature_flag": "browserAutomation",
       "parameters": {
         "type": "object",
@@ -1570,7 +1642,7 @@
     },
     "bot_switch_layout_mode": {
       "name": "bot_switch_layout_mode",
-      "description": "Switch between desktop-sized and mobile-sized UI LAYOUT. This controls viewport/responsive layout ONLY (wide vs narrow). Triggers: \"desktop layout\", \"mobile layout\", \"switch layout to desktop\", \"switch layout to mobile\". NOTE: This is RARELY what users mean. If the user says \"switch to desktop\", \"desktop\", \"go to desktop\", \"home mode\", \"work mode\", \"quiet mode\", or \"create mode\", they mean bot_switch_desktop_mode instead \u2014 NOT this tool.",
+      "description": "Switch UI layout between desktop and mobile viewport. RARELY needed. If user says \"desktop\"/\"home mode\"/\"work mode\", use bot_switch_desktop_mode instead.",
       "feature_flag": "browserAutomation",
       "parameters": {
         "type": "object",
@@ -1643,7 +1715,7 @@
     },
     "bot_think_deeply": {
       "name": "bot_think_deeply",
-      "description": "Connect to your full OpenClaw brain for tasks that need results spoken back to the user. This is your gateway to: sending Discord/Telegram messages, web research, file access, deep analysis, and any capability beyond your built-in PearlOS tools. Use this when the user asks you to: send a Discord message, search the web, look something up, do complex reasoning, or anything requiring your OpenClaw backend. The result is returned synchronously and you can speak it back. Examples: 'send a message to #general on Discord saying hello', 'search the web for latest news about X', 'what's in my recent emails'. Do NOT use for simple PearlOS operations (notes, YouTube) \u2014 use built-in tools for those.",
+      "description": "Connect to OpenClaw backend for: messaging (Discord/Telegram), web search, file access, deep analysis. Result is spoken back to user. NOT for PearlOS ops (notes, YouTube).",
       "feature_flag": "openclawBridge",
       "parameters": {
         "type": "object",
@@ -1729,7 +1801,7 @@
     },
     "bot_update_user_profile": {
       "name": "bot_update_user_profile",
-      "description": "Save or update user profile when learning new information (upsert pattern - works for both new and existing profiles). TRIGGER PHRASES - When user says: 'I like/love/enjoy X' \u2192 save under 'interests'. 'I work at/on X' \u2192 save under 'work'. 'My name is X' \u2192 save under 'name'. 'I'm from X' \u2192 save under 'location'. 'I have X hobby/pet' \u2192 save under 'hobbies' or 'pets'. 'I prefer X' \u2192 save under 'preferences'. 'I've been doing X lately' \u2192 save under 'recent_activities'. EXAMPLES: User says 'I love hiking' \u2192 save {'interests': 'hiking'}. User says 'I work at Microsoft' \u2192 save {'work': 'Microsoft'}. User says 'I have two dogs' \u2192 save {'pets': 'two dogs'}. User says 'I prefer coffee over tea' \u2192 save {'preferences': 'coffee'}. Use descriptive keys like 'interests', 'work', 'hobbies', 'family', 'pets', 'goals', 'preferences', 'recent_projects', 'recent_activities'. Call this IMMEDIATELY after learning something new about the user. Works for both new profiles and existing ones.",
+      "description": "Save or update user profile data (upsert). Call when learning new info about the user. Use keys like: interests, work, name, location, hobbies, pets, preferences, goals. Example: user says 'I love hiking' \u2192 {'interests': 'hiking'}.",
       "feature_flag": "userProfile",
       "parameters": {
         "type": "object",
@@ -1773,6 +1845,46 @@
         },
         "required": [
           "resource_type"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_web_fetch": {
+      "name": "bot_web_fetch",
+      "description": "Fetch and read the content of a web page. Use after bot_web_search to read the full content of a specific search result, or when the user provides a URL to read. Returns the extracted text content (up to ~4000 characters).",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to fetch and extract text from"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_web_search": {
+      "name": "bot_web_search",
+      "description": "Search the web for current information. Use when the user asks about recent events, news, facts, products, people, or anything that requires up-to-date knowledge. Returns titles, URLs, and snippets from web search results.",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query (e.g., 'latest iPhone release date', 'weather in Tokyo')"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of results to return (1-10, default 5)"
+          }
+        },
+        "required": [
+          "query"
         ]
       },
       "passthrough": false
@@ -1867,16 +1979,20 @@
     },
     "bot_wonder_canvas_scene": {
       "name": "bot_wonder_canvas_scene",
-      "description": "Display an interactive HTML micro-experience on the Wonder Canvas. Push HTML directly \u2014 no AI generation round-trip. Great for stories, choices, quizzes, visual moments, reveals. Add data-action='action_id' to any clickable element; when the user taps it you receive the action_id as a context event. Use the wonder-choice class for styled interactive buttons. Built-in CSS: wonder-fadeIn, wonder-slideUp, wonder-bounce, wonder-shake, wonder-pulse, wonder-glow, wonder-typewriter, wonder-particles-sparkle, wonder-particles-snow, wonder-particles-fireflies. ICONS: Use {{icon:name}} placeholders for inline SVG icons \u2014 they are auto-resolved. Available: tree, cave, tower, mountain, castle, sparkle, run, sword, shield, bow, wand, crystal, gem, potion, scroll, key, chest, heart, star, zap, flame, trophy, coin, dragon, wolf, sun, moon, cloud, arrowUp, arrowDown, arrowLeft, arrowRight, check, x, plus, minus. Add CSS classes: {{icon:star:w-icon--lg w-icon--glow}}. Sizes: w-icon--sm/md/lg/xl. Effects: w-icon--glow, w-icon--spin, w-icon--pulse. Example: <button class='wonder-choice'>{{icon:tree}} Enter Forest</button>. DO NOT use emoji characters \u2014 they render as boxes in the canvas.",
+      "description": "Display raw HTML on Wonder Canvas. ONLY for custom interactive experiences (PixiJS games, Three.js 3D, p5.js). For charts, bios, facts, news, weather, or any standard visual, use bot_wonder_canvas_template instead \u2014 it is faster and higher quality. This tool supports PixiJS games, Three.js 3D scenes, p5.js sketches, Canvas2D animations, CSS animations, SVG, and any web technology via CDN script tags. Use data-action='id' for clickable elements. CSS helpers: wonder-fadeIn, wonder-slideUp, wonder-bounce, wonder-pulse, wonder-glow. Icons: {{icon:name}} (tree, castle, star, heart, etc). No emoji. For complex scenes, include CDN scripts inline (e.g. pixi.js, three.js). For multi-file projects (games, complex apps), write files to /workspace/user/canvas-apps/{name}/ and pass the url parameter instead of html.",
       "feature_flag": "wonderCanvas",
       "parameters": {
         "html": {
           "type": "string",
-          "description": "HTML content to display. Use data-action='id' on interactive elements. Use {{icon:name}} placeholders for inline SVG icons instead of emoji."
+          "description": "HTML content to display. Use data-action='id' on interactive elements. Use {{icon:name}} placeholders for inline SVG icons instead of emoji. Mutually exclusive with 'url'."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to load in the canvas iframe (e.g. /canvas-apps/my-game/index.html). Use for multi-file projects written to /workspace/user/canvas-apps/{name}/. Mutually exclusive with 'html'."
         },
         "css": {
           "type": "string",
-          "description": "Optional extra CSS styles for this scene."
+          "description": "Optional extra CSS styles for this scene (html mode only)."
         },
         "transition": {
           "type": "string",
@@ -1903,7 +2019,7 @@
     },
     "bot_wonder_canvas_template": {
       "name": "bot_wonder_canvas_template",
-      "description": "Display a pre-built Wonder Canvas template. FASTER than generating HTML from scratch. Use this FIRST for common content types (weather, news, facts, people, movies, quizzes, etc.). Available templates: weather_card, news_headline, person_bio, fact_card, definition_card, movie_card, music_now_playing, recipe_card, book_card, game_scoreboard, quiz_question, poll, story_choice, countdown_timer, achievement_unlocked, comparison_table, timeline, stat_dashboard, progress_tracker, location_card, greeting_card, error_card, loading_card, list_card, image_showcase. Pass template name and a data object with the required fields for that template.",
+      "description": "Display a pre-built Wonder Canvas template. ALWAYS prefer this over raw HTML. For images: image_url=/api/image?q=SEARCH_TERM. No emoji as primary visual. BEST templates: galaxy (100K star parallax \u2014 NO data needed, use for space/awe), editorial_split (cinematic split-screen photo+text \u2014 great for facts/reveals), photo_story (full-screen narrative), celebration (confetti party). DATA VIZ templates (use for charts/graphs/data): bar_chart (bars:[{label,value}]), line_chart (points:[{label,value}]), pie_chart (slices:[{label,value}]), scatter_plot (points:[{x,y,label}]), comparison_bars (items:[{label,value,color}]), timeline_chart (events:[{date,title,description}]), treemap (blocks:[{label,value,color}]), heatmap (x_labels,y_labels,values:2D array), gauge (value,max,label). All templates: weather_card, person_bio, fact_card, movie_card, recipe_card, quiz_question, quote_spotlight, photo_gallery, daily_briefing, celebration, news_headline, definition_card, book_card, image_showcase, location_card, countdown_timer, comparison_table, timeline, list_card, profile_card, before_after, achievement_unlocked, code_snippet, sports_score, event_card, map_card, stat_dashboard, calculator, music_now_playing, music_playlist, poll, story_choice, progress_tracker, game_scoreboard, galaxy, bar_chart, line_chart, pie_chart, scatter_plot, comparison_bars, timeline_chart, treemap, heatmap, gauge.",
       "feature_flag": "wonderCanvas",
       "parameters": {
         "template": {
@@ -1912,7 +2028,7 @@
         },
         "data": {
           "type": "object",
-          "description": "Key-value data to fill into the template placeholders."
+          "description": "Key-value data to fill into the template placeholders. Use the exact keys listed in the tool description for your chosen template."
         },
         "transition": {
           "type": "string",
@@ -1935,7 +2051,6 @@
     ],
     "browserAutomation": [
       "bot_close_browser_window",
-      "bot_close_view",
       "bot_switch_desktop_mode",
       "bot_switch_layout_mode"
     ],
@@ -1945,14 +2060,6 @@
     "experiences": [
       "bot_dismiss_experience",
       "bot_render_experience"
-    ],
-    "gmail": [
-      "bot_close_gmail",
-      "bot_open_gmail"
-    ],
-    "googleDrive": [
-      "bot_close_google_drive",
-      "bot_open_google_drive"
     ],
     "htmlContent": [
       "bot_close_applet_creation_engine",
@@ -1972,18 +2079,21 @@
       "bot_snap_window_left",
       "bot_snap_window_right"
     ],
-    "miniBrowser": [
-      "bot_open_browser",
-      "bot_open_enhanced_browser"
+    "news": [
+      "bot_get_news"
     ],
     "notes": [
       "bot_add_note_content",
       "bot_back_to_notes",
+      "bot_clear_note_highlights",
       "bot_close_notes",
       "bot_create_note",
       "bot_delete_note",
       "bot_download_note",
+      "bot_highlight_note",
+      "bot_highlight_note_text",
       "bot_list_notes",
+      "bot_navigate_note_heading",
       "bot_open_note",
       "bot_open_notes",
       "bot_read_current_note",
@@ -1991,13 +2101,13 @@
       "bot_replace_note",
       "bot_replace_note_content",
       "bot_save_note",
+      "bot_scroll_note",
       "bot_switch_note_mode"
     ],
     "onboarding": [
       "bot_onboarding_complete"
     ],
     "openclawBridge": [
-      "bot_canvas_clear",
       "bot_canvas_show",
       "bot_canvas_show_article",
       "bot_canvas_show_chart",
@@ -2005,7 +2115,9 @@
       "bot_canvas_show_image",
       "bot_canvas_show_table",
       "bot_list_recent_tasks",
+      "bot_list_tasks",
       "bot_openclaw_task",
+      "bot_stop_task",
       "bot_task_feedback",
       "bot_think_deeply",
       "bot_thumbs_up_task"
@@ -2040,8 +2152,8 @@
     "vision": [
       "bot_look_at_user"
     ],
-    "wikipedia": [
-      "bot_search_wikipedia"
+    "weather": [
+      "bot_get_weather"
     ],
     "wonderCanvas": [
       "bot_open_news",

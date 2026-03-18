@@ -16,13 +16,12 @@ import { useUI } from '@interface/contexts/ui-context';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
 import { useIsMobile } from '@interface/hooks/use-is-mobile';
 import { trackSessionHistory } from '@interface/lib/session-history';
-import { closeButtonHTML } from '@interface/lib/wonder-canvas-close-button';
 import { buildNewsHTML } from '@interface/lib/news-app-html';
 
-function dispatchWonderScene(html: string): void {
+function dispatchWonderScene(html: string, hideChrome = false, sceneId?: string): void {
   window.dispatchEvent(
     new CustomEvent(NIA_EVENT_WONDER_SCENE, {
-      detail: { payload: { html, layer: 'main', transition: 'fade' } },
+      detail: { payload: { html, layer: 'main', transition: 'fade', hideChrome, sceneId } },
     })
   );
 }
@@ -45,63 +44,45 @@ function buildWeatherLoadingHTML(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:transparent;color:#f0ece4;-webkit-font-smoothing:antialiased}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.8s ease infinite;border-radius:12px;}
-.c{animation:fadeSlide .4s ease forwards;opacity:0}
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes orb-drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-15px) scale(1.05)}}
+.wrap{position:relative;width:100%;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:transparent}
+.wrap::before,.wrap::after{content:'';position:absolute;border-radius:50%;pointer-events:none;animation:orb-drift 12s ease-in-out infinite}
+.wrap::before{width:340px;height:340px;top:-80px;right:-60px;background:radial-gradient(circle,rgba(139,92,246,0.15),transparent 70%)}
+.wrap::after{width:280px;height:280px;bottom:-40px;left:-60px;background:radial-gradient(circle,rgba(56,189,248,0.12),transparent 70%);animation-delay:-6s}
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.8s ease infinite;border-radius:12px}
+.c{animation:fu .5s both;position:relative;z-index:2}
+.pill{background:rgba(255,255,255,.06);border-radius:12px;padding:clamp(10px,3vw,14px) clamp(14px,4vw,20px);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;gap:6px}
 </style></head><body>
-${closeButtonHTML()}
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,20px);">
-  <div class="c" style="animation-delay:0s;text-align:center;padding-top:clamp(8px,2vw,16px);">
-    <div class="sk" style="height:14px;width:120px;margin:0 auto;"></div>
+<div class="wrap">
+  <div class="c" style="animation-delay:.05s;margin-bottom:8px;">
+    <div class="sk" style="width:clamp(50px,14vw,70px);height:clamp(50px,14vw,70px);border-radius:50%;margin:0 auto;"></div>
   </div>
-  <div class="c" style="animation-delay:.08s;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:clamp(24px,6vw,40px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">
-    <div class="sk" style="width:clamp(60px,16vw,88px);height:clamp(60px,16vw,88px);border-radius:20px;"></div>
-    <div class="sk" style="height:clamp(44px,11vw,64px);width:140px;"></div>
-    <div class="sk" style="height:16px;width:100px;"></div>
-    <div class="sk" style="height:13px;width:80px;"></div>
+  <div class="c" style="animation-delay:.15s;margin-bottom:4px;">
+    <div class="sk" style="height:clamp(60px,18vw,90px);width:clamp(140px,35vw,200px);margin:0 auto;border-radius:16px;"></div>
   </div>
-  <div class="c" style="animation-delay:.15s;display:flex;gap:clamp(8px,2vw,12px);">
-    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;">
-      <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
-      <div class="sk" style="height:18px;width:48px;"></div>
-      <div class="sk" style="height:10px;width:44px;"></div>
-    </div>
-    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;">
-      <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
-      <div class="sk" style="height:18px;width:48px;"></div>
-      <div class="sk" style="height:10px;width:44px;"></div>
-    </div>
-    <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(14px,3vw,20px);display:flex;flex-direction:column;align-items:center;gap:8px;">
-      <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
-      <div class="sk" style="height:18px;width:48px;"></div>
-      <div class="sk" style="height:10px;width:44px;"></div>
-    </div>
+  <div class="c" style="animation-delay:.25s;margin-bottom:4px;">
+    <div class="sk" style="height:clamp(18px,4vw,24px);width:clamp(100px,25vw,160px);margin:0 auto;"></div>
   </div>
-  <div class="c" style="animation-delay:.22s;">
-    <div class="sk" style="height:12px;width:100px;margin-bottom:clamp(8px,2vw,12px);"></div>
-    <div style="display:flex;gap:clamp(8px,2vw,12px);">
-      <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(12px,3vw,18px);display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <div class="sk" style="height:10px;width:28px;"></div>
-        <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
-        <div class="sk" style="height:12px;width:40px;"></div>
-      </div>
-      <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(12px,3vw,18px);display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <div class="sk" style="height:10px;width:28px;"></div>
-        <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
-        <div class="sk" style="height:12px;width:40px;"></div>
-      </div>
-      <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:clamp(12px,3vw,18px);display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <div class="sk" style="height:10px;width:28px;"></div>
-        <div class="sk" style="width:28px;height:28px;border-radius:8px;"></div>
-        <div class="sk" style="height:12px;width:40px;"></div>
-      </div>
-    </div>
+  <div class="c" style="animation-delay:.3s;margin-bottom:24px;">
+    <div class="sk" style="height:clamp(12px,3vw,14px);width:clamp(80px,20vw,120px);margin:0 auto;"></div>
   </div>
-  <div class="c" style="animation-delay:.28s;text-align:center;padding:clamp(4px,1vw,8px) 0;">
-    <div style="font-size:clamp(11px,2.5vw,13px);color:#9a80b0;">Locating you & fetching weather…</div>
+  <div class="c" style="animation-delay:.4s;display:flex;gap:clamp(8px,3vw,16px);justify-content:center;flex-wrap:wrap;margin-bottom:24px;">
+    <div class="pill"><div class="sk" style="height:18px;width:48px;"></div><div class="sk" style="height:10px;width:44px;"></div></div>
+    <div class="pill"><div class="sk" style="height:18px;width:48px;"></div><div class="sk" style="height:10px;width:44px;"></div></div>
+    <div class="pill"><div class="sk" style="height:18px;width:48px;"></div><div class="sk" style="height:10px;width:44px;"></div></div>
+  </div>
+  <div class="c" style="animation-delay:.5s;display:flex;gap:clamp(4px,2vw,12px);justify-content:center;flex-wrap:wrap;">
+    <div class="pill" style="min-width:56px;"><div class="sk" style="height:10px;width:24px;"></div><div class="sk" style="height:20px;width:20px;border-radius:50%;"></div><div class="sk" style="height:14px;width:36px;"></div></div>
+    <div class="pill" style="min-width:56px;"><div class="sk" style="height:10px;width:24px;"></div><div class="sk" style="height:20px;width:20px;border-radius:50%;"></div><div class="sk" style="height:14px;width:36px;"></div></div>
+    <div class="pill" style="min-width:56px;"><div class="sk" style="height:10px;width:24px;"></div><div class="sk" style="height:20px;width:20px;border-radius:50%;"></div><div class="sk" style="height:14px;width:36px;"></div></div>
+  </div>
+  <div class="c" style="animation-delay:.6s;margin-top:20px;">
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:clamp(11px,2.5vw,13px);color:rgba(240,236,228,.35);letter-spacing:.14em;text-transform:uppercase;">Locating you & fetching weather…</div>
   </div>
 </div>
 </body></html>`;
@@ -111,17 +92,24 @@ function buildWeatherErrorHTML(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-.c{animation:fadeSlide .5s ease forwards;opacity:0}</style>
-</head><body>
-${closeButtonHTML()}
-<div class="c" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;max-width:380px;margin:0 auto;">
-  <div style="font-size:clamp(48px,12vw,64px);">⛅</div>
-  <div style="font-size:clamp(16px,4.5vw,20px);color:#E85D26;font-weight:600;">Weather unavailable</div>
-  <div style="font-size:clamp(13px,3vw,15px);color:#9a80b0;line-height:1.6;">Couldn't load weather data right now. Try asking Pearl — she can check for you!</div>
-  <div style="background:rgba(232,93,38,.12);border:1px solid rgba(232,93,38,.25);border-radius:16px;padding:14px 20px;font-size:clamp(13px,3.2vw,15px);color:#d4c0e8;margin-top:8px;">💬 "Pearl, what's the weather?"</div>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;font-family:'Inter',sans-serif;background:transparent;color:#f0ece4;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;overflow:hidden}
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes orb-drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-15px) scale(1.05)}}
+.wrap{position:relative;width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent}
+.wrap::before,.wrap::after{content:'';position:absolute;border-radius:50%;pointer-events:none;animation:orb-drift 12s ease-in-out infinite}
+.wrap::before{width:340px;height:340px;top:-80px;right:-60px;background:radial-gradient(circle,rgba(139,92,246,0.15),transparent 70%)}
+.wrap::after{width:280px;height:280px;bottom:-40px;left:-60px;background:radial-gradient(circle,rgba(56,189,248,0.12),transparent 70%);animation-delay:-6s}
+.c{animation:fu .5s both;position:relative;z-index:2}
+</style></head><body>
+<div class="wrap">
+  <div class="c" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;max-width:380px;">
+    <div style="font-size:clamp(48px,12vw,64px);filter:drop-shadow(0 4px 16px rgba(0,0,0,.4));">⛅</div>
+    <div style="font-family:'Playfair Display',serif;font-size:clamp(18px,5vw,24px);color:#e8c547;font-style:italic;">Weather unavailable</div>
+    <div style="font-size:clamp(13px,3vw,15px);color:rgba(240,236,228,.5);line-height:1.6;">Couldn't load weather data right now. Try asking Pearl — she can check for you!</div>
+    <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 20px;font-family:'Space Grotesk',sans-serif;font-size:clamp(13px,3.2vw,15px);color:rgba(240,236,228,.5);margin-top:8px;backdrop-filter:blur(12px);">💬 "Pearl, what's the weather?"</div>
+  </div>
 </div>
 </body></html>`;
 }
@@ -170,24 +158,21 @@ function buildWeatherSceneHTML(data: Record<string, unknown>): string {
     const timeStr = fetchedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const forecastRows = (d.weather ?? []).slice(0, 3).map((day: any, idx: number) => {
+    const forecastStrip = (d.weather ?? []).slice(0, 5).map((day: any, idx: number) => {
       const maxF = String(day.maxtempF ?? '--');
       const minF = String(day.mintempF ?? '--');
-      const maxC = String(day.maxtempC ?? '--');
-      const minC = String(day.mintempC ?? '--');
       const dateStr = String(day.date ?? '');
       const hourly = day.hourly ?? [];
       const midDesc = String((hourly[4]?.weatherDesc ?? hourly[0]?.weatherDesc)?.[0]?.value ?? desc);
       const fe = weatherEmoji(midDesc);
       const dateObj = dateStr ? new Date(`${dateStr}T12:00:00`) : null;
       const dayName = idx === 0 ? 'Today' : (dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'short' }) : '—');
-      return `<div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:clamp(10px,3vw,16px);text-align:center;flex:1;min-width:0;transition:border-color .2s,background .2s;"
-  onmouseover="this.style.borderColor='rgba(217,79,142,.3)';this.style.background='rgba(255,255,255,0.08)'"
-  onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.background='rgba(255,255,255,0.05)'">
-  <div style="font-size:clamp(10px,2.2vw,12px);color:#9a80b0;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;font-weight:600;">${dayName}</div>
-  <div style="font-size:clamp(24px,6.5vw,32px);margin-bottom:6px;">${fe}</div>
-  <div style="font-size:clamp(13px,3.2vw,15px);font-weight:700;color:#faf8f5;">${maxF}°<span style="color:rgba(154,128,176,.6);font-weight:400;font-size:clamp(10px,2.4vw,12px);">/${minF}°F</span></div>
-  <div style="font-size:clamp(9px,2vw,10px);color:rgba(154,128,176,.4);margin-top:2px;">${maxC}°/${minC}°C</div>
+      const delay = 0.5 + idx * 0.08;
+      return `<div class="fc-day" style="animation-delay:${delay}s">
+  <div class="fc-name">${dayName}</div>
+  <div class="fc-icon">${fe}</div>
+  <div class="fc-hi">${maxF}°</div>
+  <div class="fc-lo">${minF}°</div>
 </div>`;
     }).join('');
 
@@ -195,79 +180,98 @@ function buildWeatherSceneHTML(data: Record<string, unknown>): string {
 <html lang="en"><head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#1e0f3a 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-@keyframes gentlePulse{0%,100%{opacity:.85}50%{opacity:1}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.c{animation:fadeSlide .5s ease forwards;opacity:0}
-.stat-card{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:clamp(12px,3vw,18px);text-align:center;transition:border-color .2s,background .2s;}
-.stat-card:hover{border-color:rgba(217,79,142,.25);background:rgba(255,255,255,0.08);}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow-y:auto;font-family:'Inter',sans-serif;background:transparent;color:#f0ece4;
+-webkit-font-smoothing:antialiased;overflow-x:hidden}
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes orb-drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-15px) scale(1.05)}}
+
+.weather-wrap{position:relative;width:100%;min-height:100vh;display:flex;flex-direction:column;
+align-items:center;justify-content:center;text-align:center;overflow:hidden;
+background:transparent;padding:clamp(24px,6vw,40px) clamp(16px,4vw,24px)}
+
+.weather-wrap::before,.weather-wrap::after{content:'';position:absolute;border-radius:50%;
+pointer-events:none;animation:orb-drift 12s ease-in-out infinite}
+.weather-wrap::before{width:340px;height:340px;top:-80px;right:-60px;
+background:radial-gradient(circle,rgba(139,92,246,0.15),transparent 70%)}
+.weather-wrap::after{width:280px;height:280px;bottom:-40px;left:-60px;
+background:radial-gradient(circle,rgba(56,189,248,0.12),transparent 70%);animation-delay:-6s}
+
+.w-icon{font-size:clamp(44px,12vw,64px);margin-bottom:4px;animation:fl 5s ease-in-out infinite;
+filter:drop-shadow(0 4px 16px rgba(0,0,0,.4));position:relative;z-index:2}
+.w-temp{font-family:'Space Grotesk',sans-serif;font-size:clamp(72px,22vw,110px);
+font-weight:700;line-height:1;letter-spacing:-.04em;color:#fff;position:relative;z-index:2;
+text-shadow:0 4px 32px rgba(0,0,0,.5);animation:fu .6s .15s both}
+.w-temp-alt{font-family:'Space Grotesk',sans-serif;font-size:clamp(14px,3.5vw,18px);
+color:rgba(240,236,228,.8);position:relative;z-index:2;animation:fu .6s .2s both;margin-top:2px}
+.w-cond{font-family:'Playfair Display',serif;font-size:clamp(18px,5vw,26px);
+color:#e8c547;font-style:italic;font-weight:400;margin:2px 0 6px;position:relative;z-index:2;
+text-shadow:0 2px 12px rgba(0,0,0,.5);animation:fu .6s .3s both}
+.w-loc{font-family:'Space Grotesk',sans-serif;font-size:clamp(11px,3vw,14px);
+color:rgba(240,236,228,.9);letter-spacing:.14em;text-transform:uppercase;
+position:relative;z-index:2;animation:fu .6s .35s both}
+
+.w-hero-glass{position:relative;z-index:2;backdrop-filter:blur(24px) saturate(180%);
+-webkit-backdrop-filter:blur(24px) saturate(180%);background:rgba(40,40,60,0.55);
+border:1px solid rgba(255,255,255,0.15);border-radius:28px;
+box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:clamp(28px,6vw,44px) clamp(24px,5vw,40px);
+margin-bottom:8px;animation:fu .5s .05s both}
+
+.w-details{display:flex;gap:clamp(8px,3vw,16px);margin-top:28px;position:relative;z-index:2;
+animation:fu .6s .45s both;flex-wrap:wrap;justify-content:center}
+.w-pill{text-align:center;background:rgba(40,40,60,.45);border-radius:12px;
+padding:clamp(10px,3vw,14px) clamp(14px,4vw,20px);border:1px solid rgba(255,255,255,.15);
+backdrop-filter:blur(12px)}
+.w-pill-val{font-family:'Space Grotesk',sans-serif;font-size:clamp(15px,3.8vw,18px);
+font-weight:600;color:#fff}
+.w-pill-lbl{font-size:clamp(10px,2.5vw,11px);color:rgba(240,236,228,.7);
+text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+
+.w-forecast{display:flex;justify-content:center;gap:clamp(4px,2vw,12px);
+margin-top:28px;position:relative;z-index:2;flex-wrap:wrap}
+.fc-day{text-align:center;background:rgba(40,40,60,.45);border-radius:10px;
+padding:clamp(8px,2vw,12px) clamp(10px,2.5vw,16px);border:1px solid rgba(255,255,255,.15);
+backdrop-filter:blur(8px);animation:fu .5s both;min-width:56px}
+.fc-name{font-family:'Space Grotesk',sans-serif;font-size:clamp(10px,2.5vw,11px);
+font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(240,236,228,.8);margin-bottom:4px}
+.fc-icon{font-size:clamp(16px,4vw,22px);margin-bottom:2px}
+.fc-hi{font-family:'Space Grotesk',sans-serif;font-size:clamp(13px,3vw,15px);font-weight:600;color:#fff}
+.fc-lo{font-family:'Space Grotesk',sans-serif;font-size:clamp(11px,2.5vw,12px);color:rgba(240,236,228,.7)}
+
+.w-footer{font-family:'Space Grotesk',sans-serif;font-size:clamp(9px,2vw,11px);color:rgba(240,236,228,.6);
+position:relative;z-index:2;margin-top:24px;animation:fu .6s .6s both;letter-spacing:.06em}
+
+@media(min-width:769px){
+  .w-temp{font-size:clamp(100px,14vw,140px)}
+  .w-cond{font-size:clamp(24px,3.5vw,32px)}
+  .w-loc{font-size:clamp(14px,1.8vw,16px)}
+  .w-icon{font-size:clamp(60px,8vw,80px)}
+  .w-pill{padding:clamp(14px,2vw,20px) clamp(20px,3vw,32px)}
+}
 </style></head><body>
-${closeButtonHTML()}
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,18px);max-width:520px;margin:0 auto;width:100%;">
-
-  <!-- Location -->
-  <div class="c" style="animation-delay:.0s;text-align:center;padding-top:clamp(8px,2vw,16px);">
-    <div style="font-size:clamp(11px,2.5vw,13px);letter-spacing:.15em;text-transform:uppercase;color:#9a80b0;font-weight:500;">📍 ${location}</div>
+<div class="weather-wrap">
+  <div class="w-hero-glass">
+    <div class="w-icon">${emoji}</div>
+    <div class="w-temp">${tempF}°F</div>
+    <div class="w-temp-alt">${tempC}°C</div>
+    <div class="w-cond">${desc}</div>
+    <div class="w-loc">📍 ${location}</div>
   </div>
-
-  <!-- Hero card -->
-  <div class="c" style="animation-delay:.08s;background:linear-gradient(135deg,rgba(217,79,142,.08) 0%,rgba(123,63,142,.1) 50%,rgba(255,211,51,.06) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,211,51,0.15);border-radius:24px;padding:clamp(24px,6vw,36px) clamp(16px,4vw,24px);text-align:center;">
-    <div style="font-size:clamp(56px,15vw,80px);line-height:1;margin-bottom:clamp(6px,1.5vw,10px);animation:float 4s ease-in-out infinite;">${emoji}</div>
-    <div style="display:flex;align-items:baseline;justify-content:center;gap:6px;">
-      <div style="font-size:clamp(52px,14vw,76px);font-weight:800;line-height:1;color:#FFD233;text-shadow:0 0 50px rgba(255,210,51,.3);letter-spacing:-0.03em;">${tempF}°</div>
-      <div style="font-size:clamp(16px,4vw,22px);color:#9a80b0;font-weight:500;">F</div>
-    </div>
-    <div style="font-size:clamp(11px,2.6vw,13px);color:rgba(154,128,176,.5);margin-top:2px;">${tempC}°C</div>
-    <div style="font-size:clamp(14px,3.5vw,18px);color:#d4c0e8;margin-top:clamp(6px,1.5vw,10px);font-weight:500;">${desc}</div>
-    <div style="font-size:clamp(12px,2.8vw,14px);color:#9a80b0;margin-top:4px;">Feels like ${feelsLikeF}°F <span style="color:rgba(154,128,176,.4);">/ ${feelsLikeC}°C</span></div>
+  <div class="w-details">
+    <div class="w-pill"><div class="w-pill-val">${feelsLikeF}°F</div><div class="w-pill-lbl">Feels Like</div></div>
+    <div class="w-pill"><div class="w-pill-val">${humidity}%</div><div class="w-pill-lbl">Humidity</div></div>
+    <div class="w-pill"><div class="w-pill-val">${windMph} mph</div><div class="w-pill-lbl">Wind</div></div>
+    <div class="w-pill"><div class="w-pill-val">${uvIndex}${uvLabel ? ' · ' + uvLabel : ''}</div><div class="w-pill-lbl">UV Index</div></div>
   </div>
-
-  <!-- Stats row 1: Humidity, Wind, UV -->
-  <div class="c" style="animation-delay:.16s;display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">
-    <div class="stat-card">
-      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">💧</div>
-      <div style="font-size:clamp(17px,4.5vw,21px);font-weight:700;">${humidity}%</div>
-      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">Humidity</div>
-    </div>
-    <div class="stat-card">
-      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">💨</div>
-      <div style="font-size:clamp(17px,4.5vw,21px);font-weight:700;">${windMph}</div>
-      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">mph Wind</div>
-    </div>
-    <div class="stat-card">
-      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">☀️</div>
-      <div style="font-size:clamp(17px,4.5vw,21px);font-weight:700;">${uvIndex}</div>
-      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">UV${uvLabel ? ' · ' + uvLabel : ''}</div>
-    </div>
+  <div class="w-details" style="animation-delay:.52s;">
+    <div class="w-pill"><div class="w-pill-val">${sunrise}</div><div class="w-pill-lbl">Sunrise</div></div>
+    <div class="w-pill"><div class="w-pill-val">${sunset}</div><div class="w-pill-lbl">Sunset</div></div>
   </div>
-
-  <!-- Stats row 2: Sunrise & Sunset -->
-  <div class="c" style="animation-delay:.22s;display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">
-    <div class="stat-card">
-      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">🌅</div>
-      <div style="font-size:clamp(14px,3.5vw,17px);font-weight:700;">${sunrise}</div>
-      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">Sunrise</div>
-    </div>
-    <div class="stat-card">
-      <div style="font-size:clamp(18px,5vw,24px);margin-bottom:4px;">🌇</div>
-      <div style="font-size:clamp(14px,3.5vw,17px);font-weight:700;">${sunset}</div>
-      <div style="font-size:clamp(9px,2vw,11px);color:#9a80b0;text-transform:uppercase;letter-spacing:.1em;margin-top:3px;font-weight:600;">Sunset</div>
-    </div>
-  </div>
-
-  <!-- 3-Day Forecast -->
-  <div class="c" style="animation-delay:.28s;">
-    <div style="font-size:clamp(10px,2.3vw,12px);letter-spacing:.15em;text-transform:uppercase;color:#9a80b0;margin-bottom:clamp(8px,2vw,12px);font-weight:600;">3-Day Forecast</div>
-    <div style="display:flex;flex-direction:row;gap:clamp(8px,2vw,12px);">${forecastRows}</div>
-  </div>
-
-  <!-- Footer -->
-  <div class="c" style="animation-delay:.34s;text-align:center;padding-bottom:clamp(8px,2vw,16px);">
-    <div style="font-size:clamp(9px,2vw,11px);color:rgba(154,128,176,.4);">Updated ${timeStr} · wttr.in · Ask Pearl for details</div>
-  </div>
+  <div class="w-forecast">${forecastStrip}</div>
+  <div class="w-footer">Updated ${timeStr} · wttr.in · Ask Pearl for details</div>
 </div>
 </body></html>`;
   } catch {
@@ -279,7 +283,9 @@ ${closeButtonHTML()}
  * Background weather refresh — silently fetches fresh data and updates the scene
  * if new data arrives. Used when we showed cached data instantly.
  */
-function backgroundWeatherRefresh(dispatchWonderScene: (html: string) => void): void {
+function backgroundWeatherRefresh(
+  dispatchWonderScene: (html: string, hideChrome?: boolean, sceneId?: string) => void
+): void {
   const WEATHER_CACHE_KEY = 'pearlos_weather_data';
   const COORD_CACHE_KEY = 'pearlos_weather_coords';
 
@@ -302,11 +308,19 @@ function backgroundWeatherRefresh(dispatchWonderScene: (html: string) => void): 
   const tid = setTimeout(() => ctrl.abort(), 6000);
 
   fetch(url, { signal: ctrl.signal })
-    .then(r => { clearTimeout(tid); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(r => {
+      clearTimeout(tid);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(data => {
-      try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ _data: data, _ts: Date.now() })); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ _data: data, _ts: Date.now() }));
+      } catch {
+        /* ignore */
+      }
       // Silently update the scene with fresh data
-      dispatchWonderScene(buildWeatherSceneHTML(data as Record<string, unknown>));
+      dispatchWonderScene(buildWeatherSceneHTML(data as Record<string, unknown>), false, 'weather');
     })
     .catch(() => { clearTimeout(tid); /* silently fail — cached data is still showing */ });
 }
@@ -318,7 +332,7 @@ function buildDiscordHTML(): string {
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(160deg,#0f0820 0%,#1a0e2e 40%,#2a1845 70%,#0f0820 100%);color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
+html,body{width:100%;height:100%;overflow:hidden;background:transparent;color:#faf8f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
 @keyframes fadeSlide{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
@@ -328,15 +342,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(160d
 .sk{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.12) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
 
 /* Layout */
-.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+.app{display:flex;flex-direction:column;width:100%;height:100vh;height:100dvh;overflow:hidden;background:#0f0820;}
 .header{flex-shrink:0;display:flex;align-items:center;gap:clamp(8px,2vw,12px);padding:clamp(12px,3vw,18px) clamp(14px,3.5vw,20px);padding-right:clamp(56px,10vw,80px);border-bottom:1px solid rgba(255,255,255,.06);}
 .header-icon{font-size:clamp(20px,5vw,28px);}
 .header-title{font-size:clamp(16px,4vw,22px);font-weight:800;letter-spacing:-.02em;color:#faf8f5;flex-shrink:0;}
 .channel-select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:clamp(6px,1.5vw,8px) clamp(10px,2.5vw,14px);color:#d4c0e8;font-size:clamp(12px,2.8vw,14px);font-weight:600;font-family:inherit;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .channel-select:focus{border-color:rgba(217,79,142,.4);}
 .channel-select option{background:#1a0e2e;color:#d4c0e8;}
-.pearl-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(217,79,142,.12);border:1px solid rgba(217,79,142,.25);border-radius:100px;padding:3px 10px;font-size:clamp(9px,2vw,11px);letter-spacing:.08em;text-transform:uppercase;color:#D94F8E;font-weight:600;margin-left:auto;flex-shrink:0;}
-.pearl-badge .dot{width:5px;height:5px;border-radius:50%;background:#D94F8E;animation:pulse 1.5s ease infinite;display:inline-block;}
+/* pearl-badge removed */
 
 /* Messages */
 .messages{flex:1;overflow-y:auto;overflow-x:hidden;padding:clamp(8px,2vw,14px) clamp(10px,2.5vw,16px);display:flex;flex-direction:column;gap:2px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}
@@ -366,14 +379,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(160d
 .msg-reaction{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:100px;padding:2px 8px;font-size:clamp(11px,2.4vw,13px);color:#9a80b0;cursor:default;}
 
 /* Pearl bar */
-.pearl-bar{flex-shrink:0;border-top:1px solid rgba(255,255,255,.06);background:rgba(15,8,32,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:clamp(8px,2vw,12px) clamp(10px,2.5vw,16px);display:flex;flex-direction:column;gap:clamp(6px,1.5vw,10px);}
-.pearl-actions{display:flex;gap:clamp(6px,1.5vw,8px);flex-wrap:wrap;}
-.pearl-btn{background:rgba(217,79,142,.1);border:1px solid rgba(217,79,142,.25);border-radius:100px;padding:clamp(6px,1.5vw,8px) clamp(12px,3vw,16px);font-size:clamp(11px,2.5vw,13px);font-weight:600;color:#D94F8E;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
-.pearl-btn:hover{background:rgba(217,79,142,.2);border-color:rgba(217,79,142,.4);}
-.pearl-btn:active{transform:scale(.96);}
-.pearl-btn.active{background:rgba(217,79,142,.25);border-color:rgba(217,79,142,.5);box-shadow:0 0 12px rgba(217,79,142,.15);}
-.pearl-btn-secondary{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:clamp(6px,1.5vw,8px) clamp(12px,3vw,16px);font-size:clamp(11px,2.5vw,13px);font-weight:600;color:#9a80b0;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;}
-.pearl-btn-secondary:hover{background:rgba(255,255,255,.1);color:#d4c0e8;}
+.pearl-bar{flex-shrink:0;border-top:1px solid rgba(255,255,255,.06);background:rgba(15,8,32,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:clamp(8px,2vw,12px) clamp(10px,2.5vw,16px);}
+.icon-btn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:14px;flex-shrink:0;padding:0;color:#9a80b0;}
+.icon-btn:hover{background:rgba(217,79,142,.15);border-color:rgba(217,79,142,.3);color:#D94F8E;}
+.icon-btn:active{transform:scale(.92);}
 .compose{display:flex;gap:clamp(6px,1.5vw,8px);align-items:flex-end;}
 .compose-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:clamp(8px,2vw,12px) clamp(12px,3vw,16px);color:#faf8f5;font-size:clamp(14px,3.5vw,16px);font-family:inherit;outline:none;resize:none;min-height:clamp(38px,8vw,48px);max-height:120px;line-height:1.4;}
 .compose-input::placeholder{color:rgba(154,128,176,.4);}
@@ -408,7 +417,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(160d
 .date-sep{text-align:center;padding:clamp(8px,2vw,14px) 0;font-size:clamp(10px,2.3vw,12px);color:rgba(154,128,176,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;}
 </style>
 </head><body>
-${closeButtonHTML()}
 
 <div class="app">
   <!-- Header -->
@@ -418,7 +426,7 @@ ${closeButtonHTML()}
     <select class="channel-select" id="channel-select" onchange="switchChannel(this.value)">
       <option value="">Loading…</option>
     </select>
-    <div class="pearl-badge"><span class="dot"></span>Pearl</div>
+    <!-- badge removed -->
   </div>
 
   <!-- Messages -->
@@ -432,13 +440,10 @@ ${closeButtonHTML()}
 
   <!-- Pearl bar -->
   <div class="pearl-bar c" style="animation-delay:.1s;">
-    <div class="pearl-actions">
-      <button class="pearl-btn" onclick="summarize()" id="btn-summarize">✨ What's happening?</button>
-      <button class="pearl-btn" onclick="readAloud()" id="btn-read">🔊 Read to me</button>
-      <button class="pearl-btn-secondary" onclick="refreshMessages()">↻ Refresh</button>
-    </div>
     <div class="compose">
-      <textarea class="compose-input" id="compose-input" placeholder="Type a message… Pearl will send it for you" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="icon-btn" onclick="summarize()" id="btn-summarize" title="Summarize">✨</button>
+      <button class="icon-btn" onclick="readAloud()" id="btn-read" title="Read aloud">🔊</button>
+      <textarea class="compose-input" id="compose-input" placeholder="Type a message…" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
       <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled title="Send">➤</button>
     </div>
   </div>
@@ -922,6 +927,18 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
     }
   }, [canUseAppletFolder, isAppletFolderOpen]);
 
+  // Listen for bot-initiated app opens so voice uses the same UI as desktop clicks
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.app) {
+        openDesktopApp(detail.app, undefined, undefined, detail?.category);
+      }
+    };
+    window.addEventListener('nia:desktop.openApp', handler);
+    return () => window.removeEventListener('nia:desktop.openApp', handler);
+  }, []);
+
   const handleOpenAppletFromFolder = useCallback(
     (appletId: string) => {
       if (!appletId) return;
@@ -943,7 +960,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
   const appletCount = folderApplets.length;
   const recentApplets = folderApplets.slice(0, 3);
 
-  const openDesktopApp = (appName: string, url?: string, useEnhanced?: boolean) => {
+  const openDesktopApp = (appName: string, url?: string, useEnhanced?: boolean, category?: string) => {
     // eslint-disable-next-line no-console
     console.log(`Opening desktop app: ${appName}`);
 
@@ -1009,7 +1026,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
         return;
       case 'news': {
         // Show styled Wonder Canvas news display instead of browser window
-        dispatchWonderScene(buildNewsHTML());
+        dispatchWonderScene(buildNewsHTML(category), false, 'news');
         // Fire nia:request.news so the bot/backend can populate with real headlines later
         window.dispatchEvent(new CustomEvent('nia:request.news', { detail: {} }));
         return;
@@ -1032,7 +1049,7 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
           if (cachedWeather) {
             const parsed = JSON.parse(cachedWeather);
             if (parsed._data && parsed._ts && (Date.now() - parsed._ts) < WEATHER_CACHE_TTL) {
-              dispatchWonderScene(buildWeatherSceneHTML(parsed._data));
+              dispatchWonderScene(buildWeatherSceneHTML(parsed._data), false, 'weather');
               // Still refresh in background via iframe, but user sees weather immediately
               // Fire background refresh after a tick
               setTimeout(() => {
@@ -1043,8 +1060,10 @@ const DesktopBackgroundWork = ({ supportedFeatures, assistantName, tenantId, isA
           }
         } catch { /* ignore corrupt cache */ }
 
-        // No valid cache — show loading skeleton
-        dispatchWonderScene(buildWeatherLoadingHTML());
+        // No valid cache — go straight to the bootstrap HTML which has its own
+        // loading skeleton. Do NOT dispatch a separate loading scene first — the
+        // WonderCanvasRenderer dedup window (200ms) would swallow the second
+        // dispatch and the bootstrap (which does the actual fetch) would never load.
 
         // Build self-contained HTML that handles geolocation + fetch inside the iframe
         // Key improvements:
@@ -1063,7 +1082,6 @@ html,body{width:100%;height:100%;overflow-y:auto;background:linear-gradient(160d
 .sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.8s ease infinite;border-radius:12px;}
 .c{animation:fadeSlide .4s ease forwards;opacity:0}
 </style></head><body>
-${closeButtonHTML()}
 <div id="weather-root" style="min-height:100vh;display:flex;flex-direction:column;align-items:stretch;padding:clamp(16px,5vw,32px);gap:clamp(12px,3vw,20px);">
   <div class="c" style="animation-delay:0s;text-align:center;padding-top:clamp(8px,2vw,16px);"><div class="sk" style="height:14px;width:120px;margin:0 auto;"></div></div>
   <div class="c" style="animation-delay:.08s;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:clamp(24px,6vw,40px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">
@@ -1189,7 +1207,7 @@ ${closeButtonHTML()}
 </script>
 </body></html>`;
 
-        dispatchWonderScene(weatherBootstrapHTML);
+        dispatchWonderScene(weatherBootstrapHTML, false, 'weather');
 
         // Listen for messages from the iframe
         let weatherHandled = false;
@@ -1201,14 +1219,14 @@ ${closeButtonHTML()}
               const data = JSON.parse(event.data.payload) as Record<string, unknown>;
               // Also cache in parent's localStorage
               try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ _data: data, _ts: Date.now() })); } catch { /* ignore */ }
-              dispatchWonderScene(buildWeatherSceneHTML(data));
+              dispatchWonderScene(buildWeatherSceneHTML(data), false, 'weather');
             } catch {
-              dispatchWonderScene(buildWeatherErrorHTML());
+              dispatchWonderScene(buildWeatherErrorHTML(), false, 'weather');
             }
             window.removeEventListener('message', weatherMessageHandler);
           } else if (event.data?.type === 'weather.error') {
             weatherHandled = true;
-            dispatchWonderScene(buildWeatherErrorHTML());
+            dispatchWonderScene(buildWeatherErrorHTML(), false, 'weather');
             window.removeEventListener('message', weatherMessageHandler);
           }
         };
@@ -1218,7 +1236,7 @@ ${closeButtonHTML()}
         setTimeout(() => {
           if (!weatherHandled) {
             weatherHandled = true;
-            dispatchWonderScene(buildWeatherErrorHTML());
+            dispatchWonderScene(buildWeatherErrorHTML(), false, 'weather');
           }
           window.removeEventListener('message', weatherMessageHandler);
         }, 8000);
@@ -1234,7 +1252,7 @@ ${closeButtonHTML()}
         return;
       case 'discord':
         // Pearl-powered Discord client inside Wonder Canvas
-        dispatchWonderScene(buildDiscordHTML());
+        dispatchWonderScene(buildDiscordHTML(), true);
         return;
       default:
         console.warn(`⚠️ Unknown desktop app requested: ${appName}`);

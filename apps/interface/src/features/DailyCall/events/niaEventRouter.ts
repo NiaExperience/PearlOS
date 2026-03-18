@@ -33,6 +33,9 @@ export const NIA_EVENT_NOTE_UPDATED = 'nia.event.noteUpdated';
 export const NIA_EVENT_NOTE_SAVED = 'nia.event.noteSaved';
 export const NIA_EVENT_NOTE_DOWNLOAD = 'nia.event.noteDownload';
 export const NIA_EVENT_NOTE_DELETED = 'nia.event.noteDeleted';
+export const NIA_EVENT_NOTE_SCROLL = 'nia.event.noteScroll';
+export const NIA_EVENT_NOTE_HIGHLIGHT = 'nia.event.noteHighlight';
+export const NIA_EVENT_NOTE_NAVIGATE_HEADING = 'nia.event.noteNavigateHeading';
 export const NIA_EVENT_NOTE_MODE_SWITCH = 'nia.event.noteModeSwitch';
 export const NIA_EVENT_NOTES_REFRESH = 'nia.event.notesRefresh';
 export const NIA_EVENT_NOTES_LIST = 'nia.event.notesList';
@@ -78,6 +81,9 @@ export const NIA_EVENT_WONDER_REMOVE = 'nia:wonder.remove';
 export const NIA_EVENT_WONDER_CLEAR = 'nia:wonder.clear';
 export const NIA_EVENT_WONDER_ANIMATE = 'nia:wonder.animate';
 
+// Note control events (highlight clear — scroll/highlight already declared above)
+export const NIA_EVENT_NOTE_HIGHLIGHT_CLEAR = 'nia.event.noteHighlightClear';
+
 const STRING_ROUTED_EVENT_NAMES: Record<string, string> = {
   'experience.render': NIA_EVENT_EXPERIENCE_RENDER,
   'experience.dismiss': NIA_EVENT_EXPERIENCE_DISMISS,
@@ -88,6 +94,13 @@ const STRING_ROUTED_EVENT_NAMES: Record<string, string> = {
   'wonder.remove': NIA_EVENT_WONDER_REMOVE,
   'wonder.clear': NIA_EVENT_WONDER_CLEAR,
   'wonder.animate': NIA_EVENT_WONDER_ANIMATE,
+  'note.scroll': NIA_EVENT_NOTE_SCROLL,
+  'note.highlight': NIA_EVENT_NOTE_HIGHLIGHT,
+  'note.highlight.clear': NIA_EVENT_NOTE_HIGHLIGHT_CLEAR,
+  'note.navigate.heading': NIA_EVENT_NOTE_NAVIGATE_HEADING,
+  'canvas.task.start': 'nia:canvas.task.start',
+  'canvas.task.progress': 'nia:canvas.task.progress',
+  'canvas.task.complete': 'nia:canvas.task.complete',
 };
 
 const ROUTED_EVENT_NAMES: Record<string, string> = {
@@ -151,6 +164,11 @@ export function routeNiaEvent<TPayload = AnyPayload>(envelope: MinimalEnvelope<T
     envelope,
     payload: envelope.payload,
   };
+
+  // DEBUG: Log speaking events prominently so we can verify they arrive at the frontend
+  if (envelope.event === 'bot.speaking.started' || envelope.event === 'bot.speaking.stopped') {
+    console.log(`%c[SPEAKING DEBUG] ${envelope.event} arrived at routeNiaEvent`, 'color: #FF0000; font-weight: bold; font-size: 16px;', envelope);
+  }
 
   // Specific Event Tracking Logic
   if (posthog) {
@@ -225,6 +243,10 @@ export function routeNiaEvent<TPayload = AnyPayload>(envelope: MinimalEnvelope<T
       // App/Browser Operations (Bot initiated)
       case EventEnum.APP_OPEN:
         posthog.capture('app_opened_by_bot', { appName: rawPayload?.app });
+        // Forward to desktop app opener so voice and desktop use the same UI
+        if (rawPayload?.app) {
+          window.dispatchEvent(new CustomEvent('nia:desktop.openApp', { detail: { app: rawPayload.app, category: rawPayload?.category } }));
+        }
         break;
       case EventEnum.APPS_CLOSE:
         posthog.capture('apps_closed_by_bot', { apps: rawPayload?.apps });
@@ -373,7 +395,62 @@ export function routeNiaEvent<TPayload = AnyPayload>(envelope: MinimalEnvelope<T
   // String-based routing for events not yet in EventEnum (e.g., experience.*)
   const stringRouted = STRING_ROUTED_EVENT_NAMES[envelope.event];
   if (stringRouted) {
-    dispatchEvent(stringRouted, detail);
+    // ── Deduplicate wonder.scene events ──────────────────────────────
+    // Events arrive twice: once via WebSocket broadcast, once via Daily
+    // forwarder (reliable path). Suppress duplicates within 3 seconds
+    // using a hash of the payload's key fields.
+    if (envelope.event === 'wonder.scene' || envelope.event === 'wonder.clear') {
+      const p = envelope.payload as Record<string, unknown> | null;
+      // Use html_url (unique per payload) or last 200 chars of HTML (unique content section, not shared CSS prefix)
+      const htmlStr = String(p?.html ?? '');
+      const sig = `${envelope.event}:${p?.html_url ?? ''}:${htmlStr.length}:${htmlStr.slice(-200)}`;
+      const now = Date.now();
+      if (
+        (globalThis as unknown as Record<string, unknown>).__lastWonderSig === sig &&
+        now - ((globalThis as unknown as Record<string, number>).__lastWonderTs ?? 0) < 3000
+      ) {
+        console.log(`%c[NIA_ROUTER] Suppressed duplicate ${envelope.event}`, 'color: #FF6600; font-weight: bold;');
+        return;
+      }
+      (globalThis as unknown as Record<string, unknown>).__lastWonderSig = sig;
+      (globalThis as unknown as Record<string, number>).__lastWonderTs = now;
+    }
+    console.log(`%c[NIA_ROUTER] Dispatching ${envelope.event} → ${stringRouted}`, 'color: #FFD233; font-weight: bold; font-size: 14px;', detail);
+
+    // ── URL-based payload delivery for oversized canvas HTML ──────────
+    // When the bot stores HTML on the gateway (payload too large for Daily
+    // app-message), the envelope arrives with ``html_url`` instead of
+    // ``html``.  Fetch the full HTML before dispatching the event.
+    const rawPayload = envelope.payload as Record<string, unknown> | null;
+    if (
+      envelope.event === 'wonder.scene' &&
+      rawPayload?.html_url &&
+      !rawPayload?.html
+    ) {
+      const htmlUrl = rawPayload.html_url as string;
+      console.log(`%c[NIA_ROUTER] Fetching html_url: ${htmlUrl}`, 'color: #FFD233; font-weight: bold;');
+      fetch(htmlUrl)
+        .then((resp) => {
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          return resp.text();
+        })
+        .then((html) => {
+          (rawPayload as Record<string, unknown>).html = html;
+          delete (rawPayload as Record<string, unknown>).html_url;
+          const resolvedDetail: NiaEventDetail<TPayload> = {
+            event: detail.event,
+            envelope: { ...envelope, payload: rawPayload as TPayload },
+            payload: rawPayload as TPayload,
+          };
+          console.log(`%c[NIA_ROUTER] html_url resolved (${html.length} chars), dispatching`, 'color: #00FF00; font-weight: bold;');
+          dispatchEvent(stringRouted, resolvedDetail);
+        })
+        .catch((err) => {
+          console.error('[NIA_ROUTER] Failed to fetch html_url:', err);
+        });
+    } else {
+      dispatchEvent(stringRouted, detail);
+    }
   }
 
   dispatchEvent(NIA_EVENT_ALL, detail);

@@ -31,12 +31,8 @@ import aiohttp
 @bot_tool(
     name="bot_openclaw_task",
     description=(
-        "Fire-and-forget background task for the OpenClaw AI agent (powered by Claude). "
-        "Results appear in the PearlOS interface, NOT spoken back to the user. "
-        "DO NOT use this for Discord/Telegram messaging, web searches, or anything where "
-        "you need the result spoken back. Use bot_think_deeply instead for those. "
-        "Only use this for long-running background tasks like: writing code to a file, "
-        "running multi-step workflows, or heavy analysis that should display in the UI."
+        "Background OpenClaw task. Results show in UI, NOT spoken back. "
+        "For results you need to speak, use bot_think_deeply instead."
     ),
     feature_flag="openclawBridge",
     parameters={
@@ -119,11 +115,14 @@ async def bot_openclaw_task(params: FunctionCallParams):
             },
             {"role": "user", "content": f"[urgency={urgency}] {task}"},
         ],
-        "stream": False,
+        "stream": True,
         "max_tokens": 4096,
     }
 
-    async def _fire_and_forget():
+    async def _stream_and_track():
+        """Consume SSE stream to completion and emit events via ws_broadcast."""
+        result_chunks: list[str] = []
+        got_done = False
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -132,9 +131,7 @@ async def bot_openclaw_task(params: FunctionCallParams):
                     headers={"Authorization": f"Bearer {openclaw_key}"},
                     timeout=aiohttp.ClientTimeout(total=120),
                 ) as resp:
-                    if resp.status == 200:
-                        log.info("OpenClaw background task completed", session_key=session_key)
-                    else:
+                    if resp.status != 200:
                         error_text = await resp.text()
                         log.error(
                             "OpenClaw background task failed",
@@ -142,11 +139,67 @@ async def bot_openclaw_task(params: FunctionCallParams):
                             error=error_text[:200],
                             session_key=session_key,
                         )
+                        await _emit_task_event(session_key, "error", error=f"HTTP {resp.status}")
+                        return
+
+                    async for raw_line in resp.content:
+                        line = raw_line.decode("utf-8", errors="replace").strip()
+                        if not line.startswith("data:"):
+                            continue
+                        data_str = line[len("data:"):].strip()
+                        if data_str == "[DONE]":
+                            got_done = True
+                            break
+                        try:
+                            chunk = json.loads(data_str)
+                            delta = (
+                                chunk.get("choices", [{}])[0]
+                                .get("delta", {})
+                                .get("content")
+                            )
+                            if delta:
+                                result_chunks.append(delta)
+                        except (json.JSONDecodeError, IndexError, KeyError):
+                            continue
+
+                    if not got_done:
+                        log.warning("OpenClaw stream ended without [DONE]", session_key=session_key)
+
+                    result_text = "".join(result_chunks).strip()
+                    log.info(
+                        "OpenClaw background task completed",
+                        session_key=session_key,
+                        chunks=len(result_chunks),
+                        chars=len(result_text),
+                        got_done=got_done,
+                    )
+                    await _emit_task_event(
+                        session_key, "complete",
+                        result=result_text[:2000] if result_text else None,
+                    )
         except Exception as e:
             log.exception(f"OpenClaw background task error: {e}", session_key=session_key)
+            await _emit_task_event(session_key, "error", error=str(e)[:200])
+
+    async def _emit_task_event(sk: str, status: str, **kwargs):
+        """Emit a nia.event via bot gateway ws_broadcast if available."""
+        try:
+            from bot_gateway import ws_broadcast
+            import time as _t
+            envelope = {
+                "v": 1,
+                "kind": "nia.event",
+                "event": "openclaw_task",
+                "ts": int(_t.time() * 1000),
+                "seq": 0,
+                "payload": {"sessionKey": sk, "status": status, **kwargs},
+            }
+            await ws_broadcast(envelope)
+        except Exception:
+            log.debug(f"Could not emit task event (broadcast unavailable): {status}")
 
     # Launch in background — don't await
-    asyncio.create_task(_fire_and_forget())
+    asyncio.create_task(_stream_and_track())
 
     _task_result = {
         "success": True,
@@ -191,15 +244,8 @@ def _clean_dedup_cache():
 @bot_tool(
     name="bot_think_deeply",
     description=(
-        "Connect to your full OpenClaw brain for tasks that need results spoken back to the user. "
-        "This is your gateway to: sending Discord/Telegram messages, web research, file access, "
-        "deep analysis, and any capability beyond your built-in PearlOS tools. "
-        "Use this when the user asks you to: send a Discord message, search the web, "
-        "look something up, do complex reasoning, or anything requiring your OpenClaw backend. "
-        "The result is returned synchronously and you can speak it back. "
-        "Examples: 'send a message to #general on Discord saying hello', "
-        "'search the web for latest news about X', 'what's in my recent emails'. "
-        "Do NOT use for simple PearlOS operations (notes, YouTube) — use built-in tools for those."
+        "Connect to OpenClaw backend for: messaging (Discord/Telegram), web search, file access, "
+        "deep analysis. Result is spoken back to user. NOT for PearlOS ops (notes, YouTube)."
     ),
     feature_flag="openclawBridge",
     parameters={

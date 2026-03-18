@@ -136,6 +136,9 @@ class SessionManagers:
         elif kind == "nia.tool_invoke":
             self.log.info("[app-message-handler] 🔧 Received tool invoke request: %s" % message_obj)
             self._handle_tool_invoke(message_obj)
+        elif kind == "nia.tool_result":
+            self.log.info("[app-message-handler] 🔧 Received tool result: tool=%s" % message_obj.get("tool_name"))
+            self._handle_tool_result(message_obj)
         elif kind == "nia.event":
             self.log.info("[app-message-handler] 📨 Received nia.event: event=%s" % message_obj.get("event"))
             self._handle_nia_event(message_obj)
@@ -156,14 +159,28 @@ class SessionManagers:
 
         tool_name = message_obj.get("tool_name") or message_obj.get("toolName", "")
         params = message_obj.get("params") or {}
+        source = message_obj.get("source", "")
 
         if not tool_name:
             self.log.warning("[tool_invoke] Missing tool_name in message: %s" % message_obj)
             return
 
         self.log.info(
-            "[tool_invoke] 🔧 Dispatching tool_name=%s params=%s" % (tool_name, params)
+            "[tool_invoke] 🔧 Dispatching tool_name=%s params=%s source=%s" % (tool_name, params, source)
         )
+
+        # ── Suppress voice LLM re-trigger for background OpenClaw sub-tasks ──
+        # When bot_openclaw_task spawns a background session, that session may
+        # call tools (e.g. bot_think_deeply) which get routed back here via
+        # nia.tool_invoke with source='openclaw'.  Re-triggering the voice LLM
+        # causes a feedback loop where Pearl speaks repeated diagnostic phrases.
+        # The background task can handle its own tool calls — just drop them.
+        if source == "openclaw":
+            self.log.info(
+                "[tool_invoke] ⏭️ Suppressing voice LLM re-trigger for background "
+                "OpenClaw tool_invoke (tool=%s). Background task handles this itself." % tool_name
+            )
+            return
 
         # Build a system message that instructs the LLM to call the tool
         params_desc = ""
@@ -211,6 +228,81 @@ class SessionManagers:
         except Exception as e:
             self.log.error("[tool_invoke] ❌ Failed to dispatch tool invoke: %s" % e, exc_info=True)
 
+    def _handle_tool_result(self, message_obj: dict):
+        """Handle nia.tool_result app-messages by injecting the result into LLM context.
+
+        When tools are executed via the REST/direct path (e.g. OpenClaw gateway),
+        the result is broadcast back as nia.tool_result. The LLM in the voice
+        pipeline needs to see this result to speak the response to the user.
+        """
+        import asyncio
+
+        tool_name = message_obj.get("tool_name") or ""
+        result = message_obj.get("result") or {}
+        source = message_obj.get("source", "")
+
+        if not tool_name:
+            self.log.warning("[tool_result] Missing tool_name in message: %s" % message_obj)
+            return
+
+        # ── Anti-echo guard ─────────────────────────────────────────────
+        # If the tool was executed in-process (source=voice-pipeline or no
+        # source), the LLM already has the result via the normal pipecat
+        # tool-calling flow. Only inject results from external sources.
+        if source not in ("rest-api", "gateway-broadcast", "openclaw"):
+            self.log.debug(
+                "[tool_result] Skipping injection for in-process result (source=%s tool=%s)"
+                % (source, tool_name)
+            )
+            return
+
+        self.log.info(
+            "[tool_result] 🔧 Injecting result for tool=%s source=%s" % (tool_name, source)
+        )
+
+        # Build a system message with the tool result so the LLM can respond
+        result_summary = json.dumps(result, default=str)[:4000]
+        system_content = (
+            "TOOL RESULT: The '%s' tool was executed (via external invocation) "
+            "and returned:\n%s\n\n"
+            "Inform the user of the result naturally. If the tool succeeded, "
+            "confirm what was done. If it failed, explain what went wrong."
+            % (tool_name, result_summary)
+        )
+
+        try:
+            from flows.registry import get_flow_manager
+            from pipecat.frames.frames import LLMMessagesAppendFrame, LLMRunFrame
+
+            flow_manager = get_flow_manager(self.room_url)
+            if not flow_manager:
+                self.log.warning("[tool_result] No flow_manager for room %s" % self.room_url)
+                return
+
+            task = getattr(flow_manager, "task", None)
+            if not task or not hasattr(task, "queue_frames"):
+                self.log.warning("[tool_result] No task/queue_frames on flow_manager")
+                return
+
+            async def _inject_and_run():
+                await task.queue_frames([
+                    LLMMessagesAppendFrame(messages=[{
+                        "role": "system",
+                        "content": system_content,
+                    }]),
+                    LLMRunFrame(),
+                ])
+                self.log.info("[tool_result] ✅ Injected tool result and triggered LLM run for '%s'" % tool_name)
+
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(_inject_and_run())
+            else:
+                loop.run_until_complete(_inject_and_run())
+
+        except Exception as e:
+            self.log.error("[tool_result] ❌ Failed to inject tool result: %s" % e, exc_info=True)
+
     def _handle_nia_event(self, message_obj: dict):
         """Handle nia.event messages from the frontend/OpenClaw.
 
@@ -227,14 +319,37 @@ class SessionManagers:
             self.log.warning("[nia.event] Missing 'event' field in message: %s" % message_obj)
             return
 
+        # ── Anti-echo guard ─────────────────────────────────────────────
+        # Events originating from the gateway broadcast (source=rest-api or
+        # source=forwarder) arrive back at the bot via Daily app-message.
+        # Re-publishing them to the event bus triggers AppMessageForwarder
+        # to re-send them, creating an echo loop with exponentially nested
+        # payloads.  Skip re-publishing if the event was already forwarded.
+        source = message_obj.get("source") or payload.get("_source")
+        if source in ("rest-api", "forwarder", "gateway-broadcast"):
+            self.log.debug(
+                "[nia.event] Skipping re-publish (echo guard): event=%s source=%s" % (event, source)
+            )
+            return
+
+        # Also detect nested payloads — a sign of echo amplification.
+        # If payload itself contains an 'event' key matching the outer event,
+        # it's a re-wrapped echo.
+        if isinstance(payload, dict) and payload.get("event") == event and "payload" in payload:
+            self.log.warning(
+                "[nia.event] Dropping nested/echoed event: event=%s" % event
+            )
+            return
+
         self.log.info(
             "[nia.event] 📨 Processing event=%s payload_keys=%s" % (event, list(payload.keys()))
         )
 
         # Publish to internal event bus so subscribers can react
+        # Mark as forwarded to prevent echo loops
         try:
             from eventbus.bus import publish
-            publish(event, {"event": event, "payload": payload, "room_url": self.room_url})
+            publish(event, {"event": event, "payload": payload, "room_url": self.room_url, "_source": "app-message-handler"})
             self.log.info("[nia.event] ✅ Published '%s' to event bus" % event)
         except Exception as e:
             self.log.error("[nia.event] ❌ Failed to publish '%s': %s" % (event, e))

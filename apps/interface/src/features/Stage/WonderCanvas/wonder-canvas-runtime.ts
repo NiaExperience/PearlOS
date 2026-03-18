@@ -8,11 +8,21 @@ export const WONDER_RUNTIME_HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
 <meta name="referrer" content="no-referrer"/>
 <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: https: http:; media-src * data: blob:; connect-src * data: blob:; font-src * data:;"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital@1&display=swap"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital@1&display=swap" rel="stylesheet"/>
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2"/>
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/inter/v18/UcCo3FwrK3iLTcviYwY.woff2"/>
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/playfairdisplay/v37/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTbtbK-F2rA0s.woff2"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;
+html,body{width:100%!important;min-width:100%!important;height:100%;background:transparent;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#e0e0e8}
-.wonder-layer{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;transition:opacity 0.4s ease}
+.wonder-layer{position:absolute;inset:0;width:100%!important;overflow-y:auto;overflow-x:hidden;transition:opacity 0.15s ease;
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
+/* App-managed layers: remove default flex constraints so templates have full control */
+.wonder-layer.wonder-app-managed{display:block;align-items:initial}
 .wonder-layer--hidden{opacity:0;pointer-events:none}
 
 /* ── Built-in animations ── */
@@ -88,8 +98,9 @@ body{min-height:-webkit-fill-available;min-height:100%}
 /* Ensure .right panels in split layouts are visible */
 .right,[class*="right"]{min-width:0;overflow:visible}
 /* Portrait mode: stack split layouts vertically (top/bottom) instead of left/right.
-   Skipped for .wonder-app-managed layers (apps that handle their own responsive layout). */
-@media (orientation:portrait),(max-width:600px){
+   Skipped for .wonder-app-managed layers (apps that handle their own responsive layout).
+   Uses max-width only — NOT (orientation:portrait) which can false-match in iframes. */
+@media (max-width:768px){
   .wonder-layer:not(.wonder-app-managed) [style*="display:flex"][style*="flex-direction:row"],
   .wonder-layer:not(.wonder-app-managed) [style*="display: flex"][style*="flex-direction: row"],
   .wonder-layer:not(.wonder-app-managed) [style*="display:flex"][style*="flex-direction: row"],
@@ -136,6 +147,62 @@ body[data-avatar-state="speaking"] .wonder-layer--dim-on-speak{opacity:.5}
 /* ── Avatar safe zone — bottom-left 100x100px on mobile ── */
 .wonder-avatar-safe{position:fixed;bottom:0;left:0;width:100px;height:100px;pointer-events:none}
 
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL RESPONSIVE UI — Close button, nav buttons, safe areas
+   These apply to ALL Wonder Canvas scenes automatically.
+   Scenes use class="wonder-close-btn" and class="wonder-nav-btn"
+   instead of hardcoding positions/sizes inline.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Close button (in-iframe) — all scenes ── */
+.wonder-close-btn{
+  position:fixed;top:16px;right:56px;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  width:36px;height:36px;padding:0;border-radius:50%;
+  background:rgba(15,8,32,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.15);
+  color:#d4c0e8;font-size:16px;font-weight:600;line-height:1;
+  cursor:pointer;transition:all 0.2s ease;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.wonder-close-btn:hover{background:rgba(15,8,32,0.9);border-color:rgba(255,211,51,0.4);color:#FFD233}
+.wonder-close-btn:active{transform:scale(0.92);background:rgba(15,8,32,0.95)}
+
+/* ── Carousel / scene navigation buttons ── */
+.wonder-nav-btn{
+  position:fixed;top:50%;transform:translateY(-50%);z-index:100;
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(15,8,32,0.75);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.15);color:rgba(250,248,245,0.9);
+  cursor:pointer;transition:all 0.2s ease;
+  -webkit-tap-highlight-color:transparent;font-size:18px;line-height:1;pointer-events:auto;
+}
+.wonder-nav-btn:hover{background:rgba(15,8,32,0.9);border-color:rgba(255,210,51,0.35);color:#FFD233}
+.wonder-nav-btn:active{transform:translateY(-50%) scale(0.94)}
+.wonder-nav-btn--left{left:max(8px,env(safe-area-inset-left,8px))}
+.wonder-nav-btn--right{right:max(8px,env(safe-area-inset-right,8px))}
+.wonder-nav-btn[disabled]{opacity:0.35;cursor:default;pointer-events:none}
+
+/* ── Mobile responsive overrides (narrow viewport or isMobile) ── */
+@media (max-width:768px){
+  .wonder-close-btn{
+    top:max(12px,env(safe-area-inset-top,12px));
+    right:max(12px,env(safe-area-inset-right,12px));
+    width:32px;height:32px;font-size:14px;
+  }
+  .wonder-nav-btn{width:36px;height:36px;font-size:14px}
+  .wonder-nav-btn--left{left:max(6px,env(safe-area-inset-left,6px))}
+  .wonder-nav-btn--right{right:max(6px,env(safe-area-inset-right,6px))}
+}
+/* When parent explicitly signals isMobile (touch + narrow) */
+body.wonder-mobile .wonder-close-btn{
+  top:max(12px,env(safe-area-inset-top,12px));
+  right:max(12px,env(safe-area-inset-right,12px));
+  width:32px;height:32px;font-size:14px;
+}
+body.wonder-mobile .wonder-nav-btn{width:36px;height:36px;font-size:14px}
+
 /* ── Orientation classes (set by JS + parent postMessage) ── */
 :root{--layout:landscape}
 body.portrait{--layout:portrait}
@@ -172,9 +239,62 @@ body.portrait .wonder-layer:not(.wonder-app-managed) [class*="info"],
 body.portrait .wonder-layer:not(.wonder-app-managed) [class*="body"]{
   width:100% !important;flex:1 !important;min-height:0;overflow-y:auto
 }
-/* Landscape: restore natural widths for named panels */
+/* Landscape: restore natural widths and enable side-by-side layouts */
 body.landscape .wonder-layer [class*="left"],
 body.landscape .wonder-layer [class*="right"]{width:auto}
+/* Landscape: hero images get more vertical space */
+body.landscape .wonder-layer:not(.wonder-app-managed) img{
+  max-height:55vh;max-height:55dvh
+}
+/* Landscape: full-bleed wraps use side-by-side when available */
+body.landscape .wonder-layer:not(.wonder-app-managed) .landscape-split{
+  flex-direction:row !important;align-items:stretch
+}
+body.landscape .wonder-layer:not(.wonder-app-managed) .landscape-split > .ls-media{
+  width:50% !important;height:auto !important;max-height:none !important;flex-shrink:0
+}
+body.landscape .wonder-layer:not(.wonder-app-managed) .landscape-split > .ls-content{
+  width:50% !important;display:flex;flex-direction:column;justify-content:center
+}
+
+/* ── Shared weather card styles (preloaded to avoid per-scene re-parse) ── */
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.weather{width:100%;min-height:100vh;display:flex;flex-direction:column;align-items:center;
+justify-content:center;text-align:center;position:relative;overflow:hidden;
+background:#0a0a1a;background-size:cover;background-position:center}
+.weather-bg{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0}
+.weather-bg img{width:100%;height:100%;object-fit:cover;display:block}
+.weather-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+background:linear-gradient(0deg,rgba(8,8,20,.75) 0%,rgba(8,8,20,.25) 40%,rgba(8,8,20,.15) 100%)}
+.weather-icon{font-size:clamp(44px,12vw,64px);margin-bottom:4px;animation:fl 5s ease-in-out infinite;
+filter:drop-shadow(0 4px 16px rgba(0,0,0,.4));position:relative;z-index:2}
+.weather-temp{font-family:'Space Grotesk',sans-serif;font-size:clamp(72px,22vw,110px);
+font-weight:700;line-height:1;letter-spacing:-.04em;color:#fff;position:relative;z-index:2;
+text-shadow:0 4px 32px rgba(0,0,0,.5);animation:fu .6s .15s both}
+.weather-cond{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(18px,5vw,26px);
+color:#e8c547;font-style:italic;font-weight:400;margin:2px 0 12px;position:relative;z-index:2;
+text-shadow:0 2px 12px rgba(0,0,0,.5);animation:fu .6s .3s both}
+.weather-loc{font-family:'Space Grotesk',sans-serif;font-size:clamp(11px,3vw,14px);
+color:rgba(240,236,228,.5);letter-spacing:.14em;text-transform:uppercase;
+position:relative;z-index:2;animation:fu .6s .4s both;text-shadow:0 1px 8px rgba(0,0,0,.4)}
+.weather-details{display:flex;gap:clamp(12px,4vw,20px);margin-top:32px;position:relative;z-index:2;
+animation:fu .6s .5s both}
+.weather-detail{text-align:center;background:rgba(255,255,255,.06);border-radius:12px;
+padding:clamp(10px,3vw,14px) clamp(14px,4vw,20px);border:1px solid rgba(255,255,255,.08);
+backdrop-filter:blur(12px)}
+.weather-detail-val{font-family:'Space Grotesk',sans-serif;font-size:clamp(15px,3.8vw,18px);
+font-weight:600;color:#fff}
+.weather-detail-label{font-size:clamp(10px,2.5vw,11px);color:rgba(240,236,228,.35);
+text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+@media(min-width:768px){
+  .weather-temp{font-size:clamp(100px,14vw,140px)}
+  .weather-cond{font-size:clamp(24px,3.5vw,32px)}
+  .weather-loc{font-size:clamp(14px,1.8vw,16px)}
+  .weather-icon{font-size:clamp(60px,8vw,80px)}
+  .weather-detail{padding:clamp(14px,2vw,20px) clamp(20px,3vw,32px)}
+  .weather-detail-val{font-size:clamp(18px,2.5vw,22px)}
+}
 
 /* ── Wonder Icons ── */
 .w-icon{display:inline-block;width:1.25em;height:1.25em;vertical-align:-0.25em;stroke-linecap:round;stroke-linejoin:round}
@@ -189,7 +309,9 @@ body.landscape .wonder-layer [class*="right"]{width:auto}
 </head>
 <body>
 <script>
-// ── Wonder Icons Library (inline SVG, no external deps) ──
+// ── Wonder Icons Library (lazy-initialised on first {{icon:*}} usage) ──
+var _wonderIconsLoaded=false;
+function _loadWonderIcons(){if(_wonderIconsLoaded)return;_wonderIconsLoaded=true;
 var WonderIcons={
 tree:'<svg class="w-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L8 8h8l-4-6zm0 6L7 14h10l-5-6zm0 6v6m-2 0h4"/></svg>',
 cave:'<svg class="w-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18v-4c0-2-1-4-3-5 1-2 0-4-2-5-1-1-3-1-4 0-1-1-3-1-4 0-2 1-3 3-2 5-2 1-3 3-3 5v4z"/></svg>',
@@ -217,7 +339,9 @@ key:'<svg class="w-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 chest:'<svg class="w-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="1"/><path d="M4 10V6a8 8 0 0116 0v4"/><circle cx="12" cy="15" r="1"/></svg>',
 get:function(n,c){var i=this[n];if(!i)return'';return c?i.replace('class="w-icon"','class="w-icon '+c+'"'):i}
 };
-window.WonderIcons=WonderIcons;
+window.WonderIcons=WonderIcons;}
+// Expose a stub that triggers lazy load
+window.WonderIcons={get:function(n,c){_loadWonderIcons();return window.WonderIcons.get(n,c)}};
 </script>
 <script>
 (function(){
@@ -286,10 +410,68 @@ window.WonderIcons=WonderIcons;
 
   // Replace {{icon:name}} and {{icon:name:classes}} placeholders with inline SVGs
   function resolveIcons(html){
-    if(!html||!window.WonderIcons)return html;
-    return html.replace(/{{icon:([a-zA-Z]+)(?::([- a-zA-Z0-9]+))?}}/g,function(_,name,cls){
-      return window.WonderIcons.get(name,cls||'')||'';
-    });
+    if(!html)return html;
+    // Only trigger icon library load if placeholders are present (P1 lazy-load)
+    if(html.indexOf('{{icon:')!==-1&&window.WonderIcons){
+      return html.replace(/{{icon:([a-zA-Z]+)(?::([- a-zA-Z0-9]+))?}}/g,function(_,name,cls){
+        return window.WonderIcons.get(name,cls||'')||'';
+      });
+    }
+    return html;
+  }
+
+  // ── Timer/animation cleanup ──────────────────────────────────────
+  // Track all timers and rAF handles created by scene scripts so we can
+  // cancel them when a new scene loads. Prevents runaway animations from
+  // stacking across scene changes (the root cause of iframe crashes on iOS).
+  var _trackedRAFs=[];
+  var _trackedIntervals=[];
+  var _trackedTimeouts=[];
+  var _origRAF=window.requestAnimationFrame;
+  var _origSetInterval=window.setInterval;
+  var _origSetTimeout=window.setTimeout;
+  var _origCancelRAF=window.cancelAnimationFrame;
+  var _origClearInterval=window.clearInterval;
+  var _origClearTimeout=window.clearTimeout;
+
+  window.requestAnimationFrame=function(cb){
+    var id=_origRAF.call(window,cb);
+    _trackedRAFs.push(id);
+    return id;
+  };
+  window.setInterval=function(cb,ms){
+    var id=_origSetInterval.call(window,cb,ms);
+    _trackedIntervals.push(id);
+    return id;
+  };
+  window.setTimeout=function(cb,ms){
+    var id=_origSetTimeout.call(window,cb,ms);
+    _trackedTimeouts.push(id);
+    return id;
+  };
+  window.cancelAnimationFrame=function(id){
+    _origCancelRAF.call(window,id);
+    var idx=_trackedRAFs.indexOf(id);
+    if(idx!==-1)_trackedRAFs.splice(idx,1);
+  };
+  window.clearInterval=function(id){
+    _origClearInterval.call(window,id);
+    var idx=_trackedIntervals.indexOf(id);
+    if(idx!==-1)_trackedIntervals.splice(idx,1);
+  };
+  window.clearTimeout=function(id){
+    _origClearTimeout.call(window,id);
+    var idx=_trackedTimeouts.indexOf(id);
+    if(idx!==-1)_trackedTimeouts.splice(idx,1);
+  };
+
+  function cleanupTimers(){
+    _trackedRAFs.forEach(function(id){_origCancelRAF.call(window,id)});
+    _trackedIntervals.forEach(function(id){_origClearInterval.call(window,id)});
+    _trackedTimeouts.forEach(function(id){_origClearTimeout.call(window,id)});
+    _trackedRAFs=[];
+    _trackedIntervals=[];
+    _trackedTimeouts=[];
   }
 
   function execScripts(container){
@@ -308,10 +490,49 @@ window.WonderIcons=WonderIcons;
     }
   }
 
+  // ── Global error handlers for timer cleanup on crash ──────────────
+  // If a scene's JavaScript throws an unhandled error, clean up all tracked
+  // timers/rAFs to prevent runaway animations from consuming CPU/memory.
+  // This is the safety net for broken HTML from weaker models (e.g. Haiku).
+  window.onerror = function(msg, url, line) {
+    console.error('[wonder-runtime] Unhandled error, cleaning up timers:', msg);
+    cleanupTimers();
+    window.parent.postMessage({ type: 'wonder.scene.error', error: String(msg), line: line }, '*');
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    console.error('[wonder-runtime] Unhandled promise rejection, cleaning up timers:', e.reason);
+    cleanupTimers();
+    window.parent.postMessage({ type: 'wonder.scene.error', error: String(e.reason) }, '*');
+  });
+
   function setScene(data){
+    cleanupTimers(); // Kill all running animations/timers from the previous scene
+
+    // ── P0 fix: reset body-level styles from previous scene ─────────
+    // Templates (e.g. galaxy) can set body{background:#000} via inline
+    // <style> tags inside the layer div.  Removing the style tag SHOULD
+    // cause a CSS reflow, but iOS Safari sometimes doesn't repaint the
+    // body background after removing a <style> that targeted it.
+    // Explicitly reset body styles to the runtime defaults.
+    document.body.style.background='transparent';
+    document.body.style.overflow='hidden';
+
+    // Remove any position:fixed or position:absolute elements that may
+    // have escaped the layer container visually (canvas, overlays).
+    // This is a safety net for iOS Safari where fixed-position elements
+    // inside replaced innerHTML can sometimes persist visually.
+    var fixedEls=document.querySelectorAll('canvas[style*="position:fixed"],canvas[style*="position: fixed"],[style*="position:fixed"]:not(.wonder-layer):not(body):not(html)');
+    for(var fi=0;fi<fixedEls.length;fi++){
+      // Only remove if it's inside a wonder-layer (not our structural elements)
+      if(fixedEls[fi].closest&&fixedEls[fi].closest('.wonder-layer')){
+        fixedEls[fi].remove();
+      }
+    }
+
     var layer=getOrCreateLayer(data.layer||'main');
     var transition=data.transition||'fade';
     var html=resolveIcons(data.html||'');
+    console.log('[wonder-runtime] setScene: innerWidth='+window.innerWidth+' innerHeight='+window.innerHeight+' appManaged='+(html.indexOf('wonder-app-managed')!==-1)+' hasMinWidth768='+(html.indexOf('min-width:768px')!==-1));
     // Detect app-managed marker: if the HTML contains data-wonder-app-managed or
     // a .wonder-app-managed element, add the class to the layer so portrait CSS
     // overrides are skipped (the app handles its own responsive layout).
@@ -320,21 +541,26 @@ window.WonderIcons=WonderIcons;
     if(transition==='instant'){
       layer.innerHTML=html;
       if(data.css)injectCSS(data.css,layer);
+      // Clear inline background so template <style> body{background:…} can take effect
+      document.body.style.background='';
       bindInteractions(layer);
       fixImages(layer);
-      execScripts(layer);
+      try{execScripts(layer)}catch(err){console.error('[wonder-runtime] Scene script error:',err);cleanupTimers()}
     } else {
       layer.style.opacity='0';
       layer.innerHTML=html;
       if(data.css)injectCSS(data.css,layer);
+      // Clear inline background so template <style> body{background:…} can take effect
+      document.body.style.background='';
       bindInteractions(layer);
       fixImages(layer);
-      execScripts(layer);
+      try{execScripts(layer)}catch(err){console.error('[wonder-runtime] Scene script error:',err);cleanupTimers()}
       requestAnimationFrame(function(){
-        layer.style.transition='opacity 0.4s ease';
+        layer.style.transition='opacity 0.15s ease';
         layer.style.opacity='1';
       });
     }
+    window.parent.postMessage({type:'wonder.scene.rendered'},'*');
   }
 
   function addToLayer(data){
@@ -361,13 +587,17 @@ window.WonderIcons=WonderIcons;
   }
 
   function clearAll(data){
+    cleanupTimers(); // Kill all running animations/timers
+    // Reset body-level styles (same as setScene)
+    document.body.style.background='transparent';
+    document.body.style.overflow='hidden';
     if(data&&data.layer){
       var l=layers[data.layer];
       if(l){
         l.classList.remove('wonder-app-managed');
         if(data.transition==='fade'){
-          l.style.transition='opacity 0.4s ease';l.style.opacity='0';
-          setTimeout(function(){l.innerHTML='';l.style.opacity='1'},400);
+          l.style.transition='opacity 0.15s ease';l.style.opacity='0';
+          setTimeout(function(){l.innerHTML='';l.style.opacity='1'},150);
         } else {l.innerHTML=''}
       }
     } else {
@@ -404,7 +634,7 @@ window.WonderIcons=WonderIcons;
       case 'wonder.clear':clearAll(e.data);break;
       case 'wonder.animate':animateElement(e.data);break;
       case 'wonder.avatarState':setAvatarState(e.data.state);break;
-      case 'wonder.orientation':parentOrientationSet=true;applyOrientation(e.data.portrait);break;
+      case 'wonder.orientation':parentOrientationSet=true;applyOrientation(e.data.portrait,e.data.isMobile);break;
     }
   });
 
@@ -414,9 +644,10 @@ window.WonderIcons=WonderIcons;
   // dimensions can be wrong in iOS Safari sandboxed iframes).
   var parentOrientationSet=false;
 
-  function applyOrientation(isPortrait){
+  function applyOrientation(isPortrait,isMobile){
     document.body.classList.toggle('portrait',isPortrait);
     document.body.classList.toggle('landscape',!isPortrait);
+    document.body.classList.toggle('wonder-mobile',!!isMobile);
     document.documentElement.style.setProperty('--layout',isPortrait?'portrait':'landscape');
   }
 
@@ -424,6 +655,7 @@ window.WonderIcons=WonderIcons;
     // If parent already told us the orientation, skip self-detection
     if(parentOrientationSet)return;
     var p=window.innerHeight>window.innerWidth;
+    console.log('[wonder-runtime] detectOrientation: innerWidth='+window.innerWidth+' innerHeight='+window.innerHeight+' portrait='+p);
     applyOrientation(p);
     window.parent.postMessage({type:'wonder.orientation.detected',portrait:p},'*');
   }
