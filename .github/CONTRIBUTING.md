@@ -10,7 +10,7 @@ Thanks for your interest in contributing to PearlOS! This guide will help you ge
 4. **Run the dev server:** `npm run dev`
 5. **Verify it works:** Open `http://localhost:3000` in your browser
 
-See [pearl-docs/internal/getting-started.md](../pearl-docs/internal/getting-started.md) for a more detailed setup walkthrough.
+See [docs/getting-started.md](docs/getting-started.md) for a more detailed setup walkthrough.
 
 ## Development Workflow
 
@@ -57,8 +57,8 @@ PearlOS is a monorepo. Key packages:
 
 ## Reporting Issues
 
-- **Bugs:** Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md)
-- **Features:** Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md)
+- **Bugs:** Use the [bug report template](ISSUE_TEMPLATE/bug_report.md)
+- **Features:** Use the [feature request template](ISSUE_TEMPLATE/feature_request.md)
 - **Security:** See [SECURITY.md](SECURITY.md). Never open public issues for vulnerabilities.
 
 ## Code of Conduct
