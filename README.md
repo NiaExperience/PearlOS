@@ -230,13 +230,7 @@ GraphQL + REST (data)
 </td>
 <td width="10%" align="center" valign="middle">
 
-```
-  ◄──
-  ──►
-```
 
-</td>
-<td width="40%" align="center" valign="middle">
 
 ```
   ┌─────────────────────────────────────┐
@@ -251,14 +245,6 @@ GraphQL + REST (data)
   ├─────────────────────────────────────┤
   │   PostgreSQL · Redis · Cloudflare    │
   └─────────────────────────────────────┘
-```
-
-</td>
-<td width="10%" align="center" valign="middle">
-
-```
-  ◄──
-  ──►
 ```
 
 </td>
