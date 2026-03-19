@@ -72,34 +72,57 @@ PearlOS is an intelligent environment that runs in your browser. The AI isn't an
 
 <div align="center">
 
-<table border="0" cellspacing="0" cellpadding="0">
+<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse;">
 <tr>
-<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
+<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
 
 ### Desktop Interface
 
-![PearlOS Desktop](docs/screenshots/ss2.png)
+<img src="docs/screenshots/ss2c.png" alt="PearlOS Desktop" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
+
 
 *PearlOS desktop with application icons, chat interface, and pixel-art fantasy forest background*
 
 </td>
-<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
+<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
 
 ### Task Management
 
-![Task Management](docs/screenshots/ss3.png)
+<img src="docs/screenshots/ss3.png" alt="Task Management" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
 
 *Real-time task tracking with job status, progress indicators, and active work monitoring*
 
 </td>
-<td width="33%" align="center" valign="top" style="padding: 10px; border: none;">
+<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
 
 ### Dashboard & Analytics
 
-![Visualization for Data Dashboard](docs/screenshots/ss1.png)
+<img src="docs/screenshots/ss1.png" alt="Visualization for Data Dashboard" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
 
 *Interactive dashboard showing stock performance analysis with Pearl's AI-powered insights*
 
+</td>
+</tr>
+</table>
+
+<h3 style="text-transform: uppercase; letter-spacing: 0.05em; text-decoration: underline; text-underline-offset: 6px; margin-bottom: 0.5em;">Introducing Your Control Panel</h3>
+<p style="margin-top: 0; color: #888; font-size: 0.95em;">PearlOS Settings at a glance: configure providers, models, launch mode, and channel assignments from one place.</p>
+
+<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse;">
+<tr>
+<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
+<img src="docs/screenshots/settings1.png" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
+</td>
+<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
+<img src="docs/screenshots/settings2.png" alt="Settings" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
+</td>
+</tr>
+<tr>
+<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
+<img src="docs/screenshots/settings3.png" alt="Settings" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
+</td>
+<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
+<img src="docs/screenshots/settings4.png" alt="Settings" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
 </td>
 </tr>
 </table>
@@ -180,94 +203,207 @@ Once running, open `http://localhost:3000`. Click the microphone icon (or just s
 
 ## Architecture Overview
 
-PearlOS is three cooperating services. The browser UI talks to the voice bot via Daily.co WebRTC, and both talk to the GraphQL mesh for shared state.
+PearlOS is an AI-native desktop: the browser is the shell, the voice pipeline is the assistant, and the GraphQL mesh is the shared brain. Three services do the heavy lifting: the **interface** (what you see and click), the **voice bot** (what you talk to), and the **mesh** (where state, config, and tools meet). The UI and the bot both talk to the mesh over HTTP; real-time voice runs over Daily.co WebRTC so latency stays low.
+
+**What this means in practice:** Pearl can open apps, run tools, and remember context because the interface and the bot share the same GraphQL API and event system. Change a setting in the dashboard or over voice, and both sides stay in sync.
+
+<div align="center">
+<img src="docs/screenshots/fullstack-architecture.png" alt="The Full Stack Architecture" style="max-width: 80%; height: auto;" />
+</div>
+
+<table>
+<tr>
+<td width="20%" align="right" valign="top">
+
+**Frontend** `:3000`
+Next.js 14, React, TypeScript
+Desktop shell, windowed apps,
+Wonder Canvas, Sprites
+
+<br/>
+
+**Transport**
+Daily.co WebRTC (voice),
+Pipecat (orchestration),
+GraphQL + REST (data)
+
+</td>
+<td width="10%" align="center" valign="middle">
 
 ```
-                        ┌──────────────────────────────────────┐
-                        │           Browser (User)             │
-                        │                                      │
-                        │  ┌─────────────────────────────────┐ │
-                        │  │  apps/interface  (Next.js :3000)│ │
-                        │  │                                  │ │
-                        │  │  Desktop Shell  Wonder Canvas   │ │
-                        │  │  Notes  YouTube  Soundtrack     │ │
-                        │  │  Sprites  Feature Flags         │ │
-                        │  └────────────┬────────────────────┘ │
-                        └───────────────┼──────────────────────┘
-                                        │
-                          WebRTC (Daily.co)    GraphQL (HTTP)
-                                        │
-              ┌─────────────────────────┼─────────────────────────┐
-              │                         │                         │
-   ┌──────────▼──────────┐   ┌──────────▼──────────┐             │
-   │  apps/pipecat-daily │   │     apps/mesh        │             │
-   │  -bot  (Python :4444│   │  (GraphQL  :2000)   │             │
-   │                     │   │                      │             │
-   │  Deepgram STT       │   │  Shared state        │             │
-   │  Pipecat pipeline   │   │  Feature flags       │             │
-   │  LLM (OpenAI/etc)   │   │  Session data        │             │
-   │  PocketTTS (Azelma) │   │  App config          │             │
-   │  50+ bot tools      │   │                      │             │
-   └─────────────────────┘   └──────────────────────┘             │
-                                                                   │
-   External APIs: Deepgram, Daily.co, OpenAI / Anthropic, YouTube │
-   ─────────────────────────────────────────────────────────────── ┘
+  ◄──
+  ──►
 ```
+
+</td>
+<td width="40%" align="center" valign="middle">
+
+```
+  ┌─────────────────────────────────────┐
+  │   apps/interface         :3000       │
+  │   apps/dashboard         :4000       │
+  ├─────────────────────────────────────┤
+  │   apps/pipecat-daily-bot :4444       │
+  │   apps/mesh              :2000       │
+  ├─────────────────────────────────────┤
+  │   packages/prism  · events           │
+  │   packages/features · redis          │
+  ├─────────────────────────────────────┤
+  │   PostgreSQL · Redis · Cloudflare    │
+  └─────────────────────────────────────┘
+```
+
+</td>
+<td width="10%" align="center" valign="middle">
+
+```
+  ◄──
+  ──►
+```
+
+</td>
+<td width="20%" align="left" valign="top">
+
+**Intelligence**
+OpenClaw Gateway,
+Anthropic Claude,
+OpenAI (configurable)
+
+<br/>
+
+**Data** `:2000`
+Mesh GraphQL API,
+PostgreSQL (via Prism),
+Redis pub/sub
+
+<br/>
+
+**Infrastructure**
+RunPod GPU pods,
+Cloudflare Tunnels
+
+</td>
+</tr>
+</table>
+
+### Project structure (monorepo)
+
+The repo is a single npm workspace. All runnable apps and shared packages live under `apps/` and `packages/`. Scripts, config, and docs sit at the root.
+
+| Layer | Path | Purpose |
+|-------|------|---------|
+| **Apps** | `apps/interface` | Next.js desktop UI (port 3000). Features live under `src/features/<Name>/`. |
+| | `apps/dashboard` | Next.js admin dashboard (port 4000). |
+| | `apps/mesh` | GraphQL API server (port 2000). Resolvers, REST content API, Postgres/Prism. |
+| | `apps/pipecat-daily-bot` | Voice pipeline: Node server, Python bot (Pipecat), and React UI. Port 4444. |
+| | `apps/chorus-tts` | Optional local TTS (Chorus). Not in root npm workspaces. |
+| | `apps/web-base` | Docker base image for web apps. |
+| **Packages** | `packages/prism` | Data access client. Use this instead of querying storage directly. |
+| | `packages/events` | Event descriptors and codegen. Event-driven UI/bot behavior. |
+| | `packages/features` | Feature flags. Descriptors and generated runtime. |
+| | `packages/redis` | Redis pub/sub types and utilities for cross-process messaging. |
+| **Root** | `scripts/` | DB, env, Chorus, Cypress, and one-off automation scripts. |
+| | `config/` | Example configs (Cloudflare, Redis, etc.). |
+| | `pearl-docs/` | Architecture, development, voice, and operations docs. |
+| | `tests/` | E2E (Cypress), load tests, visual regression, smoke, shared mocks. |
+
+**Rule:** `packages/*` must not import from `apps/*`. The interface and dashboard consume Prism, events, and features; the mesh and bot use them on the server side.
 
 ---
 
 ## Port Map
 
 | Service | Directory | Port | Description |
-|---|---|---|---|
+|---------|-----------|------|-------------|
 | Interface | `apps/interface` | 3000 | Next.js desktop UI |
+| Dashboard | `apps/dashboard` | 4000 | Next.js admin dashboard |
+| Mesh | `apps/mesh` | 2000 | GraphQL API and shared state |
 | Voice Bot | `apps/pipecat-daily-bot` | 4444 | Pipecat + Daily.co voice pipeline |
-| Mesh | `apps/mesh` | 2000 | GraphQL API / shared state |
 
 ---
 
 ## Voice Pipeline
 
-Pearl's voice pipeline is the core of the real-time conversation experience. Here is how audio flows from your mouth to Pearl's response and back:
+Pearl's voice pipeline is the core of the real-time conversation experience. Audio flows **left to right** through seven stages, from your microphone back to your speakers.
 
-```
-  Your mic
-     |
-     v
-  Deepgram STT          (speech-to-text, streaming)
-     |
-     v
-  Pipecat pipeline      (orchestration, turn detection, tool calling)
-     |
-     v
-  LLM                   (OpenAI, Anthropic, or compatible provider)
-     |
-     v
-  Tool execution        (50+ tools act on the desktop interface)
-     |
-     v
-  PocketTTS             (text-to-speech, voice: Azelma)
-     |
-     v
-  Daily.co WebRTC       (low-latency audio delivery to browser)
-     |
-     v
-  Your speakers
-```
+<table>
+<tr><td colspan="7" align="center">
 
-Pipecat handles the conversation orchestration layer: VAD (voice activity detection), turn management, interrupt handling, and routing tool calls back to the interface over a shared channel. The result is a conversation that feels immediate and natural, not request-response.
+<img src="docs/screenshots/voice-system.png" alt="Voice pipeline infographic" style="max-width: 100%; height: auto;" />
+
+</td></tr>
+<tr>
+<td align="center" valign="top" width="14%">
+
+**Your mic**
+Browser captures
+audio via Daily.co
+WebRTC (low-latency
+upstream)
+
+</td>
+<td align="center" valign="top" width="14%">
+
+**Pipecat**
+Orchestrates the
+full pipeline: VAD,
+turn-taking, interrupt
+handling
+
+</td>
+<td align="center" valign="top" width="14%">
+
+**Deepgram STT**
+Real-time streaming
+speech-to-text
+conversion
+
+</td>
+<td align="center" valign="top" width="16%">
+
+**LLM (Brain)**
+Claude, OpenAI, or
+any compatible model
+generates Pearl's
+response
+
+</td>
+<td align="center" valign="top" width="14%">
+
+**50+ Tools**
+Open apps, edit notes,
+control canvas, change
+settings, search the
+web
+
+</td>
+<td align="center" valign="top" width="14%">
+
+**PocketTTS**
+Text-to-speech via
+the Azelma voice
+model
+
+</td>
+<td align="center" valign="top" width="14%">
+
+**Audio out**
+Daily.co WebRTC
+streams Pearl's
+voice back to your
+speakers
+
+</td>
+</tr>
+</table>
+
+Pipecat ties the whole chain together so the conversation feels immediate and natural. Tool calls execute on the mesh/interface side; results feed back into the pipeline before TTS.
 
 ---
 
 ## Desktop Apps
 
 PearlOS ships with a set of built-in apps that Pearl can open, control, and interact with on your behalf:
-
-<div align="center">
-
-![Desktop Apps](docs/screenshots/desktop-apps.png)
-
-</div>
 
 | App | Description |
 |---|---|
