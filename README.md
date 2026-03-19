@@ -108,21 +108,19 @@ PearlOS is an intelligent environment that runs in your browser. The AI isn't an
 <h3 style="text-transform: uppercase; letter-spacing: 0.05em; text-decoration: underline; text-underline-offset: 6px; margin-bottom: 0.5em;">Introducing Your Control Panel</h3>
 <p style="margin-top: 0; color: #888; font-size: 0.95em;">PearlOS Settings at a glance: configure providers, models, launch mode, and channel assignments from one place.</p>
 
-<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse;">
+<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; max-width: 100%; table-layout: fixed; border-collapse: collapse;">
 <tr>
-<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
-<img src="docs/screenshots/settings1.png" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
+<td style="width: 33.33%; padding: 2px; border: none; vertical-align: top; overflow: hidden;">
+<img src="docs/screenshots/cropped-setting-1.png" alt="Pearl Mind" style="width: 100%; max-width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; margin: 0 auto; border-radius: 8px;" />
+<em style="display: block; text-align: center; margin-top: 0.25em;">🧠 Pearl Mind</em>
 </td>
-<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
-<img src="docs/screenshots/settings2.png" alt="Settings" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
+<td style="width: 33.33%; padding: 2px; border: none; vertical-align: top; overflow: hidden;">
+<img src="docs/screenshots/cropped-setting-2.png" alt="Channel Models" style="width: 100%; max-width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; margin: 0 auto; border-radius: 8px;" />
+<em style="display: block; text-align: center; margin-top: 0.25em;">📡 Channel Models</em>
 </td>
-</tr>
-<tr>
-<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
-<img src="docs/screenshots/settings3.png" alt="Settings" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
-</td>
-<td width="50%" align="center" valign="top" style="padding: 4px; border: none;">
-<img src="docs/screenshots/settings4.png" alt="Settings" style="max-height: 400px; width: auto; display: block; margin: 0 auto; border-radius: 8px;" />
+<td style="width: 33.33%; padding: 2px; border: none; vertical-align: top; overflow: hidden;">
+<img src="docs/screenshots/cropped-setting-3.png" alt="Credentials" style="width: 100%; max-width: 100%; height: auto; max-height: 520px; object-fit: contain; display: block; margin: 0 auto; border-radius: 8px;" />
+<em style="display: block; text-align: center; margin-top: 0.25em;">🗝️ Credentials</em>
 </td>
 </tr>
 </table>
