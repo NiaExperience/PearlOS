@@ -56,7 +56,7 @@ PearlOS is an intelligent environment that runs in your browser. The AI isn't an
 ### Intelligence & Flexibility
 
 - ⚙️ **Skill System** - Skills for weather, image gen, transcription, coding agents, and more. She uses them and builds new ones herself
-- 🎨 **Image Generation** - Create images from prompts (e.g. via OpenAI), built into the environment
+- 🎨 **Image Generation** - Create images from prompts (e.g. via local ComfyUI or nano banana pro), built into the environment
 - 🖼️ **Image Analysis** - Vision model for analyzing screenshots, photos, diagrams, whatever
 - 📊 **Model Flexibility** - Sonnet for quick stuff, Opus for heavy lifting, swap on the fly
 - ❤️ **Proactive Heartbeats** - Checks on its own: emails, services, calendar, anything worth flagging
