@@ -17,6 +17,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 // Get the bot directory (where pyproject.toml is)
 const scriptDir = __dirname;
@@ -40,13 +41,30 @@ if (args.length === 0) {
   process.exit(1);
 }
 
+function resolvePoetryBinary() {
+  const home = os.homedir();
+  if (home) {
+    const localPoetry = path.join(home, '.local', 'bin', 'poetry');
+    try {
+      if (fs.existsSync(localPoetry) && fs.statSync(localPoetry).isFile()) {
+        return localPoetry;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return 'poetry';
+}
+
+const poetryCommand = resolvePoetryBinary();
+
 // Check if poetry is available
-const poetryCommand = 'poetry';
 const checkPoetry = spawn(poetryCommand, ['--version'], { stdio: 'pipe' });
 checkPoetry.on('error', () => {
   console.error('❌ Error: Poetry not found in PATH');
   console.error('   Please install Poetry: https://python-poetry.org/docs/#installation');
   console.error('   Or run: curl -sSL https://install.python-poetry.org | python3 -');
+  console.error('   If it is installed, ensure ~/.local/bin is on PATH (or use python3.11 for the installer on macOS).');
   process.exit(1);
 });
 

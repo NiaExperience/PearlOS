@@ -154,9 +154,10 @@ async function promptTtsProvider() {
       message: 'Which TTS (Text-to-Speech) provider would you like to use?',
       choices: [
         { name: 'Chorus TTS (local, open-source)', value: 'chorus' },
+        { name: 'Pocket TTS (local)', value: 'pocket' },
         { name: 'ElevenLabs (cloud, requires API key)', value: 'elevenlabs' },
       ],
-      default: 'chorus',
+      default: 'pocket',
     },
   ]);
   return provider;

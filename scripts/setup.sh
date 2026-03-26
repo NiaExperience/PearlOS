@@ -95,23 +95,26 @@ show_progress() {
     printf "\r"
 }
 
-# Check Python version
+# Check Python version (prefer python3.11 when present so PATH order does not lie)
 check_python_version() {
-    if command_exists python3; then
-        PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
-        PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
-        PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
-        
-        if [ "$PYTHON_MAJOR" -ge 3 ] && [ "$PYTHON_MINOR" -ge 11 ]; then
-            echo -e "${GREEN}  ✓ Python: ${PYTHON_VERSION}${NC}"
-            return 0
-        else
-            echo -e "${YELLOW}  ! Python ${PYTHON_VERSION} found, but need 3.11+${NC}"
-            return 1
-        fi
-    else
+    local py_cmd="python3"
+    if command_exists python3.11; then
+        py_cmd="python3.11"
+    elif ! command_exists python3; then
         return 1
     fi
+
+    PYTHON_VERSION=$($py_cmd --version 2>&1 | awk '{print $2}')
+    PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
+    PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+
+    if [ "$PYTHON_MAJOR" -ge 3 ] && [ "$PYTHON_MINOR" -ge 11 ]; then
+        echo -e "${GREEN}  ✓ Python: ${PYTHON_VERSION}${NC}"
+        return 0
+    fi
+
+    echo -e "${YELLOW}  ! Python ${PYTHON_VERSION} found, but need 3.11+${NC}"
+    return 1
 }
 
 # ============================================================
@@ -197,7 +200,11 @@ install_poetry() {
     
     case "$OS" in
         linux|macos)
-            if curl -sSL https://install.python-poetry.org | python3 - 2>/dev/null; then
+            local poetry_python="python3"
+            if command_exists python3.11; then
+                poetry_python="python3.11"
+            fi
+            if curl -sSL https://install.python-poetry.org | "$poetry_python" - 2>/dev/null; then
                 # Add Poetry to PATH
                 export PATH="$HOME/.local/bin:$PATH"
                 if [ -f "$HOME/.local/bin/poetry" ]; then
@@ -783,7 +790,6 @@ setup_env() {
         
         case "${env_choice:-keep}" in
             keep|1)
-            1)
                 echo ""
                 echo -e "${GREEN}  ✓ Keeping existing env files${NC}"
                 # Just run sync to ensure app envs have the same secrets as root

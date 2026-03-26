@@ -564,10 +564,30 @@ wizard_credentials() {
 
   echo -e "${BOLD}Credentials (API keys)${NC}"
   echo ""
+  echo "Choose your TTS provider first (you can change it later in .env.local):"
+  echo "  1) Pocket TTS"
+  echo "  2) Chorus TTS"
+  echo "  3) ElevenLabs"
+  echo ""
+  read -r -p "Select TTS provider [1-3] (default: 1): " tts_choice
+  local tts_provider="pocket"
+  case "${tts_choice:-1}" in
+    1) tts_provider="pocket" ;;
+    2) tts_provider="chorus" ;;
+    3) tts_provider="elevenlabs" ;;
+    *) tts_provider="pocket" ;;
+  esac
+  upsert_env_kv "$env_file" "TTS_PROVIDER" "$tts_provider"
+  echo -e "${GREEN}  ✓ Saved TTS provider: ${tts_provider}${NC}"
+  echo ""
+
   echo "Optional but recommended now (you can edit .env.local later):"
   echo "  - DAILY_API_KEY     (Daily.co dashboard)"
   echo "  - OPENAI_API_KEY    (OpenAI API keys)"
   echo "  - DEEPGRAM_API_KEY  (Deepgram console)"
+  if [[ "$tts_provider" == "elevenlabs" ]]; then
+    echo "  - ELEVENLABS_API_KEY (ElevenLabs dashboard)"
+  fi
   echo ""
   echo -e "${YELLOW}We will never print the keys back to the terminal.${NC}"
   echo ""
@@ -601,6 +621,9 @@ wizard_credentials() {
   prompt_key "DAILY_API_KEY" "DAILY_API_KEY"
   prompt_key "OPENAI_API_KEY" "OPENAI_API_KEY"
   prompt_key "DEEPGRAM_API_KEY" "DEEPGRAM_API_KEY"
+  if [[ "$tts_provider" == "elevenlabs" ]]; then
+    prompt_key "ELEVENLABS_API_KEY" "ELEVENLABS_API_KEY"
+  fi
 
   if [[ "$changed" -eq 1 ]]; then
     echo ""
