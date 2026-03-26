@@ -557,7 +557,7 @@ Our stack is fully open source: Next.js frontend, OpenClaw agent framework, Pipe
 
 The goal isn't just transparency. We intend to grow a community of developers, designers, creators, scientists, artists, and innovators who take this foundation and make the power of good intelligence accessible to all.
 
-More info: https://pearlos.org/hello
+More info: https://pearlos.org
 
 ---
 
