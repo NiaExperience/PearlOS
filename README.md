@@ -24,6 +24,14 @@ PearlOS is an intelligent environment that runs in your browser. The AI isn't an
 
 ---
 
+## Why PearlOS?
+
+Most AI lives inside a chat window. You type, it responds, you close the tab, it forgets you existed. That is not a relationship, it is a vending machine.
+
+PearlOS is what happens when AI has a home: persistent memory, a real desktop, voice conversations that pick up where you left off, and teams of agents that keep working while you do not. The code is open because trust requires transparency. Your data stays yours because that was never negotiable. We are building the AI experience people actually deserve.
+
+---
+
 ## Features
 
 *PearlOS brings a lot to the table. Here's what you can explore:*
@@ -144,7 +152,7 @@ PearlOS ships with setup scripts that handle everything: dependencies, environme
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-bash scripts/root/new-setup.sh
+bash scripts/new-setup.sh
 ```
 
 The wizard walks you through preset selection (full, minimal, or custom), installs all dependencies (Node, Python, Poetry, uv), creates `.env` files with API key placeholders, seeds the database, and configures the voice bot. It works on Linux, macOS, and Windows (via Git Bash/WSL).
@@ -152,7 +160,7 @@ The wizard walks you through preset selection (full, minimal, or custom), instal
 You can also run it non-interactively:
 
 ```bash
-bash scripts/root/new-setup.sh --preset full --non-interactive
+bash scripts/new-setup.sh --preset full --non-interactive
 ```
 
 ### Option 2: Classic Setup Script
@@ -160,7 +168,7 @@ bash scripts/root/new-setup.sh --preset full --non-interactive
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-bash scripts/root/setup.sh
+bash scripts/setup.sh
 ```
 
 This runs the full setup in one shot. After it finishes, add your API keys to `.env.local` and run:
@@ -171,12 +179,12 @@ npm run start:all
 
 ### Option 3: Manual Setup
 
-If you prefer doing things by hand, PearlOS is a monorepo. You will need Node.js 18+, Python 3.11+, and `pnpm`.
+If you prefer doing things by hand, PearlOS is a monorepo. You will need Node.js 20+, Python 3.11+, and npm (this repo uses npm workspaces, not pnpm).
 
 ```bash
 git clone https://github.com/NiaExperience/PearlOS.git
 cd PearlOS
-pnpm install
+npm install
 
 # Set up environment variables
 cp apps/interface/.env.example apps/interface/.env.local
@@ -190,7 +198,7 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cd ../..
 
-pnpm dev
+npm run dev
 ```
 
 Once running, open `http://localhost:3000`. Click the microphone icon (or just start talking) and say hello to Pearl.
@@ -520,8 +528,7 @@ PearlOS/
 │       └── .env.example
 │
 ├── packages/                   # Shared packages (types, utils)
-├── pnpm-workspace.yaml
-├── package.json
+├── package.json                # npm workspaces root
 ├── .github/CONTRIBUTING.md
 └── README.md
 ```
