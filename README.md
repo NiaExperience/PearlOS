@@ -3,8 +3,45 @@
 <!-- ![PearlOS Logo](docs/screenshots/Pearllogo.png) -->
 <img src="docs/screenshots/Pearllogo.png" alt="PearlOS Logo" width="400" />
 
-**Your Intelligent Environment, In Any Browser.**
+**A Self Evolving Intelligent OS**
 
+
+## Screenshots
+
+<div align="center">
+
+<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse;">
+<tr>
+<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
+
+### Desktop Interface
+
+<img src="docs/screenshots/ss2c.png" alt="PearlOS Desktop" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
+
+
+*PearlOS desktop with application icons, chat interface, and pixel-art fantasy forest background*
+
+</td>
+<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
+
+### Task Management
+
+<img src="docs/screenshots/ss3.png" alt="Task Management" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
+
+*Real-time task tracking with job status, progress indicators, and active work monitoring*
+
+</td>
+<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
+
+### Dashboard & Analytics
+
+<img src="docs/screenshots/ss1.png" alt="Visualization for Data Dashboard" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
+
+*Interactive dashboard showing stock performance analysis with Pearl's AI-powered insights*
+
+</td>
+</tr>
+</table>
 <!-- *PearlOS is always thinking. Always learning. Always here to help you.* -->
 
 [![License: PSAL-NC](https://img.shields.io/badge/License-PSAL--NC-purple.svg)](./LICENSE)
@@ -31,7 +68,7 @@ Most AI lives inside a chat window. You type, it responds, you close the tab, it
 PearlOS is what happens when AI has a home: persistent memory, a real desktop, voice conversations that pick up where you left off, and teams of agents that keep working while you do not. The code is open because trust requires transparency. Your data stays yours because that was never negotiable. We are building the AI experience people actually deserve.
 
 ---
-
+<div align="left">
 ## Features
 
 *PearlOS brings a lot to the table. Here's what you can explore:*
@@ -75,43 +112,7 @@ PearlOS is what happens when AI has a home: persistent memory, a real desktop, v
 - 🏠 **Runs Locally** - Full stack on your machine with your own API keys. No cloud lock-in.
 
 ---
-
-## Screenshots
-
-<div align="center">
-
-<table border="0" cellspacing="0" cellpadding="0" style="width: 100%; border-collapse: collapse;">
-<tr>
-<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
-
-### Desktop Interface
-
-<img src="docs/screenshots/ss2c.png" alt="PearlOS Desktop" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
-
-
-*PearlOS desktop with application icons, chat interface, and pixel-art fantasy forest background*
-
-</td>
-<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
-
-### Task Management
-
-<img src="docs/screenshots/ss3.png" alt="Task Management" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
-
-*Real-time task tracking with job status, progress indicators, and active work monitoring*
-
-</td>
-<td width="33%" align="center" valign="top" style="padding: 4px; border: none;">
-
-### Dashboard & Analytics
-
-<img src="docs/screenshots/ss1.png" alt="Visualization for Data Dashboard" style="max-height: 520px; width: auto; display: block; margin: 0 auto;" />
-
-*Interactive dashboard showing stock performance analysis with Pearl's AI-powered insights*
-
-</td>
-</tr>
-</table>
+</div>
 
 <h3 style="text-transform: uppercase; letter-spacing: 0.05em; text-decoration: underline; text-underline-offset: 6px; margin-bottom: 0.5em;">Introducing Your Control Panel</h3>
 <p style="margin-top: 0; color: #888; font-size: 0.95em;">PearlOS Settings at a glance: configure providers, models, launch mode, and channel assignments from one place.</p>
