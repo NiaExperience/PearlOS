@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { isTestModeBypassAllowed } from '@interface/lib/api-auth';
 import { getLogger } from '@interface/lib/logger';
+import { isLabModeUiAvailable } from '@interface/lib/lab-mode-ui';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -56,13 +58,25 @@ function getStatus() {
   return { active, snapshot, snapshotTime, current, openclawBackedUp };
 }
 
+/** HTTP responses must never include parsed .env (`current` / `snapshot`) — secrets. */
+function getPublicStatus() {
+  const { active, snapshotTime } = getStatus();
+  return { active, snapshotTime };
+}
+
 export async function GET() {
-  return NextResponse.json(getStatus());
+  if (!isLabModeUiAvailable) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  return NextResponse.json(getPublicStatus());
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const testMode = process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true';
+    if (!isLabModeUiAvailable) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    const testMode = isTestModeBypassAllowed();
     const session = await getSessionSafely(request, interfaceAuthOptions);
     if (!testMode && !session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -72,7 +86,7 @@ export async function POST(request: NextRequest) {
     const { action } = body as { action: string };
 
     if (action === 'status') {
-      return NextResponse.json(getStatus());
+      return NextResponse.json(getPublicStatus());
     }
 
     if (action === 'activate') {
@@ -90,7 +104,11 @@ export async function POST(request: NextRequest) {
       }
       fs.writeFileSync(FLAG_PATH, new Date().toISOString(), 'utf-8');
       log.info('Lab mode activated', { backupPath: BACKUP_PATH });
-      return NextResponse.json({ success: true, message: 'Lab mode activated', ...getStatus() });
+      return NextResponse.json({
+        success: true,
+        message: 'Lab mode activated',
+        ...getPublicStatus(),
+      });
     }
 
     if (action === 'deactivate') {
@@ -112,7 +130,11 @@ export async function POST(request: NextRequest) {
       try { fs.unlinkSync(FLAG_PATH); } catch {}
       try { fs.unlinkSync(BACKUP_PATH); } catch {}
       log.info('Lab mode deactivated — config restored');
-      return NextResponse.json({ success: true, message: 'Config restored', ...getStatus() });
+      return NextResponse.json({
+        success: true,
+        message: 'Config restored',
+        ...getPublicStatus(),
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action. Use: activate, deactivate, status' }, { status: 400 });

@@ -11,6 +11,9 @@
  */
 export interface SoundtrackControlDetail {
   action: 'play' | 'stop' | 'next' | 'volume' | 'adjustVolume';
+  source?: 'settings' | 'ui' | 'bot' | 'system' | 'voice_tool';
+  persistPreference?: boolean;
+  overridePreference?: boolean;
   volume?: number; // For 'volume' action: target volume (0.0 to 1.0)
   direction?: 'increase' | 'decrease'; // For 'adjustVolume' action
   step?: number; // For 'adjustVolume' action: step size (default 0.05)
@@ -27,6 +30,9 @@ export interface SoundtrackControlDetail {
  * 
  * **Detail**: SoundtrackControlDetail
  * - `action: 'play' | 'stop' | 'next' | 'volume' | 'adjustVolume'` - Control action to perform
+ * - `source?: 'settings' | 'ui' | 'bot' | 'system' | 'voice_tool'` - Origin of the control event
+ * - `persistPreference?: boolean` - Whether the event may update the saved startup preference
+ * - `overridePreference?: boolean` - Whether a play event may override a saved off preference for this session only
  * - `volume?: number` - For 'volume' action: target volume (0.0 to 1.0)
  * - `direction?: 'increase' | 'decrease'` - For 'adjustVolume' action
  * - `step?: number` - For 'adjustVolume' action: step size (default 0.3)
@@ -46,7 +52,7 @@ export interface SoundtrackControlDetail {
  * ```typescript
  * window.dispatchEvent(
  *   new CustomEvent<SoundtrackControlDetail>('soundtrackControl', {
- *     detail: { action: 'play' }
+ *     detail: { action: 'play', source: 'bot' }
  *   })
  * );
  * ```
@@ -69,4 +75,3 @@ export interface SoundtrackControlDetail {
 export const SOUNDTRACK_EVENTS = {
   CONTROL: 'soundtrackControl',
 } as const;
-

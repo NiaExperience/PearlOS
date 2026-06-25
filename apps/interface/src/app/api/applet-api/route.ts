@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { AssistantActions, TenantActions } from '@nia/prism/core/actions';
-import { getSessionSafely } from '@nia/prism/core/auth';
 import { isValidUUID } from '@nia/prism/core/utils';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -11,8 +10,8 @@ import {
   updateAppletStorage, 
   deleteAppletStorage 
 } from '@interface/features/HtmlGeneration';
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('[api_applet_api]');
 
@@ -45,20 +44,10 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 async function handleAppletApiRequest(req: NextRequest, method: string): Promise<NextResponse> {
   try {
     log.info('Handling applet API request', { method, url: req.url });
-    // Authenticate user
-    const session = await getSessionSafely(req, interfaceAuthOptions);
-    if (!session || !session.user) {
-      log.warn('Unauthorized applet API access attempt', { method, url: req.url });
-      return NextResponse.json({ 
-        error: 'Unauthorized', 
-        message: 'Valid session required for applet API access' 
-      }, { status: 401 });
-    }
-
     const searchParams = req.nextUrl.searchParams;
     const operation = searchParams.get('operation'); // 'list', 'get', 'create', 'update', 'delete'
     const dataId = searchParams.get('dataId'); // Changed from contentId to dataId
-    let tenantId = searchParams.get('tenantId');
+    let requestedTenantId = searchParams.get('tenantId');
     const assistantName = searchParams.get('agent') || searchParams.get('assistantName');
 
     // Validate required parameters
@@ -68,14 +57,14 @@ async function handleAppletApiRequest(req: NextRequest, method: string): Promise
     }
 
     // Resolve tenant ID from assistant name if not provided directly
-    if (!tenantId && assistantName) {
+    if (!requestedTenantId && assistantName) {
       const assistant = await AssistantActions.getAssistantBySubDomain(assistantName);
       if (assistant && assistant.tenantId) {
-        tenantId = assistant.tenantId;
+        requestedTenantId = assistant.tenantId;
       }
     }
 
-    if (!tenantId) {
+    if (!requestedTenantId) {
       log.warn('Missing tenant identification', { method, operation });
       return NextResponse.json({
         error: 'Missing tenant identification',
@@ -83,26 +72,20 @@ async function handleAppletApiRequest(req: NextRequest, method: string): Promise
       }, { status: 400 });
     }
 
-    if (!isValidUUID(tenantId)) {
-      log.warn('Invalid tenant ID format', { tenantId });
+    if (!isValidUUID(requestedTenantId)) {
+      log.warn('Invalid tenant ID format', { tenantId: requestedTenantId });
       return NextResponse.json({ error: 'Invalid tenant ID format' }, { status: 400 });
     }
+
+    const actorResult = await resolveInterfaceActorContext({ requestedTenantId });
+    if (!actorResult.ok) return actorResult.response;
+    const { tenantId, userId } = actorResult.actor;
 
     // Verify tenant exists
     const tenant = await TenantActions.getTenantById(tenantId);
     if (!tenant) {
       log.warn('Tenant not found', { tenantId });
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
-    }
-
-    // Check if user has tenant member access
-    const userHasRole = await TenantActions.userHasAccess(session.user.id, tenantId);
-    if (!userHasRole) {
-      log.warn('User missing required tenant role', { userId: session.user.id, tenantId });
-      return NextResponse.json({
-        error: 'Forbidden',
-        message: 'Tenant member access required'
-      }, { status: 403 });
     }
 
     // Handle different operations
@@ -122,7 +105,7 @@ async function handleAppletApiRequest(req: NextRequest, method: string): Promise
           log.warn('POST method required for create operation');
           return NextResponse.json({ error: 'POST method required for create operation' }, { status: 405 });
         }
-        return await handleCreateOperation(tenantId, req, session.user.id);
+        return await handleCreateOperation(tenantId, req, userId);
       
       case 'update':
         if (method !== 'PUT') {
@@ -133,7 +116,7 @@ async function handleAppletApiRequest(req: NextRequest, method: string): Promise
           log.warn('Data ID required for update operation');
           return NextResponse.json({ error: 'Data ID required for update operation' }, { status: 400 });
         }
-        return await handleUpdateOperation(tenantId, dataId, req, session.user.id);
+        return await handleUpdateOperation(tenantId, dataId, req, userId);
       
       case 'delete':
         if (method !== 'DELETE') {
@@ -144,7 +127,7 @@ async function handleAppletApiRequest(req: NextRequest, method: string): Promise
           log.warn('Data ID required for delete operation');
           return NextResponse.json({ error: 'Data ID required for delete operation' }, { status: 400 });
         }
-        return await handleDeleteOperation(tenantId, dataId, session.user.id);
+        return await handleDeleteOperation(tenantId, dataId, userId);
       
       default:
         log.warn('Invalid operation', { operation });
@@ -373,4 +356,3 @@ async function handleDeleteOperation(tenantId: string, dataId: string, userId: s
     return NextResponse.json({ error: 'Failed to delete data' }, { status: 500 });
   }
 }
-

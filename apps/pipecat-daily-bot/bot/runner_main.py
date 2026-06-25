@@ -29,7 +29,7 @@ from pydantic import BaseModel
 from loguru import logger
 from pipecat.runner.types import DailyRunnerArguments
 import redis.asyncio as redis
-from core.config import BOT_PID
+from core.config import BOT_PID, BOT_SPAWN_COOLDOWN_SECS
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -267,6 +267,13 @@ class SessionInfo:
 sessions: dict[str, SessionInfo] = {}
 _transitioning_sessions: set[str] = set()
 
+# Module-level spawn-cooldown state. Shared by every caller of _launch_session
+# in this process — including the gateway, which imports _launch_session
+# directly in direct mode (USE_REDIS=false). Transition handoffs bypass the
+# gate via skip_cooldown=True so an in-flight room move is never blocked.
+_last_spawn_at: float = 0.0
+_spawn_lock = asyncio.Lock()
+
 # Index room_url -> session ids (one-to-many safeguard though we expect one)
 def _sessions_for_room(room_url: str):
   return [s for s in sessions.values() if s.room_url == room_url]
@@ -276,7 +283,12 @@ def _first_session_for_room(room_url: str):
   return arr[0] if arr else None
 
 
-async def _clear_room_state(room_url: str) -> None:
+async def _clear_room_state(
+  room_url: str,
+  tenant_id: str | None = None,
+  session_user_id: str | None = None,
+  session_id: str | None = None,
+) -> None:
   """Remove active/keepalive keys for a room, forgiving on errors."""
   if not USE_REDIS or not room_url:
     return
@@ -285,8 +297,14 @@ async def _clear_room_state(room_url: str) -> None:
   password = os.getenv("REDIS_SHARED_SECRET") if os.getenv("REDIS_AUTH_REQUIRED", "false").lower() == "true" else None
   try:
     client = redis.from_url(redis_url, password=password, decode_responses=True)
-    await client.delete(f"room_active:{room_url}")
-    await client.delete(f"room_keepalive:{room_url}")
+    keys = [f"room_active:{room_url}", f"room_keepalive:{room_url}"]
+    if tenant_id and session_user_id and session_id:
+      keys.extend([
+        f"user_session_bot:{tenant_id}:{session_user_id}:{session_id}",
+        f"user_session_keepalive:{tenant_id}:{session_user_id}:{session_id}",
+        f"room_presence:{tenant_id}:{room_url}:{session_user_id}:{session_id}",
+      ])
+    await client.delete(*keys)
     logger.info(f"[cleanup] Cleared room state for {room_url}")
     await client.aclose()
   except Exception as e:
@@ -452,9 +470,62 @@ async def update_session_context(room_url: str, update: ContextUpdate):
     """Back-compat endpoint for frontend POST /api/session/<roomUrl>/context."""
     return await update_room_context(room_url, update)
 
-async def _launch_session(room_url: str, token: str | None, personalityId: str, persona: str, body: dict[str, Any] | None = None) -> SessionInfo:
+async def _launch_session(
+  room_url: str,
+  token: str | None,
+  personalityId: str,
+  persona: str,
+  body: dict[str, Any] | None = None,
+  *,
+  skip_cooldown: bool = False,
+) -> SessionInfo:
+  # Spawn cooldown: refuse rapid-fire launches that would stack overlapping
+  # LLM/voice connections on the same GPU. Transitions bypass the gate.
+  global _last_spawn_at
+  if not skip_cooldown:
+    cooldown = BOT_SPAWN_COOLDOWN_SECS()
+    if cooldown > 0:
+      async with _spawn_lock:
+        now = time.time()
+        elapsed = now - _last_spawn_at
+        if _last_spawn_at > 0 and elapsed < cooldown:
+          retry_after = max(1, int(cooldown - elapsed) + 1)
+          logger.warning(
+            "[runner] Spawn cooldown rejected launch (elapsed=%.2fs cooldown=%.2fs retry_after=%ds room=%s)" %
+            (elapsed, cooldown, retry_after, room_url)
+          )
+          raise HTTPException(
+            status_code=429,
+            detail={
+              "error": "spawn_cooldown",
+              "elapsed_secs": round(elapsed, 2),
+              "cooldown_secs": cooldown,
+              "retry_after_secs": retry_after,
+            },
+            headers={"Retry-After": str(retry_after)},
+          )
+        _last_spawn_at = now
+
   # Pass the full body to DailyRunnerArguments so the bot can access tenantId, voice, etc.
   body = body or {}
+  canonical_personality_id = str(
+    body.get("personalityId")
+    or body.get("personality")
+    or personalityId
+    or os.getenv("BOT_PERSONALITY")
+    or "pearl"
+  ).lower()
+  canonical_persona = str(
+    body.get("persona")
+    or persona
+    or os.getenv("BOT_PERSONA")
+    or "Pearl"
+  )
+  personalityId = canonical_personality_id
+  persona = canonical_persona
+  body["personalityId"] = canonical_personality_id
+  body["personality"] = canonical_personality_id
+  body["persona"] = canonical_persona
   provided_session_id = body.get("sessionId") or os.getenv("BOT_SESSION_ID")
   generated_session_id = False
   if not provided_session_id:
@@ -476,12 +547,26 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
   session_user_id = body.get("sessionUserId")
   session_user_name = body.get("sessionUserName")
   session_user_email = body.get("sessionUserEmail")
+  session_tenant_id = body.get("tenantId")
+  for stale_key in (
+    "BOT_SESSION_USER_ID",
+    "BOT_SESSION_USER_NAME",
+    "BOT_SESSION_USER_EMAIL",
+    "BOT_SESSION_TENANT_ID",
+    "BOT_PERSONALITY",
+    "BOT_PERSONA",
+  ):
+    os.environ.pop(stale_key, None)
+  os.environ["BOT_PERSONALITY"] = str(canonical_personality_id)
+  os.environ["BOT_PERSONA"] = str(canonical_persona)
   if session_user_id:
     os.environ["BOT_SESSION_USER_ID"] = str(session_user_id)
   if session_user_name:
     os.environ["BOT_SESSION_USER_NAME"] = str(session_user_name)
   if session_user_email:
     os.environ["BOT_SESSION_USER_EMAIL"] = str(session_user_email)
+  if session_tenant_id:
+    os.environ["BOT_SESSION_TENANT_ID"] = str(session_tenant_id)
   
   # ISSUE #2 FIX: Inject Discord context when available
   # Check if this session is coming from Discord (via OpenClaw session metadata)
@@ -491,7 +576,7 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
   
   # Fallback: if not in body, check environment or use TOOLS.md defaults
   if not discord_guild_id:
-    discord_guild_id = os.getenv("OPENCLAW_DISCORD_GUILD_ID", "1471441655126167553")  # From TOOLS.md
+    discord_guild_id = os.getenv("OPENCLAW_DISCORD_GUILD_ID", "")
   if not discord_channel_id:
     discord_channel_id = os.getenv("OPENCLAW_DISCORD_CHANNEL_ID", "1471441655650324533")  # #general from TOOLS.md
   if not discord_channel_name:
@@ -525,12 +610,23 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
   if generated_session_id:
     session_logger.warning("[runner] No sessionId provided; generated fallback %s" % canonical_session_id)
 
+  tenant_id = (body.get("tenantId") or "").strip() or None
+  session_user_id_for_keys = (body.get("sessionUserId") or "").strip() or None
+
   async def _keepalive(room: str, session_id: str):
     if not USE_REDIS:
       return
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     password = os.getenv("REDIS_SHARED_SECRET") if os.getenv("REDIS_AUTH_REQUIRED", "false").lower() == "true" else None
     keepalive_key = f"room_keepalive:{room}"
+    scoped_keepalive_key = (
+      f"user_session_keepalive:{tenant_id}:{session_user_id_for_keys}:{session_id}"
+      if tenant_id and session_user_id_for_keys and session_id else None
+    )
+    scoped_session_key = (
+      f"user_session_bot:{tenant_id}:{session_user_id_for_keys}:{session_id}"
+      if tenant_id and session_user_id_for_keys and session_id else None
+    )
     payload: dict[str, Any] = {"session_id": session_id}
     r = redis.from_url(redis_url, password=password, decode_responses=True)
     try:
@@ -538,10 +634,18 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
       payload["timestamp"] = time.time()
       await r.set(keepalive_key, json.dumps(payload))
       await r.expire(keepalive_key, 40)
+      if scoped_keepalive_key:
+        await r.set(scoped_keepalive_key, json.dumps(payload))
+        await r.expire(scoped_keepalive_key, 40)
+      if scoped_session_key:
+        await r.expire(scoped_session_key, 86400)
       while True:
         payload["timestamp"] = time.time()
         await r.set(keepalive_key, json.dumps(payload))
         await r.expire(keepalive_key, 40)  # TTL slightly above stale threshold
+        if scoped_keepalive_key:
+          await r.set(scoped_keepalive_key, json.dumps(payload))
+          await r.expire(scoped_keepalive_key, 40)
         await asyncio.sleep(5)
     except asyncio.CancelledError:
       raise
@@ -549,7 +653,7 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
       session_logger.error(f"[keepalive] Failed to publish keepalive for {room}: {e}")
     finally:
       try:
-        await _clear_room_state(room)
+        await _clear_room_state(room, tenant_id, session_user_id_for_keys, session_id)
       finally:
         try:
           await r.aclose()
@@ -559,14 +663,18 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
   async def _run():
     keepalive_task_local: asyncio.Task | None = keepalive_task
     ended_session_id: str | None = None
+    cancelled = False
+    errored = False
     try:
       # Ensure downstream logs inherit session context (room/session/user) for correlation.
       session_logger.info("[runner] Starting pipeline")
       await bot(runner_args)
     except asyncio.CancelledError:
+      cancelled = True
       session_logger.info("Session task cancelled")
       raise
     except Exception as e:  # pragma: no cover
+      errored = True
       session_logger.error(f"Session error: {e}")
     finally:
       # remove from registry
@@ -586,11 +694,18 @@ async def _launch_session(room_url: str, token: str | None, personalityId: str, 
           pass
 
       # Clear Redis lock for this room (always runs even when task was found)
-      await _clear_room_state(room_url)
+      await _clear_room_state(room_url, tenant_id, session_user_id_for_keys, canonical_session_id)
       
-      # Terminate the runner when the session ends (one-shot lifecycle)
-      # This applies to both auto-started jobs and warm-pool runners.
-      session_logger.info("Session ended")
+      # Terminate the runner when the session ends (one-shot lifecycle).
+      # Tag the outcome so log-greppers can split PM2 restart count into
+      # completed vs idle — see voice session audit 2026-04-26.
+      if errored:
+          _outcome = "errored"
+      elif cancelled:
+          _outcome = "cancelled-or-idle"
+      else:
+          _outcome = "completed"
+      session_logger.info(f"[session-end] outcome={_outcome} session={ended_session_id} room={room_url}")
 
       # Transition requests deliberately cancel and relaunch the session on this same runner.
       # In that path, skip normal process termination and keep runner alive.
@@ -670,8 +785,11 @@ async def start_session(body: dict[str, Any] | None = None):
   """
   global configure
   body = body or {}
-  personality = (body.get("personality") or os.getenv("BOT_PERSONALITY") or "pearl").lower()
-  persona = os.getenv("BOT_PERSONA") or "Pearl"
+  personality = str(body.get("personalityId") or body.get("personality") or os.getenv("BOT_PERSONALITY") or "pearl").lower()
+  persona = str(body.get("persona") or os.getenv("BOT_PERSONA") or "Pearl")
+  body["personalityId"] = personality
+  body["personality"] = personality
+  body["persona"] = persona
   room_url = body.get("room_url")
   token = body.get("token")
   provisioned = False
@@ -688,6 +806,15 @@ async def start_session(body: dict[str, Any] | None = None):
       except Exception as e:  # pragma: no cover
         logger.error(f"Failed to configure Daily resources: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+  # Ensure bot joins with an owner token so Daily enable_transcription is authoritative.
+  # Without this, `info.token` stays None and STT is silently disabled.
+  if not token and os.getenv("DAILY_API_KEY"):
+    try:
+      from providers.daily import create_daily_room_token
+      token = await create_daily_room_token(room_url)
+      logger.info(f"[runner] Generated Daily owner token for {room_url}")
+    except Exception as e:
+      logger.error(f"[runner] Failed to generate Daily token for {room_url}: {e}")
   info = await _launch_session(room_url, token, personality, persona, body)  # type: ignore[arg-type]
   return {
     "dailyRoom": info.room_url,
@@ -811,6 +938,7 @@ async def transition_session(session_id: str, body: TransitionRequest):
       personality_id,
       persona_name,
       relaunch_body,
+      skip_cooldown=True,
     )
     return {
       "status": "transitioned",

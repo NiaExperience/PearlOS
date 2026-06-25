@@ -28,6 +28,7 @@ interface VoiceSessionContextType {
   isUserSpeaking: boolean;
   audioLevel: number;
   assistantVolumeLevel: number;
+  setAudioSpeakingState: (isSpeaking: boolean, volumeLevel?: number) => void;
   language: string;
 
   // Connection state
@@ -51,6 +52,7 @@ interface VoiceSessionContextType {
 
   // Call control state (shared across all components)
   callStatus: 'inactive' | 'active' | 'loading' | 'unavailable';
+  isCallActive: boolean;
   toggleCall: (() => void) | null;
   setCallStatus: (status: 'inactive' | 'active' | 'loading' | 'unavailable') => void;
   setToggleCall: (callback: (() => void) | null) => void;
@@ -293,6 +295,9 @@ export const VoiceSessionProvider: React.FC<{
         updateBotConfig(roomUrl, {
           personalityId: modeConfig.personalityId,
           mode: currentMode,
+          ...(modeConfig.personaName || modeConfig.personalityName || modeConfig.name
+            ? { persona: modeConfig.personaName || modeConfig.personalityName || modeConfig.name }
+            : {}),
           ...(modeConfig.voice && {
             voice: {
               voiceId: modeConfig.voice.voiceId,
@@ -480,6 +485,46 @@ export const VoiceSessionProvider: React.FC<{
   useEffect(() => {
     isAssistantSpeakingRef.current = isAssistantSpeaking;
   }, [isAssistantSpeaking]);
+
+  const setAudioSpeakingState = useCallback((isSpeaking: boolean, volumeLevel = 0) => {
+    const level = Number.isFinite(volumeLevel) ? Math.max(0, Math.min(1, volumeLevel)) : 0;
+    setAudioLevel(level);
+    setAssistantVolumeLevel(isSpeaking ? Math.round(level * 100) : 0);
+
+    // NIA bot.speaking events are the primary source once they have arrived.
+    // Audio analysis remains useful for meters and as a pre-NIA fallback only.
+    if (niaEventsReceivedRef.current) {
+      return;
+    }
+
+    if (isSpeaking) {
+      if (speakingDebounceTimerRef.current) {
+        clearTimeout(speakingDebounceTimerRef.current);
+        speakingDebounceTimerRef.current = null;
+      }
+      setIsAssistantSpeaking(true);
+      if (speakingSafetyTimerRef.current) clearTimeout(speakingSafetyTimerRef.current);
+      speakingSafetyTimerRef.current = setTimeout(() => {
+        log.warn('Safety timeout: forcing isAssistantSpeaking=false after 10s');
+        setIsAssistantSpeaking(false);
+        setAudioLevel(0);
+        setAssistantVolumeLevel(0);
+      }, 10000);
+      return;
+    }
+
+    if (!speakingDebounceTimerRef.current) {
+      speakingDebounceTimerRef.current = setTimeout(() => {
+        speakingDebounceTimerRef.current = null;
+        setIsAssistantSpeaking(false);
+        setAssistantVolumeLevel(0);
+        if (speakingSafetyTimerRef.current) {
+          clearTimeout(speakingSafetyTimerRef.current);
+          speakingSafetyTimerRef.current = null;
+        }
+      }, 500);
+    }
+  }, [log]);
 
   // Keep isUserSpeaking ref in sync for debounce callback
   const isUserSpeakingRef = useRef<boolean>(false);
@@ -783,7 +828,7 @@ export const VoiceSessionProvider: React.FC<{
 
     const handleBotSpeakingStopped = () => {
       // NOTE: Do NOT gate on isDailyCallActive here — see comment in handleBotSpeakingStarted.
-      log.info('Bot speaking stopped (nia event) — debouncing 500ms for inter-chunk gaps');
+      log.info('Bot speaking stopped (nia event) — debouncing 900ms for inter-chunk gaps');
       // Mark that NIA events are available — they become the authoritative source
       niaEventsReceivedRef.current = true;
       // Mark the stop timestamp — audio level handler will respect this
@@ -793,7 +838,7 @@ export const VoiceSessionProvider: React.FC<{
         clearTimeout(speakingDebounceTimerRef.current);
         speakingDebounceTimerRef.current = null;
       }
-      // Debounce the stopped event: wait 500ms before marking as not speaking.
+      // Debounce the stopped event: wait 900ms before marking as not speaking.
       // This bridges inter-chunk gaps where one TTS segment ends and the next
       // hasn't started yet. If bot.speaking.started fires within this window,
       // the debounce is cancelled and speaking state stays true.
@@ -810,7 +855,7 @@ export const VoiceSessionProvider: React.FC<{
         setIsAssistantSpeaking(false);
         setAudioLevel(0);
         setAssistantVolumeLevel(0);
-      }, 500);
+      }, 900);
     };
 
     const handleConversationWrapup = () => {
@@ -915,6 +960,7 @@ export const VoiceSessionProvider: React.FC<{
     isUserSpeaking,
     audioLevel,
     assistantVolumeLevel,
+    setAudioSpeakingState,
     language,
 
     // Connection state
@@ -934,6 +980,7 @@ export const VoiceSessionProvider: React.FC<{
 
     // Call control state (shared across all components)
     callStatus,
+    isCallActive: callStatus === 'active' || callStatus === 'loading',
     toggleCall,
     setCallStatus,
     setToggleCall,
@@ -992,4 +1039,3 @@ export function useVoiceSessionContext() {
   }
   return context;
 }
-

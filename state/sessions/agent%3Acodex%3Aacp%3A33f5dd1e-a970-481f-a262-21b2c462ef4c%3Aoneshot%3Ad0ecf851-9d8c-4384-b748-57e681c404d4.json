@@ -1,0 +1,84 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:codex:acp:33f5dd1e-a970-481f-a262-21b2c462ef4c:oneshot:d0ecf851-9d8c-4384-b748-57e681c404d4",
+  "acp_session_id": "019db3a7-7676-74c0-859e-033dd5d21d94",
+  "agent_command": "npx @zed-industries/codex-acp@^0.11.1",
+  "cwd": "/workspace/nia-universal/codex",
+  "name": "agent:codex:acp:33f5dd1e-a970-481f-a262-21b2c462ef4c",
+  "created_at": "2026-04-22T05:26:25.056Z",
+  "last_used_at": "2026-04-22T05:26:36.959Z",
+  "last_seq": 0,
+  "last_request_id": "4de0ad49-8b18-4570-897e-41a2a7f66ef5",
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Acodex%3Aacp%3A33f5dd1e-a970-481f-a262-21b2c462ef4c%3Aoneshot%3Ad0ecf851-9d8c-4384-b748-57e681c404d4.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": true,
+  "closed_at": "2026-04-22T05:26:37.058Z",
+  "pid": 3200933,
+  "agent_started_at": "2026-04-22T05:26:25.137Z",
+  "last_prompt_at": "2026-04-22T05:26:29.757Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "loadSession": true,
+    "promptCapabilities": {
+      "image": true,
+      "audio": false,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": false
+    },
+    "sessionCapabilities": {
+      "list": {},
+      "close": {}
+    },
+    "auth": {
+      "logout": {}
+    }
+  },
+  "title": null,
+  "messages": [
+    {
+      "User": {
+        "id": "25face33-ae0d-4f47-b469-7515d65df9a9",
+        "content": [
+          {
+            "Text": "[Wed 2026-04-22 05:26 UTC] Task: Design API endpoints for PearlOS workflow\n\nDefine 3 endpoints:\n1. POST /api/notes/create — Pearl creates design doc\n2. POST /api/launchpad/create-project — Magic wand sends to Launchpad  \n3. POST /api/agency/spawn-build — Launchpad spawns Agency swarm\n\nWrite TypeScript interfaces for request/response.\nSave to: /workspace/nia-universal/.swarm/api-design.ts"
+          }
+        ]
+      }
+    },
+    {
+      "Agent": {
+        "content": [
+          {
+            "Thinking": {
+              "text": "**Requesting approval for write escalation**\n\nThe file needs editing, but the sandbox is read-only; plan is to use elevated execution with `tee` to write changes.",
+              "signature": null
+            }
+          }
+        ],
+        "tool_results": {}
+      }
+    }
+  ],
+  "updated_at": "2026-04-22T05:26:36.911Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {
+    "available_commands": [
+      "review",
+      "review-branch",
+      "review-commit",
+      "init",
+      "compact",
+      "undo",
+      "logout"
+    ]
+  }
+}

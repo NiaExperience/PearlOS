@@ -22,3 +22,8 @@ export const LazyFileDropZone = dynamic(
   () => import('@interface/components/FileDropZone'),
   { ssr: false }
 );
+
+export const LazySplitChatLayout = dynamic(
+  () => import('@interface/features/ManeuverableWindow/components/SplitChatLayout'),
+  { ssr: false }
+);

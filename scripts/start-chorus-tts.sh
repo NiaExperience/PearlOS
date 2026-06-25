@@ -31,12 +31,14 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # Ensure the Python environment is up to date before launching.
-# Only request gpu extra where prebuilt wheels are generally available.
-if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
-  bash "${SCRIPT_DIR}/chorus-uv-sync.sh"
-else
-  bash "${SCRIPT_DIR}/chorus-uv-sync.sh" --extra gpu
+# Use GPU extra only on Linux x86_64 where onnxruntime-gpu wheels are available.
+SYNC_ARGS=()
+if [[ "${USE_CHORUS_GPU:-}" == "1" ]] || [[ "${USE_CHORUS_GPU:-}" == "true" ]]; then
+  SYNC_ARGS+=(--extra gpu)
+elif [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "x86_64" ]]; then
+  SYNC_ARGS+=(--extra gpu)
 fi
+bash "${SCRIPT_DIR}/chorus-uv-sync.sh" "${SYNC_ARGS[@]}"
 
 export KOKORO_MODEL_PATH="${KOKORO_MODEL_PATH:-${MODEL_PATH}}"
 export KOKORO_VOICES_PATH="${KOKORO_VOICES_PATH:-${VOICES_PATH}}"

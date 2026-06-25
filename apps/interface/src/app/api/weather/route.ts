@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
  * /api/weather — Server-side weather proxy with in-memory cache.
  *
  * Fetches from wttr.in server-side (no CORS issues from the iframe).
- * Caches results for 10 minutes keyed by lat/lng or "ip" for IP-based.
+ * Caches results for 15 minutes keyed by lat/lng or named location.
  *
  * Usage:
- *   GET /api/weather                    — IP-based location (fallback)
+ *   GET /api/weather?q=Boston           — Named location
  *   GET /api/weather?lat=28.5&lng=-81.4 — Coordinate-based weather
  */
 
@@ -18,17 +18,18 @@ interface CacheEntry {
 
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes (longer TTL to survive wttr.in slowness)
 
-// Simple in-memory cache — keyed by rounded coordinates or "ip"
+// Simple in-memory cache — keyed by rounded coordinates or named location.
 const cache = new Map<string, CacheEntry>();
 
-function makeCacheKey(lat?: string | null, lng?: string | null): string {
+function makeCacheKey(lat?: string | null, lng?: string | null, q?: string): string {
+  if (q) return `q:${q.toLowerCase()}`;
   if (lat && lng) {
     // Round to 2 decimal places so nearby coords share cache
     const rLat = parseFloat(lat).toFixed(2);
     const rLng = parseFloat(lng).toFixed(2);
     return `${rLat},${rLng}`;
   }
-  return 'ip';
+  return '';
 }
 
 function getCached(key: string): CacheEntry | null {
@@ -46,8 +47,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const lat = searchParams.get('lat');
     const lng = searchParams.get('lng');
+    const q = (searchParams.get('q') || searchParams.get('location') || '').trim();
+    const hasLatLng = lat !== null && lng !== null;
+    const latNumber = lat !== null ? Number(lat) : NaN;
+    const lngNumber = lng !== null ? Number(lng) : NaN;
 
-    const cacheKey = makeCacheKey(lat, lng);
+    if (!q && !hasLatLng) {
+      return NextResponse.json(
+        { error: 'location_required', message: 'Choose a city, ZIP code, or allow location access to view weather.' },
+        { status: 400 }
+      );
+    }
+
+    if (hasLatLng && (!Number.isFinite(latNumber) || !Number.isFinite(lngNumber))) {
+      return NextResponse.json(
+        { error: 'invalid_coordinates', message: 'Latitude and longitude must be valid numbers.' },
+        { status: 400 }
+      );
+    }
+
+    const cacheKey = makeCacheKey(lat, lng, q);
 
     // Check cache first
     const cached = getCached(cacheKey);
@@ -66,10 +85,15 @@ export async function GET(request: NextRequest) {
 
     // Build wttr.in URL
     let wttrUrl: string;
-    if (lat && lng) {
+    if (q) {
+      wttrUrl = `https://wttr.in/${encodeURIComponent(q)}?format=j1`;
+    } else if (lat && lng) {
       wttrUrl = `https://wttr.in/${encodeURIComponent(lat)},${encodeURIComponent(lng)}?format=j1`;
     } else {
-      wttrUrl = 'https://wttr.in/?format=j1';
+      return NextResponse.json(
+        { error: 'location_required', message: 'Choose a city, ZIP code, or allow location access to view weather.' },
+        { status: 400 }
+      );
     }
 
     const response = await fetch(wttrUrl, {

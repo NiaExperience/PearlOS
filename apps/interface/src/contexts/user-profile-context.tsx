@@ -4,10 +4,16 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
 import { getClientLogger } from '@interface/lib/client-logger';
+import {
+  PEARLOS_USER_PREFERENCES_KEY,
+  type PearlOSUserPreferences,
+} from '@interface/lib/pearlos-user-preferences';
+
+import type { IPublicPersona, IPrivateMemory } from '@nia/prism/core/blocks/userProfile.block';
 
 /**
  * User Profile Context
- * 
+ *
  * Single source of truth for user profile data. Loads once at app startup,
  * prevents race conditions from multiple components trying to fetch/create profiles.
  */
@@ -15,8 +21,10 @@ import { getClientLogger } from '@interface/lib/client-logger';
 interface UserProfileContextType {
   /** User profile document ID */
   userProfileId: string | null;
-  /** User profile metadata (arbitrary key-value store) */
-  metadata: Record<string, unknown> | null;
+  /** Social-shareable persona. Never assume it's populated. */
+  publicPersona: IPublicPersona | null;
+  /** User-Pearl-only memory. Never exposed outside the app. */
+  privateMemory: IPrivateMemory | null;
   /** Whether onboarding has been completed */
   onboardingComplete: boolean;
   /** Whether the Pearl overlay has been dismissed (sticky across sessions) */
@@ -29,6 +37,8 @@ interface UserProfileContextType {
   refresh: () => Promise<void>;
   /** Mark the Pearl overlay as dismissed (persists to backend) */
   dismissOverlay: () => Promise<void>;
+  /** Merge PearlOS UI preferences into this user's private profile memory. */
+  updatePearlOSPreferences: (patch: Partial<PearlOSUserPreferences>) => Promise<void>;
 }
 
 const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined);
@@ -48,13 +58,22 @@ interface UserProfileProviderProps {
   tenantId?: string;
 }
 
+interface LoadedProfile {
+  _id: string;
+  publicPersona?: IPublicPersona | null;
+  privateMemory?: IPrivateMemory | null;
+  onboardingComplete?: boolean;
+  overlayDismissed?: boolean;
+}
+
 export function UserProfileProvider({ children, tenantId }: UserProfileProviderProps) {
   const logger = useMemo(() => getClientLogger('[user_profile]'), []);
   const { data: session, status } = useResilientSession();
   const user = session?.user;
 
   const [userProfileId, setUserProfileId] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
+  const [publicPersona, setPublicPersona] = useState<IPublicPersona | null>(null);
+  const [privateMemory, setPrivateMemory] = useState<IPrivateMemory | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [overlayDismissed, setOverlayDismissed] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
@@ -63,11 +82,26 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
   // Track if this instance has already initiated profile operations
   const hasInitiatedRef = useRef(false);
 
+  const applyProfile = useCallback((profile: LoadedProfile | null | undefined) => {
+    if (!profile) {
+      setUserProfileId(null);
+      setPublicPersona(null);
+      setPrivateMemory(null);
+      setOnboardingComplete(false);
+      setOverlayDismissed(false);
+      return;
+    }
+    setUserProfileId(profile._id);
+    setPublicPersona(profile.publicPersona ?? null);
+    setPrivateMemory(profile.privateMemory ?? null);
+    setOnboardingComplete(!!profile.onboardingComplete);
+    setOverlayDismissed(!!profile.overlayDismissed);
+  }, []);
+
   /**
    * Create welcome note for user (deduplicated at module level)
    */
   const createWelcomeNote = useCallback(async (userId: string) => {
-    // Check if already in flight for this user
     if (welcomeNoteInFlight && welcomeNoteUserId === userId) {
       logger.debug('Welcome note creation already in flight, waiting', { userId });
       await welcomeNoteInFlight;
@@ -92,7 +126,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
       } catch (e) {
         logger.warn('Failed to trigger welcome note creation', { error: e });
       } finally {
-        // Clear after a delay to prevent re-triggering
         setTimeout(() => {
           if (welcomeNoteUserId === userId) {
             welcomeNoteInFlight = null;
@@ -108,12 +141,10 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
   /**
    * Create user profile (deduplicated at module level)
    */
-  const createProfile = useCallback(async (userId: string, email: string | null | undefined, name: string | null | undefined): Promise<{ _id: string; metadata: Record<string, unknown> | null; onboardingComplete: boolean } | null> => {
-    // Check if already in flight for this user
+  const createProfile = useCallback(async (userId: string, email: string | null | undefined, name: string | null | undefined): Promise<LoadedProfile | null> => {
     if (profileCreationInFlight && profileCreationUserId === userId) {
       logger.debug('Profile creation already in flight, waiting', { userId });
       await profileCreationInFlight;
-      // After waiting, fetch the profile that was created
       const response = await fetch(`/api/userProfile?userId=${encodeURIComponent(userId)}`);
       if (response.ok) {
         const data = await response.json();
@@ -123,7 +154,7 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
     }
 
     profileCreationUserId = userId;
-    let createdProfile: { _id: string; metadata: Record<string, unknown> | null; onboardingComplete: boolean } | null = null;
+    let createdProfile: LoadedProfile | null = null;
 
     profileCreationInFlight = (async () => {
       try {
@@ -134,7 +165,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
           body: JSON.stringify({
             first_name: name?.split(' ')[0] || 'User',
             email,
-            metadata: {},
             // NOTE: Do NOT set onboardingComplete here - let the bot control this
           }),
         });
@@ -146,7 +176,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
             logger.info('User profile created successfully', { userId, profileId: createdProfile?._id });
           }
         } else if (createResponse.status === 409) {
-          // Profile already exists (race condition) - fetch it
           logger.warn('Profile already exists (409), fetching existing', { userId });
           const retryResponse = await fetch(`/api/userProfile?userId=${encodeURIComponent(userId)}`);
           if (retryResponse.ok) {
@@ -161,7 +190,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
           error: err instanceof Error ? err.message : String(err),
         });
       } finally {
-        // Clear after completion
         profileCreationInFlight = null;
         profileCreationUserId = null;
       }
@@ -180,7 +208,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
       return;
     }
 
-    // Prevent multiple simultaneous fetches from this instance
     if (hasInitiatedRef.current) {
       logger.debug('Profile fetch already initiated by this instance, skipping');
       return;
@@ -193,39 +220,25 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
     try {
       logger.debug('Fetching user profile', { userId: user.id });
       const response = await fetch(`/api/userProfile?userId=${encodeURIComponent(user.id)}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch user profile');
       }
 
       const data = await response.json();
-      let profile = data.items?.[0];
+      let profile: LoadedProfile | null = data.items?.[0] ?? null;
 
       if (profile) {
-        // Profile exists
         logger.info('User profile loaded', { userId: user.id, profileId: profile._id });
-        setUserProfileId(profile._id);
-        setMetadata(profile.metadata || null);
-        setOnboardingComplete(!!profile.onboardingComplete);
-        setOverlayDismissed(!!profile.overlayDismissed);
+        applyProfile(profile);
         // NOTE: Do NOT trigger welcome note here - that's only on profile creation
       } else {
-        // Profile doesn't exist - create it
         profile = await createProfile(user.id, user.email, user.name);
-        
+
+        applyProfile(profile);
         if (profile) {
-          setUserProfileId(profile._id);
-          setMetadata(profile.metadata || null);
-          setOnboardingComplete(!!profile.onboardingComplete);
-          setOverlayDismissed(!!profile.overlayDismissed);
-          
           // Trigger welcome note creation ONLY for newly created profiles
           await createWelcomeNote(user.id);
-        } else {
-          setUserProfileId(null);
-          setMetadata(null);
-          setOnboardingComplete(false);
-          setOverlayDismissed(false);
         }
       }
     } catch (e) {
@@ -235,7 +248,7 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
     } finally {
       setLoading(false);
     }
-  }, [user?.id, user?.email, user?.name, createProfile, createWelcomeNote, logger]);
+  }, [user?.id, user?.email, user?.name, createProfile, createWelcomeNote, logger, applyProfile]);
 
   /**
    * Refresh profile data (for manual refresh or after bot updates onboardingComplete)
@@ -253,26 +266,15 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
       }
 
       const data = await response.json();
-      const profile = data.items?.[0];
-
-      if (profile) {
-        setUserProfileId(profile._id);
-        setMetadata(profile.metadata || null);
-        setOnboardingComplete(!!profile.onboardingComplete);
-        setOverlayDismissed(!!profile.overlayDismissed);
-      } else {
-        setUserProfileId(null);
-        setMetadata(null);
-        setOnboardingComplete(false);
-        setOverlayDismissed(false);
-      }
+      const profile: LoadedProfile | null = data.items?.[0] ?? null;
+      applyProfile(profile);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to refresh user profile';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, applyProfile]);
 
   // Initial profile fetch on mount (once session is ready)
   useEffect(() => {
@@ -299,7 +301,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
       return;
     }
 
-    // Optimistically update local state
     setOverlayDismissed(true);
 
     try {
@@ -315,7 +316,6 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
 
       if (!response.ok) {
         logger.error('Failed to persist overlay dismissal', { status: response.status });
-        // Revert optimistic update on failure
         setOverlayDismissed(false);
       } else {
         logger.info('Overlay dismissal persisted successfully');
@@ -324,21 +324,73 @@ export function UserProfileProvider({ children, tenantId }: UserProfileProviderP
       logger.error('Failed to persist overlay dismissal', {
         error: err instanceof Error ? err.message : String(err),
       });
-      // Revert optimistic update on error
       setOverlayDismissed(false);
     }
   }, [userProfileId, logger]);
 
+  const updatePearlOSPreferences = useCallback(async (patch: Partial<PearlOSUserPreferences>) => {
+    if (!userProfileId) {
+      logger.warn('Cannot persist PearlOS preferences: no profile ID');
+      return;
+    }
+
+    const previousMemory = privateMemory;
+    const existingPreferences = previousMemory?.preferences || {};
+    const existingPearlOS =
+      existingPreferences[PEARLOS_USER_PREFERENCES_KEY] &&
+      typeof existingPreferences[PEARLOS_USER_PREFERENCES_KEY] === 'object' &&
+      !Array.isArray(existingPreferences[PEARLOS_USER_PREFERENCES_KEY])
+        ? existingPreferences[PEARLOS_USER_PREFERENCES_KEY] as PearlOSUserPreferences
+        : {};
+    const nextPearlOS = { ...existingPearlOS, ...patch };
+    const nextMemory = {
+      ...(previousMemory || {}),
+      preferences: {
+        ...existingPreferences,
+        [PEARLOS_USER_PREFERENCES_KEY]: nextPearlOS,
+      },
+    };
+
+    setPrivateMemory(nextMemory);
+
+    try {
+      const response = await fetch('/api/userProfile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: userProfileId,
+          privateMemory: {
+            preferences: {
+              [PEARLOS_USER_PREFERENCES_KEY]: nextPearlOS,
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        setPrivateMemory(previousMemory);
+        logger.error('Failed to persist PearlOS preferences', { status: response.status });
+      }
+    } catch (err) {
+      setPrivateMemory(previousMemory);
+      logger.error('Failed to persist PearlOS preferences', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }, [userProfileId, privateMemory, logger]);
+
   const contextValue = useMemo<UserProfileContextType>(() => ({
     userProfileId,
-    metadata,
+    publicPersona,
+    privateMemory,
     onboardingComplete,
     overlayDismissed,
     loading,
     error,
     refresh,
     dismissOverlay,
-  }), [userProfileId, metadata, onboardingComplete, overlayDismissed, loading, error, refresh, dismissOverlay]);
+    updatePearlOSPreferences,
+  }), [userProfileId, publicPersona, privateMemory, onboardingComplete, overlayDismissed, loading, error, refresh, dismissOverlay, updatePearlOSPreferences]);
 
   return (
     <UserProfileContext.Provider value={contextValue}>

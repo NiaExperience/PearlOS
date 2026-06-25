@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "description": "PearlOS Agency Swarm Configuration — defines escalation models and multi-agent swarm behavior",
+  "voice_stack": {
+    "voice_llm": {
+      "model": "qwen/qwen3.5-flash-02-23",
+      "provider": "openrouter",
+      "description": "Primary voice LLM for real-time conversation"
+    },
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-2",
+      "description": "Speech-to-text engine"
+    },
+    "tts_primary": {
+      "provider": "voxtral",
+      "description": "Primary text-to-speech engine"
+    },
+    "tts_fallback": {
+      "provider": "pocket",
+      "description": "Fallback TTS (Kokoro/PocketTTS)"
+    }
+  },
+  "agency": {
+    "enabled": true,
+    "description": "Escalation path: Pearl (OpenClaw) → Claude CLI → Claude CLI + The Agency Swarm",
+    "use_claude_cli": true,
+    "primary_model": "claude-sonnet-4-6",
+    "primary_provider": "anthropic",
+    "swarm_models": [
+      {
+        "model": "claude-opus-4-6",
+        "provider": "anthropic",
+        "role": "complex_reasoning",
+        "description": "Heavy lifting — complex reasoning, deep analysis, multi-step planning"
+      },
+      {
+        "model": "qwen/qwen3.5-plus-02-15",
+        "provider": "openrouter",
+        "role": "general_coding",
+        "description": "General purpose coding and analysis tasks"
+      },
+      {
+        "model": "meta-llama/llama-4-maverick",
+        "provider": "openrouter",
+        "role": "creative",
+        "description": "Creative tasks, brainstorming, alternative perspectives"
+      }
+    ],
+    "escalation_triggers": {
+      "always_swarm": [
+        "multi-file refactoring",
+        "architectural decisions",
+        "complex debugging",
+        "production deployments"
+      ],
+      "single_agent": [
+        "simple config changes",
+        "file reads",
+        "quick fixes",
+        "status checks"
+      ]
+    }
+  }
+}

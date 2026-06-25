@@ -1,6 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { readFile, readdir } from 'fs/promises';
 import path from 'path';
+import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
+
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,6 +22,7 @@ interface ActiveJob {
   displayName: string;
   totalTokens: number;
   kind: string;
+  agents: string[];
 }
 
 // Dynamically discover all agent session stores
@@ -46,7 +50,7 @@ async function getSessionStorePaths(): Promise<string[]> {
 const DESCRIPTIONS_FILE = path.join(process.env.HOME || '/root', '.openclaw/workspace/job-descriptions.json');
 
 // Only show sessions active in the last N minutes
-const ACTIVE_MINUTES = 30;
+const ACTIVE_MINUTES = 60;
 
 /** Extract a short 1-line summary from a potentially huge task prompt */
 function extractTaskSummary(task: string): string {
@@ -73,7 +77,38 @@ async function loadDescriptions(): Promise<Record<string, string>> {
   }
 }
 
-export async function GET() {
+function clean(value: string | null): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function cleanUnknown(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function sessionTenantId(session: Record<string, unknown>): string {
+  const direct =
+    cleanUnknown(session.tenantId) ||
+    cleanUnknown(session.tenant_id) ||
+    cleanUnknown(session.requesterTenantId) ||
+    cleanUnknown(session.requester_tenant_id);
+  if (direct) return direct;
+
+  const deliveryContext = session.deliveryContext;
+  if (deliveryContext && typeof deliveryContext === 'object') {
+    const context = deliveryContext as Record<string, unknown>;
+    return cleanUnknown(context.tenantId) || cleanUnknown(context.tenant_id);
+  }
+  return '';
+}
+
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const actorResult = await resolveInterfaceActorContext({
+    requestedTenantId: clean(url.searchParams.get('tenantId')) || clean(url.searchParams.get('tenant_id')) || undefined,
+    minimumRole: TenantRole.ADMIN,
+  });
+  if (!actorResult.ok) return actorResult.response;
+
   try {
     // Dynamically discover and read all agent session stores
     const sessionStorePaths = await getSessionStorePaths();
@@ -94,10 +129,57 @@ export async function GET() {
 
     const jobs: ActiveJob[] = [];
 
+    // Recognised job kinds — extensible. Each entry maps a key substring to the
+    // "kind" label exposed to the widget. Order matters: the first match wins.
+    const KIND_MATCHERS: Array<{ match: string; kind: string }> = [
+      { match: 'subagent', kind: 'subagent' },
+      { match: 'cron', kind: 'cron' },
+      { match: 'agent:claude-code:', kind: 'claude-code' },
+      { match: 'agent:codex:', kind: 'codex' },
+      { match: 'agent:gemma:', kind: 'gemma' },
+      { match: 'agent:qwen:', kind: 'qwen' },
+      { match: 'agent:pearl-omega:', kind: 'agent' },
+      { match: 'agent:pearl-exec:', kind: 'agent' },
+      { match: 'agent:main:', kind: 'agent' },
+      { match: 'agent:voice:', kind: 'agent' },
+      { match: 'agent:claude:', kind: 'agent' },
+      { match: 'agent:opus:', kind: 'agent' },
+      { match: 'agent:sonnet:', kind: 'agent' },
+      { match: 'agent:haiku:', kind: 'agent' },
+      { match: 'agent:pearlos:', kind: 'agent' },
+      { match: 'agent:gemini:', kind: 'agent' },
+    ];
+
+    function detectKind(key: string): string | null {
+      for (const { match, kind } of KIND_MATCHERS) {
+        if (key.includes(match)) return kind;
+      }
+      // Fallback: any key starting with "agent:" is a generic agent
+      if (key.startsWith('agent:')) return 'agent';
+      return null;
+    }
+
+    // Keys that represent chat conversations rather than tasks
+    const CHAT_SESSION_PATTERNS = [
+      /discord:channel:/,
+      /discord:dm:/,
+      /telegram:/,
+      /signal:/,
+      /:pearlos-text-chat$/,
+      /:main$/,     // main session itself, not a task
+      /:voice$/,    // voice session itself
+    ];
+
     for (const [key, session] of Object.entries(allSessions)) {
-      // Only show subagent and cron sessions (skip cron run duplicates)
-      if (!key.includes('subagent') && !key.includes('cron')) continue;
+      const tenantId = sessionTenantId(session);
+      if (tenantId !== actorResult.actor.tenantId) continue;
+
+      const kind = detectKind(key);
+      if (!kind) continue;
       if (key.includes(':run:')) continue; // skip individual cron run entries, show parent only
+
+      // Skip chat sessions — they're conversations, not tasks
+      if (CHAT_SESSION_PATTERNS.some((p) => p.test(key))) continue;
 
       const updatedAt = Number(session.updatedAt) || 0;
       if (updatedAt < cutoff) continue;
@@ -106,8 +188,8 @@ export async function GET() {
       const isRunning = ageMs < 2 * 60 * 1000;   // updated in last 2 min = running
       const isComplete = ageMs >= 2 * 60 * 1000;  // no updates for 2+ min = complete
 
-      // Don't return jobs that completed more than 5 minutes ago
-      if (isComplete && ageMs > 5 * 60 * 1000) continue;
+      // Don't return jobs that completed more than 30 minutes ago
+      if (isComplete && ageMs > 30 * 60 * 1000) continue;
 
       const jobLabel = String(session.label || session.displayName || key.split(':').pop() || 'Job');
 
@@ -133,6 +215,13 @@ export async function GET() {
         if (bestMatch) resolvedDescription = descriptions[bestMatch];
       }
 
+      // Build agents list from model + spawnedBy + kind info
+      const agents: string[] = [];
+      const modelName = String(session.model || '');
+      if (modelName) agents.push(modelName);
+      const spawnedBy = String(session.spawnedBy || '');
+      if (spawnedBy && !agents.includes(spawnedBy)) agents.push(spawnedBy);
+
       jobs.push({
         id: key,
         key,
@@ -140,13 +229,14 @@ export async function GET() {
         description: resolvedDescription,
         status: isRunning ? 'running' : 'complete',
         channel: String(session.channel || session.lastChannel || ''),
-        model: String(session.model || ''),
+        model: modelName,
         startedAt: Number(session.createdAt || session.updatedAt) || now,
         updatedAt,
         elapsedMs: now - updatedAt,
         displayName: String(session.displayName || session.label || ''),
         totalTokens: Number(session.totalTokens) || 0,
-        kind: key.includes('subagent') ? 'subagent' : key.includes('cron') ? 'cron' : 'other',
+        kind,
+        agents,
       });
     }
 

@@ -2,6 +2,7 @@ import os
 import time
 import aiohttp
 from loguru import logger
+from urllib.parse import unquote, urlparse
 
 
 async def create_or_get_daily_room(room_name: str = "pearl-default") -> dict:
@@ -63,8 +64,10 @@ async def create_daily_room_token(room_url: str) -> str:
     if not daily_api_key:
         raise ValueError("DAILY_API_KEY environment variable is required")
 
-    # Extract room name from URL
-    room_name = room_url.split("/")[-1]
+    parsed = urlparse(room_url)
+    room_name = unquote(parsed.path.rstrip("/").split("/")[-1])
+    if not room_name:
+        raise ValueError(f"Could not extract Daily room name from URL: {room_url}")
 
     # Generate token for the existing room
     token_url = "https://api.daily.co/v1/meeting-tokens"

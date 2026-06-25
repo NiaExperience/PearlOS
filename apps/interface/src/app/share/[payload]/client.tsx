@@ -166,13 +166,18 @@ function routeShareResource({
     throw new Error(normalized.error || 'Invalid share link: missing resource info');
   }
 
-  if (normalized.resourceType === 'HtmlGeneration' || normalized.resourceType === 'Notes' || normalized.resourceType === 'Sprite') {
+  if (
+    normalized.resourceType === 'HtmlGeneration' ||
+    normalized.resourceType === 'Apps' ||
+    normalized.resourceType === 'Notes' ||
+    normalized.resourceType === 'Sprite'
+  ) {
     redirectContentResource({
       router,
       assistantName: normalized.assistantName,
       pearlosOnlyFlag,
       resourceId: normalized.resourceId,
-      resourceType: normalized.resourceType,
+      resourceType: normalized.resourceType === 'Apps' ? 'HtmlGeneration' : normalized.resourceType,
       mode: normalized.mode,
       locked: normalized.isSuccess,
     });

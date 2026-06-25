@@ -15,7 +15,7 @@ const FloatingHomeButton: React.FC = () => {
   const { currentMode, setMode } = useDesktopMode();
   const [isPressed, setIsPressed] = useState(false);
 
-  const isHome = currentMode === DesktopMode.HOME || currentMode === DesktopMode.DEFAULT;
+  const isHome = currentMode === DesktopMode.HOME || currentMode === DesktopMode.HOME;
 
   const handleClick = useCallback(() => {
     // Always dispatch home event — even if already in HOME mode,

@@ -24,6 +24,9 @@ export async function createPostgresDatabase(
     host: host,
     port: port,
     dialect: 'postgres',
+    dialectOptions: {
+      ssl: process.env.POSTGRES_SSL === 'true' ? { require: true, rejectUnauthorized: false } : false,
+    },
     // eslint-disable-next-line no-console
     logging: shouldLog ? console.log : false,
     pool: {

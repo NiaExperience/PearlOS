@@ -1,0 +1,50 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:claude:acp:62f63774-743c-417c-8672-96cd11a8fb29:oneshot:f78a36d0-e804-4ab1-8208-363147828202",
+  "acp_session_id": "1446c89e-c07e-49e6-8e77-0ff41a6dc8b1",
+  "agent_command": "npx -y @agentclientprotocol/claude-agent-acp@^0.25.0",
+  "cwd": "/workspace/nia-universal/claude",
+  "name": "agent:claude:acp:62f63774-743c-417c-8672-96cd11a8fb29",
+  "created_at": "2026-04-22T07:46:13.064Z",
+  "last_used_at": "2026-04-22T07:46:13.064Z",
+  "last_seq": 0,
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Aclaude%3Aacp%3A62f63774-743c-417c-8672-96cd11a8fb29%3Aoneshot%3Af78a36d0-e804-4ab1-8208-363147828202.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": false,
+  "pid": 3253711,
+  "agent_started_at": "2026-04-22T07:46:05.156Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "_meta": {
+      "claudeCode": {
+        "promptQueueing": true
+      }
+    },
+    "promptCapabilities": {
+      "image": true,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": true
+    },
+    "loadSession": true,
+    "sessionCapabilities": {
+      "fork": {},
+      "list": {},
+      "resume": {},
+      "close": {}
+    }
+  },
+  "title": null,
+  "messages": [],
+  "updated_at": "2026-04-22T07:46:13.064Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {}
+}

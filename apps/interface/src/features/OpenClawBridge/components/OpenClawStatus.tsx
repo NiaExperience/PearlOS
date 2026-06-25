@@ -34,10 +34,8 @@ export function OpenClawStatus({
 }: OpenClawStatusProps) {
   const [status, setStatus] = useState<ConnectionStatus>('unknown');
 
-  // NEXT_PUBLIC_ env vars are available on both server and client,
-  // so no need for typeof window check (which causes hydration mismatch)
-  const baseUrl =
-    apiUrl ?? process.env.NEXT_PUBLIC_OPENCLAW_API_URL ?? 'http://localhost:3100';
+  // SECURITY: Route health checks through server-side API route to avoid exposing OpenClaw URL/key
+  const baseUrl = apiUrl ?? '/api/openclaw-bridge';
 
   const check = useCallback(async () => {
     if (!baseUrl) return;

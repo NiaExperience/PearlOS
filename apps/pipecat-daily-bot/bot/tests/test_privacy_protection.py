@@ -119,6 +119,37 @@ def test_top_level_fields_always_excluded(test_profile):
         assert field not in multiuser, f"{field} should not be in multi-user session"
 
 
+def test_public_persona_and_private_memory_privacy_split():
+    profile = {
+        "first_name": "Blair",
+        "publicPersona": {
+            "displayName": "Blair Erickson",
+            "bio": "Builder.",
+            "interests": ["AI", "voice"],
+        },
+        "privateMemory": {
+            "relationshipContext": "Prefers direct, candid replies.",
+            "preferences": {"tone": "direct"},
+            "reminders": [{"text": "Follow up on launch", "dueDate": "2026-06-04"}],
+            "sensitiveData": "must never be included",
+        },
+        "sessionHistory": [{"transcript": "heavy and private"}],
+    }
+
+    private = _sanitize_profile_data(profile, is_private_session=True)
+    multiuser = _sanitize_profile_data(profile, is_private_session=False)
+
+    assert private["publicPersona"]["displayName"] == "Blair Erickson"
+    assert multiuser["publicPersona"]["displayName"] == "Blair Erickson"
+    assert "privateMemory" not in multiuser
+    assert private["privateMemory"]["relationshipContext"] == "Prefers direct, candid replies."
+    assert private["privateMemory"]["preferences"] == {"tone": "direct"}
+    assert private["privateMemory"]["reminders"][0]["text"] == "Follow up on launch"
+    assert "sensitiveData" not in private["privateMemory"]
+    assert "sessionHistory" not in private
+    assert "sessionHistory" not in multiuser
+
+
 def test_profile_without_conversation_summary():
     """Profiles without lastConversationSummary should work correctly."""
     profile = {

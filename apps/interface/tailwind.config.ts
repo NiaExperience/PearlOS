@@ -91,27 +91,6 @@ const config = {
           '0%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' },
         },
-        twinkle: {
-          '0%': { opacity: '1' },
-          '50%': { opacity: '0.5' },
-        },
-        breathe: {
-          '0%': { transform: 'scale(1)' },
-          '50%': { transform: 'scale(1.05)' },
-        },
-        'rotate-slow': {
-          '0%': { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' },
-        },
-        'pulse-slow': {
-          '0%': { opacity: '1' },
-          '50%': { opacity: '0.7' },
-        },
-        'shooting-star': {
-          '0%': { transform: 'translateX(0) translateY(0)', opacity: '0' },
-          '10%': { opacity: '1' },
-          '100%': { transform: 'translateX(300px) translateY(200px)', opacity: '0' },
-        },
         'bubble-float': {
           '0%': { transform: 'translateY(0px) translateX(0px) scale(1)' },
           '25%': { transform: 'translateY(-8px) translateX(3px) scale(1.02)' },
@@ -158,13 +137,6 @@ const config = {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         float: 'float 6s ease-in-out infinite',
-        twinkle: 'twinkle 4s ease-in-out infinite',
-        'twinkle-delay': 'twinkle 4s ease-in-out 1s infinite',
-        'twinkle-delay-2': 'twinkle 4s ease-in-out 2s infinite',
-        breathe: 'breathe 8s ease-in-out infinite',
-        'rotate-slow': 'rotate-slow 120s linear infinite',
-        'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
-        'shooting-star': 'shooting-star 4s ease-out infinite',
         'bubble-float': 'bubble-float 6s ease-in-out infinite',
         'bubble-drift': 'bubble-drift 8s ease-in-out infinite',
         'avatar-popup': 'avatar-popup 1s cubic-bezier(0.68, -0.55, 0.265, 1.55)',

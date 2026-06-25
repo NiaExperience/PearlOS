@@ -2,22 +2,59 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 
-import SettingsPanels from '@interface/components/settings-panels/SettingsPanels';
+import SettingsPanels, {
+  parseSettingsPanelUrlParam,
+} from '@interface/components/settings-panels/SettingsPanels';
 import { Button } from '@interface/components/ui/button';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
+
+function assistantSlugFromParams(searchParams: ReturnType<typeof useSearchParams>): string {
+  return (
+    searchParams.get('assistant') ||
+    process.env.NEXT_PUBLIC_DEFAULT_ASSISTANT ||
+    'pearlos'
+  );
+}
 
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useResilientSession();
-  
+
+  const modalPanel =
+    parseSettingsPanelUrlParam(searchParams.get('panel')) ??
+    parseSettingsPanelUrlParam(searchParams.get('settingsPanel'));
+
+  useEffect(() => {
+    if (modalPanel == null) return;
+
+    const assistant = assistantSlugFromParams(searchParams);
+    const qs = new URLSearchParams();
+    qs.set('settingsPanel', modalPanel);
+    const tenantIdParam = searchParams.get('tenantId');
+    if (tenantIdParam) qs.set('tenantId', tenantIdParam);
+
+    router.replace(`/${assistant}?${qs.toString()}`);
+  }, [modalPanel, router, searchParams]);
+
+  if (modalPanel != null) {
+    return (
+      <div
+        className="min-h-screen bg-gray-900"
+        aria-busy="true"
+        aria-label="Opening settings"
+      />
+    );
+  }
+
   // Try to get tenantId from search params first, then session
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tenantId = searchParams.get('tenantId') || (session?.user as any)?.tenantId;
 
   return (
-    <div className="bg-gray-900" style={{ overflow: 'auto', height: '100vh', width: '100vw' }}>
+    <div className="bg-gray-900" style={{ overflow: 'auto', height: '100dvh', width: '100dvw' }}>
       {/* Header */}
       <div className="border-b border-gray-700 bg-gray-800">
         <div className="mx-auto max-w-4xl px-4 py-4">

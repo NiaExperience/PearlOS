@@ -28,6 +28,7 @@ from flows import (
 from pipecat_flows import ContextStrategy
 from flows.core import (
     _build_participant_summary_message,
+    _build_participant_context_entry,
     _summarize_single_participant,
     _admin_instruction_post_action,
     _wrapup_post_action,
@@ -362,6 +363,56 @@ def test_summarize_single_participant_falls_back_to_identity_display_name(monkey
 
     assert summary is not None
     assert summary["display_name"] == "Taylor"
+
+
+def test_participant_context_prefers_profile_name_over_stale_session_name(monkeypatch):
+    monkeypatch.setenv("BOT_SANITIZE_FLOW_PROFILE_FIELDS", "1")
+    entry = {
+        "display_name": "Stephanie",
+        "context": {
+            "session_metadata": {
+                "sessionUserName": "Stephanie",
+                "session_user_name": "Stephanie",
+            },
+            "user_profile": {
+                "first_name": "Blair",
+                "email": "blair@example.com",
+                "publicPersona": {
+                    "displayName": "Blair Erickson",
+                    "bio": "Builder.",
+                },
+                "privateMemory": {
+                    "relationshipContext": "Prefers direct, candid replies.",
+                    "preferences": {"tone": "direct"},
+                    "sensitiveData": "must not enter prompt context",
+                },
+                "sessionHistory": [{"transcript": "heavy and private"}],
+            },
+            "has_user_profile": True,
+        },
+        "stealth": False,
+    }
+
+    public_payload = _build_participant_context_entry("p1", entry, is_private_session=False)
+    private_payload = _build_participant_context_entry("p1", entry, is_private_session=True)
+    summary = _summarize_single_participant("p1", entry, is_private_session=True)
+
+    assert public_payload is not None
+    assert public_payload["username"] == "Blair"
+    assert public_payload["first_name"] == "Blair"
+    assert public_payload["publicPersona"]["displayName"] == "Blair Erickson"
+    assert "privateMemory" not in public_payload
+    assert "sessionHistory" not in public_payload
+    assert "Stephanie" not in str(public_payload)
+
+    assert private_payload is not None
+    assert private_payload["username"] == "Blair"
+    assert private_payload["privateMemory"]["relationshipContext"] == "Prefers direct, candid replies."
+    assert "sensitiveData" not in private_payload["privateMemory"]
+    assert "sessionHistory" not in private_payload
+
+    assert summary is not None
+    assert summary["display_name"] == "Blair"
 
 
 def test_build_participant_summary_message_formats_roster(monkeypatch):
@@ -978,4 +1029,3 @@ async def test_wrapup_post_action_uses_timer_delay_when_state_missing(monkeypatc
     _, payload = published[0]
     assert payload["wrapup_prompt"] == "Wrap politely."
     assert payload["after_secs"] == pytest.approx(90.0)
-

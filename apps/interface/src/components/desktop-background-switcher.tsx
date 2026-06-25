@@ -3,7 +3,7 @@
 import { isFeatureEnabled } from '@nia/features';
 import type { ModePersonalityVoiceConfig } from '@nia/prism';
 import { useSession } from 'next-auth/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 
 import { ErrorBoundary } from '@interface/components/ErrorBoundary';
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
@@ -61,6 +61,22 @@ const ensureGohufont = () => {
   document.head.appendChild(style);
 };
 
+interface HomeGesturePoint {
+  x: number;
+  y: number;
+  time: number;
+  pointerType: string;
+}
+
+function isInteractiveHomeGestureTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      'button,a,input,textarea,select,iframe,[contenteditable="true"],[role="button"],.pearl-nav-button,.pearl-app-window-divider,.wonder-canvas--active'
+    )
+  );
+}
+
 const DesktopBackgroundSwitcher = ({
   providers,
   selectedModelInfo,
@@ -81,6 +97,8 @@ const DesktopBackgroundSwitcher = ({
   const { currentMode, setMode: setCurrentMode } = useDesktopMode();
   const { onboardingComplete, refresh, userProfileId } = useUserProfile();
   const autoOpenTriggered = useRef(false);
+  const homeGestureStartRef = useRef<HomeGesturePoint | null>(null);
+  const lastHomeTapRef = useRef<HomeGesturePoint | null>(null);
 
   // Handle auto-opening of shared sprites
   useEffect(() => {
@@ -115,7 +133,8 @@ const DesktopBackgroundSwitcher = ({
   const resolvedUserName = (session?.user as any)?.name ?? undefined;
 
   const normalizeMode = useCallback((m: DesktopMode | string | undefined | null): DesktopMode => {
-    const v = (m ?? DesktopMode.HOME).toString().toLowerCase();
+    let v = (m ?? DesktopMode.HOME).toString().toLowerCase();
+    if (v === 'work') v = 'desktop';
     return (Object.values(DesktopMode) as string[]).includes(v)
       ? (v as DesktopMode)
       : DesktopMode.HOME;
@@ -131,10 +150,10 @@ const DesktopBackgroundSwitcher = ({
   const prevModeRef = useRef<DesktopMode | null>(null);
 
   // Legacy support for the existing taskbar
-  const isWorkMode = currentMode === DesktopMode.WORK;
+  const isWorkMode = currentMode === DesktopMode.DESKTOP;
 
   const handleModeChange = useCallback((isWork: boolean) => {
-    const next = isWork ? DesktopMode.WORK : DesktopMode.HOME;
+    const next = isWork ? DesktopMode.DESKTOP : DesktopMode.HOME;
     if (DEBUG) {
       logger.debug('handleModeChange', { next });
     }
@@ -148,6 +167,88 @@ const DesktopBackgroundSwitcher = ({
     }
     setCurrentMode(next);
   }, [DEBUG, normalizeMode]);
+
+  const showDesktopFromHomeGesture = useCallback(
+    (switchReason: string) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      const switchResponse: DesktopModeSwitchResponse = {
+        success: true,
+        mode: DesktopMode.DESKTOP,
+        message: 'Switching to desktop mode',
+        userRequest: null,
+        timestamp: new Date().toISOString(),
+        action: 'SWITCH_DESKTOP_MODE',
+        payload: {
+          targetMode: DesktopMode.DESKTOP,
+          previousMode: currentMode,
+          switchReason,
+        },
+      };
+      window.dispatchEvent(new CustomEvent<DesktopModeSwitchResponse>('desktopModeSwitch', {
+        detail: switchResponse,
+      }));
+      setCurrentMode(DesktopMode.DESKTOP);
+    },
+    [currentMode, setCurrentMode]
+  );
+
+  const handleHomePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      if (isInteractiveHomeGestureTarget(event.target)) return;
+      homeGestureStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        time: Date.now(),
+        pointerType: event.pointerType,
+      };
+    },
+    [currentMode]
+  );
+
+  const handleHomePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      if (isInteractiveHomeGestureTarget(event.target)) return;
+      const start = homeGestureStartRef.current;
+      homeGestureStartRef.current = null;
+      if (!start || start.pointerType !== event.pointerType) return;
+
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const elapsed = Date.now() - start.time;
+      const swipeThreshold = Math.max(60, Math.min(window.innerWidth * 0.12, 120));
+
+      if (start.x >= 24 && dx <= -swipeThreshold && absDy <= 70 && absDx > absDy * 1.4) {
+        showDesktopFromHomeGesture('home_swipe_left_icons');
+        return;
+      }
+
+      if (absDx > 18 || absDy > 18 || elapsed > 280) return;
+      const now = Date.now();
+      const lastTap = lastHomeTapRef.current;
+      lastHomeTapRef.current = { x: event.clientX, y: event.clientY, time: now, pointerType: event.pointerType };
+      if (!lastTap || now - lastTap.time > 320) return;
+      if (Math.abs(event.clientX - lastTap.x) <= 24 && Math.abs(event.clientY - lastTap.y) <= 24) {
+        lastHomeTapRef.current = null;
+        showDesktopFromHomeGesture('home_double_tap_icons');
+      }
+    },
+    [currentMode, showDesktopFromHomeGesture]
+  );
+
+  const handleHomeDoubleClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      if (isInteractiveHomeGestureTarget(event.target)) return;
+      showDesktopFromHomeGesture('home_double_click_icons');
+    },
+    [currentMode, showDesktopFromHomeGesture]
+  );
 
   useEffect(() => {
     const handleOnboardingComplete = async () => {
@@ -221,20 +322,22 @@ const DesktopBackgroundSwitcher = ({
 
     const effectiveMode = currentMode;
     const modeConfig = modePersonalityVoiceConfig[effectiveMode];
-    
+
     if (modeConfig) {
+      const personaName = modeConfig.personaName || modeConfig.personalityName || (modeConfig as any).name;
       if (DEBUG) {
         logger.debug('Updating bot config for mode', { effectiveMode, modeConfig });
       }
       updateBotConfig(roomUrl, {
         personalityId: modeConfig.personalityId,
+        ...(personaName ? { persona: personaName } : {}),
         voice: modeConfig.voice,
-          mode: effectiveMode
-        }, {
-          sessionId: resolvedSessionId,
-          sessionUserId: resolvedUserId,
-          sessionUserEmail: resolvedUserEmail,
-          sessionUserName: resolvedUserName,
+        mode: effectiveMode
+      }, {
+        sessionId: resolvedSessionId,
+        sessionUserId: resolvedUserId,
+        sessionUserEmail: resolvedUserEmail,
+        sessionUserName: resolvedUserName,
       }).catch(err => {
         const message = err instanceof Error ? err.message : String(err);
         const isTimeout = /timed out|abort/i.test(message);
@@ -318,11 +421,11 @@ const DesktopBackgroundSwitcher = ({
     if (mode === DesktopMode.QUIET) return 'translate-x-0 translate-y-0';
     
     // When other modes are active, position QUIET relative to them
-    if (mode === DesktopMode.HOME || mode === DesktopMode.DEFAULT) {
+    if (mode === DesktopMode.HOME) {
       // HOME -> QUIET: QUIET is to the left of HOME
       return '-translate-x-full translate-y-0';
     }
-    if (mode === DesktopMode.WORK) {
+    if (mode === DesktopMode.DESKTOP) {
       // WORK -> QUIET: QUIET is to the left of WORK (direct right transition)
       return '-translate-x-full translate-y-0';
     }
@@ -336,7 +439,7 @@ const DesktopBackgroundSwitcher = ({
   }, []);
 
   const getHomeTransform = useCallback((mode: DesktopMode): string => {
-    if (mode === DesktopMode.HOME || mode === DesktopMode.DEFAULT) return 'translate-x-0 translate-y-0';
+    if (mode === DesktopMode.HOME) return 'translate-x-0 translate-y-0';
     
     // Direct transitions: HOME should be positioned relative to active mode
     // When not part of a direct transition, position HOME completely off-screen
@@ -346,7 +449,7 @@ const DesktopBackgroundSwitcher = ({
       // Position HOME far off-screen to the right to avoid showing during QUIET -> WORK
       return 'translate-x-[200%] translate-y-0';
     }
-    if (mode === DesktopMode.WORK) {
+    if (mode === DesktopMode.DESKTOP) {
       // WORK -> HOME: HOME is to the left of WORK (move to right transition)
       // But during WORK -> QUIET direct transition, HOME should be completely off-screen
       // Position HOME far off-screen to the left to avoid showing during WORK -> QUIET
@@ -362,7 +465,7 @@ const DesktopBackgroundSwitcher = ({
   }, []);
 
   const getWorkTransform = useCallback((mode: DesktopMode): string => {
-    if (mode === DesktopMode.WORK) return 'translate-x-0 translate-y-0';
+    if (mode === DesktopMode.DESKTOP) return 'translate-x-0 translate-y-0';
     
     // Direct transitions: WORK should be positioned relative to active mode
     if (mode === DesktopMode.QUIET) {
@@ -373,7 +476,7 @@ const DesktopBackgroundSwitcher = ({
       // The faster transition (400ms) makes this acceptable
       return 'translate-x-[200%] translate-y-0';
     }
-    if (mode === DesktopMode.HOME || mode === DesktopMode.DEFAULT) {
+    if (mode === DesktopMode.HOME) {
       // HOME -> WORK: WORK is to the right of HOME
       return 'translate-x-full translate-y-0';
     }
@@ -395,9 +498,9 @@ const DesktopBackgroundSwitcher = ({
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden" style={{ background: 'linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%)' }} data-desktop-mode={currentMode}>
+    <div className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden" style={{ background: 'var(--pearl-shell-bg, linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%))' }} data-desktop-mode={currentMode}>
       {/* Background Container with Slide Transition */}
-      <div className="relative h-full w-full" style={{ background: 'linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%)' }}>
+      <div className="relative h-full w-full" style={{ background: 'var(--pearl-shell-bg, linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%))' }}>
         {/* Quiet Background */}
         <div
           data-testid="quiet-bg-container"
@@ -417,6 +520,13 @@ const DesktopBackgroundSwitcher = ({
         <div
           data-testid="home-bg-container"
           className={`absolute inset-0 transition-transform duration-[400ms] ease-in-out ${getHomeTransform(currentMode)}`}
+          onPointerDown={handleHomePointerDown}
+          onPointerUp={handleHomePointerUp}
+          onDoubleClick={handleHomeDoubleClick}
+          style={{
+            pointerEvents: currentMode === DesktopMode.HOME ? 'auto' : 'none',
+            touchAction: 'manipulation',
+          }}
         >
           <ErrorBoundary>
             <DesktopBackground showModeSelector={isModeSelectorUnlocked} />

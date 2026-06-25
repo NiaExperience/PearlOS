@@ -89,6 +89,7 @@ const BOT_TYPE_PRESETS: Record<SpriteBotType, { label: string; description: stri
 interface SpriteBotConfigPanelProps {
   spriteId: string;
   spriteName: string | null;
+  tenantId?: string;
   initialConfig?: SpriteBotConfig | null;
   onClose: () => void;
   onSaved?: (config: SpriteBotConfig) => void;
@@ -105,6 +106,7 @@ const DEFAULT_CONFIG: SpriteBotConfig = {
 export default function SpriteBotConfigPanel({
   spriteId,
   spriteName,
+  tenantId,
   initialConfig,
   onClose,
   onSaved,
@@ -120,7 +122,9 @@ export default function SpriteBotConfigPanel({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/summon-ai-sprite/${spriteId}`);
+        const params = new URLSearchParams();
+        if (tenantId) params.set('tenantId', tenantId);
+        const res = await fetch(`/api/summon-ai-sprite/${spriteId}${params.toString() ? `?${params.toString()}` : ''}`);
         if (!res.ok) return;
         const data = await res.json();
         const existing = data?.sprite?.botConfig;
@@ -132,7 +136,7 @@ export default function SpriteBotConfigPanel({
       }
     })();
     return () => { cancelled = true; };
-  }, [spriteId, initialConfig]);
+  }, [spriteId, tenantId, initialConfig]);
 
   const update = useCallback(<K extends keyof SpriteBotConfig>(key: K, value: SpriteBotConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -183,7 +187,7 @@ export default function SpriteBotConfigPanel({
       const res = await fetch(`/api/summon-ai-sprite/${spriteId}/bot-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botConfig: config }),
+        body: JSON.stringify({ botConfig: config, tenantId }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -196,7 +200,7 @@ export default function SpriteBotConfigPanel({
     } finally {
       setSaving(false);
     }
-  }, [spriteId, config, onSaved]);
+  }, [spriteId, tenantId, config, onSaved]);
 
   return (
     <div

@@ -1,172 +1,94 @@
 "use client";
 
+import { Terminal } from "lucide-react";
 import React from "react";
 
-export default function Error({ error, reset }: { error: Error; reset: () => void }) {
-  const handleContactSupport = () => {
-    const subject = encodeURIComponent('Access Request - Support');
-    const body = encodeURIComponent(
-      `Hello,\n\nI need access to this application but am currently unable to log in.\n\nError details: ${error?.message || 'Unknown error'}\n\nPlease help me get access.\n\nThank you.`
-    );
-    window.open(`mailto:dev@niaxp.com?subject=${subject}&body=${body}`, '_blank');
-  };
-
+export default function Error() {
   return (
-    <div className="login-shell" style={{ background: '#05030f', minHeight: '100vh' }}>
-      <div className="animated-bg" style={{ 
-        background: 'radial-gradient(circle at 30% -10%, rgba(243, 104, 224, 0.35), transparent), radial-gradient(circle at 70% 110%, rgba(0, 210, 211, 0.25), transparent), #05030f',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 0
-      }}></div>
-      
-      <main className="login-content-layer" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div className="error-container" style={{
-          background: 'rgba(15, 15, 35, 0.95)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '20px',
-          padding: '40px',
-          textAlign: 'center',
-          maxWidth: '500px',
-          width: '90%',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>⚠️</div>
-          <h1 style={{
-            color: '#ff6b6b',
-            background: 'linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontSize: '28px',
-            fontWeight: 'bold',
-            marginBottom: '16px'
-          }}>
-            Access Denied
-          </h1>
-          <p style={{
-            color: '#a0a0a0',
-            fontSize: '16px',
-            marginBottom: '24px',
-            lineHeight: '1.5'
-          }}>
-            Access denied. Please contact our support team for access.
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button
-              onClick={() => reset()}
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              Try Again
-            </button>
-
-            <button
-              onClick={() => window.location.href = '/recovery?error=' + encodeURIComponent(error?.message || 'unknown')}
-              style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              🔧 Recovery Page
-            </button>
-
-            <button
-              onClick={() => window.location.href = '/settings'}
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#e0e0e0',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              ⚙️ Settings (always works)
-            </button>
-            
-            <button
-              onClick={handleContactSupport}
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#e0e0e0',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '12px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              Contact Support
-            </button>
+    <main
+      className="min-h-svh w-full"
+      style={{
+        alignItems: "center",
+        background: "#05070a",
+        color: "#f4efe7",
+        display: "flex",
+        justifyContent: "center",
+        padding: "24px",
+      }}
+    >
+      <section
+        aria-labelledby="terminal-fallback-title"
+        style={{
+          background: "rgba(11, 16, 18, 0.94)",
+          border: "1px solid rgba(166, 199, 173, 0.32)",
+          borderRadius: "8px",
+          boxShadow: "0 24px 70px rgba(0, 0, 0, 0.36)",
+          padding: "clamp(24px, 5vw, 40px)",
+          width: "min(100%, 520px)",
+        }}
+      >
+        <div style={{ alignItems: "center", display: "flex", gap: "12px", marginBottom: "20px" }}>
+          <div
+            aria-hidden="true"
+            style={{
+              alignItems: "center",
+              background: "rgba(166, 199, 173, 0.12)",
+              border: "1px solid rgba(166, 199, 173, 0.38)",
+              borderRadius: "8px",
+              display: "flex",
+              height: "42px",
+              justifyContent: "center",
+              width: "42px",
+            }}
+          >
+            <Terminal size={20} color="#a6c7ad" />
           </div>
-
-          <div style={{
-            marginTop: '32px',
-            paddingTop: '24px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            color: '#888',
-            fontSize: '14px'
-          }}>
-            <p style={{ margin: '0 0 8px 0' }}>Need immediate assistance?</p>
-            <a
-              href="mailto:dev@niaxp.com"
+          <div>
+            <p style={{ color: "#a6c7ad", fontSize: "13px", fontWeight: 650, margin: 0 }}>
+              Staging recovery
+            </p>
+            <h1
+              id="terminal-fallback-title"
               style={{
-                color: '#06b6d4',
-                textDecoration: 'none',
-                fontWeight: '500'
+                color: "#f4efe7",
+                fontSize: "clamp(28px, 7vw, 42px)",
+                fontWeight: 650,
+                letterSpacing: 0,
+                lineHeight: 1.05,
+                margin: "4px 0 0",
               }}
             >
-              dev@niaxp.com
-            </a>
+              Open Terminal
+            </h1>
           </div>
         </div>
-      </main>
-    </div>
+
+        <p style={{ color: "rgba(244, 239, 231, 0.68)", fontSize: "16px", lineHeight: 1.6, margin: "0 0 28px" }}>
+          The main interface is not loading cleanly, so this page only offers the isolated authenticated Terminal.
+        </p>
+
+        <a
+          href="/terminal"
+          style={{
+            alignItems: "center",
+            background: "#a6c7ad",
+            borderRadius: "8px",
+            color: "#05070a",
+            display: "inline-flex",
+            fontSize: "16px",
+            fontWeight: 700,
+            gap: "10px",
+            justifyContent: "center",
+            minHeight: "48px",
+            padding: "12px 16px",
+            textDecoration: "none",
+            width: "100%",
+          }}
+        >
+          <Terminal size={18} />
+          Terminal
+        </a>
+      </section>
+    </main>
   );
 }

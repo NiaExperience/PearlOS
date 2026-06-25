@@ -12,22 +12,46 @@ import { getLogger } from '../../logger';
 
 const log = getLogger('prism:routes:userProfile');
 
+function normalizeEmail(email: string | null | undefined): string {
+    return String(email || '').trim().toLowerCase();
+}
+
+function sessionIdentity(session: any): { userId: string; email: string } | NextResponse {
+    const userId = session?.user?.id ? String(session.user.id) : '';
+    const email = normalizeEmail(session?.user?.email);
+    if (!userId || !email) {
+        return NextResponse.json({ error: 'Missing authenticated user identity' }, { status: 401 });
+    }
+    return { userId, email };
+}
+
+function profileBelongsToSession(profile: any, identity: { userId: string; email: string }): boolean {
+    if (!profile) return false;
+    const profileUserId = profile.userId ? String(profile.userId) : '';
+    const profileEmail = normalizeEmail(profile.email);
+    return profileUserId === identity.userId && (!profileEmail || profileEmail === identity.email);
+}
+
 export async function POST_impl(request: NextRequest, authOptions: NextAuthOptions): Promise<NextResponse> {
     const authErr = await requireAuth(request, authOptions);
     if (authErr) return NextResponse.json({ error: 'Access Denied' }, { status: 403 });
 
     const session = await getSessionSafely(request, authOptions);
-    const userId = session?.user?.id;
+    const identity = sessionIdentity(session);
+    if (identity instanceof NextResponse) return identity;
 
     log.info('UserProfile POST');
     try {
         const body = await request.json();
-        const { first_name, email, metadata, onboardingComplete } = body || {};
-        if (!first_name || !email) {
-            log.warn('UserProfile POST missing required fields', { first_name, email });
+        const { first_name, publicPersona, privateMemory, onboardingComplete, onboardingState } = body || {};
+        if (!first_name) {
+            log.warn('UserProfile POST missing required fields', { first_name });
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
-        const userProfile = await UserProfileActions.createOrUpdateUserProfile({ first_name, email, metadata, onboardingComplete, userId }, false);
+        const userProfile = await UserProfileActions.createOrUpdateUserProfile(
+            { first_name, email: identity.email, publicPersona, privateMemory, onboardingComplete, onboardingState, userId: identity.userId },
+            false
+        );
         if (!userProfile) {
             log.error('Failed to create or update UserProfile');
             return NextResponse.json({ error: 'Failed to create or update UserProfile' }, { status: 500 });
@@ -52,38 +76,35 @@ export async function GET_impl(req: NextRequest, authOptions: NextAuthOptions) {
     if (authErr) return NextResponse.json({ error: 'Access Denied' }, { status: 403 });
 
     try {
+        const session = await getSessionSafely(req, authOptions);
+        const identity = sessionIdentity(session);
+        if (identity instanceof NextResponse) return identity;
         const { searchParams } = new URL(req.url);
-        const limit = parseInt(searchParams.get('limit') || '100', 10);
-        const offset = parseInt(searchParams.get('offset') || '0', 10);
-        const userId = searchParams.get('userId') || undefined;
+        const requestedUserId = searchParams.get('userId') || undefined;
+        if (requestedUserId && requestedUserId !== identity.userId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         const prism = await Prism.getInstance();
         const query = {
             contentType: BlockType_UserProfile,
             where: {
                 type: { eq: BlockType_UserProfile },
+                indexer: { path: 'userId', equals: identity.userId },
             },
-            limit,
-            offset,
+            limit: 1,
+            offset: 0,
             orderBy: { createdAt: 'desc' },
         } as any;
-        if (userId) {
-            query.where.indexer = { path: 'userId', equals: userId };
-        }
         const op = async () => await prism.query(query);
 
         const result = await UserProfileActions.ensureUserProfileDefinition(op);
-        
-        // Normalize metadata for all returned items
+
+        // Migrate any legacy `metadata` on the way out so clients only see the new shape.
         if (result.items && result.items.length > 0) {
-            result.items = result.items.map((item: any) => {
-                if (item.metadata) {
-                    item.metadata = UserProfileActions.normalizeMetadata(item.metadata);
-                }
-                return item;
-            });
+            result.items = result.items.map((item: any) => UserProfileActions.migrateUserProfileRecord(item));
         }
-        
+
         return NextResponse.json({ total: result.total, items: result.items });
     } catch (e: any) {
         return NextResponse.json({ error: e.message || 'Failed to list UserProfile records' }, { status: 500 });
@@ -98,23 +119,33 @@ export async function PUT_impl(req: NextRequest, authOptions: NextAuthOptions) {
 
     try {
         const body = await req.json();
-        const { id, first_name, userId, email, metadata, metadataOperation, onboardingComplete } = body || {};
+        const session = await getSessionSafely(req, authOptions);
+        const identity = sessionIdentity(session);
+        if (identity instanceof NextResponse) return identity;
+        const { id, first_name, publicPersona, privateMemory, onboardingComplete, onboardingState } = body || {};
         if (process.env.DEBUG_PRISM === 'true') {
-            log.info('UserProfile PUT payload', { id, metadata, metadataOperation, onboardingComplete });
+            log.info('UserProfile PUT payload', { id, publicPersona, privateMemory, onboardingComplete, onboardingState });
         }
-        const removeUserId = req.headers.get('x-remove-user-id') === 'true';
-        
-        const userProfile = await UserProfileActions.createOrUpdateUserProfile({ 
-            id, 
-            first_name, 
-            userId, 
-            email, 
-            metadata,
-            metadataOperation,
-            onboardingComplete
+        const removeUserId = false;
+        if (id) {
+            const existing = await UserProfileActions.findById(id);
+            if (existing?.userProfile && !profileBelongsToSession(existing.userProfile, identity)) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+        }
+
+        const userProfile = await UserProfileActions.createOrUpdateUserProfile({
+            id,
+            first_name,
+            userId: identity.userId,
+            email: identity.email,
+            publicPersona,
+            privateMemory,
+            onboardingComplete,
+            onboardingState
         }, removeUserId);
-        
-        log.info('UserProfile PUT updated', { id, userId, email });
+
+        log.info('UserProfile PUT updated', { id, userId: identity.userId, email: identity.email });
         if (!userProfile) {
             return NextResponse.json({ error: 'Failed to update UserProfile' }, { status: 400 });
         }
@@ -135,18 +166,28 @@ export async function PATCH_impl(req: NextRequest, authOptions: NextAuthOptions)
 
     try {
         const body = await req.json();
-        const { id, first_name, userId, email, metadata, onboardingComplete, overlayDismissed } = body || {};
-        const removeUserId = req.headers.get('x-remove-user-id') === 'true';
-        
-        // PATCH uses the same action but only passes provided fields
+        const session = await getSessionSafely(req, authOptions);
+        const identity = sessionIdentity(session);
+        if (identity instanceof NextResponse) return identity;
+        const { id, first_name, publicPersona, privateMemory, onboardingComplete, onboardingState, overlayDismissed } = body || {};
+        const removeUserId = false;
+        if (id) {
+            const existing = await UserProfileActions.findById(id);
+            if (existing?.userProfile && !profileBelongsToSession(existing.userProfile, identity)) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+        }
+
         const updateData: any = { id };
         if (first_name !== undefined) updateData.first_name = first_name;
-        if (userId !== undefined) updateData.userId = userId;
-        if (email !== undefined) updateData.email = email;
-        if (metadata !== undefined) updateData.metadata = metadata;
+        updateData.userId = identity.userId;
+        updateData.email = identity.email;
+        if (publicPersona !== undefined) updateData.publicPersona = publicPersona;
+        if (privateMemory !== undefined) updateData.privateMemory = privateMemory;
         if (onboardingComplete !== undefined) updateData.onboardingComplete = onboardingComplete;
+        if (onboardingState !== undefined) updateData.onboardingState = onboardingState;
         if (overlayDismissed !== undefined) updateData.overlayDismissed = overlayDismissed;
-        
+
         const userProfile = await UserProfileActions.createOrUpdateUserProfile(updateData, removeUserId);
         if (!userProfile) {
             return NextResponse.json({ error: 'Failed to update UserProfile' }, { status: 400 });
@@ -179,4 +220,3 @@ export async function DELETE_impl(req: NextRequest, authOptions: NextAuthOptions
         return NextResponse.json({ error: e.message || 'Failed to delete UserProfile' }, { status: 400 });
     }
 }
-

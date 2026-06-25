@@ -138,7 +138,7 @@ export const RoleManagementModal: React.FC<Props> = ({ open, onClose, user, onTe
       const body = currentTenantRole
         ? { tenantId: selectedTenantId, userId: user._id, role }
         : { tenantId: selectedTenantId, userId: user._id, role };
-      const res = await fetch('/api/tenant-roles', {
+      const res = await fetch('/dashboard/api/tenant-roles', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -151,7 +151,7 @@ export const RoleManagementModal: React.FC<Props> = ({ open, onClose, user, onTe
         variant: 'default',
       });
       // refetch (modal-local) & refresh page (server data -> tables)
-      const ref = await fetch(`/api/tenant-roles?tenantId=${selectedTenantId}&userId=${user._id}`);
+      const ref = await fetch(`/dashboard/api/tenant-roles?tenantId=${selectedTenantId}&userId=${user._id}`);
       if (ref.ok) {
         const data = await ref.json();
         const nextRoles = data.roles || [];
@@ -171,7 +171,7 @@ export const RoleManagementModal: React.FC<Props> = ({ open, onClose, user, onTe
     setSavingTenant(true);
     setTenantError(undefined);
     try {
-      const res = await fetch('/api/tenant-roles', {
+      const res = await fetch('/dashboard/api/tenant-roles', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantId: selectedTenantId, userId: user._id }),
@@ -243,7 +243,7 @@ export const RoleManagementModal: React.FC<Props> = ({ open, onClose, user, onTe
     setSavingOrg(true);
     setOrgError(undefined);
     try {
-      const res = await fetch('/api/organization-roles', {
+      const res = await fetch('/dashboard/api/organization-roles', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

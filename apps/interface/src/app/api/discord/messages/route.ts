@@ -1,4 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  allowedDiscordBridgeChannelIds,
+  getDiscordBotToken,
+  requireAllowedBridgeChannel,
+  requireChannelInConfiguredGuild,
+  requireConfiguredGuild,
+  requireDiscordAccount,
+  requireGuildMembership,
+} from '../_lib/require-discord-account';
 
 /**
  * /api/discord/messages — Fetch recent messages from a Discord channel.
@@ -9,17 +18,9 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 
 const DISCORD_API = 'https://discord.com/api/v10';
-const DEFAULT_CHANNEL_ID = '1471441655650324533'; // #general
 
-function getBotToken(): string | null {
-  try {
-    const fs = require('fs');
-    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));
-    return config?.channels?.discord?.token || null;
-  } catch {
-    return process.env.DISCORD_BOT_TOKEN || null;
-  }
-}
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function avatarUrl(userId: string, avatarHash: string | null): string {
   if (!avatarHash) {
@@ -32,12 +33,27 @@ function avatarUrl(userId: string, avatarHash: string | null): string {
 }
 
 export async function GET(req: NextRequest) {
-  const token = getBotToken();
+  const auth = await requireDiscordAccount();
+  if (!auth.ok) return auth.response;
+
+  const guildError = requireConfiguredGuild();
+  if (guildError) return guildError;
+
+  const token = getDiscordBotToken();
   if (!token) {
     return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });
   }
 
-  const channelId = req.nextUrl.searchParams.get('channelId') || DEFAULT_CHANNEL_ID;
+  const membershipError = await requireGuildMembership(token, auth.account);
+  if (membershipError) return membershipError;
+
+  const channelId = req.nextUrl.searchParams.get('channelId') || [...allowedDiscordBridgeChannelIds()][0] || '';
+  const bridgeChannelError = requireAllowedBridgeChannel(channelId);
+  if (bridgeChannelError) return bridgeChannelError;
+
+  const channelError = await requireChannelInConfiguredGuild(token, channelId);
+  if (channelError) return channelError;
+
   const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '50', 10) || 50, 1), 100);
   const before = req.nextUrl.searchParams.get('before') || '';
 

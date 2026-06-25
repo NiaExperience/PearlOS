@@ -34,7 +34,7 @@ export function NavUser() {
 
   const handleSignOut = async () => {
     try {
-      const response = await fetch('/api/auth/signout', {
+      const response = await fetch('/dashboard/api/auth/signout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +51,7 @@ export function NavUser() {
           description: "You have been successfully signed out.",
         });
         // Redirect to login page
-        router.push('/login');
+        router.push('/dashboard/login');
         // Force a page reload to clear any client-side state
         router.refresh();
       } else {

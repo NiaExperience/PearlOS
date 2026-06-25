@@ -30,7 +30,7 @@ export function SignOutButton() {
         variant="ghost"
         size="sm"
         onClick={() => router.push('/login')}
-        className="fixed right-4 top-4 z-50 flex items-center gap-2 px-3 py-2 text-white/90 hover:bg-white hover:text-black border border-white/20 rounded-md transition-colors duration-200 group"
+        className="fixed right-4 top-4 z-[350] flex items-center gap-2 px-3 py-2 text-white/90 hover:bg-white hover:text-black border border-white/20 rounded-md transition-colors duration-200 group"
         title="Sign in"
         type="button"
       >
@@ -117,7 +117,7 @@ export function SignOutButton() {
 
   return (
     <div
-      className="fixed right-4 top-4 z-[60] flex items-center gap-2 pointer-events-auto isolate"
+      className="fixed right-4 top-4 z-[350] flex items-center gap-2 pointer-events-auto isolate"
       style={{ pointerEvents: 'auto' }}
       onPointerDown={(e) => { e.stopPropagation(); }}
       onMouseDown={(e) => { e.stopPropagation(); }}

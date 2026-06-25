@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${HOME:?PearlOS terminal HOME is required}"
+cd "$HOME"
+
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_DATA_HOME="$HOME/.local/share"
+export CLAUDE_CONFIG_DIR="$HOME/.config/claude"
+
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$CLAUDE_CONFIG_DIR" "$HOME/.pearlos-terminal/audit"
+printf '{"tool":"claude","cwd":"%s","ts":"%s"}\n' "$PWD" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$HOME/.pearlos-terminal/audit/cli-launches.jsonl"
+
+if ! command -v claude >/dev/null 2>&1; then
+  echo "Claude CLI is not installed in this terminal image." >&2
+  exit 127
+fi
+
+exec claude "$@"

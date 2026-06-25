@@ -4,9 +4,7 @@ export const WELCOME_NOTE_TITLE = 'A Note from Pearl';
 
 export const getWelcomeNoteContent = (): Partial<Note> => ({
     title: WELCOME_NOTE_TITLE,
-    content: `# A Note from Pearl
-
-Welcome! 
+    content: `Welcome! 
 
 Come on in and make yourself comfortable. This is your space for thinking, making, and connecting. I've written down some handy tips below for you. I prefer to talk with you but no pressure - we'll figure things out as we go!
 

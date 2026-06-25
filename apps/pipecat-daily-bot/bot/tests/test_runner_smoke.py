@@ -8,6 +8,8 @@ def test_runner_smoke(monkeypatch):
     # Disable Redis for this test to avoid connection errors
     # Must patch the module variable directly since it's evaluated at import time
     monkeypatch.setattr(runner_main, "USE_REDIS", False)
+    monkeypatch.delenv("DAILY_API_KEY", raising=False)
+    runner_main.sessions.clear()
     
     # Stub _launch_session to avoid real Daily provisioning & pipeline
     async def fake_launch(room_url, token, personality, persona, body=None):
@@ -45,6 +47,70 @@ def test_runner_smoke(monkeypatch):
 
     sessions2 = client.get("/sessions")
     assert len(sessions2.json()) == 0
+
+
+def test_runner_start_prefers_request_persona_over_stale_env(monkeypatch):
+    monkeypatch.setattr(runner_main, "USE_REDIS", False)
+    monkeypatch.delenv("DAILY_API_KEY", raising=False)
+    monkeypatch.setenv("BOT_PERSONALITY", "stale-env-personality")
+    monkeypatch.setenv("BOT_PERSONA", "Stale Env Persona")
+    runner_main.sessions.clear()
+    launch_calls = []
+
+    async def fake_launch(room_url, token, personality, persona, body=None):
+        launch_calls.append(
+            {
+                "room_url": room_url,
+                "token": token,
+                "personality": personality,
+                "persona": persona,
+                "body": dict(body or {}),
+            }
+        )
+
+        async def _dummy():
+            await asyncio.sleep(10)
+
+        task = asyncio.create_task(_dummy())
+        canonical_session_id = (body or {}).get("sessionId") or "sid-request"
+        info = runner_main.SessionInfo(canonical_session_id, task, None, room_url, token, personality, persona, body)
+        runner_main.sessions[info.id] = info
+        return info
+
+    monkeypatch.setattr(runner_main, "_launch_session", fake_launch)
+
+    client = TestClient(runner_main.app)
+    response = client.post(
+        "/start",
+        json={
+            "room_url": "https://example.daily.test/press",
+            "personalityId": "pearl-press",
+            "persona": "Pearl Press",
+            "sessionId": "sid-request",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["personality"] == "pearl-press"
+    assert data["persona"] == "Pearl Press"
+    assert launch_calls == [
+        {
+            "room_url": "https://example.daily.test/press",
+            "token": None,
+            "personality": "pearl-press",
+            "persona": "Pearl Press",
+            "body": {
+                "room_url": "https://example.daily.test/press",
+                "personalityId": "pearl-press",
+                "personality": "pearl-press",
+                "persona": "Pearl Press",
+                "sessionId": "sid-request",
+            },
+        }
+    ]
+    leave = client.post("/sessions/sid-request/leave")
+    assert leave.status_code == 200
 
 
 def test_runner_transition_endpoint(monkeypatch):

@@ -2,6 +2,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { getClientLogger } from '@interface/lib/client-logger';
+import { reportError } from '@interface/lib/error-reporter';
 
 interface Props {
   children: ReactNode;
@@ -35,6 +36,12 @@ export class ErrorBoundary extends Component<Props, State> {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
+    });
+    reportError({
+      error,
+      source: `ErrorBoundary:${this.props.name || 'component'}`,
+      componentStack: errorInfo.componentStack ?? undefined,
+      severity: 'error',
     });
   }
 

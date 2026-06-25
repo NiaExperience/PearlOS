@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { assignUserToOrganization, createOrganization, deleteOrganization, getOrganizationsForTenant, updateOrganization } from '@nia/prism/core/actions/organization-actions';
-import { requireAuth } from '@nia/prism/core/auth';
+import { requireAuth, requireTenantAccess, requireTenantAdmin } from '@nia/prism/core/auth';
 import { requireOrgAdminOrTenantAdmin } from '@nia/prism/core/auth/auth.middleware';
 import { getSessionSafely } from '@nia/prism/core/auth/getSessionSafely';
 import { IOrganization } from '@nia/prism/core/blocks/organization.block';
@@ -21,7 +21,9 @@ export async function GET_impl(req: NextRequest, authOptions: NextAuthOptions): 
   }
   const authError = await requireAuth(req, authOptions);
   if (authError) return authError as NextResponse;
-  const session = await getSessionSafely(req, authOptions);
+  const accessError = await requireTenantAccess(tenantId, req, authOptions);
+  if (accessError) return accessError as NextResponse;
+
   try {
     const organizations = await getOrganizationsForTenant(tenantId);
     return NextResponse.json({ organizations });
@@ -41,6 +43,9 @@ export async function POST_impl(req: NextRequest, authOptions: NextAuthOptions):
     const body = await req.json();
     const { tenantId, name, description } = body;
     if (!tenantId || !name) return NextResponse.json({ error: 'tenantId and name required' }, { status: 400 });
+    const adminError = await requireTenantAdmin(tenantId, req, authOptions);
+    if (adminError) return adminError as NextResponse;
+
     const organization = await createOrganization({
       tenantId,
       name,

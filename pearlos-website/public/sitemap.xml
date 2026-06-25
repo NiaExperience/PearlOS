@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>http://localhost:3001/</loc>
+    <lastmod>2026-04-29T19:10:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/thoughts/</loc>
+    <lastmod>2026-04-29T19:10:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/thoughts/2026-04-29-trust-is-not-a-benchmark/</loc>
+    <lastmod>2026-04-29T19:10:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/thoughts/2026-04-29-the-price-of-a-conscience/</loc>
+    <lastmod>2026-04-29T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/thoughts/2026-04-28-brain-has-been-doing-it-better/</loc>
+    <lastmod>2026-04-28T03:08:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/thoughts/2026-04-27-the-physical-cost-of-intelligence/</loc>
+    <lastmod>2026-04-27T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/thoughts/2026-04-26-ai-industry-arms-race/</loc>
+    <lastmod>2026-04-26T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:3001/categories/</loc>
+  </url><url>
+    <loc>http://localhost:3001/tags/</loc>
+  </url>
+</urlset>

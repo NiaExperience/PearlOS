@@ -2,20 +2,432 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+html[data-pearl-theme="pixel"] {
+  --pearl-ui-font: Gohufont, monospace;
+  --pearl-shell-bg: linear-gradient(180deg, #2d1b3d 0%, #1a0e2e 40%, #0f0820 100%);
+  --pearl-home-default-background-image: url('/backgrounds/home-sunset.png');
+  --pearl-desktop-default-background-image: url('/backgrounds/desktop-forest.png');
+  --pearl-home-background-image: var(--pearl-home-default-background-image);
+  --pearl-desktop-background-image: var(--pearl-desktop-default-background-image);
+  --pearl-stage-bg: radial-gradient(ellipse 80% 60% at 50% 40%, #0a0a12 0%, #050508 50%, #000000 100%);
+  --pearl-desktop-stage-bg: radial-gradient(ellipse 80% 60% at 50% 40%, #040d0a 0%, #030908 50%, #000000 100%);
+  --pearl-panel-bg: rgba(31, 41, 55, 0.98);
+  --pearl-panel-muted-bg: rgba(17, 24, 39, 0.72);
+  --pearl-panel-border: rgba(75, 85, 99, 1);
+  --pearl-panel-backdrop: none;
+  --pearl-taskbar-bg: linear-gradient(135deg, rgba(30, 58, 138, 0.25) 0%, rgba(30, 64, 175, 0.15) 100%);
+  --pearl-taskbar-button-bg: rgba(255, 255, 255, 0.05);
+  --pearl-taskbar-button-border: rgba(255, 255, 255, 0.1);
+  --pearl-taskbar-collapsed-bg: #1e3a8a;
+  --pearl-nav-button-bg: rgba(0, 0, 0, 0.4);
+  --pearl-nav-button-hover-bg: rgba(0, 0, 0, 0.6);
+  --pearl-nav-button-border: rgba(255, 255, 255, 0.1);
+  --pearl-nav-button-hover-border: rgba(255, 255, 255, 0.25);
+  --pearl-text: #ffffff;
+  --pearl-muted: #9ca3af;
+  --pearl-soft: #d1d5db;
+  --pearl-accent: #2563eb;
+  --pearl-radius: 8px;
+  --pearl-icon-label: #ffffff;
+  --pearl-icon-shadow: 0 1px 4px rgba(0, 0, 0, 0.72);
+}
+
+html[data-pearl-theme="glass"] {
+  --pearl-ui-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  --pearl-shell-bg: radial-gradient(circle at top left, rgba(14, 165, 233, 0.35), transparent 32%), linear-gradient(145deg, #07111f 0%, #111827 50%, #07111f 100%);
+  --pearl-home-default-background-image: url('/backgrounds/pearl-aurora.png');
+  --pearl-desktop-default-background-image: url('/backgrounds/pearl-cosmic.png');
+  --pearl-home-background-image: var(--pearl-home-default-background-image);
+  --pearl-desktop-background-image: var(--pearl-desktop-default-background-image);
+  --pearl-stage-bg: radial-gradient(ellipse at 50% 35%, rgba(56, 189, 248, 0.22) 0%, rgba(15, 23, 42, 0.94) 54%, #020617 100%);
+  --pearl-desktop-stage-bg: radial-gradient(ellipse at 50% 35%, rgba(125, 211, 252, 0.18) 0%, rgba(15, 23, 42, 0.96) 58%, #020617 100%);
+  --pearl-panel-bg: rgba(255, 255, 255, 0.12);
+  --pearl-panel-muted-bg: rgba(255, 255, 255, 0.08);
+  --pearl-panel-border: rgba(255, 255, 255, 0.22);
+  --pearl-panel-backdrop: blur(24px) saturate(165%);
+  --pearl-taskbar-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(125, 211, 252, 0.08));
+  --pearl-taskbar-button-bg: rgba(255, 255, 255, 0.12);
+  --pearl-taskbar-button-border: rgba(255, 255, 255, 0.28);
+  --pearl-taskbar-collapsed-bg: rgba(14, 165, 233, 0.35);
+  --pearl-nav-button-bg: rgba(255, 255, 255, 0.14);
+  --pearl-nav-button-hover-bg: rgba(255, 255, 255, 0.24);
+  --pearl-nav-button-border: rgba(255, 255, 255, 0.24);
+  --pearl-nav-button-hover-border: rgba(255, 255, 255, 0.38);
+  --pearl-text: #f8fbff;
+  --pearl-muted: #cbd5e1;
+  --pearl-soft: #e2e8f0;
+  --pearl-accent: #38bdf8;
+  --pearl-radius: 14px;
+  --pearl-icon-label: #f8fbff;
+  --pearl-icon-shadow: 0 2px 12px rgba(14, 165, 233, 0.55);
+}
+
+html[data-pearl-theme="professional"] {
+  --pearl-ui-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  --pearl-shell-bg: linear-gradient(180deg, #111827 0%, #0f172a 56%, #020617 100%);
+  --pearl-home-default-background-image: url('/backgrounds/pearl-geometric.png');
+  --pearl-desktop-default-background-image: url('/backgrounds/pearl-minimal.png');
+  --pearl-home-background-image: var(--pearl-home-default-background-image);
+  --pearl-desktop-background-image: var(--pearl-desktop-default-background-image);
+  --pearl-stage-bg: radial-gradient(ellipse at 50% 35%, #172033 0%, #0f172a 56%, #020617 100%);
+  --pearl-desktop-stage-bg: radial-gradient(ellipse at 50% 35%, #1f2937 0%, #111827 58%, #020617 100%);
+  --pearl-panel-bg: rgba(17, 24, 39, 0.96);
+  --pearl-panel-muted-bg: rgba(31, 41, 55, 0.8);
+  --pearl-panel-border: rgba(71, 85, 105, 0.95);
+  --pearl-panel-backdrop: none;
+  --pearl-taskbar-bg: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.78));
+  --pearl-taskbar-button-bg: rgba(15, 23, 42, 0.72);
+  --pearl-taskbar-button-border: rgba(148, 163, 184, 0.28);
+  --pearl-taskbar-collapsed-bg: #1f2937;
+  --pearl-nav-button-bg: rgba(15, 23, 42, 0.86);
+  --pearl-nav-button-hover-bg: rgba(30, 41, 59, 0.92);
+  --pearl-nav-button-border: rgba(148, 163, 184, 0.26);
+  --pearl-nav-button-hover-border: rgba(148, 163, 184, 0.44);
+  --pearl-text: #f8fafc;
+  --pearl-muted: #94a3b8;
+  --pearl-soft: #cbd5e1;
+  --pearl-accent: #3b82f6;
+  --pearl-radius: 6px;
+  --pearl-icon-label: #e5e7eb;
+  --pearl-icon-shadow: 0 1px 6px rgba(2, 6, 23, 0.85);
+}
+
+html[data-pearl-theme="calm"] {
+  --pearl-ui-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  --pearl-shell-bg: linear-gradient(180deg, #123c41 0%, #102f35 42%, #0b1f24 100%);
+  --pearl-home-default-background-image: url('/backgrounds/pearl-ocean.png');
+  --pearl-desktop-default-background-image: url('/backgrounds/pearl-ocean.png');
+  --pearl-home-background-image: var(--pearl-home-default-background-image);
+  --pearl-desktop-background-image: var(--pearl-desktop-default-background-image);
+  --pearl-stage-bg: radial-gradient(ellipse at 50% 35%, rgba(45, 212, 191, 0.2) 0%, #0f2f33 54%, #061416 100%);
+  --pearl-desktop-stage-bg: radial-gradient(ellipse at 50% 35%, rgba(134, 239, 172, 0.14) 0%, #102f35 58%, #061416 100%);
+  --pearl-panel-bg: rgba(12, 39, 42, 0.92);
+  --pearl-panel-muted-bg: rgba(20, 83, 88, 0.44);
+  --pearl-panel-border: rgba(94, 234, 212, 0.22);
+  --pearl-panel-backdrop: blur(12px) saturate(120%);
+  --pearl-taskbar-bg: linear-gradient(135deg, rgba(20, 83, 88, 0.65), rgba(13, 148, 136, 0.12));
+  --pearl-taskbar-button-bg: rgba(20, 83, 88, 0.42);
+  --pearl-taskbar-button-border: rgba(94, 234, 212, 0.2);
+  --pearl-taskbar-collapsed-bg: rgba(20, 83, 88, 0.9);
+  --pearl-nav-button-bg: rgba(12, 74, 80, 0.7);
+  --pearl-nav-button-hover-bg: rgba(20, 184, 166, 0.34);
+  --pearl-nav-button-border: rgba(94, 234, 212, 0.22);
+  --pearl-nav-button-hover-border: rgba(153, 246, 228, 0.4);
+  --pearl-text: #ecfeff;
+  --pearl-muted: #a7f3d0;
+  --pearl-soft: #ccfbf1;
+  --pearl-accent: #2dd4bf;
+  --pearl-radius: 10px;
+  --pearl-icon-label: #ecfeff;
+  --pearl-icon-shadow: 0 2px 10px rgba(20, 184, 166, 0.4);
+}
+
+:root,
+html[data-pearl-theme="pixel"],
+html[data-pearl-theme="glass"],
+html[data-pearl-theme="professional"],
+html[data-pearl-theme="calm"] {
+  --pearl-window-bg: var(--pearl-panel-bg);
+  --pearl-window-content-bg: var(--pearl-panel-muted-bg);
+  --pearl-window-border: var(--pearl-panel-border);
+  --pearl-window-backdrop: var(--pearl-panel-backdrop);
+  --pearl-window-title-bg: linear-gradient(135deg, var(--pearl-panel-muted-bg), transparent);
+  --pearl-window-control-bg: var(--pearl-nav-button-bg);
+  --pearl-window-control-hover-bg: var(--pearl-nav-button-hover-bg);
+  --pearl-window-control-border: var(--pearl-nav-button-border);
+  --pearl-window-control-hover-border: var(--pearl-nav-button-hover-border);
+  --pearl-window-tab-bg: var(--pearl-taskbar-button-bg);
+  --pearl-window-tab-active-bg: var(--pearl-nav-button-hover-bg);
+  --pearl-window-divider-bg: var(--pearl-taskbar-button-border);
+  --pearl-window-divider-active-bg: var(--pearl-accent);
+  --pearl-window-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+}
+
+.pearl-app-window {
+  background: var(--pearl-window-bg) !important;
+  border-color: var(--pearl-window-border) !important;
+  color: var(--pearl-text) !important;
+  font-family: var(--pearl-ui-font, inherit) !important;
+  backdrop-filter: var(--pearl-window-backdrop);
+  -webkit-backdrop-filter: var(--pearl-window-backdrop);
+  box-shadow: var(--pearl-window-shadow);
+}
+
+.pearl-app-window-titlebar {
+  background: var(--pearl-window-title-bg);
+  border-color: var(--pearl-window-border) !important;
+  color: var(--pearl-text) !important;
+}
+
+.pearl-app-window-content {
+  background: var(--pearl-window-content-bg) !important;
+  color: var(--pearl-text) !important;
+}
+
+.pearl-app-window-control {
+  background: var(--pearl-window-control-bg) !important;
+  border-color: var(--pearl-window-control-border) !important;
+  color: var(--pearl-text) !important;
+  backdrop-filter: var(--pearl-window-backdrop);
+  -webkit-backdrop-filter: var(--pearl-window-backdrop);
+}
+
+.pearl-app-window-control:hover {
+  background: var(--pearl-window-control-hover-bg) !important;
+  border-color: var(--pearl-window-control-hover-border) !important;
+}
+
+.pearl-app-window-tabs {
+  background: var(--pearl-window-bg) !important;
+  border-color: var(--pearl-window-border) !important;
+}
+
+.pearl-app-window-tab {
+  background: transparent;
+  color: var(--pearl-muted) !important;
+  border-color: transparent !important;
+  font-family: var(--pearl-ui-font, inherit) !important;
+}
+
+.pearl-app-window-tab[data-active="true"] {
+  background: var(--pearl-window-tab-active-bg) !important;
+  color: var(--pearl-text) !important;
+  border-color: var(--pearl-window-border) !important;
+}
+
+.pearl-app-window-divider {
+  background: var(--pearl-window-divider-bg) !important;
+}
+
+.pearl-app-window-divider[data-active="true"] {
+  background: var(--pearl-window-divider-active-bg) !important;
+}
+
+.pearl-app-window input,
+.pearl-app-window textarea,
+.pearl-app-window select {
+  font-family: var(--pearl-ui-font, inherit);
+}
+
+.pearl-app-window .bg-gray-950,
+.pearl-app-window .bg-gray-900,
+.pearl-app-window .bg-gray-800,
+.pearl-app-window .bg-slate-950,
+.pearl-app-window .bg-slate-900,
+.pearl-app-window .bg-slate-800 {
+  background: var(--pearl-window-content-bg) !important;
+}
+
+.pearl-app-window .bg-gray-700,
+.pearl-app-window .bg-slate-700,
+.pearl-app-window .bg-black {
+  background: var(--pearl-window-bg) !important;
+}
+
+.pearl-app-window .border-gray-900,
+.pearl-app-window .border-gray-800,
+.pearl-app-window .border-gray-700,
+.pearl-app-window .border-gray-600,
+.pearl-app-window .border-slate-900,
+.pearl-app-window .border-slate-800,
+.pearl-app-window .border-slate-700,
+.pearl-app-window .border-slate-600 {
+  border-color: var(--pearl-window-border) !important;
+}
+
+.pearl-app-window .text-white,
+.pearl-app-window .text-gray-100,
+.pearl-app-window .text-gray-200,
+.pearl-app-window .text-slate-100,
+.pearl-app-window .text-slate-200 {
+  color: var(--pearl-text) !important;
+}
+
+.pearl-app-window .text-gray-300,
+.pearl-app-window .text-gray-400,
+.pearl-app-window .text-gray-500,
+.pearl-app-window .text-slate-300,
+.pearl-app-window .text-slate-400,
+.pearl-app-window .text-slate-500 {
+  color: var(--pearl-muted) !important;
+}
+
+.app-shell,
+.stage,
+.pearl-settings-scope,
+.pearl-work-desktop {
+  font-family: var(--pearl-ui-font, inherit);
+}
+
+.app-shell {
+  background: var(--pearl-shell-bg);
+  color: var(--pearl-text);
+}
+
+.pearl-themed-app {
+  background: var(--pearl-stage-bg);
+  color: var(--pearl-text);
+  font-family: var(--pearl-ui-font, inherit);
+}
+
+.pearl-themed-app * {
+  font-family: var(--pearl-ui-font, inherit);
+}
+
+.pearl-themed-app-surface {
+  background: var(--pearl-window-bg) !important;
+  border-color: var(--pearl-window-border) !important;
+  color: var(--pearl-text) !important;
+  font-family: var(--pearl-ui-font, inherit) !important;
+  backdrop-filter: var(--pearl-window-backdrop);
+  -webkit-backdrop-filter: var(--pearl-window-backdrop);
+}
+
+.pearl-themed-app-panel {
+  background: var(--pearl-window-content-bg) !important;
+  border-color: var(--pearl-window-border) !important;
+  color: var(--pearl-text) !important;
+}
+
+.pearl-themed-app-muted {
+  color: var(--pearl-muted) !important;
+}
+
+.pearl-themed-app-accent {
+  color: var(--pearl-accent) !important;
+}
+
+.pearl-desktop-taskbar {
+  background: var(--pearl-taskbar-bg) !important;
+  border-color: var(--pearl-panel-border) !important;
+  border-radius: calc(var(--pearl-radius) + 8px) !important;
+  backdrop-filter: var(--pearl-panel-backdrop);
+  -webkit-backdrop-filter: var(--pearl-panel-backdrop);
+}
+
+.pearl-desktop-taskbar-collapsed {
+  background: var(--pearl-taskbar-collapsed-bg) !important;
+  border: 1px solid var(--pearl-taskbar-button-border);
+}
+
+.pearl-desktop-taskbar-button {
+  background: var(--pearl-taskbar-button-bg) !important;
+  border-color: var(--pearl-taskbar-button-border) !important;
+}
+
+.pearl-nav-button {
+  background: var(--pearl-nav-button-bg) !important;
+  border-color: var(--pearl-nav-button-border) !important;
+  color: var(--pearl-text) !important;
+  border-radius: var(--pearl-radius) !important;
+  backdrop-filter: var(--pearl-panel-backdrop);
+  -webkit-backdrop-filter: var(--pearl-panel-backdrop);
+}
+
+.pearl-nav-button:hover {
+  background: var(--pearl-nav-button-hover-bg) !important;
+  border-color: var(--pearl-nav-button-hover-border) !important;
+}
+
+.pearl-settings-scope,
+.pearl-settings-scope .pearl-themed-card,
+.pearl-settings-scope .bg-gray-900,
+.pearl-settings-scope .bg-gray-800 {
+  background: var(--pearl-panel-bg) !important;
+  border-color: var(--pearl-panel-border) !important;
+  border-radius: var(--pearl-radius) !important;
+  backdrop-filter: var(--pearl-panel-backdrop);
+  -webkit-backdrop-filter: var(--pearl-panel-backdrop);
+}
+
+.pearl-settings-scope .bg-gray-700 {
+  background: var(--pearl-panel-muted-bg) !important;
+}
+
+.pearl-settings-scope .text-white,
+.pearl-settings-scope .text-gray-200,
+.pearl-settings-scope .text-gray-300 {
+  color: var(--pearl-text) !important;
+}
+
+.pearl-settings-scope .text-gray-400,
+.pearl-settings-scope .text-gray-500 {
+  color: var(--pearl-muted) !important;
+}
+
+.pearl-settings-scope input,
+.pearl-settings-scope select,
+.pearl-settings-scope textarea {
+  background: var(--pearl-panel-muted-bg) !important;
+  border-color: var(--pearl-panel-border) !important;
+  color: var(--pearl-text) !important;
+  font-family: var(--pearl-ui-font, inherit) !important;
+}
+
+.pearl-work-desktop .text-white,
+.pearl-desktop-icon-label {
+  color: var(--pearl-icon-label) !important;
+  text-shadow: var(--pearl-icon-shadow) !important;
+  font-family: var(--pearl-ui-font, Gohufont, monospace) !important;
+}
+
 html, body {
   overflow: hidden; /* Prevent scrollbars — PearlOS is a fixed viewport app */
   width: 100%;
-  height: 100%;
+  margin: 0;
+  /* Three-tier height with progressive enhancement. Order matters — last
+     declaration the browser *understands* wins:
+     1. 100vh — baseline fallback (ancient browsers, also iOS <15.4 when JS blocked)
+     2. calc(var(--vh, 1vh) * 100) — JS-set dynamic value for iOS <15.4 (set in layout.tsx)
+     3. 100svh — small viewport height: iOS 15.4+ / modern evergreen
+     We use svh (NOT dvh) on purpose: dvh shrinks when the soft keyboard
+     opens, which combined with `overflow: hidden` compresses the entire UI
+     (toolbars + editor + input squeezed into ~30% of the screen while
+     typing). svh is the stable "smallest possible visible viewport" — it
+     doesn't react to URL bar or keyboard, so the layout stays put and iOS
+     Safari handles bringing the focused field above the keyboard via its
+     native scroll-into-view behavior.
+     Do NOT add box-sizing: border-box or min-height stacking here — earlier
+     attempts squished the UI to ~60% width on iOS. */
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+  height: 100svh;
   /* Prevent pull-to-refresh and overscroll bounce on mobile */
   overscroll-behavior: none;
 }
 
 html {
-  /* Prevent double-tap zoom on iOS/Android without disabling scroll */
-  touch-action: manipulation;
+  /* Block pinch-zoom AND double-tap zoom while preserving scroll. `manipulation`
+     allows pinch-zoom; `pan-x pan-y` only allows scrolling. Belt-and-suspenders
+     alongside the viewport meta in layout.tsx — survives iframe re-renders that
+     have historically clobbered the viewport-only lock. */
+  touch-action: pan-x pan-y;
+  -ms-touch-action: pan-x pan-y;
   /* Prevent text size adjustment on orientation change */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+#__next, body > div[id] {
+  /* Same lock applied to the React root container so child components
+     can't override touch-action via inheritance gaps. */
+  touch-action: pan-x pan-y;
+}
+
+/* ── Iframe frame-lock ──
+   Every embedded iframe (Stage experiences, applets, wonder canvas,
+   mini-browser, content panels) inherits the same zoom + overscroll
+   discipline as the shell. Prevents the mobile "trapped inside iframe"
+   regression where a pinch or scroll inside a frame zooms the viewport
+   or chain-locks the user with no way back out. Page-level gesture
+   handlers in layout.tsx do NOT fire for events originating inside an
+   iframe (events don't cross frame boundaries) — these element-level
+   rules are the only line of defence for in-frame touches. */
+iframe {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
@@ -27,25 +439,38 @@ body {
      (BAILOUT_TO_CLIENT_SIDE_RENDERING) so the component tree doesn't
      exist in initial HTML. This ensures the image starts loading
      immediately with the first CSS file. */
-  background-image: url('/backgrounds/home-sunset.png');
+  background-image: var(--pearl-home-background-image, url('/backgrounds/home-sunset.png'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* Prevent double-tap zoom on the body */
-  touch-action: manipulation;
-  
-  /* iOS safe area support */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  /* Prevent pinch-zoom AND double-tap zoom on the body. `pan-x pan-y` excludes
+     `pinch-zoom`, which `manipulation` permits. Mirrors the html-level rule. */
+  touch-action: pan-x pan-y;
+  -ms-touch-action: pan-x pan-y;
+  /* No safe-area padding here — adding env(safe-area-inset-*) padding to <body>
+     stacks on top of the explicit 100dvh height (content-box default), pushing
+     the bottom of the layout below the dynamic viewport and producing a clipped
+     "dead zone" on iOS Safari. Components that need to dodge the notch / home
+     indicator should consume env(safe-area-inset-*) themselves via padding or
+     margin, not rely on a global body offset. */
 }
 
 /* ── Mobile viewport stability ──
-   Prevent iOS Safari from auto-zooming when focusing inputs.
-   All interactive text inputs must be >= 16px to avoid this. */
-@media screen and (max-width: 1024px) {
-  input, textarea, select {
+   Prevent iOS Safari from auto-zooming when focusing inputs. iOS auto-zooms
+   any focused text field whose computed font-size is below 16px, even when
+   the viewport meta tag locks user-scalable=no.
+   We match touch-capable devices via (pointer: coarse) (covers iPad Pro
+   landscape, which exceeds 1024px) and also fall back to max-width: 1024px
+   so iPhones in landscape and dev-tools mobile emulation always trigger.
+   Includes [contenteditable] and [role="textbox"] so rich-text fields
+   (e.g. note titles, custom editors) are also covered. */
+@media (pointer: coarse), (max-width: 1024px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  textarea,
+  select,
+  [contenteditable="true"],
+  [contenteditable=""],
+  [role="textbox"] {
     font-size: 16px !important;
   }
 }
@@ -103,33 +528,33 @@ body {
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 222 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 222 65% 7%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 222 65% 7%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    --primary: 199 95% 74%;
+    --primary-foreground: 222 84% 4.9%;
 
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 213 27% 84%;
 
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 213 94% 68%;
+    --accent-foreground: 222 84% 4.9%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 214 32% 30%;
+    --input: 214 32% 25%;
+    --ring: 199 95% 74%;
   }
 }
 
@@ -161,7 +586,10 @@ body {
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  overflow: hidden !important;
+  overflow-y: auto !important;   /* allow scroll when error messages expand the card */
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   color: #f5f5ff !important;
   font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
   z-index: 1 !important;
@@ -181,17 +609,18 @@ body:has(.login-shell) {
   visibility: visible !important;
 }
 
-/* CSS-only animated background */
+/* CSS-only animated background (login + signup share this) */
 .animated-bg {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: 
-    radial-gradient(circle at 30% -10%, rgba(243, 104, 224, 0.35), transparent),
-    radial-gradient(circle at 70% 110%, rgba(0, 210, 211, 0.25), transparent),
-    #05030f;
+  /* Dark plum → teal horizontal base, subtle accents (not pastel) */
+  background:
+    radial-gradient(circle at 18% 12%, rgba(95, 39, 205, 0.18), transparent 42%),
+    radial-gradient(circle at 88% 88%, rgba(0, 210, 211, 0.12), transparent 45%),
+    linear-gradient(105deg, #2e1a31 0%, #1f2438 48%, #1b2e2e 100%);
   overflow: hidden;
 }
 
@@ -202,11 +631,12 @@ body:has(.login-shell) {
   left: 0;
   width: 200%;
   height: 200%;
+  opacity: 0.35;
   background-image: 
-    radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(2px 2px at 40px 70px, rgba(95, 39, 205, 0.4), transparent),
-    radial-gradient(1px 1px at 90px 40px, rgba(84, 160, 255, 0.5), transparent),
-    radial-gradient(1px 1px at 130px 80px, rgba(0, 210, 211, 0.4), transparent);
+    radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.12), transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(95, 39, 205, 0.22), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(84, 160, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(0, 210, 211, 0.18), transparent);
   background-repeat: repeat;
   background-size: 150px 150px;
   animation: float 20s ease-in-out infinite;
@@ -218,6 +648,400 @@ body:has(.login-shell) {
   66% { transform: translate(-20px, 20px) rotate(240deg); }
 }
 
+/* Closed-beta access denied: Cloudinary art with local /public/*.png fallback (stacked layers) */
+.login-shell.beta-denied-page .animated-bg {
+  background-color: #05030f;
+  background-image:
+    url('https://res.cloudinary.com/dxnlbjnzl/image/upload/v1778797899/access_denied_mobileview_olwlp7.png'),
+    url('/access_denied_mobileview.png');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.login-shell.beta-denied-page .animated-bg::before {
+  display: none;
+}
+
+/* Tablet / iPad — Cloudinary + local fallback */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .login-shell.beta-denied-page .animated-bg {
+    background-image:
+      url('https://res.cloudinary.com/dxnlbjnzl/image/upload/v1778797900/access_denied_ipadview_kkteme.png'),
+      url('/access_denied_ipadview.png');
+    background-position: center center;
+  }
+}
+
+/* Desktop — Cloudinary + local fallback */
+@media (min-width: 1025px) {
+  .login-shell.beta-denied-page .animated-bg {
+    background-image:
+      url('https://res.cloudinary.com/dxnlbjnzl/image/upload/v1778797899/access_deniedpage_Desktop_esi9z4.png'),
+      url('/access_deniedpage_Desktop.png');
+  }
+}
+
+/* Main layer stacks above fixed .animated-bg; default backdrop-filter blurred the PNG */
+.login-shell.beta-denied-page .login-content-layer {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/*
+ * Closed-beta waitlist: one horizontal bar (field | Join), equal height, all viewports — same as desktop art.
+ * Grid beats legacy `input[width:100%] + flex` quirks inside `.login-shell`.
+ */
+.login-shell.beta-denied-page form.beta-waitlist-form {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  width: 87.5% !important;
+  max-width: 100% !important;
+}
+
+html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email'] {
+  min-height: 48px !important;
+  height: 100% !important;
+  padding: 0.65rem 0.75rem !important;
+  text-align: start !important;
+  line-height: 1.25 !important;
+  border-radius: 4px !important;
+  background: #d9d9d9 !important;
+  background-color: #d9d9d9 !important;
+  color: #1a1208 !important;
+  border: 3px solid #2c1810 !important;
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.35) !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  font-size: 16px !important;
+  font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0.06em !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email']::placeholder {
+  color: #5a5248 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  font-weight: 500 !important;
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit'] {
+  min-height: 48px !important;
+  height: 100% !important;
+  align-self: stretch !important;
+  padding: 0 1.15rem !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  border-radius: 4px !important;
+  border: 3px solid #2c1810 !important;
+  background: #e87151 !important;
+  color: #0a0a0a !important;
+  font-size: 15px !important;
+  font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  box-shadow: 3px 3px 0 #1a0f0a !important;
+}
+
+html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email']:focus {
+  outline: 2px solid #e87151 !important;
+  outline-offset: 2px !important;
+}
+
+html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email']:disabled {
+  opacity: 0.72;
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit']:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit']:disabled {
+  opacity: 0.78;
+  cursor: not-allowed;
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit']:active:not(:disabled) {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 2px 2px 0 #1a0f0a !important;
+}
+
+/* Waitlist Join: success (green, 5s) / failure (red, 5s) */
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button--sent[type='submit'],
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button--sent[type='submit']:disabled {
+  background: #3d9a5f !important;
+  color: #f4fff6 !important;
+  border-color: #1a3d26 !important;
+  box-shadow: 3px 3px 0 #142a1a !important;
+  opacity: 1 !important;
+  cursor: default !important;
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button--sent[type='submit']:hover:not(:disabled) {
+  filter: none;
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button--failed[type='submit'] {
+  background: #c03535 !important;
+  color: #fff5f5 !important;
+  border-color: #3a1212 !important;
+  box-shadow: 3px 3px 0 #1f0a0a !important;
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button--failed[type='submit']:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+html body .login-shell.beta-denied-page button.beta-waitlist-submit-button--failed[type='submit']:active:not(:disabled) {
+  box-shadow: 2px 2px 0 #1f0a0a !important;
+}
+
+/* Desktop: bottom-left waitlist — shift right + compact “box” (narrower strip, smaller controls) */
+@media (min-width: 768px) {
+  .login-shell.beta-denied-page .login-content-layer {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    min-height: 100dvh !important;
+    padding-top: clamp(4rem, 58vh, 38rem) !important;
+    padding-right: clamp(1rem, 3vw, 2rem) !important;
+    padding-left: clamp(0.5rem, 4.5vw, 5rem) !important;
+    padding-bottom: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .login-shell.beta-denied-page .beta-denied-shell {
+    /* Nudge under the background art sign (desktop wide); iPad block resets margin */
+    margin: 58px 0 0 112px !important;
+    width: min(100%, 438px) !important;
+    max-width: 438px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .login-shell.beta-denied-page form.beta-waitlist-form {
+    gap: 0.35rem !important;
+  }
+
+  html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email'] {
+    min-height: 40px !important;
+    padding: 0.42rem 0.5rem !important;
+    border-radius: 3px !important;
+    border-width: 2px !important;
+    box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.35) !important;
+    letter-spacing: 0.04em !important;
+    font-size: 16px !important;
+  }
+
+  html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email']::placeholder {
+    font-size: 16px !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit'] {
+    min-height: 40px !important;
+    padding: 0 0.75rem !important;
+    border-radius: 3px !important;
+    border-width: 2px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.05em !important;
+    box-shadow: 2px 2px 0 #1a0f0a !important;
+  }
+
+  html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit']:active:not(:disabled) {
+    box-shadow: 1px 1px 0 #1a0f0a !important;
+  }
+}
+
+/* Mobile: smaller field + Join so they sit inside the wooden sign area in the art */
+@media (max-width: 767px) {
+  .login-shell.beta-denied-page .login-content-layer {
+    /* Shift the sign up to roughly match where the background art sign sits */
+    align-items: flex-start !important;
+    padding-top: clamp(20vh, 28vh, 36vh) !important;
+  }
+
+  .login-shell.beta-denied-page .beta-denied-shell {
+    width: min(calc(100vw - 1.5rem), 345px) !important;
+    max-width: 345px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .login-shell.beta-denied-page form.beta-waitlist-form {
+    gap: 0.4rem !important;
+  }
+
+  html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email'] {
+    /* min-height: 36px !important;
+    padding: 0.28rem 0.32rem !important;
+    border-radius: 2px !important;
+    border-width: 2px !important;
+    letter-spacing: 0.02em !important; */
+    /* 16px minimum — avoids iOS focus zoom per login-shell rules */
+    /* font-size: 16px !important;
+    line-height: 1.1 !important; */
+
+    height: 36px !important;
+
+    padding: 0 0.32rem !important;
+  
+    font-size: 16px !important;
+    line-height: normal !important;
+  
+    border-radius: 2px !important;
+    border-width: 2px !important;
+  
+    box-sizing: border-box !important;
+  
+    /* display: flex !important; */
+    align-items: center !important;
+  }
+
+  html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email']::placeholder {
+    /* letter-spacing: 0.02em !important;
+    font-size: 13.7px !important;
+    text-transform: uppercase !important;
+    text-align: center !important; */
+
+    font-size: 13.7px !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+  
+    position: relative !important;
+    top: -1px !important;
+  }
+
+  html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit'] {
+    min-height: 36px !important;
+    padding: 0 0.48rem !important;
+    border-radius: 2px !important;
+    border-width: 2px !important;
+    font-size: 11px !important;
+    letter-spacing: 0.03em !important;
+    box-shadow: 1px 1px 0 #1a0f0a !important;
+  }
+
+  html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit']:active:not(:disabled) {
+    box-shadow: 0 1px 0 #1a0f0a !important;
+  }
+}
+
+/* ─── Beta Waitlist Signboard component ──────────────────────────────────── */
+
+/*
+ * Slice_9.png is 438 × 225px. The form is position:absolute with % insets; those %s
+ * resolve against .beta-signboard-frame height (image only), not the outer shell,
+ * so error text below the frame cannot shift the field.
+ */
+.beta-signboard {
+  display: block;
+  width: 100%;
+}
+
+.beta-signboard-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.beta-signboard-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+ * Form floats inside the sign (tuned in browser — asymmetric insets + width).
+ * Higher specificity so desktop/mobile `form.beta-waitlist-form` gap rules do not override.
+ */
+.login-shell.beta-denied-page .beta-signboard-frame .beta-signboard-form.beta-waitlist-form {
+  position: absolute !important;
+  bottom: 14% !important;
+  left: 6% !important;
+  right: 13% !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: stretch !important;
+  gap: 0.4rem !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* Error text flows below the sign (outside the absolute form layer) */
+.beta-signboard-error {
+  display: block;
+  margin: 0.3rem 0 0 !important;
+  font-size: 0.7rem !important;
+  line-height: 1.4 !important;
+  color: #ffb4b4 !important;
+  text-align: center !important;
+}
+
+/* ── Mobile: tighter gap, slightly higher to stay clear of the border ─── */
+@media (max-width: 767px) {
+  .login-shell.beta-denied-page .beta-signboard-frame .beta-signboard-form.beta-waitlist-form {
+    gap: 0.28rem !important;
+    bottom: 14% !important;
+  }
+}
+
+/* ── iPad layout for the beta denied shell ───────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .login-shell.beta-denied-page .login-content-layer {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 100dvh !important;
+    padding: clamp(2rem, 8vh, 6rem) clamp(2rem, 6vw, 4rem) !important;
+    box-sizing: border-box !important;
+  }
+
+  .login-shell.beta-denied-page .beta-denied-shell {
+    margin: 0 auto !important;
+    width: min(100%, 437px) !important;
+    max-width: 437px !important;
+  }
+
+  html body .login-shell.beta-denied-page input.beta-waitlist-input[type='email'] {
+    min-height: 42px !important;
+    font-size: 16px !important;
+    border-width: 2px !important;
+    border-radius: 3px !important;
+  }
+
+  html body .login-shell.beta-denied-page button.beta-waitlist-submit-button[type='submit'] {
+    min-height: 42px !important;
+    font-size: 13px !important;
+    border-width: 2px !important;
+    border-radius: 3px !important;
+  }
+
+  .login-shell.beta-denied-page .beta-signboard-frame .beta-signboard-form.beta-waitlist-form {
+    gap: 0.45rem !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+
 /* Override any body background when login shell is active */
 body:has(.login-shell),
 html:has(.login-shell) {
@@ -226,8 +1050,10 @@ html:has(.login-shell) {
   padding: 0 !important;
 }
 
-/* Ensure no other elements override the background, except the container and inputs */
-.login-shell *:not(.login-container):not(.form-input) {
+/* Ensure no other elements override the background, except the container and inputs.
+   Exclude .animated-bg so the page background gradient is not flattened to transparent.
+   IMPORTANT: skip this legacy rule for beta denied screen, which has its own scoped styling. */
+.login-shell:not(.beta-denied-page) *:not(.login-container):not(.form-input):not(.animated-bg) {
   background-color: transparent !important;
 }
 
@@ -239,7 +1065,9 @@ div.login-container,
   max-width: 450px !important;
 }
 
-/* Custom input styling - completely bypass form library */
+/* Custom input styling - completely bypass form library
+   font-size pinned to 16px: anything smaller triggers iOS Safari auto-zoom on focus,
+   and that zoom state then bleeds into the home screen after redirect. */
 .custom-input {
   width: 100% !important;
   background: rgba(0, 0, 0, 0.9) !important;
@@ -248,11 +1076,12 @@ div.login-container,
   border: 1px solid rgba(132, 90, 255, 0.2) !important;
   border-radius: 12px !important;
   outline: none !important;
-  font-size: 0.9rem !important;
+  font-size: 16px !important;
   font-family: inherit !important;
   padding: 0.75rem 1rem !important;
   transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease !important;
   backdrop-filter: blur(12px) !important;
+  touch-action: manipulation !important;
 }
 
 .custom-input:focus {
@@ -300,15 +1129,15 @@ input:-ms-input-placeholder {
 }
 
 /* Nuclear option - force input styling with maximum specificity */
-.login-shell input[type="email"],
+.login-shell input[type="email"]:not(.beta-waitlist-input),
 .login-shell input[type="password"],
-.login-container input[type="email"],
+.login-container input[type="email"]:not(.beta-waitlist-input),
 .login-container input[type="password"],
-.login-content-layer input[type="email"],
+.login-content-layer input[type="email"]:not(.beta-waitlist-input),
 .login-content-layer input[type="password"],
-div.login-container input[type="email"],
+div.login-container input[type="email"]:not(.beta-waitlist-input),
 div.login-container input[type="password"],
-.login-form input[type="email"],
+.login-form input[type="email"]:not(.beta-waitlist-input),
 .login-form input[type="password"] {
   background: #1a1a1a !important;
   background-color: #1a1a1a !important;
@@ -316,7 +1145,7 @@ div.login-container input[type="password"],
   border: 1px solid rgba(132, 90, 255, 0.2) !important;
   border-radius: 12px !important;
   outline: none !important;
-  font-size: 0.9rem !important;
+  font-size: 16px !important;
   font-family: inherit !important;
   padding: 0.75rem 1rem !important;
   box-sizing: border-box !important;
@@ -324,19 +1153,35 @@ div.login-container input[type="password"],
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   width: 100% !important;
+  touch-action: manipulation !important;
 }
 
 /* Override any Tailwind or framework styles */
-input[type="email"],
+input[type="email"]:not(.beta-waitlist-input),
 input[type="password"],
-input {
+input:not(.beta-waitlist-input) {
   background: #1a1a1a !important;
   background-color: #1a1a1a !important;
   color: #ffffff !important;
 }
 
+/* Exception: Pearl floating-window YouTube search pill (must override global `input` #1a1a1a) */
+input[data-yt-window-search] {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--pearl-text) !important;
+}
+input[data-yt-window-search]:focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--pearl-text) !important;
+}
+input[data-yt-window-search]::placeholder {
+  color: var(--pearl-muted) !important;
+}
+
 /* Force override any global styles */
-* input[type="email"],
+input[type="email"]:not(.beta-waitlist-input),
 * input[type="password"] {
   background: #1a1a1a !important;
   background-color: #1a1a1a !important;
@@ -355,7 +1200,7 @@ input {
 /* Ultra-specific override for login page inputs - using CSS custom properties */
 body .login-shell .login-container .login-form .form-group div input[type="email"],
 body .login-shell .login-container .login-form .form-group div input[type="password"],
-.login-shell input[type="email"],
+.login-shell input[type="email"]:not(.beta-waitlist-input),
 .login-shell input[type="password"] {
   background: var(--login-input-bg) !important;
   background-color: var(--login-input-bg) !important;
@@ -363,7 +1208,7 @@ body .login-shell .login-container .login-form .form-group div input[type="passw
   border: var(--login-input-border) !important;
   border-radius: var(--login-input-radius) !important;
   padding: var(--login-input-padding) !important;
-  font-size: 0.9rem !important;
+  font-size: 16px !important;
   font-family: inherit !important;
   outline: none !important;
   box-sizing: border-box !important;
@@ -374,6 +1219,7 @@ body .login-shell .login-container .login-form .form-group div input[type="passw
   -moz-appearance: none !important;
   -webkit-box-shadow: none !important;
   box-shadow: none !important;
+  touch-action: manipulation !important;
 }
 
 /* Force wrapper divs to have dark background */
@@ -414,7 +1260,7 @@ input.login-input-field,
   border: var(--login-input-border) !important;
   border-radius: var(--login-input-radius) !important;
   padding: var(--login-input-padding) !important;
-  font-size: 0.9rem !important;
+  font-size: 16px !important;
   font-family: inherit !important;
   outline: none !important;
   box-sizing: border-box !important;
@@ -425,6 +1271,7 @@ input.login-input-field,
   -moz-appearance: none !important;
   -webkit-box-shadow: none !important;
   box-shadow: none !important;
+  touch-action: manipulation !important;
 }
 
 /* Force the wrapper divs to have the right background */
@@ -449,7 +1296,7 @@ html body .login-shell .login-container .login-form .form-group div input.login-
   border: none !important;
   border-radius: 12px !important;
   padding: 0.75rem 1rem !important;
-  font-size: 0.9rem !important;
+  font-size: 16px !important;
   font-family: inherit !important;
   outline: none !important;
   box-sizing: border-box !important;
@@ -463,6 +1310,7 @@ html body .login-shell .login-container .login-form .form-group div input.login-
   opacity: 1 !important;
   visibility: visible !important;
   transition: box-shadow 0.3s ease, border 0.3s ease !important;
+  touch-action: manipulation !important;
 }
 
 /* Focus effect for input fields */
@@ -518,20 +1366,29 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 100dvh; /* keep consistent with .login-shell for stable centering */
   padding: clamp(2rem, 6vw, 4rem) clamp(1.5rem, 6vw, 5rem);
+  /* Extra bottom padding ensures error messages are never clipped by the shell boundary */
+  padding-bottom: max(clamp(2rem, 6vw, 4rem), 4rem);
+  box-sizing: border-box;
   backdrop-filter: blur(12px);
 }
 
+/* Signup can become taller with inline validation messages; keep top-biased alignment to avoid bottom clipping */
+.login-content-layer-signup {
+  align-items: flex-start;
+  padding-top: max(clamp(1rem, 4vw, 2rem), env(safe-area-inset-top));
+}
+
 .login-container {
-  /* Main container styling */
-  background: rgba(18, 16, 32, 0.55) !important;
-  border: 1px solid rgba(132, 90, 255, 0.2);
-  box-shadow: 0 24px 55px rgba(69, 40, 125, 0.2);
+  /* Main container styling (same solid card on login + signup) */
+  background: #212130 !important;
+  border: 1px solid rgba(132, 90, 255, 0.22);
+  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   border-radius: 28px;
   padding: 1.5rem;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px); /* Safari support */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   width: min(100%, 450px) !important;
   max-width: 450px !important;
   
@@ -543,6 +1400,18 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   /* Positioning */
   position: relative;
   z-index: 2;
+}
+
+/* Signup page: nudge card up (desktop). Use margin, not transform — Framer Motion sets transform on the card.
+   Default -24px for a more centered look; -48px when .signup-container--with-errors (field or server errors). */
+@media (min-width: 721px) {
+  .signup-container {
+    margin-top: -24px;
+  }
+
+  .signup-container.signup-container--with-errors {
+    margin-top: -48px;
+  }
 }
 
 .login-header {
@@ -615,11 +1484,12 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   border-radius: 12px;
   outline: none;
   color: #f5f5ff !important;
-  font-size: 0.9rem;
+  font-size: 16px;
   font-family: inherit;
   padding: 0.75rem 1rem;
   transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
   backdrop-filter: blur(12px);
+  touch-action: manipulation;
 }
 
 .form-input:focus {
@@ -728,28 +1598,29 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
 .login-error {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.9rem;
+  gap: 0.45rem;
+  padding: 0.38rem 0.72rem;
   background: rgba(19, 16, 38, 0.78);
   border-radius: 999px;
   border: 1px solid rgba(138, 100, 255, 0.35);
   box-shadow: 0 22px 40px rgba(74, 44, 138, 0.32);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
   color: rgba(237, 230, 255, 0.8);
   backdrop-filter: blur(18px);
-  margin-top: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 .login-error__icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.2rem;
+  height: 1.2rem;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: linear-gradient(140deg, #f368e0, #5f27cd);
   color: #ffffff;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.68rem;
 }
 
 .login-divider {
@@ -777,6 +1648,12 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   z-index: 1;
 }
 
+.login-oauth-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .google-login-button {
   display: flex;
   align-items: center;
@@ -794,6 +1671,33 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   backdrop-filter: blur(12px);
 }
 
+.early-access-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid rgba(132, 90, 255, 0.35);
+  border-radius: 12px;
+  color: rgba(210, 204, 235, 0.9);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.early-access-login-button:hover:not(:disabled) {
+  background: rgba(132, 90, 255, 0.08);
+  border-color: rgba(84, 160, 255, 0.45);
+  color: #f5f5ff;
+  transform: translateY(-1px);
+}
+
+.early-access-login-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .google-login-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(84, 160, 255, 0.4);
@@ -805,9 +1709,16 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   cursor: not-allowed;
 }
 
-.google-icon {
+.google-icon,
+.google-login-logo {
   width: 20px;
   height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+  flex: 0 0 20px;
+  display: inline-block;
 }
 
 .guest-login-button {
@@ -879,6 +1790,47 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   backdrop-filter: blur(12px);
 }
 
+/* Tight stack: account link line + Privacy / ToS (avoids large .login-form gap between siblings) */
+.login-form-footer-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.login-form-footer-stack .login-footer {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.login-form-footer-stack .login-legal-links {
+  margin-top: 0;
+}
+
+/* Privacy / ToS row (login + signup) */
+.login-legal-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  pointer-events: auto;
+}
+
+.login-legal-links a {
+  color: #9ca3af;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.login-legal-links span {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
 .login-footer {
   text-align: center;
   font-size: 0.85rem;
@@ -900,15 +1852,18 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
 
 /* Error Screen Styles */
 .error-container {
-  background: rgba(7, 5, 18, 0.7) !important;
-  border: 1px solid rgba(255, 69, 58, 0.3);
-  box-shadow: 0 24px 55px rgba(255, 69, 58, 0.2);
+  background:
+    radial-gradient(120% 160% at 5% 0%, rgba(92, 69, 172, 0.28) 0%, rgba(16, 24, 46, 0) 48%),
+    radial-gradient(120% 140% at 98% 100%, rgba(43, 189, 202, 0.2) 0%, rgba(16, 24, 46, 0) 52%),
+    rgba(7, 8, 27, 0.72) !important;
+  border: 1px solid rgba(134, 147, 255, 0.28);
+  box-shadow: 0 28px 68px rgba(34, 50, 102, 0.5), inset 0 1px 0 rgba(226, 232, 255, 0.08);
   border-radius: 28px;
-  padding: 2rem;
+  padding: 2.1rem 1.9rem 1.8rem;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  width: min(100%, 400px);
-  max-width: 400px;
+  width: min(100%, 460px);
+  max-width: 460px;
   text-align: center;
   position: relative;
   z-index: 2;
@@ -918,33 +1873,296 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   margin-bottom: 2rem;
 }
 
-.error-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+.error-title-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.error-icon-badge {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(167, 216, 255, 0.98);
+  background: radial-gradient(circle at 20% 20%, rgba(89, 205, 255, 0.28) 0%, rgba(63, 123, 255, 0.15) 70%);
+  border: 1px solid rgba(122, 177, 255, 0.45);
+  box-shadow: 0 0 0 4px rgba(93, 173, 255, 0.12);
 }
 
 .error-title {
   font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0 0 1rem 0;
-  color: #ff6b6b;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+  font-weight: 700;
+  margin: 0;
+  color: #ffd4d4;
+  background: linear-gradient(135deg, #ffd2de 0%, #ff9eb7 40%, #a4d4ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.error-kicker {
+  margin: 0 0 0.95rem 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(148, 205, 255, 0.8);
+}
+
+.error-copy-stack {
+  display: grid;
+  gap: 0.62rem;
 }
 
 .error-description {
   font-size: 0.9rem;
   color: rgba(210, 204, 235, 0.8);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.46;
+}
+
+.error-description-cta {
+  margin-top: 0.25rem;
+  color: rgba(233, 236, 255, 0.92);
+  font-weight: 500;
 }
 
 .error-actions {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+}
+
+.waitlist-card {
+  padding: 1rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 168, 255, 0.3);
+  background: linear-gradient(150deg, rgba(60, 88, 163, 0.16) 0%, rgba(40, 182, 190, 0.09) 100%);
+  text-align: left;
+}
+
+.waitlist-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(244, 246, 255, 0.92);
+}
+
+.waitlist-copy {
+  margin: 0.55rem 0 0 0;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  color: rgba(210, 204, 235, 0.78);
+}
+
+.waitlist-points {
+  margin: 0.62rem 0 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.waitlist-points .waitlist-copy {
+  margin-top: 0;
+  position: relative;
+  padding-left: 0.9rem;
+}
+
+.waitlist-points .waitlist-copy::before {
+  content: '';
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(109, 201, 255, 0.8);
+  position: absolute;
+  left: 0;
+  top: 0.43rem;
+  box-shadow: 0 0 0 2px rgba(109, 201, 255, 0.16);
+}
+
+.waitlist-form {
+  margin-top: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.waitlist-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(144, 156, 201, 0.45);
+  background: rgba(9, 12, 22, 0.75);
+  color: #fff;
+  padding: 0.65rem 0.8rem;
+}
+
+.waitlist-input::placeholder {
+  color: rgba(178, 184, 214, 0.75);
+}
+
+.waitlist-input:focus {
+  border-color: rgba(116, 199, 255, 0.75);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(116, 199, 255, 0.16);
+}
+
+.waitlist-submit-button {
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: linear-gradient(120deg, #4d78ff 0%, #45d7c8 100%);
+  color: rgba(7, 10, 19, 0.95);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.waitlist-submit-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(68, 140, 245, 0.35);
+}
+
+.waitlist-submit-button:disabled {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.waitlist-success,
+.waitlist-error {
+  margin: 0.65rem 0 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.waitlist-success {
+  color: rgba(137, 237, 174, 0.95);
+}
+
+.waitlist-error {
+  color: rgba(255, 138, 138, 0.95);
+}
+
+/* Access denied polish overrides (high specificity to beat legacy login-shell rules) */
+html body .login-shell .error-container {
+  width: min(100%, 520px) !important;
+  max-width: 520px !important;
+  border: 1px solid rgba(115, 240, 255, 0.42) !important;
+  box-shadow: 0 0 30px rgba(70, 223, 255, 0.18), 0 0 68px rgba(103, 70, 210, 0.24) !important;
+}
+
+html body .login-shell .error-container .error-title {
+  font-size: 2.05rem !important;
+  line-height: 1.2 !important;
+  text-align: left;
+}
+
+html body .login-shell .error-container .restricted-pill {
+  display: inline-flex;
+  margin: 0 auto 0.65rem;
+  padding: 0.2rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: rgba(165, 244, 255, 0.95);
+  border: 1px solid rgba(97, 243, 255, 0.55);
+  background: rgba(75, 200, 242, 0.12);
+  box-shadow: 0 0 16px rgba(75, 200, 242, 0.26);
+}
+
+html body .login-shell .error-container .error-title-wrap {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+html body .login-shell .error-container .error-cone {
+  font-size: 1.8rem;
+  line-height: 1;
+  transform: translateY(0.16rem);
+}
+
+html body .login-shell .error-container .error-copy-stack {
+  max-width: 42ch;
+  margin: 0 auto;
+  gap: 0.72rem;
+}
+
+html body .login-shell .error-container .error-description {
+  line-height: 1.52;
+}
+
+html body .login-shell .error-container .error-message-panel {
+  border: 1px solid rgba(163, 230, 255, 0.22);
+  background: rgba(171, 188, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+}
+
+html body .login-shell .error-container .error-message-panel .error-description {
+  margin: 0;
+}
+
+html body .login-shell .error-container .error-divider {
+  position: relative;
+  width: 100%;
+  height: 1px;
+  margin: 0.12rem 0 0.05rem;
+  background: linear-gradient(90deg, transparent 0%, rgba(123, 235, 255, 0.65) 50%, transparent 100%);
+}
+
+html body .login-shell .error-container .error-divider::after {
+  content: '✦';
+  position: absolute;
+  top: -0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  color: rgba(148, 240, 255, 0.92);
+  text-shadow: 0 0 8px rgba(124, 238, 255, 0.65);
+}
+
+html body .login-shell .error-container .waitlist-input::placeholder {
+  color: rgba(214, 235, 255, 0.9);
+}
+
+html body .login-shell .error-container .waitlist-card {
+  border-color: rgba(122, 240, 255, 0.38);
+  background: linear-gradient(160deg, rgba(68, 137, 165, 0.2) 0%, rgba(62, 84, 173, 0.18) 100%);
+  box-shadow: inset 0 0 0 1px rgba(153, 252, 255, 0.09);
+}
+
+html body .login-shell .error-container .waitlist-form {
+  margin-top: 0;
+  margin-bottom: 0.8rem;
+}
+
+html body .login-shell .error-container .waitlist-input {
+  background: rgba(7, 13, 30, 0.74);
+  border-color: rgba(148, 226, 255, 0.3);
+}
+
+html body .login-shell .error-container .waitlist-submit-button {
+  border-radius: 11px;
+  padding: 0.78rem 0.92rem;
+  background: linear-gradient(100deg, #24b5ff 0%, #2ad6d6 100%);
+  color: rgba(5, 18, 28, 0.96);
+  box-shadow: 0 8px 24px rgba(43, 204, 246, 0.34);
+}
+
+html body .login-shell .error-container .waitlist-submit-button:hover {
+  box-shadow: 0 12px 26px rgba(43, 204, 246, 0.42);
+}
+
+html body .login-shell .error-container .waitlist-title {
+  margin-top: 0.25rem;
 }
 
 .retry-button {
@@ -992,7 +2210,7 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
 /* For older browser support */
 @supports not (backdrop-filter: blur(14px)) {
   .login-container {
-    background: rgba(18, 16, 32, 0.85);
+    background: #212130;
   }
   
   .error-container {
@@ -1002,6 +2220,43 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
 
 /* Mobile responsiveness */
 @media (max-width: 720px) {
+  .login-shell {
+    touch-action: pan-y;
+  }
+
+  .login-form-footer-stack {
+    gap: 0.25rem;
+  }
+
+  .login-footer {
+    font-size: 0.8rem;
+    line-height: 1.35;
+    margin-top: 0;
+  }
+
+  .login-legal-links {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 0.45rem;
+    margin-top: 0.2rem;
+  }
+
+  .login-legal-links a,
+  .login-legal-links span {
+    font-size: 0.72rem;
+    line-height: 1;
+  }
+
+  .login-content-layer {
+    min-height: 100dvh;
+    box-sizing: border-box;
+    /* Wider card: use more horizontal space (less side gutter than desktop clamp) */
+    padding-left: max(0.65rem, env(safe-area-inset-left));
+    padding-right: max(0.65rem, env(safe-area-inset-right));
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+
   .back-to-home-button {
     top: 1rem;
     left: 1rem;
@@ -1010,9 +2265,23 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   }
 
   .login-container {
-    padding: 2rem 1.5rem;
-    margin: 1rem;
-    border-radius: 24px;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 1.5rem 1.1rem;
+    margin: 0.75rem 0;
+    border-radius: 20px;
+  }
+
+  .error-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0.75rem 0;
+    padding: 1.5rem 1.1rem;
+    border-radius: 20px;
+  }
+
+  .signup-container {
+    margin-top: 0;
   }
   
   .login-title {
@@ -1025,6 +2294,7 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
   
   .login-button,
   .google-login-button,
+  .early-access-login-button,
   .guest-login-button,
   .back-to-assistant-button {
     padding: 0.7rem 1.25rem;
@@ -1040,4 +2310,31 @@ html body .login-shell .login-container .login-form .form-group div:focus-within
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── iOS auto-zoom prevention: final cascade winner ──
+   iOS Safari auto-zooms on focus when computed font-size < 16px, even with
+   `user-scalable=no`. Once zoomed, the state bleeds into post-login routes
+   (the home screen loads zoomed with chrome out of frame).
+   This block is intentionally placed LAST and uses ultra-high specificity
+   (html body + 6 chained :not() attribute selectors counts as 6 classes plus
+   3 elements) so it survives the legacy login-shell "nuclear option" rules
+   above and any feature-level CSS that bumps inputs back below 16px.
+   touch-action: manipulation kills the 300ms double-tap-zoom delay too. */
+html body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]),
+html body textarea,
+html body select,
+html body [contenteditable="true"],
+html body [contenteditable=""],
+html body [role="textbox"] {
+  font-size: 16px !important;
+  touch-action: manipulation !important;
+}
+
+textarea[data-pearl-terminal-input="true"]::placeholder {
+  opacity: 0.45;
+}
+
+textarea[data-pearl-terminal-input="true"]:focus::placeholder {
+  opacity: 0;
 }

@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { isTestModeBypassAllowed } from '@interface/lib/api-auth';
 import { getLogger } from '@interface/lib/logger';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -94,7 +95,7 @@ export async function GET(req: NextRequest) {
   
   if (internalSecret !== expectedSecret) {
     // Fall back to session auth
-    const testMode = process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true';
+    const testMode = isTestModeBypassAllowed();
     const session = await getSessionSafely(req, interfaceAuthOptions);
     if (!testMode && !session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

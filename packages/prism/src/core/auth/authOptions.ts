@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-var-requires */
+import { compare } from 'bcryptjs';
 import { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -63,11 +64,14 @@ export interface AppAuthConfig {
     clientId: string;
     clientSecret: string;
   };
+  enableCredentialsProvider?: boolean;
   cookiePrefix?: string;
   pages?: {
     signIn?: string;
     error?: string;
   };
+  googleSignInAllowlistEmails?: string[];
+  googleSignInAllowlistEnabled?: boolean;
   redirectHandler?: (url: string, baseUrl: string) => string;
 }
 
@@ -76,6 +80,16 @@ function resolveSessionId(token: any, session: any): string {
   if (session?.user?.sessionId) return session.user.sessionId;
   if (token?.userId) return token.userId;
   return uuidv4();
+}
+
+function isLocalhostAuthSeedEnabled(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
+  const candidates = [
+    process.env.NEXTAUTH_URL,
+    process.env.NEXTAUTH_INTERFACE_URL,
+    process.env.NEXT_PUBLIC_INTERFACE_URL,
+  ].filter(Boolean) as string[];
+  return candidates.some((u) => u.includes('localhost') || u.includes('127.0.0.1'));
 }
 
 function mergeSessionUser(baseSession: any, userData: any, currentUser: any) {
@@ -136,7 +150,27 @@ async function populateSessionFromToken(session: any, token: any) {
   session.user = mergeSessionUser(baseSession, userData, session.user);
 }
 
-async function processSignIn(user: any, account: any, profile: any) {
+function normalizeEmailList(list: string[] | undefined): string[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of list) {
+    const normalized = String(entry || '').trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+async function processSignIn(
+  user: any,
+  account: any,
+  profile: any,
+  signInPath: string = '/login',
+  envAllowlistEmails?: string[],
+  googleSignInAllowlistEnabled: boolean = true,
+) {
   try {
     // Check email deny list before any other processing
     if (user.email) {
@@ -162,6 +196,26 @@ async function processSignIn(user: any, account: any, profile: any) {
     let existingUser = null;
 
     if (account && account.provider === "google") {
+      if (googleSignInAllowlistEnabled && user.email) {
+        const GlobalSettingsActions = () => require("../actions/globalSettings-actions") as typeof import("../actions/globalSettings-actions");
+        const normalizedEmail = user.email.toLowerCase();
+        try {
+          const dbAllow = await GlobalSettingsActions().getGoogleSignInAllowList();
+          const envAllow = normalizeEmailList(envAllowlistEmails);
+          const effectiveAllow = Array.from(new Set([...dbAllow, ...envAllow]));
+          if (effectiveAllow.length > 0 && !effectiveAllow.includes(normalizedEmail)) {
+            log.warn('Sign-in denied: email not in Google allowlist', { email: user.email, provider: account.provider });
+            throw new Error('ACCESS_DENIED');
+          }
+        } catch (allowListError) {
+          if (allowListError instanceof Error && allowListError.message === 'ACCESS_DENIED') {
+            throw allowListError;
+          }
+          // If allowlist read fails unexpectedly, do not break sign-in flow.
+          log.warn('Failed to evaluate Google sign-in allowlist', { error: allowListError });
+        }
+      }
+
       log.info('Using OAuth provider');
       existingUser = await UserActions().getUserByEmail(user.email!);
       if (existingUser) {
@@ -288,12 +342,28 @@ async function processSignIn(user: any, account: any, profile: any) {
     // Check for ACCESS_DENIED error and redirect to error page with specific message
     if (error instanceof Error && error.message === 'ACCESS_DENIED') {
       log.warn('Access denied for user - email in deny list');
-      return '/login?error=AccessDenied';
+      return `${signInPath}?error=AccessDenied`;
     }
     log.error('Error in signIn callback', { error });
     return false; // Prevent sign-in on error
   }
   return true;
+}
+
+export function parseGoogleSignInAllowlistEnv(value: string | undefined | null): string[] | undefined {
+  if (value == null || String(value).trim() === '') return undefined;
+  const parts = String(value)
+    .split(/[\n,]+/u)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (parts.length === 0) return undefined;
+  return parts;
+}
+
+export function parseGoogleSignInAllowlistEnabledEnv(value: string | undefined | null): boolean {
+  if (value == null || String(value).trim() === '') return true;
+  const normalized = String(value).trim().toLowerCase();
+  return !['0', 'false', 'no', 'off', 'disabled'].includes(normalized);
 }
 
 // Factory function to create auth options with app-specific configuration
@@ -302,8 +372,11 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
     appType,
     baseUrl,
     googleCredentials,
+    enableCredentialsProvider = true,
     cookiePrefix = appType, // Default to appType if not provided
-    pages = { signIn: '/login' },
+    pages = { signIn: '/login', error: '/login' },
+    googleSignInAllowlistEmails,
+    googleSignInAllowlistEnabled = true,
     redirectHandler
   } = config;
 
@@ -314,8 +387,7 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
     pages,
 
     providers: [
-      // Standard credentials provider
-      CredentialsProvider({
+      ...(enableCredentialsProvider ? [CredentialsProvider({
         id: 'credentials',
         name: "Credentials",
         credentials: {
@@ -325,6 +397,42 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
         async authorize(credentials) {
           log.info('Starting authorize function');
           try {
+            const localSeedEmail = process.env.LOCAL_SEED_AUTH_EMAIL || 'local@nia.dev';
+            const localSeedPassword = process.env.LOCAL_SEED_AUTH_PASSWORD || 'localpass123';
+            const canUseLocalSeed = isLocalhostAuthSeedEnabled();
+            if (
+              canUseLocalSeed &&
+              credentials?.email === localSeedEmail &&
+              credentials?.password === localSeedPassword
+            ) {
+              let seededUser = await UserActions().getUserByEmail(localSeedEmail);
+              if (!seededUser || !seededUser._id) {
+                seededUser = await UserActions().createUser({
+                  email: localSeedEmail,
+                  name: 'Local Seed User',
+                  password: localSeedPassword,
+                } as any);
+                log.info('Created localhost seeded auth user', { email: localSeedEmail });
+              } else if (!(seededUser as any).password_hash) {
+                await UserActions().updateUser((seededUser as any)._id, {
+                  ...(seededUser as any),
+                  password: localSeedPassword,
+                });
+                seededUser = await UserActions().getUserByEmail(localSeedEmail);
+              }
+              if (seededUser && (seededUser as any)._id) {
+                return {
+                  id: (seededUser as any).page_id || (seededUser as any)._id,
+                  email: seededUser.email,
+                  name: seededUser.name || 'Local Seed User',
+                  image: seededUser.image,
+                  is_anonymous: false,
+                  sessionId: uuidv4(),
+                  mustSetPassword: false,
+                };
+              }
+            }
+
             // Check if this is an explicit anonymous login request
             if (!credentials || !credentials?.email) {
               // Sign in anonymously - we'll create the actual anonymous user in the signIn callback
@@ -362,7 +470,11 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
             }
 
             log.info('User found, verifying password', { userId: existingUser._id });
-            const isPasswordValid = await UserActions().verifyUserPassword((existingUser as any)._id, credentials.password);
+            // Compare directly against the fetched user to avoid an extra DB read.
+            const isPasswordValid = await compare(
+              credentials.password,
+              String((existingUser as any).password_hash || ''),
+            );
             if (!isPasswordValid) {
               log.error('Invalid password', { userId: existingUser._id });
               return null;
@@ -411,7 +523,7 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
             return null;
           }
         }
-      }),
+      })] : []),
       GoogleProvider({
         ...googleCredentials,
         // Let NextAuth compute correct redirect_uri; overriding can cause mismatches.
@@ -427,7 +539,14 @@ export function createAuthOptions(config: AppAuthConfig): NextAuthOptions {
     callbacks: {
       async signIn({ user, account, profile, email, credentials }) {
         log.info('Sign in attempt', { user: user.email, provider: account?.provider });
-        return processSignIn(user, account, profile);
+        return processSignIn(
+          user,
+          account,
+          profile,
+          pages.signIn || '/login',
+          googleSignInAllowlistEmails,
+          googleSignInAllowlistEnabled,
+        );
       },
       async jwt({ token, user, account, profile }) {
         if (user) {

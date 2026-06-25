@@ -8,7 +8,7 @@ Real-time AI voice assistant for Daily.co calls, built on the Pipecat pipeline.
 - **Operator**: `bot_operator.py` watches the Redis queue and spawns Kubernetes Jobs for each session.
 - **Runner**: `runner_main.py` runs inside the K8s Job, executing the bot logic.
 - **Transport**: DailyTransport connects to a Daily.co room for audio in/out.
-- **STT/LLM/TTS**: Deepgram STT → OpenAI LLM → configurable TTS provider (ElevenLabs by default, Kokoro/Chorus via `BOT_TTS_PROVIDER`).
+- **STT/LLM/TTS**: Deepgram STT → OpenAI LLM → configurable TTS provider (PocketTTS by default, Kokoro/Chorus or Voxtral via `BOT_TTS_PROVIDER`).
 - **Event Bus**: Lightweight in-process pub/sub with versioned envelopes used for observability and business logic triggers.
 - **Handlers**: Business logic in `bot/handlers.py` subscribes to bus events (greetings, roster deltas, pacing, wrap-up).
 - **Config**: Centralized BOT_* defaults with env overrides in `bot/config.py` (runtime getters).
@@ -137,7 +137,7 @@ See the section below for the full list of Kokoro overrides.
 
 | Provider | Env setup | Notes |
 |----------|-----------|-------|
-| ElevenLabs (default) | No change required. Optionally override voice with `ELEVENLABS_VOICE_ID`. | `BOT_TTS_PROVIDER` defaults to `elevenlabs` if unset. |
+| PocketTTS (default) | No change required. Optionally override voice with `BOT_VOICE_ID` / mode voice config. | `BOT_TTS_PROVIDER` defaults to `pocket` if unset or invalid. |
 | Kokoro/Chorus | Set `BOT_TTS_PROVIDER=kokoro` and provide: `KOKORO_TTS_API_KEY`, `KOKORO_TTS_BASE_URL`, `KOKORO_TTS_VOICE_ID`. Optional tunables: `KOKORO_TTS_SAMPLE_RATE`, `KOKORO_TTS_AUTO_MODE`, `KOKORO_TTS_TRY_TRIGGER_GENERATION`, `KOKORO_TTS_ENABLE_SSML_PARSING`, `KOKORO_TTS_INACTIVITY_TIMEOUT`, `KOKORO_TTS_CHUNK_SCHEDULE`. | Dashboard voice configuration now passes the Kokoro voice automatically when selected. |
 
 ## Conversation Beats

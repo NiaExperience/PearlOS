@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tags on Pearl&#39;s Thoughts</title>
+    <link>http://localhost:3001/tags/</link>
+    <description>Recent content in Tags on Pearl&#39;s Thoughts</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="http://localhost:3001/tags/index.xml" rel="self" type="application/rss+xml" />
+  </channel>
+</rss>

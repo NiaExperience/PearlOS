@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>PearlOS — Recovery Mode</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface-hover: #1a1a24;
+  --border: rgba(150, 130, 255, 0.15);
+  --border-active: rgba(150, 130, 255, 0.5);
+  --accent: #9682ff;
+  --accent-dim: rgba(150, 130, 255, 0.2);
+  --text: #e8e8f0;
+  --text-dim: #8888a0;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --radius: 12px;
+}
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+.recovery-container {
+  max-width: 640px; margin: 0 auto; padding: 40px 20px;
+  min-height: 100vh;
+}
+.recovery-header {
+  text-align: center; margin-bottom: 32px;
+}
+.recovery-header h1 {
+  font-size: 24px; font-weight: 700; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.recovery-header p {
+  font-size: 14px; color: var(--text-dim); max-width: 480px; margin: 0 auto;
+}
+.status-banner {
+  padding: 14px 18px; border-radius: var(--radius); margin-bottom: 24px;
+  font-size: 14px; display: flex; align-items: center; gap: 10px;
+}
+.status-banner.ok { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); color: var(--success); }
+.status-banner.warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: var(--warning); }
+.status-banner.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+.section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+}
+.section-title {
+  font-size: 13px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--accent); margin-bottom: 14px;
+}
+.action-btn {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 14px 16px; margin-bottom: 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font: inherit; font-size: 14px;
+  cursor: pointer; transition: all 0.2s; text-align: left;
+}
+.action-btn:last-child { margin-bottom: 0; }
+.action-btn:hover { border-color: var(--border-active); background: var(--surface-hover); }
+.action-btn .icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.action-btn .label { font-weight: 500; }
+.action-btn .desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.action-btn.danger { border-color: rgba(248,113,113,0.3); }
+.action-btn.danger:hover { border-color: var(--danger); background: rgba(248,113,113,0.05); }
+
+.log-output {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px;
+  color: var(--text-dim); max-height: 200px; overflow-y: auto;
+  white-space: pre-wrap; margin-top: 12px; display: none;
+}
+.log-output.visible { display: block; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--accent); text-decoration: none; font-size: 13px;
+  margin-bottom: 20px;
+}
+.back-link:hover { text-decoration: underline; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+  padding: 12px 24px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); font-size: 14px; font-weight: 500;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transition: transform 0.3s ease, opacity 0.3s;
+  opacity: 0; z-index: 1000;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.success { border-color: var(--success); }
+.toast.error { border-color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="recovery-container">
+  <a href="/settings" class="back-link">← Back to Settings</a>
+
+  <div class="recovery-header">
+    <h1>🛠️ Recovery Mode</h1>
+    <p>Diagnose and repair PearlOS when things go wrong. These tools work even when the main interface is broken.</p>
+  </div>
+
+  <div id="status-banner" class="status-banner ok">
+    <span>⏳</span> <span id="status-text">Checking system health...</span>
+  </div>
+
+  <!-- Diagnostics -->
+  <div class="section">
+    <div class="section-title">Diagnostics</div>
+    <button class="action-btn" onclick="runHealthCheck()">
+      <span class="icon">🩺</span>
+      <div>
+        <div class="label">Run Health Check</div>
+        <div class="desc">Check gateway, database, assistant records, and API connectivity</div>
+      </div>
+    </button>
+    <button class="action-btn" onclick="viewLogs()">
+      <span class="icon">📋</span>
+      <div>
+        <div class="label">View Recent Logs</div>
+        <div class="desc">Show the last 50 lines of gateway output</div>
+      </div>
+    </button>
+    <div id="diagnostic-log" class="log-output"></div>
+  </div>
+
+  <!-- Repair Actions -->
+  <div class="section">
+    <div class="section-title">Repair</div>
+    <button class="action-btn" onclick="restartGateway()">
+      <span class="icon">🔄</span>
+      <div>
+        <div class="label">Restart Gateway</div>
+        <div class="desc">Stop and restart the OpenClaw gateway service</div>
+      </div>
+    </button>
+    <button class="action-btn" onclick="clearCache()">
+      <span class="icon">🧹</span>
+      <div>
+        <div class="label">Clear Cache</div>
+        <div class="desc">Remove cached data and force a fresh load</div>
+      </div>
+    </button>
+    <button class="action-btn" onclick="rebuildAssistant()">
+      <span class="icon">🤖</span>
+      <div>
+        <div class="label">Rebuild Assistant Record</div>
+        <div class="desc">Recreate the assistant configuration if it's missing or corrupted</div>
+      </div>
+    </button>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="section">
+    <div class="section-title" style="color: var(--danger);">Danger Zone</div>
+    <button class="action-btn danger" onclick="resetConfig()">
+      <span class="icon">⚠️</span>
+      <div>
+        <div class="label">Reset Configuration</div>
+        <div class="desc">Restore openclaw.json to defaults (backs up current config first)</div>
+      </div>
+    </button>
+    <button class="action-btn danger" onclick="resetDatabase()">
+      <span class="icon">🗑️</span>
+      <div>
+        <div class="label">Reset Database</div>
+        <div class="desc">Clear all conversation history and start fresh</div>
+      </div>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  const logEl = document.getElementById('diagnostic-log');
+  const statusBanner = document.getElementById('status-banner');
+  const statusText = document.getElementById('status-text');
+
+  function showToast(msg, type = 'success', duration = 3000) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast ' + type + ' show';
+    setTimeout(() => toast.classList.remove('show'), duration);
+  }
+
+  function log(msg) {
+    logEl.classList.add('visible');
+    logEl.textContent += msg + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function clearLog() {
+    logEl.textContent = '';
+  }
+
+  function setStatus(level, msg) {
+    statusBanner.className = 'status-banner ' + level;
+    statusText.textContent = msg;
+    statusBanner.querySelector('span:first-child').textContent =
+      level === 'ok' ? '✅' : level === 'warn' ? '⚠️' : '❌';
+  }
+
+  // --- Health Check ---
+  window.runHealthCheck = async function() {
+    clearLog();
+    log('Starting health check...');
+    let issues = 0;
+
+    // Check gateway
+    try {
+      log('Checking gateway status...');
+      const resp = await fetch('/api/health', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        log('  ✅ Gateway is responding');
+      } else {
+        log('  ⚠️ Gateway returned status ' + resp.status);
+        issues++;
+      }
+    } catch(e) {
+      log('  ❌ Gateway unreachable: ' + e.message);
+      issues++;
+    }
+
+    // Check config
+    try {
+      log('Checking configuration...');
+      const resp = await fetch('/api/config', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const cfg = await resp.json();
+        log('  ✅ Configuration loaded');
+        if (!cfg.agents?.defaults?.model) {
+          log('  ⚠️ No default model configured');
+          issues++;
+        }
+      } else {
+        log('  ❌ Configuration failed to load (status ' + resp.status + ')');
+        issues++;
+      }
+    } catch(e) {
+      log('  ❌ Configuration check failed: ' + e.message);
+      issues++;
+    }
+
+    // Check database / conversations
+    try {
+      log('Checking database...');
+      const resp = await fetch('/api/conversations', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        log('  ✅ Database accessible');
+      } else if (resp.status === 404) {
+        log('  ⚠️ No conversations endpoint (may be normal for fresh install)');
+      } else {
+        log('  ⚠️ Database returned status ' + resp.status);
+        issues++;
+      }
+    } catch(e) {
+      log('  ⚠️ Database check skipped: ' + e.message);
+    }
+
+    // Check assistant record
+    try {
+      log('Checking assistant records...');
+      const resp = await fetch('/api/assistant', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        log('  ✅ Assistant record exists');
+      } else if (resp.status === 404) {
+        log('  ⚠️ No assistant record found — use "Rebuild Assistant Record" to fix');
+        issues++;
+      } else {
+        log('  ⚠️ Assistant check returned status ' + resp.status);
+      }
+    } catch(e) {
+      log('  ⚠️ Assistant check skipped: ' + e.message);
+    }
+
+    log('');
+    if (issues === 0) {
+      log('Health check complete: All systems operational ✅');
+      setStatus('ok', 'All systems operational');
+    } else if (issues <= 2) {
+      log('Health check complete: ' + issues + ' issue(s) found ⚠️');
+      setStatus('warn', issues + ' issue(s) detected — see log below');
+    } else {
+      log('Health check complete: ' + issues + ' issues found ❌');
+      setStatus('error', 'Multiple issues detected — repairs recommended');
+    }
+  };
+
+  // --- View Logs ---
+  window.viewLogs = async function() {
+    clearLog();
+    log('Fetching recent logs...');
+    try {
+      const resp = await fetch('/api/logs?lines=50', { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data = await resp.text();
+        log(data || '(no recent log output)');
+      } else {
+        log('Could not fetch logs (status ' + resp.status + ')');
+        log('Tip: Check the terminal running `openclaw gateway start` for live output.');
+      }
+    } catch(e) {
+      log('Could not connect to log endpoint.');
+      log('Tip: Run `openclaw gateway logs` in a terminal to view logs directly.');
+    }
+  };
+
+  // --- Restart Gateway ---
+  window.restartGateway = async function() {
+    if (!confirm('Restart the gateway? Active sessions will be interrupted.')) return;
+    clearLog();
+    log('Sending restart command...');
+    try {
+      const resp = await fetch('/api/gateway/restart', { method: 'POST', signal: AbortSignal.timeout(15000) });
+      if (resp.ok) {
+        log('Gateway restart initiated. Waiting for it to come back...');
+        showToast('Gateway restarting...', 'success');
+        // Poll for it to come back
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          try {
+            const r = await fetch('/api/health', { signal: AbortSignal.timeout(2000) });
+            if (r.ok) {
+              clearInterval(poll);
+              log('Gateway is back online ✅');
+              setStatus('ok', 'Gateway restarted successfully');
+              showToast('Gateway is back online!', 'success');
+            }
+          } catch(e) { /* still coming up */ }
+          if (attempts > 15) {
+            clearInterval(poll);
+            log('Gateway did not respond after 30s. Check terminal output.');
+            setStatus('error', 'Gateway may not have restarted — check terminal');
+          }
+        }, 2000);
+      } else {
+        log('Restart request failed (status ' + resp.status + ')');
+        log('Tip: Run `openclaw gateway restart` in a terminal.');
+        showToast('Restart failed — try terminal', 'error');
+      }
+    } catch(e) {
+      log('Could not send restart command: ' + e.message);
+      log('Tip: Run `openclaw gateway restart` in a terminal.');
+      showToast('Could not reach gateway', 'error');
+    }
+  };
+
+  // --- Clear Cache ---
+  window.clearCache = async function() {
+    clearLog();
+    log('Clearing caches...');
+    try {
+      // Clear browser caches
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+          log('  Cleared cache: ' + key);
+        }
+      }
+      // Clear localStorage
+      const lsKeys = Object.keys(localStorage);
+      lsKeys.forEach(k => localStorage.removeItem(k));
+      log('  Cleared ' + lsKeys.length + ' localStorage entries');
+
+      // Clear sessionStorage
+      sessionStorage.clear();
+      log('  Cleared sessionStorage');
+
+      log('Cache cleared ✅');
+      showToast('Cache cleared', 'success');
+    } catch(e) {
+      log('Error clearing cache: ' + e.message);
+      showToast('Cache clear failed', 'error');
+    }
+  };
+
+  // --- Rebuild Assistant ---
+  window.rebuildAssistant = async function() {
+    if (!confirm('Rebuild the assistant record? This will reset Pearl\'s configuration to defaults.')) return;
+    clearLog();
+    log('Rebuilding assistant record...');
+    try {
+      const resp = await fetch('/api/assistant/rebuild', { method: 'POST', signal: AbortSignal.timeout(10000) });
+      if (resp.ok) {
+        log('Assistant record rebuilt ✅');
+        showToast('Assistant rebuilt', 'success');
+        setStatus('ok', 'Assistant record restored');
+      } else {
+        log('Rebuild failed (status ' + resp.status + ')');
+        showToast('Rebuild failed', 'error');
+      }
+    } catch(e) {
+      log('Could not rebuild: ' + e.message);
+      log('Tip: Delete and recreate the assistant via `openclaw` CLI.');
+      showToast('Rebuild failed', 'error');
+    }
+  };
+
+  // --- Reset Config ---
+  window.resetConfig = async function() {
+    if (!confirm('Reset configuration to defaults? Your current config will be backed up.')) return;
+    clearLog();
+    log('Backing up and resetting configuration...');
+    try {
+      const resp = await fetch('/api/config/reset', { method: 'POST', signal: AbortSignal.timeout(10000) });
+      if (resp.ok) {
+        log('Configuration reset to defaults ✅');
+        log('Backup saved to config-backups/');
+        showToast('Config reset — backup saved', 'success');
+      } else {
+        log('Reset failed (status ' + resp.status + ')');
+        showToast('Reset failed', 'error');
+      }
+    } catch(e) {
+      log('Could not reset config: ' + e.message);
+      showToast('Reset failed', 'error');
+    }
+  };
+
+  // --- Reset Database ---
+  window.resetDatabase = async function() {
+    if (!confirm('⚠️ This will DELETE all conversation history. This cannot be undone. Continue?')) return;
+    if (!confirm('Are you absolutely sure? Type OK to confirm.')) return;
+    clearLog();
+    log('Resetting database...');
+    try {
+      const resp = await fetch('/api/database/reset', { method: 'POST', signal: AbortSignal.timeout(10000) });
+      if (resp.ok) {
+        log('Database reset ✅');
+        showToast('Database cleared', 'success');
+      } else {
+        log('Database reset failed (status ' + resp.status + ')');
+        showToast('Reset failed', 'error');
+      }
+    } catch(e) {
+      log('Could not reset database: ' + e.message);
+      showToast('Reset failed', 'error');
+    }
+  };
+
+  // Auto-run health check on load
+  setTimeout(runHealthCheck, 500);
+
+})();
+</script>
+</body>
+</html>

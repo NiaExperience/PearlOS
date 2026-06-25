@@ -19,14 +19,8 @@ type SessionLike = Awaited<ReturnType<typeof getSessionSafely>>;
 function isHtmlGenerationTestMode(request: NextRequest): boolean {
   if (process.env.NODE_ENV === 'production') return false;
 
-  return (
-    process.env.NODE_ENV === 'test' ||
-    process.env.CYPRESS === 'true' ||
-    process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true' ||
-    process.env.TEST_MODE === 'true' ||
-    request.headers.get('X-Test-Mode') === 'true' ||
-    request.headers.get('x-test-mode') === 'true'
-  );
+  // REMOVED — security: test mode bypass disabled by Blair 2026-04-27
+  return false;
 }
 
 async function getHtmlGenerationSession(request: NextRequest): Promise<SessionLike> {

@@ -46,7 +46,7 @@ function SyncTemplatesButton() {
     setSyncResult(null);
     
     try {
-      const response = await fetch('/api/admin/sync-templates', {
+      const response = await fetch('/dashboard/api/admin/sync-templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -102,7 +102,7 @@ export default function AssistantAdvancedTab({
   
   useEffect(() => {
     const fetchContentTypeDefinitions = async () => {
-      const response = await fetch('/api/dynamicContent');
+      const response = await fetch('/dashboard/api/dynamicContent');
       if (response.ok) {
         const data = await response.json();
         setAvailableContentTypes(data.definitions || []);

@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Button Blitz</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071018;
+      --panel: rgba(9, 20, 29, 0.76);
+      --line: rgba(255, 255, 255, 0.14);
+      --text: #f3f8ff;
+      --muted: #9ab0c2;
+      --cyan: #31d7e8;
+      --lime: #b7ef4b;
+      --rose: #ff567d;
+      --gold: #ffd45c;
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow: hidden;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(49, 215, 232, 0.24), transparent 34rem),
+        radial-gradient(circle at 82% 16%, rgba(255, 86, 125, 0.18), transparent 30rem),
+        radial-gradient(circle at 50% 92%, rgba(183, 239, 75, 0.13), transparent 30rem),
+        linear-gradient(135deg, #08131d 0%, #071018 46%, #0f111c 100%);
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .game {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      width: 100vw;
+      height: 100vh;
+      padding: clamp(16px, 3vw, 32px);
+      isolation: isolate;
+    }
+
+    .arena {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      overflow: hidden;
+    }
+
+    .grid {
+      position: absolute;
+      inset: -25%;
+      opacity: 0.22;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+      background-size: 58px 58px;
+      transform: perspective(700px) rotateX(58deg) translateY(14%);
+      transform-origin: bottom center;
+      animation: drift 8s linear infinite;
+    }
+
+    .beam {
+      position: absolute;
+      width: 34vmax;
+      height: 34vmax;
+      border-radius: 50%;
+      filter: blur(30px);
+      opacity: 0.24;
+      mix-blend-mode: screen;
+      animation: float 7s ease-in-out infinite alternate;
+    }
+
+    .beam.one {
+      left: -12vmax;
+      top: 18vh;
+      background: var(--cyan);
+    }
+
+    .beam.two {
+      right: -14vmax;
+      bottom: 2vh;
+      background: var(--rose);
+      animation-delay: -2.5s;
+    }
+
+    header,
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: min(1040px, 100%);
+      margin: 0 auto;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 64px);
+      line-height: 0.95;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(13px, 2vw, 16px);
+      font-weight: 650;
+    }
+
+    .hud {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .stat {
+      min-width: 104px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 12px 34px var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .value {
+      display: block;
+      margin-top: 2px;
+      font-size: clamp(22px, 4vw, 34px);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    main {
+      display: grid;
+      place-items: center;
+      width: min(980px, 100%);
+      margin: 0 auto;
+      padding: min(7vh, 70px) 0;
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: min(78vmin, 500px);
+      aspect-ratio: 1;
+      --charge: 0;
+    }
+
+    .ring {
+      position: absolute;
+      inset: 0;
+      border: 2px solid rgba(49, 215, 232, 0.28);
+      border-radius: 50%;
+      box-shadow:
+        inset 0 0 40px rgba(49, 215, 232, 0.13),
+        0 0 80px rgba(255, 86, 125, 0.12);
+      animation: rotate 14s linear infinite;
+    }
+
+    .stage.hot .ring {
+      border-color: rgba(255, 212, 92, 0.58);
+      box-shadow:
+        inset 0 0 54px rgba(255, 212, 92, 0.18),
+        0 0 100px rgba(255, 86, 125, 0.22);
+    }
+
+    .ring::before,
+    .ring::after {
+      content: "";
+      position: absolute;
+      inset: 9%;
+      border: 1px dashed rgba(255, 255, 255, 0.25);
+      border-radius: inherit;
+    }
+
+    .ring::after {
+      inset: 19%;
+      border-color: rgba(183, 239, 75, 0.2);
+      animation: rotate 8s linear infinite reverse;
+    }
+
+    .button {
+      position: relative;
+      width: min(58vmin, 360px);
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 50%;
+      color: #071018;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 950;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      background:
+        radial-gradient(circle at 50% 28%, #ffffff 0 7%, transparent 8%),
+        radial-gradient(circle at 50% 30%, #ffe991 0%, #ffd45c 28%, #ff745f 62%, #e33f78 100%);
+      box-shadow:
+        0 28px 0 #7d2448,
+        0 34px 52px rgba(0, 0, 0, 0.45),
+        0 0 calc(95px + var(--charge) * 1px) rgba(255, 212, 92, 0.28);
+      transform: translateY(-10px) scale(calc(1 + var(--charge) * 0.0015));
+      transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+    }
+
+    .button:focus-visible {
+      outline: 4px solid #ffffff;
+      outline-offset: 8px;
+    }
+
+    .button:active,
+    .button.pressed {
+      transform: translateY(10px) scale(0.97);
+      box-shadow:
+        0 8px 0 #7d2448,
+        0 15px 34px rgba(0, 0, 0, 0.46),
+        0 0 130px rgba(255, 212, 92, 0.42);
+      filter: saturate(1.18);
+    }
+
+    .button span {
+      display: block;
+      padding-top: 7%;
+      font-size: clamp(36px, 10vmin, 76px);
+      line-height: 0.86;
+      text-shadow: 0 2px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .ready {
+      position: absolute;
+      bottom: 8%;
+      min-width: 128px;
+      padding: 9px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(6, 14, 22, 0.74);
+      font-size: 13px;
+      font-weight: 850;
+      text-align: center;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+
+    .meter {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: 1%;
+      height: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    .meter span {
+      display: block;
+      width: calc(var(--charge) * 1%);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--lime), var(--gold), var(--rose));
+      transition: width 130ms ease;
+    }
+
+    .burst {
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      pointer-events: none;
+      translate: -50% -50%;
+      animation: pop 620ms ease-out forwards;
+    }
+
+    .score-pop {
+      position: fixed;
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 950;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.38);
+      translate: -50% -50%;
+      pointer-events: none;
+      animation: lift 700ms ease-out forwards;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      width: min(1040px, 100%);
+      margin: 0 auto;
+    }
+
+    .message {
+      max-width: 56ch;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(13px, 2vw, 16px);
+      font-weight: 650;
+    }
+
+    .reset {
+      min-height: 44px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .reset:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .shake {
+      animation: shake 190ms linear;
+    }
+
+    @keyframes drift {
+      from { transform: perspective(700px) rotateX(58deg) translateY(14%); }
+      to { transform: perspective(700px) rotateX(58deg) translateY(calc(14% + 58px)); }
+    }
+
+    @keyframes float {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(4vmax, -3vmax, 0) scale(1.12); }
+    }
+
+    @keyframes rotate {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pop {
+      0% { opacity: 0.95; box-shadow: 0 0 0 0 currentColor; transform: scale(0.7); }
+      100% { opacity: 0; box-shadow: 0 0 0 34px transparent; transform: scale(4.5); }
+    }
+
+    @keyframes lift {
+      0% { opacity: 0; transform: translateY(12px) scale(0.8); }
+      18% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-64px) scale(1.18); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-3px); }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        overflow-y: auto;
+      }
+
+      .game {
+        min-height: 100svh;
+        height: auto;
+        gap: 12px;
+      }
+
+      header,
+      .controls {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .hud {
+        justify-content: stretch;
+      }
+
+      .stat {
+        flex: 1 1 30%;
+        min-width: 92px;
+      }
+
+      main {
+        padding: 24px 0 22px;
+      }
+
+      .stage {
+        width: min(86vmin, 440px);
+      }
+
+      .button {
+        width: min(64vmin, 330px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game" id="game">
+    <div class="arena" aria-hidden="true">
+      <div class="grid"></div>
+      <div class="beam one"></div>
+      <div class="beam two"></div>
+    </div>
+
+    <header>
+      <div class="brand">
+        <h1>Button Blitz</h1>
+        <p class="subtitle">Hammer the button before the clock runs out.</p>
+      </div>
+      <div class="hud" aria-live="polite">
+        <div class="stat">
+          <span class="label">Score</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Time</span>
+          <span class="value" id="time">10.0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Best</span>
+          <span class="value" id="best">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Combo</span>
+          <span class="value" id="combo">x1</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="stage" aria-label="Button mashing game">
+        <div class="ring" aria-hidden="true"></div>
+        <button class="button" id="button" type="button" aria-label="Press for points">
+          <span>Push</span>
+        </button>
+        <div class="ready" id="status">Press to start</div>
+        <div class="meter" aria-hidden="true"><span></span></div>
+      </section>
+    </main>
+
+    <footer class="controls">
+      <p class="message" id="message">Every press scores. Build a streak and the button gets louder.</p>
+      <button class="reset" id="reset" type="button">Reset</button>
+    </footer>
+  </div>
+
+  <script>
+    const DURATION = 10;
+    const colors = ["#31d7e8", "#b7ef4b", "#ff567d", "#ffd45c", "#ffffff"];
+    const game = document.getElementById("game");
+    const stage = document.querySelector(".stage");
+    const button = document.getElementById("button");
+    const reset = document.getElementById("reset");
+    const scoreEl = document.getElementById("score");
+    const timeEl = document.getElementById("time");
+    const bestEl = document.getElementById("best");
+    const comboEl = document.getElementById("combo");
+    const statusEl = document.getElementById("status");
+    const messageEl = document.getElementById("message");
+
+    let score = 0;
+    let combo = 1;
+    let lastPressAt = 0;
+    let best = Number(localStorage.getItem("button-blitz-best") || 0);
+    let running = false;
+    let finished = false;
+    let endAt = 0;
+    let rafId = 0;
+
+    bestEl.textContent = best;
+
+    function startGame() {
+      score = 0;
+      combo = 1;
+      lastPressAt = 0;
+      running = true;
+      finished = false;
+      endAt = performance.now() + DURATION * 1000;
+      statusEl.textContent = "Go";
+      messageEl.textContent = "Keep the rhythm. Every tap counts.";
+      updateScore();
+      updateCombo();
+      tick();
+    }
+
+    function finishGame() {
+      running = false;
+      finished = true;
+      cancelAnimationFrame(rafId);
+      timeEl.textContent = "0.0";
+      statusEl.textContent = "Finished";
+      stage.classList.remove("hot");
+      stage.style.setProperty("--charge", "0");
+
+      if (score > best) {
+        best = score;
+        localStorage.setItem("button-blitz-best", String(best));
+        bestEl.textContent = best;
+        messageEl.textContent = `New best: ${best}. That button is going to need a minute.`;
+      } else {
+        messageEl.textContent = `Final score: ${score}. Best score is ${best}.`;
+      }
+    }
+
+    function tick() {
+      const remaining = Math.max(0, endAt - performance.now());
+      timeEl.textContent = (remaining / 1000).toFixed(1);
+
+      if (remaining <= 0) {
+        finishGame();
+        return;
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function updateScore() {
+      scoreEl.textContent = score;
+    }
+
+    function updateCombo() {
+      comboEl.textContent = `x${combo}`;
+      const charge = Math.min(100, (combo - 1) * 12);
+      stage.style.setProperty("--charge", String(charge));
+      stage.classList.toggle("hot", combo >= 5);
+    }
+
+    function press(event) {
+      if (!running) {
+        if (finished) {
+          startGame();
+        } else {
+          startGame();
+        }
+      }
+
+      if (!running) return;
+
+      const now = performance.now();
+      combo = now - lastPressAt < 380 ? Math.min(combo + 1, 9) : 1;
+      lastPressAt = now;
+      score += combo;
+      updateScore();
+      updateCombo();
+      pulseButton();
+      spawnBurst(event);
+
+      if (score % 25 === 0 || combo >= 7) {
+        game.classList.remove("shake");
+        void game.offsetWidth;
+        game.classList.add("shake");
+        statusEl.textContent = combo >= 7 ? "Overdrive" : `${score} points`;
+      }
+    }
+
+    function pulseButton() {
+      button.classList.add("pressed");
+      window.setTimeout(() => button.classList.remove("pressed"), 75);
+    }
+
+    function spawnBurst(event) {
+      const rect = button.getBoundingClientRect();
+      const x = event.clientX || rect.left + rect.width / 2;
+      const y = event.clientY || rect.top + rect.height / 2;
+      const color = colors[score % colors.length];
+
+      for (let i = 0; i < 5; i += 1) {
+        const dot = document.createElement("span");
+        dot.className = "burst";
+        dot.style.left = `${x + (Math.random() - 0.5) * 54}px`;
+        dot.style.top = `${y + (Math.random() - 0.5) * 54}px`;
+        dot.style.color = color;
+        dot.style.background = color;
+        document.body.appendChild(dot);
+        window.setTimeout(() => dot.remove(), 700);
+      }
+
+      const pop = document.createElement("span");
+      pop.className = "score-pop";
+      pop.textContent = `+${combo}`;
+      pop.style.left = `${x}px`;
+      pop.style.top = `${y}px`;
+      document.body.appendChild(pop);
+      window.setTimeout(() => pop.remove(), 760);
+    }
+
+    function resetGame() {
+      cancelAnimationFrame(rafId);
+      score = 0;
+      combo = 1;
+      lastPressAt = 0;
+      running = false;
+      finished = false;
+      timeEl.textContent = DURATION.toFixed(1);
+      statusEl.textContent = "Press to start";
+      messageEl.textContent = "Every press scores. Build a streak and the button gets louder.";
+      updateScore();
+      updateCombo();
+    }
+
+    button.addEventListener("pointerdown", press);
+    reset.addEventListener("click", resetGame);
+    window.addEventListener("keydown", (event) => {
+      if (event.code === "Space" || event.code === "Enter") {
+        event.preventDefault();
+        const rect = button.getBoundingClientRect();
+        press({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+      }
+    });
+
+    resetGame();
+  </script>
+</body>
+</html>

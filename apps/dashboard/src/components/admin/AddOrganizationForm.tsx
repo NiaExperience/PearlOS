@@ -15,7 +15,7 @@ export default function AddOrganizationForm({ tenantId }: Props) {
     if (pending) return;
     setPending(true);
     try {
-      const res = await fetch('/api/organizations', {
+      const res = await fetch('/dashboard/api/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantId, name, description })

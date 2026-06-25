@@ -33,6 +33,16 @@ function sanitizeVariables(vars?: string[]): PersonalityBlock.PersonalityVariabl
   return vars.filter(v => (PersonalityBlock.PersonalityVariableValues as readonly string[]).includes(v)) as any;
 }
 
+function personalityTenantId(personality: Partial<PersonalityModel> & { parent_id?: unknown }): string {
+  return String(personality.tenantId || personality.parent_id || '').trim();
+}
+
+function sanitizePersonality(raw: any): PersonalityModel {
+  if (raw && Array.isArray(raw.variables)) raw.variables = sanitizeVariables(raw.variables);
+  if (raw) raw.beats = sanitizeBeats(raw.beats) as any;
+  return raw as PersonalityModel;
+}
+
 // Sanitize and validate beats array
 function sanitizeBeats(beats?: any): PersonalityBlock.IPersonalityBeat[] | undefined {
   if (!Array.isArray(beats)) return undefined;
@@ -102,23 +112,63 @@ export async function generateCloneName(sourceName: string): Promise<string> {
   return candidate;
 }
 
-// --- CRUD ------------------------------------------------------------------
-export async function getPersonalityById(id: string): Promise<PersonalityModel | undefined> {
-  const prism = await Prism.getInstance();
-  const res = await prism.query({ contentType: 'Personality', tenantId: 'any', where: { page_id: id } });
-  if (!res || res.total === 0) return undefined;
-  const raw = res.items[0] as any;
-  if (raw && Array.isArray(raw.variables)) raw.variables = sanitizeVariables(raw.variables);
-  return raw as PersonalityModel;
+export async function generateCloneNameForTenant(tenantId: string, sourceName: string): Promise<string> {
+  const personalities = await listPersonalities(tenantId);
+  const allNames = personalities.map(p => (p.name || '').trim()).filter(Boolean) as string[];
+  const exists = (n: string) => allNames.some(x => x.toLowerCase() === n.trim().toLowerCase());
+  const trimmed = (sourceName || '').trim();
+  if (!trimmed) {
+    const base = 'New Personality';
+    let n = 1; let candidate = `${base} ${n}`;
+    while (exists(candidate)) { n += 1; candidate = `${base} ${n}`; }
+    return candidate;
+  }
+  const numericSuffixMatch = trimmed.match(/^(.*\S)\s+(\d+(?:\.\d+)*)$/);
+  if (numericSuffixMatch) {
+    const parent = trimmed;
+    const esc = parent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const childRegex = new RegExp('^' + esc + '\\.(\\d+)$', 'i');
+    let maxChild = 0;
+    for (const n of allNames) {
+      const m = n.match(childRegex); if (m) { const k = parseInt(m[1], 10); if (!Number.isNaN(k)) maxChild = Math.max(maxChild, k); }
+    }
+    let candidate = `${parent}.${maxChild + 1}`;
+    while (exists(candidate)) { maxChild += 1; candidate = `${parent}.${maxChild}`; }
+    return candidate;
+  }
+  const base = trimmed;
+  const esc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const sibRegex = new RegExp('^' + esc + ' (\\d+)$', 'i');
+  let maxIdx = 0;
+  for (const n of allNames) { const m = n.match(sibRegex); if (m) { const k = parseInt(m[1], 10); if (!Number.isNaN(k)) maxIdx = Math.max(maxIdx, k); } }
+  let candidate = `${base} ${maxIdx + 1}`;
+  while (exists(candidate)) { maxIdx += 1; candidate = `${base} ${maxIdx}`; }
+  return candidate;
 }
 
-export async function getPersonalityByName(name: string): Promise<PersonalityModel | undefined> {
+// --- CRUD ------------------------------------------------------------------
+export async function getPersonalityById(id: string, tenantId?: string): Promise<PersonalityModel | undefined> {
   const prism = await Prism.getInstance();
-  const res = await prism.query({ contentType: 'Personality', tenantId: 'any', where: { indexer: { path: 'name', equals: name } } });
+  const where = tenantId
+    ? { page_id: id, parent_id: tenantId }
+    : { page_id: id };
+  const res = await prism.query({ contentType: 'Personality', tenantId: 'any', where });
   if (!res || res.total === 0) return undefined;
   const raw = res.items[0] as any;
-  if (raw && Array.isArray(raw.variables)) raw.variables = sanitizeVariables(raw.variables);
-  return raw as PersonalityModel;
+  if (tenantId && personalityTenantId(raw) !== tenantId) return undefined;
+  return sanitizePersonality(raw);
+}
+
+export async function getPersonalityByName(name: string, tenantId?: string): Promise<PersonalityModel | undefined> {
+  const prism = await Prism.getInstance();
+  const where = tenantId
+    ? { parent_id: tenantId, indexer: { path: 'name', equals: name } }
+    : { indexer: { path: 'name', equals: name } };
+  const res = await prism.query({ contentType: 'Personality', tenantId: 'any', where });
+  if (!res || res.total === 0) return undefined;
+  const raw = res.items[0] as any;
+  if (tenantId && personalityTenantId(raw) !== tenantId) return undefined;
+  return sanitizePersonality(raw);
 }
 
 
@@ -158,7 +208,11 @@ export async function createPersonality(tenantId: string, input: CreatePersonali
   const beats = sanitizeBeats((input as any).beats) as any;
   // Server-side name uniqueness enforcement (reject duplicates instead of auto-renaming)
   if (input.name) {
-    const result = await prism.query({ contentType: 'Personality', tenantId: 'any', where: { indexer: { path: 'name', equals: input.name } } });
+    const result = await prism.query({
+      contentType: 'Personality',
+      tenantId: 'any',
+      where: { parent_id: tenantId, indexer: { path: 'name', equals: input.name } },
+    });
     if (result && result.total > 0) {
       const err: any = new Error('Personality name already exists');
       err.code = 'NAME_CONFLICT';
@@ -181,9 +235,7 @@ export async function createPersonality(tenantId: string, input: CreatePersonali
   const created = await prism.create('Personality', record, tenantId);
   if (!created || created.total === 0) throw new Error('Failed to create personality');
   const raw = created.items[0] as any;
-  if (raw && Array.isArray(raw.variables)) raw.variables = sanitizeVariables(raw.variables);
-  if (raw) raw.beats = sanitizeBeats(raw.beats) as any;
-  return raw as PersonalityModel;
+  return sanitizePersonality(raw);
 }
 
 export async function updatePersonality(
@@ -194,7 +246,7 @@ export async function updatePersonality(
 ): Promise<PersonalityModel | undefined> {
   const prism = await Prism.getInstance();
   if (patch.name) {
-    const existing = await listAllPersonalities();
+    const existing = await listPersonalities(tenantId);
     const lower = patch.name.trim().toLowerCase();
     if (existing.some(p => p._id !== id && p.name && p.name.trim().toLowerCase() === lower)) {
       const err: any = new Error('Personality name already exists');
@@ -205,17 +257,20 @@ export async function updatePersonality(
   if (patch.variables) patch.variables = sanitizeVariables(patch.variables as any) as any;
   if ((patch as any).beats) (patch as any).beats = sanitizeBeats((patch as any).beats) as any;
   // Fetch existing record so we can build a full object for indexer construction
-  const current = await getPersonalityById(id);
+  const current = await getPersonalityById(id, tenantId);
   if (!current) return undefined;
-  // If the tenant is changing, we must set NotionModel.parent_id to the new tenant
   const requestedTenantId = (patch as any).tenantId as string | undefined;
-  const movingTenant = requestedTenantId && requestedTenantId !== current.tenantId ? requestedTenantId : undefined;
+  if (requestedTenantId && requestedTenantId !== tenantId) {
+    const err: any = new Error('Cannot move personality across tenants through updatePersonality');
+    err.code = 'TENANT_MISMATCH';
+    throw err;
+  }
   // Preserve immutable fields and merge patch
   const merged: PersonalityModel = {
     ...current,
     ...patch,
     _id: current._id, // ensure id intact
-    tenantId: movingTenant ?? current.tenantId, // update content tenant when moving
+    tenantId,
   };
   
   // Generate diff and append to history
@@ -227,18 +282,18 @@ export async function updatePersonality(
   };
   const updatedHistory = [...(current.history || []), historyEntry];
   
-  // Include parent_id in the update payload if moving tenants
-  const payload: any = movingTenant 
-    ? { ...merged, parent_id: movingTenant, lastModifiedByUserId, history: updatedHistory, updatedAt: new Date().toISOString() } 
-    : { ...merged, lastModifiedByUserId, history: updatedHistory, updatedAt: new Date().toISOString() };
-  // Use the current tenant for the lookup/update call to reliably find the record,
-  // even if the request's tenantId differs (we're moving to a new tenant).
-  const updated = await prism.update('Personality', id, payload as any, current.tenantId);
+  const payload: any = {
+    ...merged,
+    parent_id: tenantId,
+    lastModifiedByUserId,
+    history: updatedHistory,
+    updatedAt: new Date().toISOString(),
+  };
+  const updated = await prism.update('Personality', id, payload as any, tenantId);
   if (!updated || updated.total === 0) return undefined;
   const raw = updated.items[0] as any;
-  if (raw && Array.isArray(raw.variables)) raw.variables = sanitizeVariables(raw.variables);
-  if (raw) raw.beats = sanitizeBeats(raw.beats) as any;
-  return raw as PersonalityModel;
+  if (personalityTenantId(raw) !== tenantId) return undefined;
+  return sanitizePersonality(raw);
 }
 
 export async function deletePersonality(tenantId: string, id: string): Promise<boolean> {
@@ -247,9 +302,9 @@ export async function deletePersonality(tenantId: string, id: string): Promise<b
 }
 
 export async function clonePersonality(tenantId: string, id: string): Promise<PersonalityModel> {
-  const source = await getPersonalityById(id);
+  const source = await getPersonalityById(id, tenantId);
   if (!source) throw new Error('Source personality not found');
-  const newName = await generateCloneName(source.name || '');
+  const newName = await generateCloneNameForTenant(tenantId, source.name || '');
   return createPersonality(tenantId, {
     name: newName,
     description: source.description || 'Cloned personality',
@@ -257,4 +312,3 @@ export async function clonePersonality(tenantId: string, id: string): Promise<Pe
     variables: source.variables,
   });
 }
-

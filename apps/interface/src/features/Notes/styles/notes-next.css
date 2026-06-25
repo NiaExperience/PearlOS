@@ -481,3 +481,78 @@
   font-style: italic;
   color: rgba(203, 213, 225, 0.9);
 }
+
+/* ─── Pearl's Diary section ─────────────────────────────────────────── */
+.nn-folder-section.nn-folder-pearl-diary {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 184, 232, 0.10) 0%,
+    rgba(184, 161, 255, 0.06) 60%,
+    rgba(245, 184, 232, 0.03) 100%
+  );
+  border: 1px solid rgba(245, 184, 232, 0.28);
+  border-radius: 14px;
+  padding: 14px 16px 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 0 24px rgba(245, 184, 232, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+
+.nn-folder-section.nn-folder-pearl-diary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 184, 232, 0.5), transparent);
+  border-radius: 14px 14px 0 0;
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-folder-header h2 {
+  background: linear-gradient(90deg, #f5b8e8 0%, #b8a1ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-card {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 184, 232, 0.06) 0%,
+    rgba(184, 161, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(245, 184, 232, 0.22);
+  position: relative;
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-card::before {
+  content: "✦";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 11px;
+  color: rgba(245, 184, 232, 0.75);
+  pointer-events: none;
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-card:hover {
+  border-color: rgba(245, 184, 232, 0.5);
+  box-shadow: 0 4px 18px rgba(245, 184, 232, 0.12);
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-card-title {
+  color: rgba(252, 226, 247, 0.96);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-card-preview {
+  color: rgba(220, 210, 235, 0.78);
+}
+
+.nn-folder-section.nn-folder-pearl-diary .nn-card-date {
+  color: rgba(245, 184, 232, 0.7);
+}

@@ -108,7 +108,7 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
         key: 'work',
         label: 'Work',
         image: '/work.png',
-        targetMode: DesktopMode.WORK,
+        targetMode: DesktopMode.DESKTOP,
       },
       {
         key: 'quiet',
@@ -120,7 +120,7 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
         key: 'social',
         label: 'Social',
         image: '/social.png',
-        targetMode: DesktopMode.WORK,
+        targetMode: DesktopMode.DESKTOP,
       },
     ],
     []
@@ -218,11 +218,19 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
     setClickedBuilding('pearlnews');
     setTimeout(() => setClickedBuilding(null), 300);
     // Switch to WORK mode and open The News
-    dispatchDesktopModeSwitch(DesktopMode.WORK, 'user_click_pearlnews_cutout');
+    dispatchDesktopModeSwitch(DesktopMode.DESKTOP, 'user_click_pearlnews_cutout');
     // Actually launch the news app on Wonder Canvas
     window.dispatchEvent(
       new CustomEvent(NIA_EVENT_WONDER_SCENE, {
-        detail: { payload: { html: buildNewsHTML(), layer: 'main', transition: 'fade' } },
+        detail: {
+          payload: {
+            html: buildNewsHTML(),
+            layer: 'main',
+            transition: 'fade',
+            hideChrome: true,
+            sceneId: 'news',
+          },
+        },
       })
     );
     // Fire nia:request.news so the bot/backend can populate with real headlines
@@ -351,7 +359,7 @@ const DesktopBackground = ({ showModeSelector = true }: DesktopBackgroundProps) 
         <div 
           className="absolute inset-0"
           style={{
-            backgroundImage: 'url("/backgrounds/home-sunset.png")',
+        backgroundImage: 'var(--pearl-home-background-image, var(--pearl-home-default-background-image, url("/backgrounds/home-sunset.png")))',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             width: '100%',

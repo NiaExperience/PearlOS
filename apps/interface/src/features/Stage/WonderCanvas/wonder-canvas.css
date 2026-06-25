@@ -104,7 +104,9 @@
 
 @media (max-width: 767px) {
   .wonder-canvas__close-btn {
-    top: 56px; /* Below the taskbar */
-    right: 12px;
+    /* Match PersistentNavButtons (top-3 ≈ 12px), not a fixed 56px offset — that sat the X
+       visibly lower than Home / Music / Settings. Respect notch and home-indicator insets. */
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
   }
 }

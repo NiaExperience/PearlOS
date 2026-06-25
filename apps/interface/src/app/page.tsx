@@ -2,10 +2,14 @@ import process from 'node:process';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+// Force dynamic rendering — never let CDN cache this page
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function Page() {
   const pearlosOnly = (process.env.PEARLOS_ONLY ?? '').toLowerCase() === 'true';
   if (pearlosOnly) {
-    return null;
+    redirect('/pearlos');
   }
 
   // Local/dev: keep users in the local app (so GraphQL + DB can be exercised)

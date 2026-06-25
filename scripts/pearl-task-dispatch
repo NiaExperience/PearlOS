@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""Create a visible PearlOS background task for the Agency worker."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+CODING_SIMPLE_AGENTS = ["Codex", "DeepSeek Pro V4", "Qwen3.7 Max"]
+CODING_DIFFICULT_AGENTS = [
+    "Codex",
+    "DeepSeek Pro V4",
+    "GLM 5.1",
+    "Kimi K2.7 Code",
+    "Gemini 3.5 Flash",
+    "Qwen3.7 Max",
+    "Claude Opus 4.6",
+]
+RESEARCH_AGENTS = ["Gemini 3.5 Flash", "Kimi K2.7 Code", "DeepSeek Pro V4", "Claude Opus 4.6", "GLM 5.1"]
+CREATIVE_AGENTS = ["Kimi K2.7 Code", "Claude Opus 4.6", "Gemini 3.5 Flash", "Grok", "GLM 5.1"]
+ALLOWED_SOURCES = {"web_chat", "discord", "discord_lookup", "voice", "manual"}
+ALLOWED_CREATED_BY = {"pearl", "blair", "claude_cli", "system", "agency"}
+
+
+def _api_base() -> str:
+    return os.getenv("PEARL_TASKS_API", "http://127.0.0.1:4444/api/tasks").rstrip("/")
+
+
+def _secret() -> str:
+    env_secret = (
+        os.getenv("BOT_CONTROL_SHARED_SECRET", "")
+        or os.getenv("PEARL_TASKS_BOT_SECRET", "")
+        or os.getenv("BOT_CONTROL_CLAIMS_SECRET", "")
+    ).strip()
+    if env_secret:
+        return env_secret
+    for path in (
+        "/workspace/nia-universal/apps/pipecat-daily-bot/.env.local",
+        "/workspace/nia-universal/apps/pipecat-daily-bot/.env",
+        "/home/deploy/pearlos/apps/pipecat-daily-bot/.env.local",
+        "/home/deploy/pearlos/apps/pipecat-daily-bot/.env",
+        "/home/deploy/pearlos/.env.local",
+    ):
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    if key.strip() not in (
+                        "BOT_CONTROL_SHARED_SECRET",
+                        "PEARL_TASKS_BOT_SECRET",
+                        "BOT_CONTROL_CLAIMS_SECRET",
+                    ):
+                        continue
+                    value = value.strip().strip("'\"")
+                    if value:
+                        return value
+        except OSError:
+            continue
+    for path in (
+        "/root/.openclaw/openclaw.json",
+        "/home/deploy/.openclaw/relay-openclaw.json",
+    ):
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                cfg = json.load(handle)
+            token = (
+                cfg.get("gateway", {}).get("auth", {}).get("token")
+                or cfg.get("env", {}).get("BOT_CONTROL_SHARED_SECRET")
+                or cfg.get("env", {}).get("OPENCLAW_GATEWAY_TOKEN")
+            )
+            if token:
+                return str(token)
+        except Exception:
+            continue
+    return ""
+
+
+def _headers() -> dict[str, str]:
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    secret = _secret()
+    if secret:
+        headers["Authorization"] = f"Bearer {secret}"
+        headers["X-Bot-Secret"] = secret
+    return headers
+
+
+def _request(method: str, url: str, body: dict | None = None) -> dict:
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers=_headers())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {exc.code}: {detail[:800]}") from exc
+
+
+def _title_from_prompt(prompt: str) -> str:
+    words = [w.strip("'\"") for w in prompt.split() if w.strip()]
+    title = " ".join(word[:1].upper() + word[1:] for word in words[:8])
+    return (title[:77] + "...") if len(title) > 80 else title
+
+
+def _agency_team_for_prompt(prompt: str) -> tuple[str, list[str], str]:
+    text = prompt.lower()
+    coding = any(
+        word in text
+        for word in (
+            "code",
+            "coding",
+            "bug",
+            "fix",
+            "build",
+            "deploy",
+            "tsx",
+            "typescript",
+            "python",
+            "api",
+            "route",
+            "test",
+            "repo",
+        )
+    )
+    difficult = any(
+        word in text
+        for word in (
+            "difficult",
+            "hard",
+            "complex",
+            "architecture",
+            "multi-phase",
+            "multiple phases",
+            "production",
+            "release",
+            "deploy",
+            "staging",
+            "critical",
+        )
+    )
+    if coding:
+        agents = CODING_DIFFICULT_AGENTS if difficult else CODING_SIMPLE_AGENTS
+        reason = "difficult coding task" if difficult else "simple coding task"
+        return "Code", agents, reason
+    if any(word in text for word in ("research", "investigate", "analyze", "analyse", "audit", "compare")):
+        return "Research", RESEARCH_AGENTS, "research task"
+    if any(word in text for word in ("write", "creative", "copy", "story", "script", "brand")):
+        return "Creative", CREATIVE_AGENTS, "creative task"
+    return "The Agency", ["DeepSeekFlashV4", "Codex", "Gemini 3.5 Flash"], "general task"
+
+
+def _normalize_task_source(value: str) -> str:
+    cleaned = (value or "").strip()
+    return cleaned if cleaned in ALLOWED_SOURCES else "manual"
+
+
+def _normalize_created_by(value: str) -> str:
+    cleaned = (value or "").strip()
+    return cleaned if cleaned in ALLOWED_CREATED_BY else "pearl"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="pearl-task-dispatch",
+        description="Queue a code/config/system task for the PearlOS Agency worker.",
+    )
+    parser.add_argument("task", nargs="?", help="Task description to queue")
+    parser.add_argument("--title", "-t", default="", help="Short task title")
+    parser.add_argument("--urgent", "-u", action="store_true", help="Mark urgent")
+    parser.add_argument("--source", default="manual", help="Task source label")
+    parser.add_argument("--created-by", default="pearl", help="Creator label")
+    parser.add_argument("--user-email", default=os.getenv("PEARL_TASK_REQUESTER_EMAIL", ""))
+    parser.add_argument("--user-id", default=os.getenv("PEARL_TASK_REQUESTER_USER_ID", ""))
+    parser.add_argument("--tenant-id", default=os.getenv("PEARL_TASK_REQUESTER_TENANT_ID", ""))
+    parser.add_argument("--tenant-role", default=os.getenv("PEARL_TASK_REQUESTER_TENANT_ROLE", "member"))
+    parser.add_argument("--workspace-mode", default=os.getenv("PEARL_TASK_WORKSPACE_MODE", ""))
+    parser.add_argument("--workspace-path", default=os.getenv("PEARL_TASK_WORKSPACE_PATH", ""))
+    args = parser.parse_args(argv)
+
+    task = (args.task or "").strip()
+    if not task:
+        parser.error("task description required")
+
+    swarm_category, agents, routing_reason = _agency_team_for_prompt(task)
+
+    body = {
+        "source": _normalize_task_source(args.source),
+        "created_by": _normalize_created_by(args.created_by),
+        "assignee": "claude_cli",
+        "urgency": "urgent" if args.urgent else "normal",
+        "task": task,
+        "title": args.title.strip() or _title_from_prompt(task),
+        "kind": "swarm" if len(agents) > 1 else "task",
+        "agents": agents,
+        "swarm_category": swarm_category,
+        "routing_reason": routing_reason,
+    }
+    if args.user_email:
+        body["requester_email"] = args.user_email.strip().lower()
+    if args.user_id:
+        body["requester_user_id"] = args.user_id.strip()
+    if args.tenant_id:
+        body["requester_tenant_id"] = args.tenant_id.strip()
+    if args.tenant_role:
+        body["requester_tenant_role"] = args.tenant_role.strip()
+    if args.workspace_mode:
+        body["workspace_mode"] = args.workspace_mode.strip()
+    if args.workspace_path:
+        body["workspace_path"] = args.workspace_path.strip()
+
+    try:
+        _request("POST", _api_base(), body)
+    except (urllib.error.URLError, RuntimeError, TimeoutError) as exc:
+        print(f"Failed to queue task: {exc}", file=sys.stderr)
+        return 1
+
+    print("Queued background task.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

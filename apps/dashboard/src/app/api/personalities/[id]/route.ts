@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
     }
     const tenantId = req.nextUrl.searchParams.get('tenantId');
     if (!tenantId) return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
-    const item = await getPersonalityById((await ctx.params).id);
+    const item = await getPersonalityById((await ctx.params).id, tenantId);
     if (!item) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ item });
   } catch (e: any) {

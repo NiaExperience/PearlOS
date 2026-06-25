@@ -13,6 +13,7 @@ from pipecat.services.llm_service import FunctionCallParams
 
 from tools.decorators import bot_tool
 from tools import events
+from tools.news_app_html import build_news_html
 from tools.sharing import utils as sharing_tools
 from room.state import set_desktop_mode
 from tools.logging_utils import bind_tool_logger
@@ -34,11 +35,12 @@ DEFAULT_VIEW_TOOL_PROMPTS = {
     'bot_open_gmail': 'Open Gmail.',
     'bot_open_google_drive': 'Open Google Drive.',
     'bot_open_notes': 'Open the Notes app. For a SPECIFIC note by name, use bot_open_note instead.',
+    'bot_open_files': 'Open FileSpace. If the user describes files naturally, pass query so FileSpace can search and open the relevant folder.',
     'bot_open_terminal': 'Open a terminal/command line.',
     'bot_open_news': 'Open the built-in PearlOS News app with live headlines. Optional category: world, science, politics, entertainment, health, tech. Do NOT generate HTML for news.',
     'bot_open_youtube': 'Open YouTube player. Use bot_search_youtube_videos to find/play videos.',
-    'bot_switch_layout_mode': 'Switch UI layout between desktop and mobile viewport. RARELY needed. If user says "desktop"/"home mode"/"work mode", use bot_switch_desktop_mode instead.',
-    'bot_switch_desktop_mode': 'Switch desktop mode: "home" (default), "work", "quiet", or "create". "Desktop"/"go to desktop" = "home". NOT for note privacy (use bot_switch_note_mode).',
+    'bot_switch_layout_mode': 'Switch UI layout between desktop and mobile viewport. RARELY needed. If user says "home"/"desktop", use bot_switch_desktop_mode instead.',
+    'bot_switch_desktop_mode': 'Switch desktop mode: "home" (default home screen) or "desktop" (work surface with app icons). NOT for note privacy (use bot_switch_note_mode).',
 }
 
 # Lazy import helper to avoid circular import
@@ -122,8 +124,8 @@ async def _disabled_bot_close_view(params: FunctionCallParams):
         "properties": {
             "mode": {
                 "type": "string",
-                "description": "The PearlOS desktop background/theme mode to switch to. Valid values: 'home' (default home desktop — use this when user says 'switch to desktop' or just 'desktop'), 'work' (work background with app icons — use when user says 'work mode'), 'quiet' (minimal peaceful background — use when user says 'quiet mode'), or 'create' (Creation Engine workspace — use when user says 'create mode'). REQUIRED - always provide this parameter. DEFAULT to 'home' if the user says 'desktop' without specifying a mode.",
-                "enum": ["home", "work", "quiet", "create"]
+                "description": "The PearlOS desktop mode to switch to. Valid values: 'home' (the home screen — use when user says 'home' or 'go home') or 'desktop' (the desktop work surface with app icons — use when user says 'desktop' or 'go to desktop'). REQUIRED - always provide this parameter.",
+                "enum": ["home", "desktop"]
             }
         },
         "required": ["mode"]
@@ -340,6 +342,39 @@ async def bot_open_notes(params: FunctionCallParams):
 
 
 @bot_tool(
+    name="bot_open_files",
+    description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_files"],
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Natural language file search to run inside FileSpace.",
+            },
+        },
+        "required": [],
+    },
+    passthrough=True
+)
+async def bot_open_files(params: FunctionCallParams):
+    """Open FileSpace, optionally with a natural language search."""
+    arguments = params.arguments or {}
+    query = str(arguments.get("query") or arguments.get("fileSearchQuery") or "").strip()
+    payload = {"app": "files"}
+    if query:
+        payload["query"] = query
+        payload["fileSearchQuery"] = query
+
+    if params.forwarder:
+        await params.forwarder.emit_tool_event(events.APP_OPEN, payload)
+
+    await params.result_callback({
+        "success": True,
+        "user_message": f"Opening FileSpace and looking for {query}." if query else "Opening FileSpace.",
+    }, properties=FunctionCallResultProperties(run_llm=False))
+
+
+@bot_tool(
     name="bot_open_terminal",
     description=DEFAULT_VIEW_TOOL_PROMPTS["bot_open_terminal"],
     feature_flag="terminal",
@@ -472,18 +507,21 @@ async def bot_open_creation_engine(params: FunctionCallParams):
 async def bot_open_news(params: FunctionCallParams):
     """Open the built-in PearlOS News app on Wonder Canvas.
     
-    Emits app.open event so the frontend opens the same News UI
-    used by the desktop icon click — one unified news experience.
+    Emits wonder.scene directly so voice does not depend on a secondary
+    app.open -> Wonder Canvas remap being mounted in the browser.
     """
     args = params.arguments
     category = (args.get("category") or "").strip().lower() or None
     forwarder = params.forwarder
 
     if forwarder:
-        payload = {"app": "news"}
-        if category:
-            payload["category"] = category
-        await forwarder.emit_tool_event(events.APP_OPEN, payload)
+        await forwarder.emit_tool_event(events.WONDER_CANVAS_SCENE, {
+            "html": build_news_html(category),
+            "layer": "main",
+            "transition": "fade",
+            "hideChrome": True,
+            "sceneId": "news",
+        })
 
     await params.result_callback({
         "success": True,

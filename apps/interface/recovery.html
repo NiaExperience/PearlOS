@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>System Recovery — Service Health</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:#0a0a0a;color:#e0e0e0;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
+h1{font-size:1.8rem;margin-bottom:.5rem}
+.sub{color:#888;margin-bottom:2rem;font-size:.9rem}
+.grid{display:grid;gap:.75rem;width:100%;max-width:420px}
+.card{display:flex;align-items:center;justify-content:space-between;background:#141414;border-radius:8px;padding:.75rem 1rem;border:1px solid #222}
+.card.up{border-color:#1a3a1a} .card.down{border-color:#3a1a1a}
+.status{font-weight:600;font-size:.9rem}
+.up .status{color:#4ade80} .down .status{color:#f87171}
+.summary{margin-top:1.5rem;font-size:.8rem}
+.actions{margin-top:2rem;display:flex;gap:1rem}
+button{background:#222;color:#e0e0e0;border:1px solid #333;border-radius:6px;padding:.5rem 1.25rem;cursor:pointer;font-size:.85rem}
+.ts{margin-top:2rem;font-size:.7rem;color:#555}
+.err{background:#2a1010;border:1px solid #5a2020;border-radius:8px;padding:.75rem 1.25rem;margin-bottom:1.5rem;color:#ff6b6b;font-size:.85rem}
+</style>
+</head>
+<body>
+<h1>🔧 System Recovery</h1>
+<p class="sub">Real-time service health · refreshes every 5s</p>
+<div id="err"></div>
+<div class="grid" id="grid"></div>
+<div class="summary" id="summary"></div>
+<div class="actions">
+  <button onclick="check()">Refresh Now</button>
+  <button id="toggleBtn" onclick="togglePoll()">Auto-refresh: ON</button>
+</div>
+<p class="ts" id="ts">Last check: pending</p>
+
+<script>
+// Services to check — server-side fetch via our tiny health proxy
+// For standalone use without Next.js, we embed a list and fetch directly.
+// NOTE: Direct browser fetch to localhost services WILL fail due to CORS
+// unless the services set Access-Control-Allow-Origin headers.
+// The recommended approach is the Next.js API route (/api/health).
+// This standalone fallback uses a best-effort approach with no-cors mode
+// (which only tells us if the server is reachable, not the status code).
+
+const SERVICES = [
+  { name: "OpenClaw Gateway", url: "/v1/models", directUrl: "http://localhost:18789/v1/models", method: "GET" },
+  { name: "Mesh GraphQL", url: "/graphql", directUrl: "http://localhost:2000/graphql", method: "POST",
+    headers: {"Content-Type":"application/json"}, body: '{"query":"{__typename}"}', acceptCodes: [200,401] },
+  { name: "Bot Gateway", url: "/bot-health", directUrl: "http://localhost:4444/health", method: "GET" },
+  { name: "PocketTTS", url: "/tts-health", directUrl: "http://localhost:8766/health", method: "GET" },
+];
+
+let polling = true, timer;
+
+async function checkOne(svc) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    // Try the API route first (works when Next.js is running)
+    let res;
+    try {
+      res = await fetch("/api/health", { cache: "no-store", signal: ctrl.signal });
+      if (res.ok) {
+        clearTimeout(t);
+        return null; // signal to use bulk API response
+      }
+    } catch {}
+    // Fallback: direct fetch (may fail due to CORS)
+    res = await fetch(svc.directUrl, {
+      method: svc.method,
+      headers: svc.headers,
+      body: svc.body,
+      signal: ctrl.signal,
+    });
+    const ok = (res.status >= 200 && res.status < 300) ||
+               (svc.acceptCodes?.includes(res.status) ?? false);
+    return { name: svc.name, status: ok ? "up" : "down", code: res.status };
+  } catch(e) {
+    return { name: svc.name, status: "down", error: e.message };
+  } finally { clearTimeout(t); }
+}
+
+async function check() {
+  const errEl = document.getElementById("err");
+  try {
+    // Try the bulk API route first
+    const res = await fetch("/api/health", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      render(data.services, data.ts);
+      errEl.innerHTML = "";
+      return;
+    }
+  } catch {}
+
+  // Fallback: direct checks
+  try {
+    const results = await Promise.all(SERVICES.map(checkOne));
+    const valid = results.filter(r => r !== null);
+    if (valid.length > 0) {
+      render(valid, Date.now());
+      errEl.innerHTML = "";
+    }
+  } catch(e) {
+    errEl.innerHTML = `<div class="err">⚠️ ${e.message}</div>`;
+  }
+}
+
+function render(services, ts) {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = services.map(s =>
+    `<div class="card ${s.status}">
+      <span style="font-weight:500">${s.name}</span>
+      <span class="status">${s.status==="up"?"✅ Up":"❌ Down"}${s.code?` (${s.code})`:""}</span>
+    </div>`
+  ).join("");
+  const down = services.filter(s => s.status === "down").length;
+  const sumEl = document.getElementById("summary");
+  sumEl.style.color = down ? "#f59e0b" : "#4ade80";
+  sumEl.textContent = down ? `${down} service(s) degraded` : "All services operational ✓";
+  document.getElementById("ts").textContent = `Last check: ${new Date(ts).toLocaleTimeString()}`;
+}
+
+function togglePoll() {
+  polling = !polling;
+  document.getElementById("toggleBtn").textContent = `Auto-refresh: ${polling?"ON":"OFF"}`;
+  if (polling) startPoll(); else clearInterval(timer);
+}
+
+function startPoll() { timer = setInterval(check, 5000); }
+
+check();
+startPoll();
+</script>
+</body>
+</html>

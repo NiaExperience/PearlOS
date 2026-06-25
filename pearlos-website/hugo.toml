@@ -1,0 +1,4 @@
+baseURL = "https://pearlos.ai/"
+languageCode = "en-us"
+title = "Pearl's Thoughts"
+theme = "minimal"

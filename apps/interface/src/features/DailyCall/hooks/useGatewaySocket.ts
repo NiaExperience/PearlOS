@@ -1,171 +1,156 @@
 /**
- * useGatewaySocket — connects to the bot gateway's WebSocket event channel
- * (/ws/events) and routes incoming nia.event envelopes through the same
- * niaEventRouter used by Daily app-messages.
+ * useGatewaySocket.ts
  *
- * This allows tool invocations (notes, YouTube, windows, etc.) to work
- * even when no Daily.co room is active.
+ * Connects to the bot gateway WebSocket (/ws/events) so nia.event envelopes
+ * (wonder canvas, view close, window open, etc.) reach the frontend even when
+ * Daily.co is not active (e.g. text-only chat mode).
+ *
+ * Events received are forwarded to niaEventRouter via the nia:app-message
+ * CustomEvent that the router listens for.
  */
 
 import { useEffect, useRef } from 'react';
 
-import { getClientLogger } from '@interface/lib/client-logger';
-
-import { routeNiaEvent } from '../events/niaEventRouter';
+import {
+  gatewaySubscriptionScope,
+  shouldAcceptGatewayEnvelope,
+} from '@interface/features/DailyCall/lib/gateway-event-scope';
 import { isDuplicateEvent } from '@interface/lib/event-dedup';
+import { getGatewayWsAuth } from '@interface/lib/gateway-ws-auth';
 
-const log = getClientLogger('[gateway_ws]');
+const GATEWAY_WS_URL =
+  typeof window !== 'undefined'
+    ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/gateway-ws/events`
+    : '';
 
-/** Derive the WebSocket URL from the bot control base URL env var.
- *
- * Strategy:
- * 1. If the page is served through a tunnel/proxy (not localhost, not RunPod),
- *    use same-origin `/gateway-ws/events` path — Next.js rewrites proxy it
- *    to localhost:4444.  This avoids cross-origin and mixed-content issues.
- * 2. If the page is on a RunPod proxy host, rewrite the port segment.
- * 3. Otherwise, use the env var directly with protocol adjustment.
- */
-function getWsUrl(): string | null {
-  const base =
-    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BOT_CONTROL_BASE_URL) || '';
-  if (!base) return null;
-  try {
-    const url = new URL(base);
+// Fallback: try localhost:4444 (bot gateway dev server)
+const GATEWAY_WS_FALLBACK = 'ws://localhost:4444/ws/events';
 
-    if (typeof window !== 'undefined') {
-      const pageHost = window.location.hostname;
-      const pageProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-
-      // Non-localhost page (RunPod proxy, Cloudflare tunnel, etc.):
-      // Always use same-origin rewrite path (/gateway-ws/events).
-      // Next.js rewrites proxy this to localhost:4444/ws/events.
-      // Direct port-based connections (e.g. {pod}-4444.proxy.runpod.net)
-      // fail because RunPod doesn't expose port 4444 externally.
-      if (pageHost !== 'localhost' && pageHost !== '127.0.0.1') {
-        return `${pageProto}//${window.location.host}/gateway-ws/events`;
-      }
-    }
-
-    // Localhost or SSR: connect directly to the gateway
-    const protocol =
-      (typeof window !== 'undefined' && window.location.protocol === 'https:') ||
-      url.protocol === 'https:'
-        ? 'wss:'
-        : 'ws:';
-    return `${protocol}//${url.host}/ws/events`;
-  } catch {
-    return null;
-  }
-}
-
-const RECONNECT_INTERVAL_MS = 3000;
-const MAX_RECONNECT_INTERVAL_MS = 30000;
-
-export interface UseGatewaySocketOptions {
-  /** Optional session ID (e.g. Daily room name) to scope WebSocket events. */
+interface UseGatewaySocketOptions {
+  /** Active tenant ID for tenant-scoped event filtering */
+  tenantId?: string | null;
+  /** Daily room/session ID for scoping events */
   sessionId?: string;
+  /** Authenticated session user ID for targeted event filtering */
+  userId?: string | null;
 }
 
-export function useGatewaySocket(options: UseGatewaySocketOptions = {}) {
-  const { sessionId } = options;
+export function useGatewaySocket({ tenantId, sessionId, userId }: UseGatewaySocketOptions = {}): void {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectDelay = useRef(RECONNECT_INTERVAL_MS);
   const mountedRef = useRef(true);
+  const connectionIdRef = useRef(0);
 
   useEffect(() => {
+    const subscriptionScope = gatewaySubscriptionScope({ sessionId, userId });
+    if (!subscriptionScope) return;
+
     mountedRef.current = true;
-    const wsUrl = getWsUrl();
-    if (!wsUrl) {
-      log.warn('No NEXT_PUBLIC_BOT_CONTROL_BASE_URL set; gateway WebSocket disabled');
-      return;
-    }
+    connectionIdRef.current += 1;
+    const connectionId = connectionIdRef.current;
 
-    function connect() {
+    async function connect(url: string, isFallback = false) {
       if (!mountedRef.current) return;
-      if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
-        return;
-      }
+      if (typeof window === 'undefined') return;
+      if (connectionId !== connectionIdRef.current) return;
 
-      log.info('Connecting to gateway WebSocket', { url: wsUrl, sessionId });
-      let ws: WebSocket;
       try {
-        ws = new WebSocket(wsUrl!);
-      } catch (err) {
-        log.error('Failed to construct WebSocket (mixed content?)', { url: wsUrl, error: String(err) });
-        return;
-      }
-      wsRef.current = ws;
+        const auth = await getGatewayWsAuth(url, { tenantId, sessionId: subscriptionScope });
+        if (!mountedRef.current) return;
+        if (connectionId !== connectionIdRef.current) return;
 
-      ws.onopen = () => {
-        log.info('Gateway WebSocket connected');
-        reconnectDelay.current = RECONNECT_INTERVAL_MS; // reset backoff
-        // Send session scoping message if a session ID is available
-        if (sessionId) {
+        const ws = new WebSocket(auth.url, auth.protocols);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          console.info(`[useGatewaySocket] Connected to ${isFallback ? 'fallback ' : ''}${url}`);
+          ws.send(JSON.stringify({ session_id: subscriptionScope, user_id: userId || undefined }));
+        };
+
+        ws.onmessage = (event) => {
           try {
-            ws.send(JSON.stringify({ session_id: sessionId }));
-            log.info('Sent session_id to gateway WebSocket', { sessionId });
-          } catch (err) {
-            log.warn('Failed to send session_id', { error: String(err) });
-          }
-        }
-      };
+            const data = JSON.parse(event.data);
 
-      ws.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          // Handle keepalive pings from server
-          if (data && data.type === 'ping') {
-            try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* noop */ }
-            return;
-          }
-          if (data && data.kind === 'nia.event' && typeof data.event === 'string') {
-            // Dedup: mark this event so the Daily app-message path won't re-process it
-            if (isDuplicateEvent(data.seq ?? 0, data.ts ?? 0, data.event)) {
-              log.debug('Gateway WS event DEDUPED', { event: data.event });
-              return;
+            // Drop replays/duplicates BEFORE dispatching: the gateway
+            // re-broadcasts queued events when the WS reconnects (a
+            // common mobile pattern when iOS suspends the tab), and a
+            // parallel bridge (WsEventBridgeManager) feeds the same
+            // /ws/events stream. Without this gate, every reconnect
+            // re-fires past app.open events as ghost windows.
+            if (typeof data?.seq === 'number' && typeof data?.ts === 'number' && typeof data?.event === 'string') {
+              if (isDuplicateEvent(data.seq, data.ts, data.event)) return;
             }
-            log.debug('Gateway WS event', { event: data.event });
-            routeNiaEvent(data);
+
+            if (!shouldAcceptGatewayEnvelope(data, { tenantId, sessionId: subscriptionScope, userId })) return;
+
+            // Forward nia.event envelopes to the event router
+            if (data.kind === 'nia.event' || data.kind === 'nia.tool_result') {
+              window.dispatchEvent(
+                new CustomEvent('nia:app-message', { detail: data }),
+              );
+            }
+
+            // Also handle tool_result with window actions
+            if (data.kind === 'nia.tool_result' && data.payload) {
+              const p = data.payload;
+              if (p.action === 'close' || p.action === 'hide') {
+                window.dispatchEvent(
+                  new CustomEvent('nia:tool-result', { detail: p }),
+                );
+              }
+              if (p.action === 'open' || p.action === 'present') {
+                window.dispatchEvent(
+                  new CustomEvent('nia:tool-result', { detail: p }),
+                );
+              }
+            }
+          } catch {
+            // Non-JSON message, ignore
           }
-          // nia.tool_invoke envelopes are for the bot process, not the frontend — ignore
-        } catch {
-          // ignore non-JSON or malformed messages
+        };
+
+        ws.onclose = () => {
+          if (connectionId !== connectionIdRef.current) return;
+          console.info('[useGatewaySocket] Disconnected');
+          if (wsRef.current === ws) wsRef.current = null;
+          // Reconnect after delay
+          if (mountedRef.current) {
+            reconnectTimer.current = setTimeout(() => {
+              if (mountedRef.current && connectionId === connectionIdRef.current) connect(url, isFallback);
+            }, 3000);
+          }
+        };
+
+        ws.onerror = () => {
+          // If primary URL failed and we haven't tried fallback yet
+          if (!isFallback && url !== GATEWAY_WS_FALLBACK) {
+            console.info('[useGatewaySocket] Primary failed, trying fallback...');
+            ws.onclose = null;
+            ws.close();
+            connect(GATEWAY_WS_FALLBACK, true);
+          }
+        };
+      } catch (err) {
+        console.warn('[useGatewaySocket] Failed to create authenticated WebSocket', err);
+        if (mountedRef.current && connectionId === connectionIdRef.current) {
+          reconnectTimer.current = setTimeout(() => {
+            if (mountedRef.current && connectionId === connectionIdRef.current) connect(url, isFallback);
+          }, 3000);
         }
-      };
-
-      ws.onclose = () => {
-        log.info('Gateway WebSocket closed, scheduling reconnect', {
-          delayMs: reconnectDelay.current,
-        });
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        // onclose will fire after onerror, so reconnect happens there
-      };
+      }
     }
 
-    function scheduleReconnect() {
-      if (!mountedRef.current) return;
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = setTimeout(() => {
-        connect();
-        // Exponential backoff
-        reconnectDelay.current = Math.min(reconnectDelay.current * 1.5, MAX_RECONNECT_INTERVAL_MS);
-      }, reconnectDelay.current);
-    }
-
-    connect();
+    connect(GATEWAY_WS_URL);
 
     return () => {
       mountedRef.current = false;
+      connectionIdRef.current += 1;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (wsRef.current) {
-        wsRef.current.onclose = null; // prevent reconnect on intentional close
+        wsRef.current.onclose = null;
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [sessionId]);
+  }, [sessionId, tenantId, userId]);
 }

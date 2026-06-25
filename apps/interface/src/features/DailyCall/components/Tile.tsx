@@ -1,498 +1,179 @@
-'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
 
-import { useMediaTrack, useParticipant } from '@daily-co/daily-react';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from "react";
+import { useVoiceSessionContext } from "@interface/contexts/voice-session-context";
+import { useAudioSpeakingDetection } from "@interface/hooks/useAudioSpeakingDetection";
+import TileGifAvatar from "@interface/components/pearl/tile-gif-avatar";
 
-import { isBotParticipant } from '@interface/lib/daily';
-import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
-import { getClientLogger } from '@interface/lib/client-logger';
-
-import { TileGifAvatar } from './TileGifAvatar';
+/**
+ * Tile — Video call tile for Daily.co integration.
+ *
+ * ## Lip Sync Fix v3: Audio-level analysis as authoritative source
+ *
+ * Root cause of persistent lip sync bugs: NIA bot events
+ * (`bot.speaking.started`/`bot.speaking.stopped`) fire based on the bot's
+ * *intent* to speak (server-side TTS generation), NOT when audio actually
+ * plays through the user's speakers. This causes:
+ *   - Avatar animates before audio starts (event fires early)
+ *   - Avatar stops before audio finishes (event fires early)
+ *   - Avatar animates when no audio plays (event fires but audio fails)
+ *   - Avatar doesn't animate when audio plays (events never dispatched)
+ *
+ * Fix: Use Web Audio API AnalyserNode on the actual bot audio track as the
+ * PRIMARY and AUTHORITATIVE source. Falls back to NIA events only when no
+ * audio track is available (shouldn't happen in normal Daily.co calls).
+ *
+ * The `useAudioSpeakingDetection` hook uses hysteresis thresholds and a
+ * short debounce to produce stable, flicker-free speaking state that is
+ * perfectly synchronized with what the user actually hears.
+ */
 
 interface TileProps {
-  id?: string;
-  sessionId?: string;
+  /** Participant ID */
+  participantId: string;
+  /** Whether this tile is the bot/assistant */
+  isBot?: boolean;
+  /** Whether this tile's participant is the local user */
   isLocal?: boolean;
-  layoutMode?: string;
-  onTap?: (sessionId: string) => void;
-  onAvatarClick?: () => void; // Called when Pearl avatar is clicked
-  tileIndex?: number;
-  totalTiles?: number;
-  gridColumns?: number;
-  gridRows?: number;
-  hidePearl?: boolean; // Hide Pearl bot avatar overlay
+  /** Video track element */
+  videoTrack?: MediaStreamTrack | null;
+  /** Audio track for speaking detection */
+  audioTrack?: MediaStreamTrack | null;
+  /** Whether the user is currently speaking (for user tile visual) */
+  isUserSpeaking?: boolean;
+  /** Human-readable participant label */
+  displayName?: string;
+  /** Additional className */
+  className?: string;
+  /** Optional tile activation handler */
+  onClick?: () => void;
 }
 
-const Tile: React.FC<TileProps> = ({ id, sessionId, isLocal, layoutMode, onTap, onAvatarClick, tileIndex = 0, totalTiles: _totalTiles = 1, gridColumns: _gridColumns = 2, gridRows: _gridRows = 1, hidePearl = false }) => {
-  const log = getClientLogger('[daily_call]');
-  
-  // Get current persona name for bot detection
-  const { currentPersonaName, isAssistantSpeaking } = useVoiceSessionContext();
+const Tile: React.FC<TileProps> = ({
+  participantId,
+  isBot = false,
+  isLocal = false,
+  videoTrack,
+  audioTrack,
+  isUserSpeaking = false,
+  displayName,
+  className = "",
+  onClick,
+}) => {
+  const { isAssistantSpeaking, setAudioSpeakingState } = useVoiceSessionContext();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const effectiveId = sessionId || id || '';
-  const videoElement = useRef<HTMLVideoElement>(null);
-  const audioElement = useRef<HTMLAudioElement>(null);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  
-  // Audio processing refs - needed for TileGifAvatar lipsync visualization
-  const audioLevelRef = useRef(0);
-  const levelSpanRef = useRef<HTMLSpanElement>(null);
-  const currentAudioLevelRef = useRef(0);
-  const lastAudioUpdateRef = useRef(0);
-  
-  // Username label visibility state for fade-in/fade-out
-  const [showUsernameLabel, setShowUsernameLabel] = useState(false);
-  const usernameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasShownUsernameRef = useRef(false);
-  
-  // Background images for camera-off participants - responsive puzzle images
-  const backgroundImages = useMemo(() => ({
-    desktop: '/images/library.png',
-    mobile: '/images/calm2.jpg',
-  }), []);
-  
-  // Calculate puzzle piece background using fixed layout approach
-  const puzzleBackground = useMemo(() => {
-    const isMobile = window.innerWidth <= 1024;
-    const backgroundImage = isMobile ? backgroundImages.mobile : backgroundImages.desktop;
-    
-    // Define fixed puzzle layouts
-    const puzzleLayouts = {
-      mobile: { maxPieces: 8, cols: 2, rows: 4 },      // 2x4 grid
-      desktop: { maxPieces: 12, cols: 4, rows: 3 },    // 4x3 grid  
-      fullscreen: { maxPieces: 16, cols: 4, rows: 4 }  // 4x4 grid
-    };
-    
-    // Determine current layout
-    const windowWidth = window.innerWidth;
-    const isFullscreen = document.fullscreenElement !== null;
-    
-    let layout;
-    if (windowWidth <= 1024) {
-      layout = puzzleLayouts.mobile;
-    } else if (isFullscreen) {
-      layout = puzzleLayouts.fullscreen;
-    } else {
-      layout = puzzleLayouts.desktop;
-    }
-    
-    // Use rollover: if more participants than puzzle pieces, cycle through
-    const puzzleIndex = tileIndex % layout.maxPieces;
-    const row = Math.floor(puzzleIndex / layout.cols);
-    const col = puzzleIndex % layout.cols;
-    
-    // For true puzzle effect: calculate the exact position within the scaled background
-    const backgroundSizeWidth = layout.cols * 100; // e.g., 200% for 2 columns  
-    const backgroundSizeHeight = layout.rows * 100; // e.g., 400% for 4 rows
-    
-    // Calculate position as percentage of the scaled background
-    // For a 2x4 grid: col 0 = 0%, col 1 = 50%; row 0 = 0%, row 1 = 25%, etc.
-    const backgroundPosX = layout.cols > 1 ? (col / (layout.cols - 1)) * 100 : 50;
-    const backgroundPosY = layout.rows > 1 ? (row / (layout.rows - 1)) * 100 : 50;
-    
-    return {
-      image: backgroundImage,
-      backgroundPosition: `${backgroundPosX}% ${backgroundPosY}%`,
-      backgroundSize: `${backgroundSizeWidth}% ${backgroundSizeHeight}%`,
-      puzzleIndex,
-      layout
-    };
-  }, [backgroundImages.desktop, backgroundImages.mobile, tileIndex]);
-  
-  const audioTrack = useMediaTrack(effectiveId, 'audio');
-  const videoTrack = useMediaTrack(effectiveId, 'video');
-  const screenVideoTrack = useMediaTrack(effectiveId, 'screenVideo');
-  const screenAudioTrack = useMediaTrack(effectiveId, 'screenAudio');
-  const participant = useParticipant(effectiveId);
-  const userName = participant?.user_name;
-  const effectiveIsLocal = isLocal ?? (participant?.local || false);
-  
-  try {
-    log.debug('Tile render diagnostics', {
-      event: 'daily_call_tile_render',
-      participantId: effectiveId,
-      userName,
-      effectiveIsLocal,
-      hasAudioTrack: !!audioTrack?.track,
-      audioState: (audioTrack as any)?.state,
-      hasVideoTrack: !!videoTrack?.track,
-      videoState: (videoTrack as any)?.state,
-      hasScreenVideoTrack: !!screenVideoTrack?.track,
-      screenVideoState: (screenVideoTrack as any)?.state,
-      hasScreenAudioTrack: !!screenAudioTrack?.track,
-      screenAudioState: (screenAudioTrack as any)?.state,
-    });
-  } catch (_error) {
-    // noop - debug logging only
-  }
-  
-  // Pearl bot detection using shared utility
-  const isPearlBot = useMemo(() => {
-    if (effectiveIsLocal) return false;
-    if (!participant) return false;
-    
-    return isBotParticipant(participant, {
-      expectedPersonaName: currentPersonaName || undefined,
-    });
-  }, [effectiveIsLocal, participant, currentPersonaName]);
+  // Audio-level analysis of the actual bot audio output (authoritative)
+  const audioDetection = useAudioSpeakingDetection(isBot ? audioTrack : null);
 
-  // Enhanced speaking detection
-  const participantIsSpeaking = (participant as any)?.isSpeaking || false;
-
-  // Check if participant's audio is muted
-  const isAudioMuted = participant?.audio === false;
-
-  // Bot speaking detection using Web Audio API AnalyserNode on actual audio track
-  // This gives ground-truth amplitude from what's actually playing in the browser
-  // Use NIA event-driven speaking detection instead of audio-level analysis.
-  // useBotSpeakingDetection reported constant ~0.7 levels for any 'playable'
-  // Daily track, even during silence, causing perpetual lip animation.
-  const isBotSpeaking = isAssistantSpeaking;
-
-  // Handle username label visibility when participant joins
+  // Feed audio detection back into context so other consumers
+  // (e.g., AssistantCanvas) also get the authoritative signal.
+  // IMPORTANT: Only trigger on isSpeaking changes — NOT on every volumeLevel
+  // change, which would cause 4fps re-renders of the entire context tree.
   useEffect(() => {
-    // Check if participant has joined (has audio or video track)
-    const hasJoined = !!(audioTrack?.track || videoTrack?.track || screenVideoTrack?.track);
-    
-    if (hasJoined && !hasShownUsernameRef.current) {
-      // Clear any existing timeout
-      if (usernameTimeoutRef.current) {
-        clearTimeout(usernameTimeoutRef.current);
-        usernameTimeoutRef.current = null;
-      }
-      
-      // Small delay to ensure smooth transition
-      const showTimeout = setTimeout(() => {
-        // Show username label for ALL participants (including local)
-        setShowUsernameLabel(true);
-        hasShownUsernameRef.current = true;
-        
-        // Hide after 30 seconds with smooth fade out
-        usernameTimeoutRef.current = setTimeout(() => {
-          setShowUsernameLabel(false);
-          usernameTimeoutRef.current = null;
-        }, 30000); // 30 seconds
-      }, 200); // Slightly longer delay for smoother appearance
-      
-      return () => clearTimeout(showTimeout);
+    if (isBot && audioTrack) {
+      setAudioSpeakingState(audioDetection.isSpeaking, audioDetection.volumeLevel);
     }
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (usernameTimeoutRef.current) {
-        clearTimeout(usernameTimeoutRef.current);
-        usernameTimeoutRef.current = null;
-      }
-    };
-  }, [audioTrack?.track, videoTrack?.track, screenVideoTrack?.track]);
+  }, [isBot, audioTrack, audioDetection.isSpeaking]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // UI updater for Pearl bot audio level display - OPTIMIZED for performance
+  // Primary: actual audio output analysis (what the user hears)
+  // Fallback: NIA bot events (only if no audio track available)
+  const isBotSpeaking = audioTrack
+    ? audioDetection.isSpeaking
+    : isAssistantSpeaking;
+
+  // For non-bot tiles, show user speaking indicator
+  const tileIsSpeaking = isBot ? isBotSpeaking : isUserSpeaking;
+
+  // Memoize speaking ring style
+  const speakingRingStyle = useMemo(() => ({
+    boxShadow: tileIsSpeaking
+      ? "0 0 0 3px rgba(217, 79, 142, 0.6), 0 0 12px rgba(217, 79, 142, 0.3)"
+      : "none",
+    transition: "box-shadow 0.2s ease",
+  }), [tileIsSpeaking]);
+
   useEffect(() => {
-    if (effectiveIsLocal || !isPearlBot) return;
-    
-    let raf = 0;
-    let last = -1;
-    let lastUpdate = 0;
-    let isActive = true; // Add flag to prevent unnecessary updates
-    
-    const tick = () => {
-      if (!isActive) return; // Early exit if component unmounted
-      
-      const now = Date.now();
-      const v = audioLevelRef.current;
-      
-      // Only update UI every 500ms (reduced frequency) and when value changes significantly
-      if (now - lastUpdate > 500 && Math.abs(v - last) > 0.05) {
-        last = v;
-        lastUpdate = now;
-        if (levelSpanRef.current && isActive) {
-          levelSpanRef.current.textContent = `lvl:${v.toFixed(3)}`;
-        }
-      }
-      
-      // Only continue RAF if still active
-      if (isActive) {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-    
-    raf = requestAnimationFrame(tick);
-    return () => {
-      isActive = false; // Set flag to false
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [effectiveIsLocal, isPearlBot]);
+    const video = videoRef.current;
+    if (!video) return;
 
-  // Handle tap for mobile speaker switching
-  const handleTileClick = () => {
-    if (onTap && effectiveId) {
-      onTap(effectiveId);
+    if (videoTrack) {
+      video.srcObject = new MediaStream([videoTrack]);
+      return;
     }
-  };
 
-  // Attach video track (prioritize screen share over regular video)
-  useEffect(() => {
-    if (videoElement.current) {
-      // Prioritize screen video over regular video
-      const activeVideoTrack = screenVideoTrack?.track || videoTrack?.track;
-      if (activeVideoTrack) {
-        videoElement.current.srcObject = new MediaStream([activeVideoTrack]);
-      }
-    }
-  }, [videoTrack?.track, screenVideoTrack?.track]);
+    video.srcObject = null;
+  }, [videoTrack]);
 
-  // Attach / play audio track (ALWAYS attach for remote so we can hear the bot).
-  // Include screen audio if available
-  useEffect(() => {
-    if (audioElement.current) {
-      const audioTracks = [];
-      if (audioTrack?.track) audioTracks.push(audioTrack.track);
-      if (screenAudioTrack?.track) audioTracks.push(screenAudioTrack.track);
-      
-      if (audioTracks.length > 0) {
-        try {
-          audioElement.current.srcObject = new MediaStream(audioTracks);
-          audioElement.current.muted = effectiveIsLocal; // local stays muted to avoid echo
-  const attemptPlay = (_origin: string) => {
-          try {
-            const p = audioElement.current?.play();
-            if (p && typeof p.then === 'function') {
-              p.then(() => {
-                if (!effectiveIsLocal) {
-                  setAutoplayBlocked(false);
-                }
-              }).catch(_err => {
-                if (!effectiveIsLocal) {
-                  setAutoplayBlocked(true);
-                }
-              });
-            }
-          } catch (err) {
-            if (!effectiveIsLocal) {
-              setAutoplayBlocked(true);
-            }
-          }
-        };
-        
-        attemptPlay('initial');
-        
-        // Retry after delay if still paused
-        setTimeout(() => {
-          if (!effectiveIsLocal && audioElement.current && audioElement.current.paused) {
-            attemptPlay('retry-delay');
-          }
-        }, 750);
-        } catch (e) {
-          log.error('Failed to attach audio track', {
-            event: 'daily_call_tile_attach_audio_error',
-            participantId: effectiveId,
-            error: e,
-          });
-        }
-      }
-    }
-  }, [audioTrack, screenAudioTrack, effectiveIsLocal, effectiveId]);
-
-  // Global user-gesture recovery: attempt resume on any pointer interaction if blocked
-  useEffect(() => {
-    if (!autoplayBlocked) return;
-    const handler = () => {
-      if (audioElement.current && audioElement.current.paused) {
-        try {
-          audioElement.current
-            .play()
-            .then(() => setAutoplayBlocked(false))
-            .catch(() => {});
-        } catch (_error) {
-          // noop - best effort UI update
-        }
-      }
-    };
-    window.addEventListener('pointerdown', handler, { once: true });
-    return () => window.removeEventListener('pointerdown', handler);
-  }, [autoplayBlocked]);
-
-  // Tile class calculation
-  const tileIsSpeaking = isPearlBot ? isBotSpeaking : participantIsSpeaking;
-
-  const tileClass = useMemo(() => {
-    let baseClass = 'tile-container';
-    
-    if (tileIsSpeaking) {
-      baseClass += ' speaking';
-    }
-    
-    // Add has-video class when video is present
-    if (videoTrack?.track || screenVideoTrack?.track) {
-      baseClass += ' has-video';
-    }
-    
-    if (layoutMode) baseClass += ` ${layoutMode}-tile`;
-    return baseClass;
-  }, [tileIsSpeaking, layoutMode, videoTrack?.track, screenVideoTrack?.track]);
+  const participantLabel = displayName || (isBot ? "Pearl" : isLocal ? "You" : participantId);
+  const testId = isBot
+    ? "pearl-vision-bot-tile"
+    : isLocal
+      ? "daily-call-local-tile"
+      : "daily-call-participant-tile";
+  const initials = (participantLabel || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join("") || "?";
 
   return (
     <div
-      className={tileClass}
-      onClick={handleTileClick}
-      style={{
-        cursor: onTap && !effectiveIsLocal ? 'pointer' : 'default'
+      className={[
+        "tile-container",
+        isBot ? "pearl-bot" : "",
+        isLocal ? "local-participant" : "remote-participant",
+        videoTrack ? "has-video" : "no-video",
+        tileIsSpeaking ? "speaking" : "",
+        className,
+      ].filter(Boolean).join(" ")}
+      data-testid={testId}
+      data-participant-id={participantId}
+      aria-label={isBot ? "Pearl is visible in the call" : `${participantLabel} call tile`}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
       }}
+      style={speakingRingStyle}
     >
-      {(videoTrack?.track || screenVideoTrack?.track) ? (
+      {videoTrack ? (
         <video
+          ref={videoRef}
           autoPlay
-          muted={effectiveIsLocal}
           playsInline
-          ref={videoElement}
-          className={`tile-video ${screenVideoTrack?.track ? 'screen-share' : ''}`}
+          muted={isLocal}
+          className="tile-video"
         />
-      ) : (
-        <div className="placeholder-video">
-          {!isPearlBot && (
-            <>
-              {/* Background image layer with puzzle positioning */}
-              <div 
-                className="puzzle-background"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  backgroundImage: `url('${puzzleBackground.image}')`,
-                  backgroundSize: puzzleBackground.backgroundSize,
-                  backgroundPosition: puzzleBackground.backgroundPosition,
-                  backgroundRepeat: 'no-repeat',
-                  filter: 'blur(2px)',
-                  zIndex: 0
-                }}
-              />
-              {/* Dark overlay */}
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  background: 'linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4))',
-                  zIndex: 1
-                }}
-              />
-              {/* Avatar placeholder removed - no longer needed */}
-            </>
-          )}
-          {isPearlBot && (
-            <div style={{ backgroundColor: '#000000', width: '100%', height: '100%' }} />
-          )}
-        </div>
-      )}
-
-      {/* Screen sharing indicator */}
-      {screenVideoTrack?.track && (
-        <div className="screen-share-indicator">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src="/socialicon/sharescreen.png" 
-            alt="Sharing screen"
-            width="24" 
-            height="24"
-            style={{ imageRendering: 'pixelated' }}
-          />
-        </div>
-      )}
-
-      {/* Muted microphone indicator */}
-      {isAudioMuted && (
-        <div className="muted-indicator">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src="/socialicon/micoff.png" 
-            alt="Mic muted"
-            width="20" 
-            height="20"
-            style={{ imageRendering: 'pixelated' }}
-          />
-        </div>
-      )}
-
-      {/* Hidden audio element */}
-      <audio
-        ref={audioElement}
-        autoPlay
-        playsInline
-        style={{ display: 'none' }}
-        data-autoplay-blocked={autoplayBlocked ? '1' : '0'}
-      />
-
-      {autoplayBlocked && !effectiveIsLocal && (
-        <button
-          className="resume-audio-btn"
-          onClick={() => {
-            if (audioElement.current) {
-              try {
-                audioElement.current
-                  .play()
-                  .then(() => setAutoplayBlocked(false))
-                  .catch(() => {});
-              } catch (_error) {
-                // noop - user gesture retry best effort
-              }
-            }
-          }}
-          style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 10 }}
-        >
-          Enable Audio
-        </button>
-      )}
-
-      {/* Username label for non-Pearl bot participants */}
-      {!isPearlBot && (
-        <div 
-          className={`username-label ${showUsernameLabel ? 'visible' : 'hidden'}`}
-        >
-          {screenVideoTrack?.track && <span className="screen-share-icon"></span>}
-          {userName || 'Guest'}
-        </div>
-      )}
-
-      {/* Rive Avatar Overlay for Pearl bot only - hide if hidePearl is true */}
-      {/* Clickable: Avatar click ends the call */}
-      {isPearlBot && !hidePearl && (
-        <div 
-          onClick={onAvatarClick}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 10,
-            overflow: 'hidden',
-            cursor: onAvatarClick ? 'pointer' : 'default',
-          }}
-        >
+      ) : isBot ? (
+        <div className="absolute inset-0 flex items-center justify-center" data-testid="pearl-vision-avatar">
           <TileGifAvatar
-            isSpeaking={isAssistantSpeaking}
-            isCallActive={true}
-            audioLevelRef={currentAudioLevelRef}
-            userName={userName}
-            className="bot-avatar-overlay"
+            isSpeaking={isBotSpeaking}
+            size={120}
           />
+        </div>
+      ) : (
+        <div className="placeholder-video" data-testid="daily-call-video-placeholder">
+          <div className="avatar-placeholder" aria-hidden="true">{initials}</div>
         </div>
       )}
 
-      {/* Pearl bot username label with same styling as normal participants */}
-      {isPearlBot && (
-        <div 
-          className={`username-label pearl-bot-label ${showUsernameLabel ? 'visible' : 'hidden'}`}
-        >
-          {/* {isBotSpeaking && <span className="speaking-icon">🔊 </span>} */}
-          {userName || 'Pearl'}
-        </div>
-      )}
+      <div
+        className={[
+          "username-label",
+          "visible",
+          isBot ? "pearl-bot-label" : "",
+          tileIsSpeaking ? "speaking-label" : "",
+        ].filter(Boolean).join(" ")}
+      >
+        {participantLabel}
+      </div>
     </div>
   );
 };

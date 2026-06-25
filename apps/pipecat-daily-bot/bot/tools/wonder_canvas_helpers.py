@@ -105,34 +105,35 @@ _IMAGE_PROXY_RE = re.compile(r'/api/image(?:-proxy)?\?(?:q|url)=([^&"\'>\s]+)')
 
 
 async def resolve_image_urls_in_data(data: dict) -> dict:
-    """Resolve /api/image?q=TERM URLs in template data values to direct CDN URLs.
+    """Resolve /api/image?q=TERM URLs anywhere in template data.
 
-    Only processes string values that look like image URLs (keys ending in _url
-    or named image_url, photo_url, poster_url, cover_url, etc.).
+    Template payloads often nest images in arrays such as
+    ``photo_gallery.images[].url``. Walk the whole JSON-like structure so those
+    values are resolved before the canvas renders.
     """
-    import aiohttp
 
-    url_keys = {k for k in data if isinstance(data[k], str) and
-                (k.endswith('_url') or k in ('image', 'photo', 'poster', 'cover', 'avatar'))}
+    async def _resolve_value(value):
+        if isinstance(value, str):
+            if "/api/image" not in value:
+                return value
+            match = _IMAGE_PROXY_RE.search(value)
+            if not match:
+                return value
+            query = unquote(match.group(1))
+            cdn_url = await _resolve_wikipedia_image(query)
+            if cdn_url:
+                logger.info(f"[wonder-helpers] Resolved image '{query}' → {cdn_url}")
+                return _IMAGE_PROXY_RE.sub(cdn_url, value)
+            return value
+        if isinstance(value, list):
+            return [await _resolve_value(item) for item in value]
+        if isinstance(value, dict):
+            return {key: await _resolve_value(item) for key, item in value.items()}
+        return value
 
-    if not url_keys:
+    if not isinstance(data, dict):
         return data
-
-    resolved = dict(data)
-    for key in url_keys:
-        val = resolved[key]
-        if '/api/image' not in val:
-            continue
-        match = _IMAGE_PROXY_RE.search(val)
-        if not match:
-            continue
-        query = unquote(match.group(1))
-        cdn_url = await _resolve_wikipedia_image(query)
-        if cdn_url:
-            resolved[key] = cdn_url
-            logger.info(f"[wonder-helpers] Resolved image '{query}' → {cdn_url}")
-
-    return resolved
+    return await _resolve_value(data)
 
 
 async def resolve_image_urls_in_html(html: str) -> str:
@@ -162,7 +163,7 @@ async def resolve_image_urls_in_html(html: str) -> str:
 # Shared cache across calls within the same process
 _wiki_image_cache: dict[str, str | None] = {}
 
-_WIKI_UA = "PearlOS/1.0 (https://niaxp.com; dev@niaxp.com)"
+_WIKI_UA = "PearlOS/1.0 (https://niaxp.com; pearl@niaxp.com)"
 
 
 async def _resolve_wikipedia_image(query: str) -> str | None:

@@ -59,7 +59,7 @@ export const createS3UploadHelpers = (
     setUploadProgress(prev => ({ ...prev, currentItem: 'Getting presigned URLs...' }));
 
     try {
-      const presignedResponse = await fetch('/api/bulk-upload-urls', {
+      const presignedResponse = await fetch('/dashboard/api/bulk-upload-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,7 +270,7 @@ export const uploadImagesToS3 = async (
   }));
 
   try {
-    const presignedResponse = await fetch('/api/bulk-upload-urls', {
+    const presignedResponse = await fetch('/dashboard/api/bulk-upload-urls', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -414,7 +414,7 @@ export const uploadImagesToS3Individual = async (
         }
 
         // Get presigned URL
-        const presignedResponse = await fetch('/api/s3-presigned-url', {
+        const presignedResponse = await fetch('/dashboard/api/s3-presigned-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -547,7 +547,7 @@ export const handleImageUpload = async (
       console.log(`💾 Saving ${photoJsonData.length} photos to database...`);
 
       // Save to database via photo album API
-      const albumResponse = await fetch('/api/upload-photos', {
+      const albumResponse = await fetch('/dashboard/api/upload-photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -865,7 +865,7 @@ export const handleConfirmUpload = async (
     }
 
     // Upload to database
-    const response = await fetch('/api/upload-content', {
+    const response = await fetch('/dashboard/api/upload-content', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -896,7 +896,7 @@ export const handleConfirmUpload = async (
     // Debug information
     if (process.env.NODE_ENV === 'development') {
       try {
-        const debugResponse = await fetch(`/api/debug-upload?assistantId=${assistantId}`);
+        const debugResponse = await fetch(`/dashboard/api/debug-upload?assistantId=${assistantId}`);
         const debugData = await debugResponse.json();
         console.log('🔍 Post-upload debug info:', debugData);
       } catch (debugError) {

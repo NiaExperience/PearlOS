@@ -1,13 +1,42 @@
+import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
+import { isBlairActor } from '@interface/lib/workspace-entitlements';
 
 const BOT_GATEWAY_URL = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:4444';
+const DEFAULT_GATEWAY_BIND_HOST = '127.0.0.1';
+
+async function requirePlatformAdmin(request: NextRequest): Promise<NextResponse | null> {
+  const actorResult = await resolveInterfaceActorContext({
+    request,
+    minimumRole: TenantRole.ADMIN,
+  });
+  if (!actorResult.ok) return actorResult.response;
+  if (!isBlairActor(actorResult.actor)) {
+    return NextResponse.json({ error: 'platform_admin_required' }, { status: 403 });
+  }
+  return null;
+}
+
+function resolveGatewayBindHost(): string {
+  const host = (process.env.BOT_GATEWAY_BIND_HOST || DEFAULT_GATEWAY_BIND_HOST).trim();
+  if (!/^(127\.0\.0\.1|localhost|::1)$/.test(host)) {
+    throw new Error(`Unsafe bot gateway bind host: ${host}`);
+  }
+  return host;
+}
 
 /**
  * POST /api/bot/restart
  * Restarts the Pipecat bot gateway by hitting its internal restart endpoint,
  * or falling back to a process-level restart via shell.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authError = await requirePlatformAdmin(request);
+  if (authError) return authError;
+
   try {
     // Try graceful restart via gateway's own endpoint first
     try {
@@ -36,13 +65,12 @@ export async function POST() {
 
     // Respawn with env from .env file
     const botDir = '/workspace/nia-universal/apps/pipecat-daily-bot/bot';
-    const cmd = `cd ${botDir} && nohup python3 -m uvicorn bot_gateway:app --host 0.0.0.0 --port 4444 > /tmp/bot_gateway.log 2>&1 &`;
+    const bindHost = resolveGatewayBindHost();
+    const cmd = `cd ${botDir} && nohup python3 -m uvicorn bot_gateway:app --host ${bindHost} --port 4444 > /tmp/bot_gateway.log 2>&1 &`;
     
     await execAsync(cmd, {
       env: {
         ...process.env,
-        USE_ELEVENLABS: 'false',
-        BOT_TTS_PROVIDER: 'pocket',
       },
     });
 

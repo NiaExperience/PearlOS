@@ -32,7 +32,7 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
 
 // Login schema for form validation
 const LoginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().min(1, 'Username or email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -60,7 +60,7 @@ export function LoginForm() {
         redirect: false,
         email: values.email,
         password: values.password,
-        callbackUrl: '/dashboard',
+        callbackUrl: '/dashboard/assistants',
       });
 
       if (result?.error) {
@@ -77,7 +77,7 @@ export function LoginForm() {
           description: 'You have successfully logged in',
         });
         router.refresh();
-        router.push('/dashboard');
+        router.push('/dashboard/assistants');
       }
     } catch (err) {
       const errorMessage = 'An unexpected error occurred';
@@ -95,7 +95,7 @@ export function LoginForm() {
 
   // Handle Google sign-in
   const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/dashboard' });
+    signIn('google', { callbackUrl: '/dashboard/assistants' });
   };
 
   // Resend invite (for provisional account without password)
@@ -103,7 +103,7 @@ export function LoginForm() {
     try {
       const email = form.getValues('email');
       if (!email) return;
-      const res = await fetch('/api/users/resend-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const res = await fetch('/dashboard/api/users/resend-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed');
       toast({ title: 'Invite sent', description: 'Check your email for the invite link.' });
@@ -118,7 +118,7 @@ export function LoginForm() {
       const email = form.getValues('email');
       if (!email) return;
       // We don't know userId from email here simply; backend route expects session or userId; for now just fire to show UX (will 401 if not logged in).
-      const res = await fetch('/api/users/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch('/dashboard/api/users/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed');
       toast({ title: 'Reset requested', description: 'Check your email for reset instructions.' });
@@ -133,7 +133,7 @@ export function LoginForm() {
         <CardHeader className="pb-4">
           {/* <AudioWaveform className='border p-2 size-10 bg-primary text-primary-foreground rounded-lg mb-3' /> */}
           <CardTitle className='text-2xl text-card-foreground font-bold text-center'>Login Now</CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">Enter your email below to login to your account</CardDescription>
+          <CardDescription className="text-sm text-muted-foreground">Enter your username or email to access the dashboard</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
           <Form {...form}>
@@ -148,11 +148,11 @@ export function LoginForm() {
                 name='email'
                 render={({ field }: { field: any }) => (
                   <FormItem>
-                    <FormLabel className="text-sm text-foreground">Email</FormLabel>
+                    <FormLabel className="text-sm text-foreground">Username or Email</FormLabel>
                     <FormControl>
                       <Input
                         className="bg-input/50 border-input text-foreground placeholder:text-muted-foreground focus:border-ring h-10 text-sm"
-                        placeholder='john@example.com'
+                        placeholder='Username or Email'
                         {...field}
                         value={field.value ?? ''}
                         disabled={loading}

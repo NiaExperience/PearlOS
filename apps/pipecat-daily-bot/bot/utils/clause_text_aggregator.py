@@ -10,6 +10,8 @@ one fires sooner.
 
 from typing import AsyncIterator, Optional
 
+from loguru import logger
+
 from pipecat.utils.text.base_text_aggregator import Aggregation, AggregationType, BaseTextAggregator
 
 # Characters that indicate a natural speech pause (clause boundary)
@@ -52,11 +54,22 @@ class ClauseTextAggregator(BaseTextAggregator):
         if self._text.strip():
             result = self._text.strip()
             self._text = ""
+            logger.debug(f"[ClauseTextAggregator] flush -> {result!r}")
             return Aggregation(text=result, type=AggregationType.SENTENCE)
         return None
 
     async def handle_interruption(self):
+        if self._text:
+            logger.debug(
+                f"[ClauseTextAggregator] handle_interruption "
+                f"discarding {len(self._text)} buffered chars: {self._text!r}"
+            )
         self._text = ""
 
     async def reset(self):
+        if self._text:
+            logger.debug(
+                f"[ClauseTextAggregator] reset discarding "
+                f"{len(self._text)} buffered chars: {self._text!r}"
+            )
         self._text = ""

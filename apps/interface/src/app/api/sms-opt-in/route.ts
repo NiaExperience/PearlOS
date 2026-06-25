@@ -1,0 +1,261 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pearl SMS — Opt-In Consent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #1A4F72;
+      color: #F5F0E8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 40px 32px;
+    }
+    h1 {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 2rem;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 0.8rem;
+      opacity: 0.55;
+      margin-bottom: 32px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      opacity: 0.85;
+      margin-bottom: 6px;
+    }
+    .phone-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .phone-row span {
+      background: rgba(255,255,255,0.1);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      opacity: 0.55;
+    }
+    .phone-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 1rem;
+      color: #F5F0E8;
+      outline: none;
+    }
+    .phone-row input:focus {
+      border-color: #7DD3FC;
+      box-shadow: 0 0 0 3px rgba(125,211,252,0.15);
+    }
+    .phone-row input::placeholder { color: rgba(255,255,255,0.25); }
+    .consent-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .consent-row input[type=checkbox] {
+      margin-top: 2px;
+      width: 18px;
+      height: 18px;
+      accent-color: #7DD3FC;
+      flex-shrink: 0;
+    }
+    .consent-row span {
+      font-size: 0.82rem;
+      opacity: 0.75;
+      line-height: 1.5;
+    }
+    button {
+      width: 100%;
+      background: #7DD3FC;
+      color: #0A2540;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.9; }
+    button:active { opacity: 0.8; }
+    .error {
+      background: rgba(248,113,113,0.12);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      color: #FCA5A5;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .success-box {
+      text-align: center;
+      padding: 24px 0;
+    }
+    .success-box h2 {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .success-box p {
+      font-size: 0.88rem;
+      opacity: 0.7;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .number-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 12px 24px;
+      margin-bottom: 16px;
+    }
+    .number-badge .label {
+      font-size: 0.7rem;
+      opacity: 0.4;
+      margin-bottom: 4px;
+    }
+    .number-badge .digits {
+      font-family: 'Courier New', monospace;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #7DD3FC;
+    }
+    .footer-note {
+      font-size: 0.7rem;
+      opacity: 0.35;
+      line-height: 1.5;
+      margin-top: 20px;
+      text-align: center;
+    }
+    .footer-note a {
+      color: #7DD3FC;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="form-card">
+    <h1>Opt-In Consent</h1>
+    <p class="subtitle">Online opt-in consent disclosure for Pearl SMS</p>
+
+    <form id="optin-form">
+      <label for="phone">Phone Number</label>
+      <div class="phone-row">
+        <span>+1</span>
+        <input type="tel" id="phone" placeholder="(555) 123-4567" maxlength="14" />
+      </div>
+
+      <div class="consent-row">
+        <input type="checkbox" id="consent" />
+        <span>
+          By checking this box, you agree to receive conversational AI
+          companion messages from Pearl at the phone number provided.
+          This is not a marketing list — you are opting into one-on-one
+          conversation with your Pearl. Reply STOP to opt out at any time.
+        </span>
+      </div>
+
+      <div class="error" id="error"></div>
+
+      <button type="submit">Opt In</button>
+    </form>
+
+    <p class="footer-note">
+      Msg &amp; data rates may apply. Msg frequency varies.
+      <a href="/#/privacy">Privacy policy</a>
+    </p>
+  </div>
+
+  <div class="card" id="success-card" style="display:none">
+    <div class="success-box">
+      <p style="font-size:3rem;margin-bottom:16px">✨</p>
+      <h2>You're opted in</h2>
+      <p>
+        Text Pearl anytime at the number below. This is a one-on-one
+        conversation, not a marketing list.
+      </p>
+      <div class="number-badge">
+        <div class="label">Pearl's number</div>
+        <div class="digits">+1 (877) 644-9412</div>
+      </div>
+      <p class="footer-note" style="margin-top:0">
+        Reply STOP to opt out. Msg &amp; data rates may apply.
+        Msg frequency varies.
+        <a href="/#/privacy">Privacy policy</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    var phone = document.getElementById('phone');
+    var consent = document.getElementById('consent');
+    var error = document.getElementById('error');
+    var formCard = document.getElementById('form-card');
+    var successCard = document.getElementById('success-card');
+
+    phone.addEventListener('input', function() {
+      var val = this.value.replace(/\\D/g, '');
+      if (val.length > 10) val = val.slice(0, 10);
+      var formatted = val;
+      if (val.length >= 6) {
+        formatted = '(' + val.slice(0,3) + ') ' + val.slice(3,6) + '-' + val.slice(6);
+      } else if (val.length >= 3) {
+        formatted = '(' + val.slice(0,3) + ') ' + val.slice(3);
+      }
+      this.value = formatted;
+      error.style.display = 'none';
+    });
+
+    document.getElementById('optin-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var digits = phone.value.replace(/\\D/g, '');
+      if (digits.length < 10) {
+        error.textContent = 'Please enter a valid 10-digit phone number.';
+        error.style.display = 'block';
+        return;
+      }
+      if (!consent.checked) {
+        error.textContent = 'Please check the consent box to opt in.';
+        error.style.display = 'block';
+        return;
+      }
+      formCard.style.display = 'none';
+      successCard.style.display = 'block';
+    });
+  </script>
+</body>
+</html>`;
+
+  return new NextResponse(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
+}

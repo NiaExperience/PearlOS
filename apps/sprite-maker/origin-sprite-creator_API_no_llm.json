@@ -1,24 +1,11 @@
 {
   "1209": {
     "inputs": {
-      "ckpt_name": "flux2KleinAIO_flux24BDistilledAIO.safetensors"
+      "ckpt_name": "z-image-turbo-bf16-aio.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
       "title": "Load Checkpoint"
-    }
-  },
-  "130": {
-    "inputs": {
-      "shift": 2,
-      "model": [
-        "1209",
-        0
-      ]
-    },
-    "class_type": "ModelSamplingAuraFlow",
-    "_meta": {
-      "title": "ModelSamplingAuraFlow"
     }
   },
   "1208": {
@@ -27,14 +14,13 @@
         "type": "PowerLoraLoaderHeaderWidget"
       },
       "lora_1": {
-        "on": false,
-        "lora": "klein_9B_Turbo_r128.safetensors",
-        "strength": 1,
-        "strengthTwo": null
+        "on": true,
+        "lora": "z-image-Lucasarts Artstyle - (Trigger is lcsrts gamestyle).safetensors",
+        "strength": 1
       },
       "\u2795 Add Lora": "",
       "model": [
-        "130",
+        "1209",
         0
       ],
       "clip": [
@@ -58,7 +44,7 @@
   },
   "487": {
     "inputs": {
-      "string": ""
+      "string": "(((MOTION BLUR, CROPPED, GROUNDSHADOWS, SHADOW ON GROUND, GROUND-SHADOW, BODY CROPPED, CROPPING, PORTRAIT, PFP, PROFILE PICTURE, BACKGROUND, BLACK BACKGROUND, BACKGROUND SCENERY, GROUND, OBJECT LEAVE FRAME, edge overlapping, out of frame, ZOOM, ZOOMING IN)))"
     },
     "class_type": "String Literal",
     "_meta": {
@@ -103,18 +89,18 @@
       "height": 256,
       "batch_size": 1
     },
-    "class_type": "EmptySD3LatentImage",
+    "class_type": "EmptyLatentImage",
     "_meta": {
-      "title": "EmptySD3LatentImage"
+      "title": "Empty Latent Image"
     }
   },
   "136": {
     "inputs": {
       "seed": 222733042613039,
       "control_after_generate": "randomize",
-      "steps": 4,
-      "cfg": 1,
-      "sampler_name": "euler",
+      "steps": 12,
+      "cfg": 1.5,
+      "sampler_name": "euler_ancestral",
       "scheduler": "beta",
       "denoise": 1,
       "model": [

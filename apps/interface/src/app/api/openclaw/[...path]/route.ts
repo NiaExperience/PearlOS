@@ -1,27 +1,59 @@
-/**
- * OpenClaw Gateway Proxy
- * Proxies all requests to http://localhost:18789/{path}
- */
 import { NextRequest, NextResponse } from 'next/server';
+
+import { createBotClaimHeaders } from '@interface/lib/bot-auth-claims';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const OPENCLAW_BASE = process.env.OPENCLAW_GATEWAY_URL ?? 'http://localhost:18789';
 
+function clean(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 async function proxy(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return NextResponse.json({ error: 'openclaw_proxy_mutation_disabled' }, { status: 405 });
+  }
+
   const { path } = await params;
-  const targetPath = path.join('/');
   const url = new URL(request.url);
-  const queryString = url.search;
-  const target = `${OPENCLAW_BASE}/${targetPath}${queryString}`;
+  const requestedTenantId = clean(url.searchParams.get('tenantId')) || clean(url.searchParams.get('tenant_id'));
+  const actorResult = await resolveInterfaceActorContext({
+    requestedTenantId: requestedTenantId || undefined,
+  });
+  if (!actorResult.ok) return actorResult.response;
+  const actor = actorResult.actor;
+
+  const targetPath = path.map((part) => encodeURIComponent(part)).join('/');
+  const targetUrl = new URL(targetPath, `${OPENCLAW_BASE.replace(/\/$/, '')}/`);
+  targetUrl.search = url.search;
+  targetUrl.searchParams.delete('tenantId');
+  targetUrl.searchParams.delete('tenant_id');
+  targetUrl.searchParams.delete('sessionId');
+  targetUrl.searchParams.delete('session_id');
+
+  const sessionId = actor.userId;
 
   const headers: Record<string, string> = {
     'Accept': request.headers.get('accept') || 'application/json',
+    'x-user-id': actor.userId,
+    'x-user-email': actor.userEmail,
+    'x-user-name': actor.userName,
+    'x-tenant-id': actor.tenantId,
+    'x-session-id': sessionId,
+    ...createBotClaimHeaders({
+      tenantId: actor.tenantId,
+      sessionUserId: actor.userId,
+      sessionUserEmail: actor.userEmail,
+      sessionUserName: actor.userName,
+      sessionId,
+    }),
   };
 
   const contentType = request.headers.get('content-type');
   if (contentType) headers['Content-Type'] = contentType;
 
-  const auth = request.headers.get('authorization');
-  if (auth) headers['Authorization'] = auth;
+  const apiKey = clean(process.env.OPENCLAW_API_KEY);
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
   try {
     const fetchOptions: RequestInit = {
@@ -30,11 +62,7 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
       signal: AbortSignal.timeout(30000),
     };
 
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      fetchOptions.body = await request.text();
-    }
-
-    const response = await fetch(target, fetchOptions);
+    const response = await fetch(targetUrl, fetchOptions);
 
     const responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
@@ -57,18 +85,13 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
 }
 
 export const GET = proxy;
-export const POST = proxy;
-export const PUT = proxy;
-export const PATCH = proxy;
-export const DELETE = proxy;
 
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 }

@@ -1,5 +1,5 @@
 import { AssistantActions, TenantActions, UserActions } from '@nia/prism/core/actions';
-import { getSessionSafely, requireTenantAdmin } from '@nia/prism/core/auth';
+import { getSessionSafely, requireTenantAccess, requireTenantAdmin } from '@nia/prism/core/auth';
 import { isSuperAdmin } from '@nia/prism/core/auth/auth.middleware';
 import { IUser } from '@nia/prism/core/blocks/user.block';
 import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
@@ -34,6 +34,12 @@ export async function GET_impl(req: NextRequest, authOptions: NextAuthOptions): 
         }
     }
     log.info('Users GET tenant resolved', { tenantId });
+    const accessError = await requireTenantAccess(tenantId, req, authOptions);
+    if (accessError) {
+        log.warn('Users GET access denied', { tenantId });
+        return accessError as NextResponse;
+    }
+
     const users: IUser[] = [];
     try {
         // Get users for the tenant

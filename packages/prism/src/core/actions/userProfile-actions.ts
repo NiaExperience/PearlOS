@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Prism, PrismContentQuery, PrismContentResult } from '@nia/prism';
-import { BlockType_UserProfile, IUserProfile } from '@nia/prism/core/blocks/userProfile.block';
+import { BlockType_UserProfile, IOnboardingState, IPrivateMemory, IPublicPersona, IUserProfile } from '@nia/prism/core/blocks/userProfile.block';
 import { NextAuthOptions } from 'next-auth';
 
 import { getSessionSafely } from '../auth/getSessionSafely';
@@ -8,19 +8,30 @@ import { getLogger, setLogContext } from '../logger';
 import { UserProfileDefinition } from '../platform-definitions';
 
 const log = getLogger('prism:actions:user-profile');
+const MAX_LAST_CONVERSATION_SUMMARY_CHARS = Number.parseInt(
+  process.env.USER_PROFILE_MAX_LAST_CONVERSATION_SUMMARY_CHARS || '4000',
+  10
+);
 
-/**
- * Metadata operations for flexible CRUD on UserProfile metadata field
- */
-export enum MetadataOperation {
-  /** Merge incoming keys with existing (default - preserves existing keys) */
-  MERGE = 'merge',
-  /** Replace entire metadata object (overwrites all keys) */
-  REPLACE = 'replace',
-  /** Delete specific keys from metadata */
-  DELETE_KEYS = 'delete_keys',
-  /** Clear all metadata */
-  CLEAR = 'clear'
+function trimStoredText(value: any, maxChars: number): string {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars).trimEnd()}...`;
+}
+
+function sanitizeConversationSummary<T extends Record<string, any> | undefined>(
+  summary: T
+): T {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+    return summary;
+  }
+
+  const next = { ...summary };
+  if (next.summary !== undefined) {
+    next.summary = trimStoredText(next.summary, MAX_LAST_CONVERSATION_SUMMARY_CHARS);
+  }
+  return next as T;
 }
 
 export async function createUserProfileDefinition() {
@@ -32,7 +43,6 @@ export async function createUserProfileDefinition() {
   return created.items[0];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ensureUserProfileDefinition(operation: () => Promise<any>) {
   try {
     return await operation();
@@ -50,74 +60,105 @@ export async function ensureUserProfileDefinition(operation: () => Promise<any>)
 export function normalizeHumanizedEmail(input: string): string {
   if (!input) return input;
   let s = String(input).trim();
-  // Replace bracketed tokens, allowing inner spaces: ( at ), [ at ], { at } and ( dot ) / ( period )
   s = s.replace(/\(\s*at\s*\)|\[\s*at\s*\]|\{\s*at\s*\}/gi, '@');
   s = s.replace(/\(\s*(dot|period)\s*\)|\[\s*(dot|period)\s*\]|\{\s*(dot|period)\s*\}/gi, '.');
-
-  // Replace standalone words with separators
   s = s.replace(/\bat\b/gi, '@');
   s = s.replace(/\b(dot|period)\b/gi, '.');
-
-  // Remove spaces around and between separators
   s = s.replace(/\s*@\s*/g, '@');
   s = s.replace(/\s*\.\s*/g, '.');
-
-  // Strip leftover bracket characters
   // eslint-disable-next-line no-useless-escape
   s = s.replace(/[\[\]\(\)\{\}]/g, '');
-
-  // Remove any remaining whitespace
   s = s.replace(/\s+/g, '');
-
-  // Collapse duplicate separators
   s = s.replace(/@+/g, '@').replace(/\.{2,}/g, '.');
   return s;
 }
 
 /**
- * Normalizes metadata by de-stringifying JSON strings into proper objects.
- * Handles legacy records where metadata was stored as stringified JSON.
- * @param metadata - The metadata to normalize (can be string, object, or undefined)
- * @returns Normalized metadata as an object or undefined
+ * De-stringifies legacy metadata values. Older records stored metadata as JSON strings;
+ * this unwraps them back into objects. Kept internal; callers should use migrateUserProfileRecord.
  */
-export function normalizeMetadata(metadata: any): Record<string, any> | undefined {
+function normalizeLegacyMetadata(metadata: any): Record<string, any> | undefined {
   if (metadata === null || metadata === undefined) {
     return undefined;
   }
-  
-  // If it's already an object, return as-is
+
   if (typeof metadata === 'object' && !Array.isArray(metadata)) {
     return metadata;
   }
-  
-  // If it's a string that looks like JSON, try to parse it
+
   if (typeof metadata === 'string' && metadata.trim().startsWith('{') && metadata.trim().endsWith('}')) {
     try {
       const parsed = JSON.parse(metadata);
       if (typeof parsed === 'object' && !Array.isArray(parsed)) {
-        log.debug('De-stringified legacy metadata', { metadata, parsed });
+        log.debug('De-stringified legacy metadata', {
+          metadataKeys: Object.keys(parsed),
+        });
         return parsed;
       }
     } catch (e) {
-      log.warn('Failed to parse metadata as JSON, keeping as-is', { error: e });
+        log.warn('Failed to parse metadata as JSON, keeping as-is', { error: e });
     }
   }
-  
-  // For other types, convert to object format or return undefined
+
   if (typeof metadata === 'string') {
-    // Non-JSON strings get wrapped in a generic field
     return { value: metadata };
   }
-  
+
   return undefined;
 }
+
+/**
+ * Read-time migration: folds a legacy `metadata` bag (if present) into the new
+ * `privateMemory.preferences` structure, so downstream code only sees the new
+ * shape. Existing `privateMemory` values win over migrated metadata keys on
+ * conflict — the new model is authoritative.
+ *
+ * This mutates the record in place and returns it. The `metadata` field is
+ * removed from the returned object so consumers don't accidentally read stale
+ * data. Storage is not touched here; the next write will persist the new shape.
+ */
+export function migrateUserProfileRecord<T extends IUserProfile | Record<string, any>>(
+  record: T | null | undefined
+): T | null | undefined {
+  if (!record) return record;
+
+  const legacy = normalizeLegacyMetadata((record as any).metadata);
+  if (legacy && Object.keys(legacy).length > 0) {
+    const privateMemory: IPrivateMemory = { ...((record as any).privateMemory || {}) };
+    const existingPreferences = privateMemory.preferences || {};
+    // New privateMemory.preferences keys take precedence over legacy metadata on conflict.
+    privateMemory.preferences = { ...legacy, ...existingPreferences };
+    (record as any).privateMemory = privateMemory;
+    log.debug('Migrated legacy metadata into privateMemory.preferences', {
+      profileId: (record as any)._id,
+      migratedKeys: Object.keys(legacy),
+    });
+  }
+
+  // Strip the legacy field from the returned object so consumers use the new shape.
+  if ('metadata' in (record as any)) {
+    delete (record as any).metadata;
+  }
+
+  if ((record as any).lastConversationSummary !== undefined) {
+    (record as any).lastConversationSummary = sanitizeConversationSummary(
+      (record as any).lastConversationSummary
+    );
+  }
+
+  return record;
+}
+
+/**
+ * @deprecated Prefer {@link migrateUserProfileRecord}. Kept as an internal alias.
+ */
+export const normalizeMetadata = normalizeLegacyMetadata;
 
 /**
  * Backfill UserProfile records for a given tenant/email with the resolved userId
  */
 export async function backfillUserIdByEmail(email: string, userId: string) {
   const prism = await Prism.getInstance();
-  // Find matching UserProfiles by email + tenant
   const op = async () => await prism.query({
     contentType: BlockType_UserProfile,
     tenantId: 'any',
@@ -127,7 +168,6 @@ export async function backfillUserIdByEmail(email: string, userId: string) {
   const found: PrismContentResult = await ensureUserProfileDefinition(op);
   if (!found?.total) return { updated: 0 };
   let updated = 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const item of found.items as any[]) {
     const id = item._id || item.page_id;
     if (!id) continue;
@@ -148,7 +188,6 @@ export async function backfillUserIdByEmail(email: string, userId: string) {
  */
 export async function findByEmail(email: string) {
   const prism = await Prism.getInstance();
-  // Find matching UserProfiles by email + tenant
   const op = async () => await prism.query({
     contentType: BlockType_UserProfile,
     tenantId: 'any',
@@ -161,15 +200,12 @@ export async function findByEmail(email: string) {
     return null;
   }
 
-  // Normalize metadata if it exists
-  if (userProfile.metadata) {
-    userProfile.metadata = normalizeMetadata(userProfile.metadata);
-  }
+  migrateUserProfileRecord(userProfile);
 
   return { userProfile };
 }
 
-/** 
+/**
  * Find UserProfile using session info (user id or email)
  */
 export async function findByUser(id: string | undefined, email: string | undefined) {
@@ -195,7 +231,6 @@ export async function findByUser(id: string | undefined, email: string | undefin
  */
 export async function findByUserId(userId: string) {
   const prism = await Prism.getInstance();
-  // Find matching UserProfiles by email + tenant
   const op = async () => await prism.query({
     contentType: BlockType_UserProfile,
     tenantId: 'any',
@@ -208,10 +243,7 @@ export async function findByUserId(userId: string) {
     return null;
   }
 
-  // Normalize metadata if it exists
-  if (userProfile.metadata) {
-    userProfile.metadata = normalizeMetadata(userProfile.metadata);
-  }
+  migrateUserProfileRecord(userProfile);
 
   return { userProfile };
 }
@@ -221,7 +253,6 @@ export async function findByUserId(userId: string) {
  */
 export async function findById(id: string) {
   const prism = await Prism.getInstance();
-  // Find matching UserProfiles by email + tenant
   const op = async () => await prism.query({
     contentType: BlockType_UserProfile,
     tenantId: 'any',
@@ -234,19 +265,13 @@ export async function findById(id: string) {
     return null;
   }
 
-  // Normalize metadata if it exists
-  if (userProfile.metadata) {
-    userProfile.metadata = normalizeMetadata(userProfile.metadata);
-  }
+  migrateUserProfileRecord(userProfile);
 
   return { userProfile };
 }
 
 /**
  * Checks for duplicate email addresses, excluding the current record if provided
- * @param normalizedEmail - The normalized email to check for duplicates
- * @param currentId - Optional ID of the current record to exclude from duplicate check
- * @throws Error with message 'DUPLICATE_EMAIL' if a duplicate is found
  */
 async function checkForDuplicateEmail(normalizedEmail: string, currentId?: string): Promise<void> {
   try {
@@ -260,10 +285,9 @@ async function checkForDuplicateEmail(normalizedEmail: string, currentId?: strin
       limit: 10,
       tenantId: 'any',
     } as any)) as any;
-    
+
     const duplicateCheck = await ensureUserProfileDefinition(op);
     if (duplicateCheck?.total && duplicateCheck.total > 0) {
-      // Check if any duplicate is a different record (not the one we're updating)
       const hasDifferentDuplicate = duplicateCheck.items.some((item: any) => {
         const itemId = item._id || item.page_id;
         return itemId !== currentId;
@@ -275,10 +299,10 @@ async function checkForDuplicateEmail(normalizedEmail: string, currentId?: strin
     }
   } catch (e) {
     if ((e as Error).message === 'DUPLICATE_EMAIL') {
-      throw e; // Re-throw duplicate email errors
+      throw e;
     }
     log.error('Error searching for existing UserProfile', { normalizedEmail, currentId, error: e });
-    throw e; // Re-throw all other errors as well
+    throw e;
   }
 }
 
@@ -287,30 +311,123 @@ interface CreateOrUpdateUserProfileParams {
   id?: string;
   userId?: string;
   email?: string;
-  metadata?: Record<string, string>;
-  metadataOperation?: MetadataOperation;
-  metadataKeysToDelete?: string[];
+  publicPersona?: IPublicPersona;
+  privateMemory?: IPrivateMemory;
   personalityVoiceConfig?: Record<string, any>;
   lastConversationSummary?: Record<string, any>;
   onboardingComplete?: boolean;
+  onboardingState?: IOnboardingState;
   overlayDismissed?: boolean;
 }
 
-export async function createOrUpdateUserProfile({ 
-  first_name, 
-  email, 
-  metadata, 
-  id, 
+/**
+ * Deep-merges two plain objects one level deep (nested objects are merged;
+ * arrays and primitives from the incoming object replace the existing value).
+ * Used so a partial update to e.g. publicPersona.socialLinks doesn't clobber
+ * the whole persona.
+ */
+function shallowMergeStructured<T extends Record<string, any>>(
+  existing: T | undefined,
+  incoming: Partial<T> | undefined
+): T | undefined {
+  if (!incoming) return existing;
+  const base: Record<string, any> = { ...(existing || {}) };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value === undefined) continue;
+    const prev = base[key];
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      prev &&
+      typeof prev === 'object' &&
+      !Array.isArray(prev)
+    ) {
+      base[key] = { ...prev, ...value };
+    } else {
+      base[key] = value;
+    }
+  }
+  return base as T;
+}
+
+export function mergeUserProfileOnboardingState(
+  existing: IOnboardingState | undefined,
+  incoming: Partial<IOnboardingState> | undefined
+): IOnboardingState | undefined {
+  return shallowMergeStructured<IOnboardingState>(existing, incoming);
+}
+
+function stableJson(value: any): string {
+  if (value === undefined) return 'undefined';
+  try {
+    return JSON.stringify(value, (_key, nestedValue) => {
+      if (
+        nestedValue &&
+        typeof nestedValue === 'object' &&
+        !Array.isArray(nestedValue)
+      ) {
+        return Object.keys(nestedValue)
+          .sort()
+          .reduce((acc: Record<string, any>, key) => {
+            acc[key] = nestedValue[key];
+            return acc;
+          }, {});
+      }
+      return nestedValue;
+    });
+  } catch {
+    return String(value);
+  }
+}
+
+function valuesEqual(a: any, b: any): boolean {
+  return stableJson(a) === stableJson(b);
+}
+
+function profileUpdateContent(existing: IUserProfile): Record<string, any> {
+  const content: Record<string, any> = {
+    first_name: existing.first_name,
+    email: existing.email,
+  };
+  for (const key of [
+    'userId',
+    'onboardingComplete',
+    'onboardingState',
+    'overlayDismissed',
+    'createdAt',
+    'publicPersona',
+    'privateMemory',
+    'sessionHistory',
+    'personalityVoiceConfig',
+    'lastConversationSummary',
+  ]) {
+    const value = (existing as any)[key];
+    if (value !== undefined) {
+      content[key] = key === 'lastConversationSummary'
+        ? sanitizeConversationSummary(value)
+        : value;
+    }
+  }
+  return content;
+}
+
+export async function createOrUpdateUserProfile({
+  first_name,
+  email,
+  publicPersona,
+  privateMemory,
+  id,
   userId,
-  metadataOperation = MetadataOperation.MERGE,
-  metadataKeysToDelete,
   personalityVoiceConfig,
   lastConversationSummary,
   onboardingComplete,
+  onboardingState,
   overlayDismissed
-}: CreateOrUpdateUserProfileParams, removeUserId: boolean  ) {
+}: CreateOrUpdateUserProfileParams, removeUserId: boolean) {
     log.debug('createOrUpdateUserProfile called', { userId, id, email });
     try {
+      const sanitizedLastConversationSummary = sanitizeConversationSummary(lastConversationSummary);
       let existing: IUserProfile | null = null;
       let normalizedEmail: string | undefined = email;
       if (email) {
@@ -318,17 +435,15 @@ export async function createOrUpdateUserProfile({
         const simpleEmailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!simpleEmailRe.test(rawEmail)) {
           normalizedEmail = normalizeHumanizedEmail(rawEmail);
-        } 
+        }
       }
       if (id) {
-        // If id is already present, just proceed with the update
         const res = await findById(id);
         if (res) {
           existing = res.userProfile;
         }
       }
       if (!existing && userId) {
-        // Find existing UserProfile by userId to get the id
         const res = await findByUserId(userId);
         if (res) {
           existing = res.userProfile;
@@ -341,122 +456,114 @@ export async function createOrUpdateUserProfile({
         }
       }
 
-      // Duplicate email check (for both create and update scenarios)
       if (normalizedEmail) {
-        // Pass existing._id if we found a record, so we don't flag it as a duplicate of itself
         await checkForDuplicateEmail(normalizedEmail, existing?._id);
       }
 
       const prism = await Prism.getInstance();
       if (existing) {
-        // Update path
-        // Normalize existing metadata first to handle legacy stringified data
-        if (existing.metadata) {
-          existing.metadata = normalizeMetadata(existing.metadata);
-        }
-        
-        // Handle metadata based on operation type
-        let mergedMetadata: Record<string, any> | undefined = existing.metadata;
-        
-        if (metadataOperation === MetadataOperation.CLEAR) {
-          // Clear all metadata
-          mergedMetadata = undefined;
-        } else if (metadataOperation === MetadataOperation.REPLACE && metadata !== undefined) {
-          // Replace entire metadata object
-          if (process.env.DEBUG_PRISM === 'true') {
-            log.debug('[UserProfileActions] REPLACE operation - input metadata', { metadata });
-          }
-          mergedMetadata = normalizeMetadata(metadata);
-          if (process.env.DEBUG_PRISM === 'true') {
-            log.debug('[UserProfileActions] REPLACE operation - normalized metadata', { mergedMetadata });
-          }
-        } else if (metadataOperation === MetadataOperation.DELETE_KEYS && metadataKeysToDelete) {
-          // Delete specific keys
-          mergedMetadata = { ...(existing.metadata || {}) };
-          metadataKeysToDelete.forEach(key => delete mergedMetadata![key]);
-        } else if (metadataOperation === MetadataOperation.MERGE && metadata !== undefined) {
-          // Original merge behavior - incoming keys overwrite existing
-          const normalizedIncoming = normalizeMetadata(metadata);
-          mergedMetadata = { ...(existing.metadata || {}), ...(normalizedIncoming || {}) };
-        } else if (metadata === null) {
-          // Legacy support: null clears metadata
-          mergedMetadata = undefined;
-        }
-
-        // Normalize
-        const updatedRecord: any = { ...existing };
-        if (first_name) updatedRecord.first_name = first_name;
-        if (normalizedEmail) updatedRecord.email = normalizedEmail;
-        
-        // CRITICAL FIX: Always ensure userId is set if provided, even on updates
-        // This fixes the "avatar reset" loop where a profile exists (by email) but has no userId link
-        if (userId) {
-             updatedRecord.userId = userId;
-        }
-        
-        if (mergedMetadata !== undefined) updatedRecord.metadata = mergedMetadata;
-        if (personalityVoiceConfig !== undefined) updatedRecord.personalityVoiceConfig = personalityVoiceConfig;
-        if (lastConversationSummary !== undefined) updatedRecord.lastConversationSummary = lastConversationSummary;
-        if (onboardingComplete !== undefined) updatedRecord.onboardingComplete = onboardingComplete;
-        if (overlayDismissed !== undefined) updatedRecord.overlayDismissed = overlayDismissed;
-
-        // Handle explicit removal of userId
-        if (removeUserId) {
-          delete updatedRecord.userId;
-        }
-
-        log.debug('[UserProfileActions] About to update record with metadata', { metadata: updatedRecord.metadata, userId: updatedRecord.userId, profileId: updatedRecord._id });
-        log.debug('Updating UserProfile record', { updatedRecord });
-        // Ensure the content definition exists when creating a new record
-        const updateOp = async () => await prism.update(UserProfileDefinition.dataModel.block, updatedRecord._id, updatedRecord);
-        const updated = await ensureUserProfileDefinition(updateOp);
-        
-        log.debug('[UserProfileActions] After update metadata', { metadata: updated?.items?.[0]?.metadata, profileId: updatedRecord._id });
-        
-        if (!updated || updated.total === 0 || updated.items.length === 0) {
-          log.error('Failed to update UserProfile', { profileId: updatedRecord._id });
+        const profileId = (existing as any)._id || (existing as any).page_id;
+        if (!profileId) {
+          log.error('Existing UserProfile missing id for update', { userId, email: normalizedEmail });
           return null;
         }
-        return updated.items[0];
-      } else {
-        // Create path
-        // Normalize incoming metadata
-        const normalizedMetadata = metadata ? normalizeMetadata(metadata) : undefined;
-        
-        const record: any = {
-            first_name,
-            email: normalizedEmail,
-            metadata: normalizedMetadata,
-            userId
-        } as const;
-        
-        if (personalityVoiceConfig !== undefined) {
-          record.personalityVoiceConfig = personalityVoiceConfig;
-        }
-        if (lastConversationSummary !== undefined) {
-          record.lastConversationSummary = lastConversationSummary;
-        }
-        if (onboardingComplete !== undefined) {
-          record.onboardingComplete = onboardingComplete;
-        }
-        if (overlayDismissed !== undefined) {
-          record.overlayDismissed = overlayDismissed;
+
+        const changedRecord: any = {};
+
+        if (first_name && first_name !== existing.first_name) changedRecord.first_name = first_name;
+        if (normalizedEmail && normalizedEmail !== existing.email) changedRecord.email = normalizedEmail;
+
+        // Always re-link userId on update if provided (fixes stale email-only records).
+        if (userId && userId !== existing.userId) {
+          changedRecord.userId = userId;
         }
 
-        log.debug('Saving UserProfile record', { record });
-        // Ensure the content definition exists when creating a new record
+        const mergedPersona = shallowMergeStructured<IPublicPersona>(existing.publicPersona, publicPersona);
+        if (mergedPersona !== undefined && !valuesEqual(mergedPersona, existing.publicPersona)) {
+          changedRecord.publicPersona = mergedPersona;
+        }
+
+        const mergedMemory = shallowMergeStructured<IPrivateMemory>(existing.privateMemory, privateMemory);
+        if (mergedMemory !== undefined && !valuesEqual(mergedMemory, existing.privateMemory)) {
+          changedRecord.privateMemory = mergedMemory;
+        }
+
+        if (personalityVoiceConfig !== undefined && !valuesEqual(personalityVoiceConfig, existing.personalityVoiceConfig)) {
+          changedRecord.personalityVoiceConfig = personalityVoiceConfig;
+        }
+        if (sanitizedLastConversationSummary !== undefined && !valuesEqual(sanitizedLastConversationSummary, existing.lastConversationSummary)) {
+          changedRecord.lastConversationSummary = sanitizedLastConversationSummary;
+        }
+        const mergedOnboardingState = mergeUserProfileOnboardingState(existing.onboardingState, onboardingState);
+        if (mergedOnboardingState !== undefined && !valuesEqual(mergedOnboardingState, existing.onboardingState)) {
+          changedRecord.onboardingState = mergedOnboardingState;
+        }
+        if (onboardingComplete !== undefined && onboardingComplete !== existing.onboardingComplete) changedRecord.onboardingComplete = onboardingComplete;
+        if (overlayDismissed !== undefined && overlayDismissed !== existing.overlayDismissed) changedRecord.overlayDismissed = overlayDismissed;
+
+        if (removeUserId) {
+          changedRecord.userId = undefined;
+        }
+
+        const hasChanges = Object.values(changedRecord).some((value) => value !== undefined);
+        if (!hasChanges) {
+          log.debug('No UserProfile changes to persist', { profileId, userId: existing.userId });
+          return migrateUserProfileRecord(existing);
+        }
+
+        const updateContent = {
+          ...profileUpdateContent(existing),
+          ...changedRecord,
+        };
+        if (removeUserId) {
+          delete updateContent.userId;
+        }
+
+        log.debug('Updating UserProfile record', {
+          profileId,
+          userId: updateContent.userId ?? existing.userId,
+          changedKeys: Object.keys(changedRecord),
+        });
+        const updateOp = async () => await prism.update(UserProfileDefinition.dataModel.block, profileId, updateContent);
+        const updated = await ensureUserProfileDefinition(updateOp);
+
+        if (!updated || updated.total === 0 || updated.items.length === 0) {
+          log.error('Failed to update UserProfile', { profileId, changedKeys: Object.keys(changedRecord) });
+          return null;
+        }
+        return migrateUserProfileRecord(updated.items[0]);
+      } else {
+        // Create path
+        const record: any = {
+          first_name,
+          email: normalizedEmail,
+          userId,
+        };
+
+        if (publicPersona !== undefined) record.publicPersona = publicPersona;
+        if (privateMemory !== undefined) record.privateMemory = privateMemory;
+        if (personalityVoiceConfig !== undefined) record.personalityVoiceConfig = personalityVoiceConfig;
+        if (sanitizedLastConversationSummary !== undefined) record.lastConversationSummary = sanitizedLastConversationSummary;
+        if (onboardingState !== undefined) record.onboardingState = onboardingState;
+        if (onboardingComplete !== undefined) record.onboardingComplete = onboardingComplete;
+        if (overlayDismissed !== undefined) record.overlayDismissed = overlayDismissed;
+
+        log.debug('Saving UserProfile record', {
+          userId,
+          hasEmail: Boolean(normalizedEmail),
+          recordKeys: Object.keys(record),
+        });
         const createOp = async () => await prism.create(UserProfileDefinition.dataModel.block, record);
         const created = await ensureUserProfileDefinition(createOp);
         if (!created || created.total === 0 || created.items.length === 0) {
             log.error('Failed to save UserProfile', { email: normalizedEmail, userId });
             return null;
         }
-        return created.items[0];
+        return migrateUserProfileRecord(created.items[0]);
       }
     } catch (error) {
         const err = error as Error;
         log.error('Failed to create or update UserProfile', { error: err, userId, email, id });
-        // Re-throw specific errors so route handlers can handle them properly
         if (err.message === 'DUPLICATE_EMAIL') {
             throw err;
         }
@@ -475,10 +582,6 @@ const MAX_SESSION_HISTORY = 100;
 /**
  * Add a session history entry to the user profile
  * Automatically limits to 100 most recent entries
- * @param userId - User ID
- * @param action - Description of the action
- * @param sessionId - Session ID
- * @param refIds - Optional array of resource references
  */
 export async function addSessionHistoryEntry(
   authOptions: NextAuthOptions,
@@ -508,7 +611,7 @@ export async function addSessionHistoryEntry(
     }
 
     log.debug('addSessionHistoryEntry called', { action, refIds, sessionId });
-    
+
     if (!session?.user?.id) {
       log.error('Unauthorized: No valid session found for adding session history entry', { action });
       return null;
@@ -519,7 +622,6 @@ export async function addSessionHistoryEntry(
       return null;
     }
 
-    // Get sessionId from user session, fallback to userId
     sessionId = 'sessionId' in session.user && typeof session.user.sessionId === 'string'
       ? session.user.sessionId
       : session.user.id;
@@ -534,13 +636,12 @@ export async function addSessionHistoryEntry(
 
     const { userProfile } = result;
     const profileId = userProfile._id;
-    
+
     if (!profileId) {
       log.warn('[SessionHistory] No profile ID for user', { userId });
       return null;
     }
 
-    // Create new entry
     const newEntry = {
       time: new Date().toISOString(),
       action,
@@ -548,18 +649,13 @@ export async function addSessionHistoryEntry(
       ...(refIds && refIds.length > 0 ? { refIds } : {})
     };
 
-    // Get existing history or create new array
     const existingHistory = userProfile.sessionHistory || [];
-    
-    // Add new entry at the beginning (most recent first)
     const updatedHistory = [newEntry, ...existingHistory];
-    
-    // Limit to MAX_SESSION_HISTORY most recent entries
+
     if (updatedHistory.length > MAX_SESSION_HISTORY) {
       updatedHistory.splice(MAX_SESSION_HISTORY);
     }
 
-    // Update the profile
     const prism = await Prism.getInstance();
     await prism.update(BlockType_UserProfile, profileId, {
       ...userProfile,
@@ -576,9 +672,6 @@ export async function addSessionHistoryEntry(
 
 /**
  * Get the last N session history entries for a user
- * @param userId - User ID
- * @param count - Number of entries to return (default: 5)
- * @returns Array of session history entries (most recent first)
  */
 export async function getRecentSessionHistory(userId: string, count: number = 5) {
   try {

@@ -47,7 +47,7 @@ export default function ExperienceRenderer({
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -56,6 +56,11 @@ export default function ExperienceRenderer({
       color: #e0e0e8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       overflow: auto;
+      /* Frame-lock: viewport meta alone doesn't stop pinch/double-tap inside
+         an iframe on iOS Safari — touch-action at the element level does. */
+      touch-action: pan-x pan-y;
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior: contain;
     }
     ${exp.css ?? ''}
   </style>

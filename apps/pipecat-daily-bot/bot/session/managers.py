@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from typing import Any, Callable
 
 from loguru import logger
@@ -36,6 +37,14 @@ class SessionManagers:
         self.identity_manager = IdentityManager(room_url, self.participant_manager)
         self.forwarder: Any | None = None
         self.forwarder_stop: Callable[[], None] | None = None
+        self.config_listener_task: asyncio.Task | None = None
+        self.background_tasks: set[asyncio.Task] = set()
+
+    def track_task(self, task: asyncio.Task) -> asyncio.Task:
+        """Track a session-owned background task so shutdown can cancel it."""
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+        return task
 
     async def start(self):
         """Initialize and start all managers."""
@@ -48,6 +57,21 @@ class SessionManagers:
     async def stop(self):
         """Stop all managers and cleanup."""
         self.identity_manager.stop()
+
+        tasks_to_cancel = list(self.background_tasks)
+        if self.config_listener_task and not self.config_listener_task.done():
+            tasks_to_cancel.append(self.config_listener_task)
+
+        for task in tasks_to_cancel:
+            task.cancel()
+
+        for task in tasks_to_cancel:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as exc:
+                self.log.warning('session task cleanup failed', error=str(exc))
         
         if self.forwarder:
             try:
@@ -240,9 +264,21 @@ class SessionManagers:
         tool_name = message_obj.get("tool_name") or ""
         result = message_obj.get("result") or {}
         source = message_obj.get("source", "")
+        direct_tool_voice_handled = bool(
+            message_obj.get("direct_tool_voice_handled")
+            or message_obj.get("voice_already_handled")
+            or (isinstance(result, dict) and result.get("direct_tool_voice_handled"))
+        )
 
         if not tool_name:
             self.log.warning("[tool_result] Missing tool_name in message: %s" % message_obj)
+            return
+
+        if direct_tool_voice_handled:
+            self.log.info(
+                "[tool_result] Logged direct voice-handled result without LLM injection "
+                "(tool=%s source=%s)" % (tool_name, source)
+            )
             return
 
         # ── Anti-echo guard ─────────────────────────────────────────────

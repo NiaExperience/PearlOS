@@ -23,6 +23,8 @@
     radial-gradient(ellipse at 25% 85%, rgba(232, 93, 38, 0.06) 0%, transparent 55%),
     radial-gradient(ellipse at 75% 15%, rgba(123, 63, 142, 0.08) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 50%, rgba(217, 79, 142, 0.04) 0%, transparent 60%);
+  z-index: 200;
+  isolation: isolate;
 }
 
 /* Grain overlay */
@@ -164,7 +166,7 @@
   border-radius: 2px;
   color: var(--pm-text);
   font-family: Georgia, 'Palatino Linotype', serif;
-  font-size: 0.95rem;
+  font-size: 16px;
   padding: 0.7rem 0.9rem;
   resize: none;
   line-height: 1.5;
@@ -532,6 +534,8 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
+  position: relative;
+  z-index: 100;
 }
 
 .pm-inpaint-toolbar {
@@ -539,10 +543,12 @@
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: rgba(15, 8, 32, 0.85);
+  background: rgba(15, 8, 32, 0.95);
   border-bottom: 1px solid rgba(212, 192, 232, 0.08);
   flex-shrink: 0;
   flex-wrap: wrap;
+  z-index: 101;
+  position: relative;
 }
 
 .pm-inpaint-toolbar__group {
@@ -623,6 +629,7 @@
   justify-content: center;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
+  height: calc(100vh - 60px);
 }
 
 .pm-inpaint-source {

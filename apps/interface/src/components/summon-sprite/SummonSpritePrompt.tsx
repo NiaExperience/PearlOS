@@ -2,7 +2,7 @@
 
 import { isFeatureEnabled } from '@nia/features';
 import { useSession } from 'next-auth/react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import SpriteBotConfigPanel from './SpriteBotConfigPanel';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
@@ -16,6 +16,21 @@ import { useSpriteState } from './useSpriteState';
 import { useSpriteSound } from './useSpriteSound';
 import SpriteStage from './SpriteStage';
 import SpriteBubble from './SpriteBubble';
+import {
+  getSummonState,
+  getSpriteUiState,
+  subscribeSummon,
+  markPending,
+  updatePendingBubble,
+  markComplete,
+  markError,
+  markIdle,
+  abortActiveSummon,
+  setLoading as setStoreLoading,
+  setDisplayedSprite,
+  clearDisplayedSprite,
+  setPendingJobId,
+} from './spriteGenerationStore';
 import './sprite-animations.css';
 
 type ImageResult = {
@@ -105,10 +120,8 @@ interface SummonSpritePromptProps {
 }
 
 export default function SummonSpritePrompt({ tenantId, supportedFeatures }: SummonSpritePromptProps) {
-    // Early return if feature is disabled
-    if (!isFeatureEnabled('summonSpriteTool', supportedFeatures)) {
-        return null;
-    }
+    // All hooks must be called before any conditional return (Rules of Hooks).
+    // Feature check is done after hooks, below.
 
     // Get user session for userName in text attribution
     const { data: session } = useSession();
@@ -158,7 +171,8 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
 
     // Audio ref for magicbell sound (click-to-talk feedback)
     const magicBellRef = useRef<HTMLAudioElement | null>(null);
-    const summonAbortControllerRef = useRef<AbortController | null>(null);
+    // The active summon AbortController lives in spriteGenerationStore so a
+    // remounted panel can still cancel an in-flight generation.
     const recallAbortControllerRef = useRef<AbortController | null>(null);
     const summonLifecycleRef = useRef<SummonLifecycleDetail | null>(null);
 
@@ -198,10 +212,14 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         }
     }, []);
 
-    const [loading, setLoading] = useState(false);
+    // loading / gif / sourceImage live in spriteGenerationStore so they
+    // survive a close+reopen of the panel during a streaming generation.
+    const { loading, gif, sourceImage } = useSyncExternalStore(
+        subscribeSummon,
+        getSpriteUiState,
+        getSpriteUiState,
+    );
     const [error, setError] = useState<string | null>(null);
-    const [gif, setGif] = useState<ImageResult | null>(null);
-    const [sourceImage, setSourceImage] = useState<ImageResult | null>(null);
     const [spriteId, setSpriteId] = useState<string | null>(null);
     // Sprite display name (used as persona name for voice sessions)
     const [spriteName, setSpriteName] = useState<string | null>(null);
@@ -408,7 +426,9 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
     const fetchSavedSprites = useCallback(async (): Promise<SavedSprite[]> => {
         setSavedSpritesLoading(true);
         try {
-            const res = await fetch('/api/summon-ai-sprite/list?limit=20');
+            const params = new URLSearchParams({ limit: '20' });
+            if (tenantId) params.set('tenantId', tenantId);
+            const res = await fetch(`/api/summon-ai-sprite/list?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 const sprites: SavedSprite[] = data.sprites || [];
@@ -424,26 +444,27 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             setSavedSpritesLoading(false);
         }
         return [];
-    }, []);
+    }, [tenantId]);
 
     // Reusable function to summon sprite with a given prompt
     const summonSprite = useCallback(async (spritePrompt: string) => {
-        if (summonAbortControllerRef.current) {
-            summonAbortControllerRef.current.abort();
-        }
+        // Cancel any in-flight summon (the controller lives in the store).
+        abortActiveSummon();
 
         const controller = new AbortController();
-        summonAbortControllerRef.current = controller;
 
-        setLoading(true);
         setError(null);
-        // Don't clear gif/sourceImage here - keep current sprite visible during generation
-        // The new sprite will replace it when ready (setGif/setSourceImage in success handler)
+        // Publish the in-flight generation to the module-level store so a
+        // remount during streaming can re-attach to the live progress
+        // (and the new mount can still abort) instead of showing an empty
+        // panel. markPending also flips the store's `loading` flag.
+        markPending(spritePrompt, controller);
+        // markPending intentionally does NOT clear the displayed sprite,
+        // so the previous avatar stays visible during the new generation.
+        // The new sprite replaces it when markComplete fires.
 
         // eslint-disable-next-line no-console
         console.log('[SummonSpritePrompt] summonSprite called with prompt:', spritePrompt);
-        // eslint-disable-next-line no-console
-        console.log('the call was made yahoo'); // Debug log when API call is initiated
 
           // Use same-origin URL so the request always hits the app the user is viewing (fixes RunPod
         // and other deployments where NEXT_PUBLIC_INTERFACE_BASE_URL may be internal/unreachable).
@@ -512,6 +533,16 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
                             const msg = JSON.parse(line);
                             if (msg.type === 'log') {
                                 setBubbleLine(msg.message);
+                                // Mirror the progress line to the module store so
+                                // a remounted panel sees the live status.
+                                updatePendingBubble(msg.message);
+                            } else if (msg.type === 'job') {
+                                // Persist the server-side jobId on the pending state
+                                // so a remounted panel/tab can recover the sprite via
+                                // /api/summon-ai-sprite/job/:id polling. See SPECTRUM bug #4.
+                                if (typeof msg.jobId === 'string' && msg.jobId) {
+                                    setPendingJobId(msg.jobId);
+                                }
                             } else if (msg.type === 'error') {
                                 const details = msg.details ? `: ${msg.details}` : '';
                                 throw new Error(`${msg.error}${details}`);
@@ -557,8 +588,6 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
                 console.log('[SummonSpritePrompt] No voice data returned from server (voice/personality disabled)');
             }
 
-            setGif(data.gif ?? null);
-            setSourceImage(data.sourceImage ?? null);
             setSpriteId(data.spriteId ?? null);
             setSpriteName(data.spriteName ?? null);
             const nextLast = {
@@ -572,6 +601,16 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             };
             setLastSprite(nextLast);
             lastSpriteMemory = nextLast;
+            // Use localStorage (not sessionStorage) so the last sprite
+            // survives a full tab/browser close — sessionStorage is wiped
+            // when the tab closes, which left a blank avatar after the
+            // user closed the panel mid-summon and reopened later.
+            // See SPECTRUM bug #4.
+            try { localStorage.setItem('lastSpriteMemory', JSON.stringify(nextLast)); } catch { /* quota / SSR */ }
+            // Promote the live generation to "complete" so a remount picks
+            // up the finished sprite even though our React state went away.
+            // markComplete also writes the new gif/sourceImage to the store.
+            markComplete(spritePrompt, data);
             setSpriteIsShared(false); // Newly summoned sprites are always owned
             setBubbleLine(`Summoned: ${data.spriteName ?? spritePrompt}`);
             
@@ -707,19 +746,19 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         } catch (e: unknown) {
             if (e instanceof DOMException && e.name === 'AbortError') {
                 outcome = 'cancelled';
+                markIdle();
                 return;
             }
             const message = e instanceof Error ? e.message : 'Unexpected error';
             // eslint-disable-next-line no-console
             console.error('Summon sprite error:', e, 'endpoint:', endpoint);
             setError(message);
+            markError(spritePrompt, message);
             toast({ title: 'Sprite creation failed', description: message, variant: 'destructive' });
         } finally {
-            setLoading(false);
+            // markComplete / markError / markIdle already cleared loading
+            // in the store; no local cleanup needed.
             dispatchSummonLifecycleEvent('sprite.summon.stop', { ...lifecycleDetail, status: outcome });
-            if (summonAbortControllerRef.current === controller) {
-                summonAbortControllerRef.current = null;
-            }
             if (summonLifecycleRef.current?.requestId === lifecycleDetail.requestId) {
                 summonLifecycleRef.current = null;
             }
@@ -752,10 +791,67 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
 
 
     // Restore last sprite from in-memory cache when component remounts (e.g., after mode switch)
+    // Falls back to localStorage so the sprite survives a full tab close +
+    // reopen. We also read the legacy sessionStorage key once and migrate
+    // it forward, so a user mid-flight when the fix ships does not lose
+    // their current sprite.
     useEffect(() => {
         if (lastSpriteMemory) {
             setLastSprite(lastSpriteMemory);
+            return;
         }
+        try {
+            let stored = localStorage.getItem('lastSpriteMemory');
+            if (!stored) {
+                const legacy = sessionStorage.getItem('lastSpriteMemory');
+                if (legacy) {
+                    stored = legacy;
+                    try { localStorage.setItem('lastSpriteMemory', legacy); } catch { /* quota */ }
+                }
+            }
+            if (stored) {
+                const parsed: LastSpriteCache = JSON.parse(stored);
+                lastSpriteMemory = parsed; // re-hydrate module-level fast path
+                setLastSprite(parsed);
+            }
+        } catch { /* SSR or corrupt data */ }
+    }, []);
+
+    // Subscribe to the module-level summon store so a panel that mounts
+    // mid-generation can show the live progress, and a panel that remounts
+    // after a generation completed-while-closed shows the new sprite
+    // immediately rather than a blank state.
+    //
+    // loading/gif/sourceImage are read directly from the store via
+    // useSyncExternalStore above; this effect handles the *lifecycle*
+    // side effects (sprite identity, prompt, bubble line, open flag).
+    useEffect(() => {
+        const apply = () => {
+            const s = getSummonState();
+            if (s.status === 'pending') {
+                setError(null);
+                setPrompt(s.prompt);
+                setBubbleLine(s.bubbleLine);
+                setOpen(true);
+            } else if (s.status === 'complete') {
+                const data = s.result;
+                const newVoiceProvider = data.voiceProvider || '';
+                const newVoiceId = data.voiceId || '';
+                setError(null);
+                setPrompt(s.prompt);
+                setSpriteId(data.spriteId ?? null);
+                setSpriteName(data.spriteName ?? null);
+                setSpriteVoiceProvider(newVoiceProvider);
+                setSpriteVoiceId(newVoiceId);
+                setBubbleLine(`Summoned: ${data.spriteName ?? s.prompt}`);
+            } else if (s.status === 'error') {
+                setError(s.error);
+                setPrompt(s.prompt);
+            }
+        };
+        apply();
+        const unsub = subscribeSummon(apply);
+        return unsub;
     }, []);
 
     // Fetch saved sprites from Prism when dialog opens
@@ -775,15 +871,17 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         if (!loading) {
             return;
         }
-        summonAbortControllerRef.current?.abort();
+        // The summon controller lives in the module store, so any mount
+        // (including one that just remounted into a still-running
+        // generation) can cancel it.
+        abortActiveSummon();
         recallAbortControllerRef.current?.abort();
     }, [loading]);
 
     // Recall from in-memory cache (current session)
     const recallLastSprite = useCallback(() => {
         if (!lastSprite) return;
-        setGif(lastSprite.gif);
-        setSourceImage(lastSprite.sourceImage);
+        setDisplayedSprite(lastSprite.gif, lastSprite.sourceImage);
         setPrompt(lastSprite.prompt);
         setSpriteId(lastSprite.spriteId);
         setSpriteName(lastSprite.spriteName ?? null);
@@ -825,19 +923,24 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         const controller = new AbortController();
         recallAbortControllerRef.current = controller;
 
-        setLoading(true);
+        setStoreLoading(true);
         setRecallDropdownOpen(false);
         try {
-            const res = await fetch(`/api/summon-ai-sprite/${savedSpriteId}`, { signal: controller.signal });
+            const params = new URLSearchParams();
+            if (tenantId) params.set('tenantId', tenantId);
+            const res = await fetch(
+                `/api/summon-ai-sprite/${savedSpriteId}${params.toString() ? `?${params.toString()}` : ''}`,
+                { signal: controller.signal },
+            );
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 setError(errData.error || 'Failed to recall sprite');
                 return;
             }
-            
+
             const data: { sprite: FullSavedSprite } = await res.json();
             const sprite = data.sprite;
-            
+
             // Convert base64 gifData to object URL if present
             let gifUrl: string | null = null;
             if (sprite.gifData && sprite.gifMimeType) {
@@ -849,14 +952,9 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
                 const blob = new Blob([bytes], { type: sprite.gifMimeType });
                 gifUrl = URL.createObjectURL(blob);
             }
-            
+
             // Restore sprite state
-            if (gifUrl) {
-                setGif({ url: gifUrl });
-            } else {
-                setGif(null);
-            }
-            setSourceImage(null);
+            setDisplayedSprite(gifUrl ? { url: gifUrl } : null, null);
             setSpriteId(sprite._id);
             setSpriteName(sprite.name);
             setSpriteIsShared(!!sprite.isShared);
@@ -866,7 +964,7 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             setChatError(null);
             
             // Store voice configuration from the sprite (defaults if not present)
-            const voiceProvider = sprite.voiceProvider || 'kokoro';
+            const voiceProvider = sprite.voiceProvider || 'pocket';
             const voiceId = sprite.voiceId || 'am_fenrir';
             setSpriteVoiceProvider(voiceProvider);
             setSpriteVoiceId(voiceId);
@@ -909,7 +1007,7 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             if (recallAbortControllerRef.current === controller) {
                 recallAbortControllerRef.current = null;
             }
-            setLoading(false);
+            setStoreLoading(false);
         }
     }, [isVoiceActive, playMagicBell, setMessages, setActiveTranscript, enableSpriteVoice, tenantId, supportedFeatures]);
 
@@ -957,8 +1055,10 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
     }, [lastSprite, savedSprites, recallLastSprite, recallSavedSprite]);
 
     const dismissSpriteImmediate = useCallback(() => {
-        setGif(null);
-        setSourceImage(null);
+        clearDisplayedSprite();
+        // Drop any "complete" snapshot in the store so a remount doesn't
+        // re-show the dismissed sprite via the subscribe/apply hydration.
+        markIdle();
         setSpriteId(null);
         setSpriteName(null);
         setBubbleLine(DEFAULT_BUBBLE_LINE);
@@ -1001,7 +1101,12 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         }
 
         try {
-            const res = await fetch(`/api/summon-ai-sprite/${spriteIdToDelete}`, { method: 'DELETE' });
+            const params = new URLSearchParams();
+            if (tenantId) params.set('tenantId', tenantId);
+            const res = await fetch(
+                `/api/summon-ai-sprite/${spriteIdToDelete}${params.toString() ? `?${params.toString()}` : ''}`,
+                { method: 'DELETE' },
+            );
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 const message = err?.error || 'Failed to delete sprite';
@@ -1017,6 +1122,8 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             if (lastSprite?.spriteId === spriteIdToDelete) {
                 setLastSprite(null);
                 lastSpriteMemory = null;
+                try { sessionStorage.removeItem('lastSpriteMemory'); } catch { /* SSR */ }
+                try { localStorage.removeItem('lastSpriteMemory'); } catch { /* SSR */ }
             }
 
             // Dismiss current sprite from UI (voice session already ended above via toggleCall)
@@ -1040,7 +1147,7 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             // Only clear if we're still tracking this sprite as deleting
             setDeletingSpriteId(prev => (prev === spriteIdToDelete ? null : prev));
         }
-    }, [spriteId, deletingSpriteId, dismissSprite, lastSprite, isVoiceActive, toggleCall, disableSpriteVoice, toast, prompt]);
+    }, [spriteId, deletingSpriteId, dismissSprite, lastSprite, isVoiceActive, toggleCall, disableSpriteVoice, toast, prompt, tenantId]);
 
     const handleShare = useCallback(async () => {
         if (!spriteId || shareLoading) return;
@@ -1215,6 +1322,11 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
             setChatLoading(false);
         }
     };
+
+    // Feature gate: return null if sprite tool is disabled (checked after hooks)
+    if (!isFeatureEnabled('summonSpriteTool', supportedFeatures)) {
+        return null;
+    }
 
     return (
         <>
@@ -1512,6 +1624,7 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
                 <SpriteBotConfigPanel
                     spriteId={spriteId}
                     spriteName={spriteName}
+                    tenantId={tenantId}
                     initialConfig={spriteBotConfig as any}
                     onClose={() => setShowBotConfig(false)}
                     onSaved={(config) => {
@@ -1524,5 +1637,3 @@ export default function SummonSpritePrompt({ tenantId, supportedFeatures }: Summ
         </>
     );
 }
-
-

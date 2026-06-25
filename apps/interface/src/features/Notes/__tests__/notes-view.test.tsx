@@ -9,6 +9,9 @@ import { DailyCallStateProvider } from '@interface/features/DailyCall/state/stor
 
 import NotesView from '../components/notes-view-next';
 
+jest.mock('@interface/features/Notes/styles/notes-next.css', () => ({}));
+jest.mock('highlight.js/styles/github-dark.css', () => ({}));
+
 // Mock VoiceSessionContext
 jest.mock('@interface/contexts/voice-session-context', () => ({
   useVoiceSessionContext: () => ({
@@ -76,15 +79,19 @@ jest.mock('@interface/features/Notes/lib/offline-note-queue', () => {
 
 // Mocks for notes API (prefix with mock* so Jest allows referencing inside factory)
 const mockFetchNotes = jest.fn();
+const mockFetchNotesIncremental = jest.fn();
 const mockCreateNote = jest.fn();
 const mockUpdateNote = jest.fn();
 const mockDeleteNote = jest.fn();
+const mockFindNoteWithFuzzySearch = jest.fn();
 
 jest.mock('@interface/features/Notes/lib/notes-api', () => ({
   fetchNotes: (...args: any[]) => mockFetchNotes(...args),
+  fetchNotesIncremental: (...args: any[]) => mockFetchNotesIncremental(...args),
   createNote: (...args: any[]) => mockCreateNote(...args),
   updateNote: (...args: any[]) => mockUpdateNote(...args),
-  deleteNote: (...args: any[]) => mockDeleteNote(...args)
+  deleteNote: (...args: any[]) => mockDeleteNote(...args),
+  findNoteWithFuzzySearch: (...args: any[]) => mockFindNoteWithFuzzySearch(...args),
 }));
 
 describe('NotesView', () => {
@@ -100,9 +107,92 @@ describe('NotesView', () => {
       configurable: true,
       value: true,
     });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => ({}),
+    } as Response);
+    mockFetchNotesIncremental.mockImplementation((assistantName: string, mode: string, onBatch: (batch: any) => void) => {
+      const promise = mockFetchNotes(mode, assistantName).then((items: any[]) => {
+        onBatch({ batch: 'personal', items, done: true });
+        return items;
+      });
+      return { promise, abort: jest.fn() };
+    });
   });
 
-  it('calls fetchNotes again after saving a newly created note (expected refresh)', async () => {
+  it('autosaves edited notes online without a manual save button', async () => {
+    mockFetchNotes.mockResolvedValueOnce([]);
+
+    render(
+      <DailyCallStateProvider>
+        <NotesView assistantName={assistantName} />
+      </DailyCallStateProvider>
+    );
+
+    await waitFor(() => expect(mockFetchNotes).toHaveBeenCalledTimes(1));
+
+    const newNote = { _id: 'n1', title: 'New Note', content: '', mode: 'personal', timestamp: new Date().toISOString() };
+    mockCreateNote.mockResolvedValueOnce(newNote);
+
+    fireEvent.click(await screen.findByLabelText('Create new note'));
+    await waitFor(() => expect(mockCreateNote).toHaveBeenCalledTimes(1));
+
+    const updatedNote = { ...newNote, title: 'Autosaved Title', content: 'Autosaved body' };
+    mockUpdateNote.mockResolvedValueOnce(updatedNote);
+
+    fireEvent.change(await screen.findByPlaceholderText('Untitled'), { target: { value: 'Autosaved Title' } });
+    fireEvent.change(screen.getByPlaceholderText(/Start writing/), { target: { value: 'Autosaved body' } });
+
+    expect(screen.queryByTitle('Save Changes')).not.toBeInTheDocument();
+
+    await waitFor(
+      () => expect(mockUpdateNote).toHaveBeenCalledWith(
+        'n1',
+        {
+          title: 'Autosaved Title',
+          content: 'Autosaved body',
+          isPinned: undefined,
+        },
+        'agent1'
+      ),
+      { timeout: 2500 }
+    );
+    expect(mockQueueOfflineNoteUpdate).not.toHaveBeenCalled();
+  });
+
+  it('opens the initial note id after the notes window loads', async () => {
+    const note = {
+      _id: 'Standup-Connector-Audit-2026-06-16',
+      title: 'Standup Connector Audit - 2026-06-16',
+      content: '# Standup Connector Audit - 2026-06-16\n\nBottom line',
+      mode: 'work',
+      userId: 'test-user-id',
+      tenantId: 'tenant-1',
+    };
+    mockFetchNotes.mockResolvedValueOnce([note]);
+    mockFindNoteWithFuzzySearch.mockResolvedValueOnce({
+      found: true,
+      note,
+      searchPerformed: false,
+    });
+
+    render(
+      <DailyCallStateProvider>
+        <NotesView assistantName={assistantName} initialNoteId={note._id} />
+      </DailyCallStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockFindNoteWithFuzzySearch).toHaveBeenCalledWith(
+        { id: note._id },
+        assistantName,
+      );
+    });
+    expect(await screen.findByDisplayValue(note.title)).toBeInTheDocument();
+  });
+
+  it('autosaves a newly edited note through the offline queue', async () => {
     // Initial load returns no notes
     mockFetchNotes.mockResolvedValueOnce([]);
 
@@ -128,7 +218,7 @@ describe('NotesView', () => {
     mockCreateNote.mockResolvedValueOnce(newNote);
 
     // Click the create button (title attribute)
-    fireEvent.click(screen.getByTitle('Create New Note'));
+    fireEvent.click(await screen.findByLabelText('Create new note'));
 
     // Wait for createNote to be called and note to be created
     await waitFor(() => expect(mockCreateNote).toHaveBeenCalledTimes(1));
@@ -136,20 +226,12 @@ describe('NotesView', () => {
     // Title input should now be present with default title
     const titleInput = await screen.findByPlaceholderText('Untitled');
 
-    // Change title & content to enable save
+    // Change title & content; autosave should queue the draft while offline.
     fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
-    const textarea = screen.getByPlaceholderText('Start writing...');
+    const textarea = screen.getByPlaceholderText(/Start writing/);
     fireEvent.change(textarea, { target: { value: 'Body text' } });
 
-    // Wait a bit for React state to update after input changes
-    await waitFor(() => {
-      const saveBtn = screen.getByTitle('Save Changes');
-      expect(saveBtn).not.toBeDisabled();
-    });
-
-    // Save while offline - should queue the note update
-    const saveBtn = screen.getByTitle('Save Changes');
-    fireEvent.click(saveBtn);
+    expect(screen.queryByTitle('Save Changes')).not.toBeInTheDocument();
 
     // Verify the note was queued for offline update
     await waitFor(() => expect(mockQueueOfflineNoteUpdate).toHaveBeenCalledTimes(1));
@@ -216,5 +298,33 @@ describe('NotesView', () => {
     // The test comment indicates this is expected behavior for now.
     // When refresh-on-save is implemented, this assertion can be updated.
     expect(mockFetchNotes.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('surfaces local chat archives in the Chat History folder', async () => {
+    mockFetchNotes.mockResolvedValueOnce([]);
+    localStorage.setItem('pearl-chat-archives-v1', JSON.stringify([
+      {
+        id: 'chat-archive-1',
+        title: 'Chat archive - Jun 11, 2026, 12:00 PM',
+        transcript: '**You**\nNeed next steps\n\n**Pearl**\nI will keep those ready.',
+        archivedAt: '2026-06-11T12:00:00.000Z',
+        messageCount: 2,
+      },
+    ]));
+
+    render(
+      <DailyCallStateProvider>
+        <NotesView assistantName={assistantName} />
+      </DailyCallStateProvider>
+    );
+
+    await screen.findByText('Chat History');
+    expect(screen.getByText('1 note')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Chat History'));
+
+    expect(await screen.findByText('Chat archive - Jun 11, 2026, 12:00 PM')).toBeInTheDocument();
+    expect(screen.getByText(/Need next steps/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Delete note')).not.toBeInTheDocument();
   });
 });

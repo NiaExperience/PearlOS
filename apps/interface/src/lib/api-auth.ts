@@ -10,13 +10,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
 
+/**
+ * REMOVED — security: test mode bypass disabled by Blair 2026-04-27.
+ * Auth must always be enforced. This function previously allowed
+ * TEST_MODE / NEXT_PUBLIC_TEST_MODE / NEXT_PUBLIC_TEST_ANONYMOUS_USER
+ * env vars to bypass auth in non-production, and ALLOW_PROD_TEST_MODE
+ * in production. All test-mode auth bypass is now permanently disabled.
+ */
+export function isTestModeBypassAllowed(): boolean {
+  return false;
+}
+
 export async function requireAuth(req: NextRequest): Promise<NextResponse | null> {
-  // In test mode, bypass authentication (matches middleware.ts and page.tsx behavior)
-  if (
-    process.env.TEST_MODE === 'true' ||
-    process.env.NEXT_PUBLIC_TEST_MODE === 'true' ||
-    process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true'
-  ) {
+  if (isTestModeBypassAllowed()) {
     return null; // test mode — no auth required
   }
 

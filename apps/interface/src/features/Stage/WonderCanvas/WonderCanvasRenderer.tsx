@@ -47,9 +47,6 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
   const [active, setActive] = useState(false);
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
-  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
-
   // ── Avatar state awareness ────────────────────────────────────────
   const { isAssistantSpeaking } = useVoiceSessionContext();
   const { isChatMode } = useUI();
@@ -118,12 +115,49 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     postToIframe({ type: 'wonder.orientation', portrait: isPortrait });
   }, [postToIframe]);
 
+  const sendTheme = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const root = document.documentElement;
+    const computed = window.getComputedStyle(root);
+    const vars = [
+      '--pearl-ui-font',
+      '--pearl-shell-bg',
+      '--pearl-stage-bg',
+      '--pearl-desktop-stage-bg',
+      '--pearl-panel-bg',
+      '--pearl-panel-muted-bg',
+      '--pearl-panel-border',
+      '--pearl-panel-backdrop',
+      '--pearl-text',
+      '--pearl-muted',
+      '--pearl-soft',
+      '--pearl-accent',
+      '--pearl-radius',
+      '--pearl-window-bg',
+      '--pearl-window-content-bg',
+      '--pearl-window-border',
+      '--pearl-window-backdrop',
+      '--pearl-window-title-bg',
+      '--pearl-window-control-bg',
+      '--pearl-window-control-hover-bg',
+      '--pearl-window-control-border',
+      '--pearl-window-control-hover-border',
+      '--pearl-window-shadow',
+    ];
+    postToIframe({
+      type: 'wonder.theme',
+      theme: root.getAttribute('data-pearl-theme') || 'pixel',
+      vars: Object.fromEntries(vars.map((name) => [name, computed.getPropertyValue(name)])),
+    });
+  }, [postToIframe]);
+
   // Send orientation first when iframe becomes ready, then flush pending scenes
   useEffect(() => {
     if (!ready) return;
     sendOrientation();
+    sendTheme();
     flushPending();
-  }, [ready, sendOrientation, flushPending]);
+  }, [ready, sendOrientation, sendTheme, flushPending]);
 
   // ── Forward avatar state to iframe ───────────────────────────────────
   useEffect(() => {
@@ -140,6 +174,13 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
       window.removeEventListener('resize', onResize);
     };
   }, [sendOrientation]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onThemeChange = () => sendTheme();
+    window.addEventListener('pearl:interface-customization.changed', onThemeChange);
+    return () => window.removeEventListener('pearl:interface-customization.changed', onThemeChange);
+  }, [sendTheme]);
 
   // ── Helper: clear Wonder Canvas and notify all listeners ──────────
   // Centralises the clear-and-broadcast pattern used by multiple effects.
@@ -169,6 +210,13 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     const handleScene = (e: Event) => {
       const { payload } = (e as CustomEvent).detail ?? {};
       if (!payload?.html) return;
+      if (payload._renderTarget === 'managed-window') {
+        if (active) {
+          postToIframe({ type: 'wonder.clear', layer: undefined });
+          setActive(false);
+        }
+        return;
+      }
       const now = Date.now();
       const contentHash = `${payload.html.length}:${payload.html.slice(0, 100)}`;
       if (now - lastSceneTs < SCENE_DEDUP_MS && contentHash === lastSceneHash) {
@@ -178,7 +226,6 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
       lastSceneTs = now;
       lastSceneHash = contentHash;
       logger.info('Wonder scene received', { layer: payload.layer, chars: payload.html.length, iframeReady: readyRef.current });
-      setCurrentSceneId(typeof payload.sceneId === 'string' ? payload.sceneId : null);
       // Only activate the canvas (make it visible) once the iframe is ready.
       // If the iframe hasn't loaded yet, the scene is queued in pendingRef and
       // we defer activation until flushPending runs — preventing a "black screen"
@@ -247,18 +294,7 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
       window.removeEventListener(NIA_EVENT_WONDER_CLEAR, handleClear);
       window.removeEventListener(NIA_EVENT_WONDER_ANIMATE, handleAnimate);
     };
-  }, [postToIframe, startRenderTimeout]);
-
-  // Track viewport so we can tweak close button placement only on mobile
-  useEffect(() => {
-    const updateViewport = () => {
-      if (typeof window === 'undefined') return;
-      setIsMobileViewport(window.innerWidth < 768);
-    };
-    updateViewport();
-    window.addEventListener('resize', updateViewport);
-    return () => window.removeEventListener('resize', updateViewport);
-  }, []);
+  }, [active, postToIframe, startRenderTimeout]);
 
   // ── Clear Wonder Canvas on new voice session ───────────────────────
   // Prevents stale canvas content from a previous session leaking into the
@@ -273,7 +309,7 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
   }, [clearWonderCanvas]);
 
   // ── Clear Wonder Canvas when exiting chat mode (going home) ────────
-  // When the user leaves the WORK desktop (chat mode), clear any active
+  // When the user leaves the DESKTOP (chat mode), clear any active
   // Wonder Canvas content so it doesn't block clicks on the home screen.
   const prevChatModeRef = useRef(isChatMode);
   useEffect(() => {
@@ -283,18 +319,17 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     prevChatModeRef.current = isChatMode;
   }, [isChatMode, active, clearWonderCanvas]);
 
-  // ── Clear Wonder Canvas when desktop mode leaves WORK ──────────────
-  // If the user navigates away from WORK mode (e.g. pressing the Home
+  // ── Clear Wonder Canvas when desktop mode leaves DESKTOP ───────────
+  // If the user navigates away from DESKTOP mode (e.g. pressing the Home
   // nav button) while Wonder Canvas is active, clear it so returning to
-  // WORK doesn't show a stale black screen.  This also prevents an
+  // DESKTOP doesn't show a stale black screen. This also prevents an
   // invisible Wonder Canvas overlay from blocking clicks in other modes.
   const prevDesktopModeRef = useRef(currentMode);
   useEffect(() => {
     const prev = prevDesktopModeRef.current;
     prevDesktopModeRef.current = currentMode;
 
-    // Only act when leaving WORK mode while canvas is active
-    if (prev === DesktopMode.WORK && currentMode !== DesktopMode.WORK && active) {
+    if (prev === DesktopMode.DESKTOP && currentMode !== DesktopMode.DESKTOP && active) {
       clearWonderCanvas('desktop-mode-exit');
     }
   }, [currentMode, active, clearWonderCanvas]);
@@ -416,8 +451,6 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
     clearWonderCanvas('react-close-button');
   }, [clearWonderCanvas]);
 
-  const isNewsMobile = isMobileViewport && currentSceneId === 'news';
-
   return (
     <div
       className={`wonder-canvas ${active ? 'wonder-canvas--active' : 'wonder-canvas--inactive'}`}
@@ -439,7 +472,6 @@ export default function WonderCanvasRenderer({ onInteraction }: WonderCanvasRend
           onClick={handleCloseClick}
           aria-label="Close Wonder Canvas"
           className="wonder-canvas__close-btn wonder-close-button"
-          style={isNewsMobile ? { top: 12, right: 1 } : undefined}
         >
           ✕
         </button>

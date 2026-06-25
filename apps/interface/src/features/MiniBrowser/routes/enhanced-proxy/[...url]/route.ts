@@ -1,4 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolve as dnsResolve } from 'dns/promises';
+
+/**
+ * SSRF protection — blocks requests to private/internal networks and cloud metadata endpoints.
+ * Validates both the hostname (for known-bad names) and resolved IPs (for RFC1918/link-local).
+ */
+async function validateTargetUrl(target: string): Promise<void> {
+  const url = new URL(target);
+  const hostname = url.hostname.toLowerCase();
+
+  // Block known metadata/internal hostnames
+  const blockedHostnames = [
+    'metadata.google.internal',
+    'metadata.internal',
+    'kubernetes.default',
+    'kubernetes.default.svc',
+  ];
+  if (blockedHostnames.includes(hostname)) {
+    throw new Error('Blocked: internal hostname');
+  }
+
+  // Block localhost variants
+  if (hostname === 'localhost' || hostname === '[::1]') {
+    throw new Error('Blocked: localhost');
+  }
+
+  // Resolve DNS and check all IPs
+  let ips: string[];
+  try {
+    // If it's already an IP address, use it directly
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith('[')) {
+      ips = [hostname.replace(/^\[|\]$/g, '')];
+    } else {
+      const resolved = await dnsResolve(hostname);
+      ips = Array.isArray(resolved) ? resolved : [resolved];
+    }
+  } catch {
+    // DNS resolution failed — allow the fetch to fail naturally
+    return;
+  }
+
+  for (const ip of ips) {
+    if (isBlockedIp(ip)) {
+      throw new Error('Blocked: private/internal IP address');
+    }
+  }
+}
+
+function isBlockedIp(ip: string): boolean {
+  // IPv6 loopback
+  if (ip === '::1' || ip === '::') return true;
+
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(isNaN)) return false;
+
+  const [a, b] = parts;
+
+  // Loopback: 127.0.0.0/8
+  if (a === 127) return true;
+  // 10.0.0.0/8
+  if (a === 10) return true;
+  // 172.16.0.0/12
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  // 192.168.0.0/16
+  if (a === 192 && b === 168) return true;
+  // Link-local: 169.254.0.0/16 (includes AWS/GCP/Azure metadata at 169.254.169.254)
+  if (a === 169 && b === 254) return true;
+  // 0.0.0.0/8
+  if (a === 0) return true;
+
+  return false;
+}
 
 function decodeHtmlEntities(value: string): string {
   return value
@@ -156,6 +228,37 @@ function buildInjectedScript(originalUrl: string) {
 })();</script>`;
 }
 
+/**
+ * Merge the incoming request's query string into the target URL.
+ *
+ * The target URL travels inside the dynamic `[...url]` path segment (percent-encoded).
+ * But when a page rewritten by this proxy submits a GET <form> (e.g. Google's own
+ * search box, action="/search"), the browser appends the form fields as a real query
+ * string AFTER the encoded segment — `.../enhanced-proxy/https%3A%2F%2F...%2Fsearch?q=cats`.
+ * Those params land in `request.nextUrl.search`, never in the path segment, so without
+ * this merge they are silently dropped and we fetch a bare `/search` — which is why a
+ * search inside the iframe bounced back to a blank Google homepage.
+ */
+function mergeIncomingQuery(target: string, request: NextRequest): string {
+  const search = request.nextUrl.search;
+  if (!search || search === '?') return target;
+  try {
+    const targetUrl = new URL(target);
+    const incoming = new URLSearchParams(search);
+    // Incoming form fields win: drop the target's copy of each key, then append all
+    // incoming values (preserving repeated keys like multi-select form fields).
+    for (const key of new Set(incoming.keys())) {
+      targetUrl.searchParams.delete(key);
+    }
+    for (const [key, value] of incoming.entries()) {
+      targetUrl.searchParams.append(key, value);
+    }
+    return targetUrl.toString();
+  } catch {
+    return target;
+  }
+}
+
 async function fetchThrough(request: NextRequest, target: string): Promise<Response> {
   const init: RequestInit = {
     method: 'GET',
@@ -310,8 +413,13 @@ export async function GET_impl(request: NextRequest, { params }: { params: Promi
     const resolved = await params;
     const joined = (resolved?.url || []).join('/');
     if (!joined) return NextResponse.json({ error: 'Missing URL' }, { status: 400 });
-    const target = decodeHtmlEntities(decodeURIComponent(joined));
-    if (!/^https?:\/\//i.test(target)) return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    const decoded = decodeHtmlEntities(decodeURIComponent(joined));
+    if (!/^https?:\/\//i.test(decoded)) return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    // Preserve query params from in-iframe GET form submissions (e.g. Google search).
+    const target = mergeIncomingQuery(decoded, request);
+
+    // SSRF protection: block private/internal network targets
+    await validateTargetUrl(target);
 
     const upstream = await fetchThrough(request, target);
     let contentType = upstream.headers.get('content-type') || '';
@@ -399,8 +507,13 @@ async function handleNonGet_impl(request: NextRequest, { params }: { params: Pro
     const resolved = await params;
     const joined = (resolved?.url || []).join('/');
     if (!joined) return NextResponse.json({ error: 'Missing URL' }, { status: 400 });
-    const target = decodeHtmlEntities(decodeURIComponent(joined));
-    if (!/^https?:\/\//i.test(target)) return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    const decoded = decodeHtmlEntities(decodeURIComponent(joined));
+    if (!/^https?:\/\//i.test(decoded)) return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    // Preserve query params appended to the proxy URL by form submissions.
+    const target = mergeIncomingQuery(decoded, request);
+
+    // SSRF protection: block private/internal network targets
+    await validateTargetUrl(target);
 
     const method = request.method;
     const upstreamInit: RequestInit = {

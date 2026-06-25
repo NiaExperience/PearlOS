@@ -111,7 +111,7 @@ export default function ServicesSection({
     const fetchMenuItems = async () => {
       setIsLoading(true);
       try {
-        const result = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}`);
+        const result = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}`);
         if (result.ok) {
           const data = await result.json();
           setMenuItems(data);
@@ -228,7 +228,7 @@ export default function ServicesSection({
         setCustomMenuCategories([...customMenuCategories, formattedData.category]);
       }
       
-      const result = await fetch(`/api/contentDetail/${editingMenuItem?._id}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/${editingMenuItem?._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ export default function ServicesSection({
         body: JSON.stringify(formattedData),
       });
       if (result.ok) {
-        const updatedItems = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}`);
+        const updatedItems = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}`);
         if (updatedItems.ok) {
           const data = await updatedItems.json();
           setMenuItems(data);
@@ -274,11 +274,11 @@ export default function ServicesSection({
 
   const handleDeleteMenuItem = async (itemId: string) => {
     try {
-      const result = await fetch(`/api/contentDetail/${itemId}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/${itemId}`, {
         method: 'DELETE',
       });
       if (result.ok) {
-        const updatedItems = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}`);
+        const updatedItems = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}`);
         if (updatedItems.ok) {
           const data = await updatedItems.json();
           setMenuItems(data);
@@ -523,7 +523,7 @@ export default function ServicesSection({
                             if (editingMenuItem) {
                               await handleEditMenuItem(formattedData);
                             } else {
-                              const result = await fetch(`/api/contentList`, {
+                              const result = await fetch(`/dashboard/api/contentList`, {
                                 method: 'POST',
                                 headers: {
                                   'Content-Type': 'application/json',
@@ -531,7 +531,7 @@ export default function ServicesSection({
                                 body: JSON.stringify(formattedData),
                               });
                               if (result.ok) {
-                                const updatedItems = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}`);
+                                const updatedItems = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}`);
                                 if(result.ok) {
                                   const data = await updatedItems.json();
                                   setMenuItems(data);

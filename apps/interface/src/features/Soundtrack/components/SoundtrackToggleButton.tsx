@@ -21,7 +21,7 @@ export function SoundtrackToggleButton() {
   const context = useContext(SoundtrackContext);
   const { isChatMode } = useUI();
   const { currentMode } = useDesktopMode();
-  const hasChatBar = isChatMode || currentMode === DesktopMode.WORK || currentMode === DesktopMode.HOME;
+  const hasChatBar = isChatMode || currentMode === DesktopMode.DESKTOP || currentMode === DesktopMode.HOME;
   const [showVolume, setShowVolume] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);

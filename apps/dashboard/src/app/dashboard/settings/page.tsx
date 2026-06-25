@@ -11,7 +11,7 @@ export default async function UserSettingsHub() {
   
   if (!isLocalDevBypass) {
   const session = await getSessionSafely(undefined, dashboardAuthOptions);
-  if (!session?.user || session.user.is_anonymous) redirect('/login');
+  if (!session?.user || session.user.is_anonymous) redirect('/dashboard/login');
   }
 
   return (

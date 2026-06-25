@@ -3,7 +3,9 @@ import { getSessionSafely } from "@nia/prism/core/auth";
 import { NextRequest, NextResponse } from 'next/server';
 
 import { interfaceAuthOptions } from "@interface/lib/auth-config";
+import { createBotClaimHeaders } from "@interface/lib/bot-auth-claims";
 import { getLogger, setLogContext } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 // Core implementation for /api/bot/join
 // Route layer should simply re-export POST_impl as POST.
@@ -11,6 +13,8 @@ import { getLogger, setLogContext } from '@interface/lib/logger';
 
 const BOT_BASE = (process.env.BOT_CONTROL_BASE_URL || process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '').replace(/\/$/, '');
 const log = getLogger('[daily_call]');
+let didLogJoinRuntimeEnv = false;
+const DEFAULT_PUBLIC_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 function envBool(v: string | undefined, def = false): boolean {
   if (!v) return def;
@@ -29,7 +33,24 @@ function gcIntents(now: number) {
   }
 }
 
+function requestedTenantForActor(body: Record<string, unknown>): unknown {
+  const requestedTenantId = body?.tenantId ?? body?.tenant_id;
+  return requestedTenantId === DEFAULT_PUBLIC_TENANT_ID ? undefined : requestedTenantId;
+}
+
 export async function POST_impl(req: NextRequest) {
+  if (!didLogJoinRuntimeEnv) {
+    didLogJoinRuntimeEnv = true;
+    log.info('Bot join runtime env snapshot', {
+      event: 'bot_join_runtime_env_snapshot',
+      botBasePresent: !!BOT_BASE,
+      authRequired: envBool(process.env.BOT_CONTROL_AUTH_REQUIRED, false),
+      hasSharedSecret: !!process.env.BOT_CONTROL_SHARED_SECRET,
+      hasClaimsSecret: !!process.env.BOT_CONTROL_CLAIMS_SECRET,
+      useRedis: process.env.USE_REDIS ?? '<unset>',
+      redisUrlPresent: !!process.env.REDIS_URL,
+    });
+  }
   log.info('Bot proxy join request', {
     event: 'bot_proxy_join_request',
     upstream: BOT_BASE,
@@ -38,46 +59,49 @@ export async function POST_impl(req: NextRequest) {
     return NextResponse.json({ error: 'bot_control_base_unconfigured' }, { status: 500 });
   }
   
-  // Try to get session (optional - some callers may not be authenticated)
-  const session = await getSessionSafely(req, interfaceAuthOptions);
-  
   let body: any = {};
   try {
     body = await req.json();
   } catch (_) {
     // empty body is fine; server will fill defaults
   }
+  const actorResult = await resolveInterfaceActorContext({
+    requestedTenantId: requestedTenantForActor(body),
+  });
+  if (!actorResult.ok) return actorResult.response;
+  const actor = actorResult.actor;
+
+  // Keep the raw session only for optional session-id fallbacks.
+  const session = await getSessionSafely(req, interfaceAuthOptions).catch(() => null);
+  const sessionUser = session?.user as any;
   const headerSessionId = req.headers.get('x-session-id') || undefined;
-  const headerUserId = req.headers.get('x-user-id') || undefined;
   const headerUserName = req.headers.get('x-user-name') || undefined;
   const headerUserEmail = req.headers.get('x-user-email') || undefined;
-
-  const sessionUser = session?.user as any;
 
   const resolvedSessionId =
     body?.sessionId ||
     headerSessionId ||
-    (session as any)?.sessionId ||
-    (sessionUser as any)?.sessionId;
+      (session as any)?.sessionId ||
+      (sessionUser as any)?.sessionId ||
+      `${actor.userId}:${Date.now()}`;
 
-  const resolvedUserId =
-    body?.sessionUserId ||
-    headerUserId ||
-    sessionUser?.id ||
-    (session as any)?.userId;
+  const resolvedUserId = actor.userId;
 
-  const resolvedUserName =
-    body?.sessionUserName ||
-    headerUserName ||
-    sessionUser?.name ||
-    sessionUser?.userName ||
-    (session as any)?.userName;
+  const resolvedUserName = actor.userName || sessionUser?.name || sessionUser?.userName || headerUserName;
 
-  const resolvedUserEmail =
-    body?.sessionUserEmail ||
-    headerUserEmail ||
-    sessionUser?.email ||
-    (session as any)?.userEmail;
+  const resolvedUserEmail = actor.userEmail || sessionUser?.email || headerUserEmail;
+  const resolvedTenantId = actor.tenantId;
+  if (!resolvedTenantId) {
+    return NextResponse.json({ error: 'tenant_required' }, { status: 403 });
+  }
+  log.info('Multitenancy audit context resolved', {
+    event: 'multitenancy_audit_join_context',
+    tenantId: resolvedTenantId,
+    sessionUserId: resolvedUserId,
+    sessionId: resolvedSessionId,
+    roomUrl: body?.room_url || null,
+    hasTenantAccess: true,
+  });
 
   setLogContext({
     sessionId: resolvedSessionId ?? null,
@@ -128,10 +152,10 @@ export async function POST_impl(req: NextRequest) {
     const enrichedBody = {
       ...body,
       // Auto-populate session fields from auth session when present
-      sessionUserId: body.sessionUserId || resolvedUserId,
-      sessionUserEmail: body.sessionUserEmail || resolvedUserEmail,
-      sessionUserName: body.sessionUserName || resolvedUserName,
-      tenantId: body.tenantId || (session?.user as any)?.tenant_id,
+      sessionUserId: resolvedUserId,
+      sessionUserEmail: resolvedUserEmail,
+      sessionUserName: resolvedUserName,
+      tenantId: resolvedTenantId,
       // Forward sessionId if provided (Interface/OS session ID)
       ...(resolvedSessionId ? { sessionId: resolvedSessionId } : {}),
       debugTraceId,
@@ -144,6 +168,7 @@ export async function POST_impl(req: NextRequest) {
       voiceProvider: enrichedBody.voiceProvider,
       hasVoiceParameters: !!enrichedBody.voiceParameters,
       supportedFeatures: enrichedBody.supportedFeatures,
+      visionMode: enrichedBody.visionMode === true,
       modeConfigKeys: enrichedBody.modePersonalityVoiceConfig ? Object.keys(enrichedBody.modePersonalityVoiceConfig) : [],
       hasSessionOverride: !!enrichedBody.sessionOverride,
       sessionId: enrichedBody.sessionId,
@@ -151,6 +176,29 @@ export async function POST_impl(req: NextRequest) {
       sessionUserEmail: enrichedBody.sessionUserEmail ? 'present' : 'absent',
       sessionUserName: enrichedBody.sessionUserName,
       tenantId: enrichedBody.tenantId,
+      debugTraceId,
+    });
+
+    const claimHeaders = createBotClaimHeaders({
+      tenantId: resolvedTenantId,
+      sessionUserId: resolvedUserId,
+      sessionId: resolvedSessionId,
+      sessionUserEmail: resolvedUserEmail,
+      sessionUserName: resolvedUserName,
+    });
+    const hasBotSecretHeader = !!process.env.BOT_CONTROL_SHARED_SECRET;
+    const hasClaimsHeaders = !!(
+      claimHeaders['x-bot-claims-ts']
+      && claimHeaders['x-bot-claims']
+      && claimHeaders['x-bot-claims-sig']
+    );
+    log.info('Bot join upstream auth headers prepared', {
+      event: 'bot_proxy_join_auth_headers_prepared',
+      hasBotSecretHeader,
+      hasClaimsHeaders,
+      tenantId: resolvedTenantId,
+      sessionUserId: resolvedUserId,
+      sessionId: resolvedSessionId,
       debugTraceId,
     });
 
@@ -162,14 +210,27 @@ export async function POST_impl(req: NextRequest) {
         ...(process.env.BOT_CONTROL_SHARED_SECRET
           ? { 'X-Bot-Secret': process.env.BOT_CONTROL_SHARED_SECRET }
           : {}),
+        ...claimHeaders,
       },
       body: JSON.stringify(enrichedBody),
     });
     const text = await r.text();
     if (!r.ok) {
+      let parsedDetail: string | null = null;
+      try {
+        parsedDetail = JSON.parse(text || '{}')?.detail || null;
+      } catch {
+        parsedDetail = null;
+      }
       log.error('Bot proxy join upstream error', {
         event: 'bot_proxy_join_upstream_error',
         status: r.status,
+        parsedDetail,
+        hasBotSecretHeader,
+        hasClaimsHeaders,
+        tenantId: resolvedTenantId,
+        sessionUserId: resolvedUserId,
+        sessionId: resolvedSessionId,
         body: text || '<no body>',
       });
       return new NextResponse(text || 'upstream_error', { status: r.status });
@@ -180,6 +241,9 @@ export async function POST_impl(req: NextRequest) {
       log.info('Bot proxy join upstream success', {
         event: 'bot_proxy_join_upstream_success',
         debugTraceId,
+        tenantId: resolvedTenantId,
+        sessionUserId: resolvedUserId,
+        sessionId: resolvedSessionId,
         status: parsed?.status,
         session_id: parsed?.session_id,
         pid: parsed?.pid,

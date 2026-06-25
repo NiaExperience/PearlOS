@@ -80,6 +80,56 @@ describe('YouTube Feature', () => {
       expect(data.videos[0].title).toBe('Test Video');
       expect(data.comments).toHaveLength(1);
       expect(data.comments[0].text).toBe('Great video!');
+      const searchUrl = new URL(String(mockFetch.mock.calls[0][0]));
+      expect(searchUrl.searchParams.get('order')).toBe('relevance');
+      expect(searchUrl.searchParams.get('safeSearch')).toBe('strict');
+      expect(searchUrl.searchParams.get('videoEmbeddable')).toBe('true');
+    });
+
+    it('should rerank weak movie results below direct query matches', async () => {
+      const mockYouTubeResponse = {
+        items: [
+          {
+            id: { videoId: 'movie-result' },
+            snippet: {
+              title: 'The Endangered Child Full Movie',
+              description: 'A dramatic feature film.',
+              thumbnails: { default: { url: 'movie-thumbnail.jpg' } },
+              channelTitle: 'Movie Channel',
+              publishedAt: '2023-01-01T00:00:00Z'
+            }
+          },
+          {
+            id: { videoId: 'bus-result' },
+            snippet: {
+              title: 'Kids on a School Bus Sing Together',
+              description: 'Children riding a yellow school bus.',
+              thumbnails: { default: { url: 'bus-thumbnail.jpg' } },
+              channelTitle: 'Family Learning',
+              publishedAt: '2023-01-02T00:00:00Z'
+            }
+          }
+        ]
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockYouTubeResponse,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ items: [] }),
+        } as Response);
+
+      const request = new NextRequest('http://localhost/api/youtube-search?query=kids%20on%20a%20school%20bus');
+      const response = await GET_impl(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.currentVideo.videoId).toBe('bus-result');
+      expect(data.videos[0].videoId).toBe('bus-result');
+      expect(String(mockFetch.mock.calls[1][0])).toContain('videoId=bus-result');
     });
 
     it('should handle missing query parameter', async () => {

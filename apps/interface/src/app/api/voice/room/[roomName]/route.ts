@@ -5,10 +5,10 @@
  * Handles cleanup of Daily.co rooms when sessions end
  */
 
-import { getSessionSafely } from "@nia/prism/core/auth";
 import { NextRequest, NextResponse } from "next/server";
 
-import { interfaceAuthOptions } from "@interface/lib/auth-config";
+import { getVoiceRoomName } from "../route";
+import { resolveInterfaceActorContext } from "@interface/lib/tenant-actor";
 
 export const dynamic = "force-dynamic";
 
@@ -52,21 +52,26 @@ export async function DELETE(
   context: RouteContext
 ): Promise<NextResponse> {
   try {
-    // Check authentication
-    const session = await getSessionSafely(req, interfaceAuthOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { roomName } = context.params;
 
     if (!roomName) {
       return NextResponse.json({ error: 'Room name is required' }, { status: 400 });
     }
 
-    // Verify user owns this room (room name should be voice-{userId})
-    const expectedPrefix = `voice-${session.user.id}`;
-    if (!roomName.startsWith(expectedPrefix)) {
+    const url = new URL(req.url);
+    const requestedTenantId =
+      url.searchParams.get('tenantId') ||
+      url.searchParams.get('tenant_id') ||
+      req.headers.get('x-tenant-id') ||
+      undefined;
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId,
+    });
+    if (!actorResult.ok) return actorResult.response;
+
+    const actor = actorResult.actor;
+    const expectedRoomName = getVoiceRoomName(actor.tenantId, actor.userId);
+    if (roomName !== expectedRoomName) {
       return NextResponse.json(
         { error: 'Cannot delete room belonging to another user' },
         { status: 403 }

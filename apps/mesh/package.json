@@ -4,7 +4,7 @@
   "description": "Standalone GraphQL Mesh Server for Nia Universal",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc && node scripts/copy-config.js",
+    "build": "tsc && node scripts/copy-config.cjs",
     "start": "node dist/server.js",
     "start:dev": "cross-env NODE_ENV=development ts-node-dev --respawn --transpile-only --ignore-watch node_modules --ignore-watch dist --ignore-watch '.*\\.test\\.ts$' --ignore-watch '.*\\.spec\\.ts$' --ignore-watch '__tests__' src/server.ts",
     "start:dev:no-watch": "cross-env NODE_ENV=development ts-node --transpile-only src/server.ts",

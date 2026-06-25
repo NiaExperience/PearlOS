@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "tool_count": 91,
+  "tool_count": 105,
   "feature_count": 19,
   "tool_names": [
     "bot_add_note_content",
@@ -22,6 +22,7 @@
     "bot_create_app_from_note",
     "bot_create_html_content",
     "bot_create_note",
+    "bot_customize_interface",
     "bot_delete_note",
     "bot_delete_profile_metadata",
     "bot_dismiss_experience",
@@ -44,7 +45,9 @@
     "bot_navigate_note_heading",
     "bot_next_soundtrack_track",
     "bot_onboarding_complete",
+    "bot_onboarding_progress",
     "bot_open_creation_engine",
+    "bot_open_files",
     "bot_open_news",
     "bot_open_note",
     "bot_open_notes",
@@ -93,7 +96,18 @@
     "bot_wonder_canvas_avatar_hint",
     "bot_wonder_canvas_clear",
     "bot_wonder_canvas_scene",
-    "bot_wonder_canvas_template"
+    "bot_wonder_canvas_template",
+    "pearl_apps",
+    "pearl_canvas",
+    "pearl_close",
+    "pearl_experience",
+    "pearl_media",
+    "pearl_notes",
+    "pearl_open",
+    "pearl_search",
+    "pearl_system",
+    "pearl_tasks",
+    "pearl_window"
   ],
   "features": [
     "assistantSelfClose",
@@ -571,7 +585,7 @@
     },
     "bot_create_note": {
       "name": "bot_create_note",
-      "description": "Create a brand-new shared note with the provided title and optional initial markdown content.",
+      "description": "Create a brand-new note with the provided title and content. When the user has dictated or spoken content to save, ALWAYS include it in the 'content' parameter. Only omit content if the user explicitly asked for a blank note. If you need to add content to an existing note, use bot_add_note_content instead.",
       "feature_flag": "notes",
       "parameters": {
         "type": "object",
@@ -591,6 +605,69 @@
         },
         "required": [
           "title"
+        ]
+      },
+      "passthrough": false
+    },
+    "bot_customize_interface": {
+      "name": "bot_customize_interface",
+      "description": "Customize the user's PearlOS interface. Use this when the user asks to change the UI theme, desktop/home background, or desktop icons. Backgrounds and generated icons must use PearlOS Pixel/Sprite assets only; do not call general image generation tools for this.",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "background",
+              "icons",
+              "theme",
+              "all"
+            ],
+            "description": "What to change."
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "pixel",
+              "glass",
+              "professional",
+              "calm"
+            ],
+            "description": "UI theme to apply when action is theme or all."
+          },
+          "description": {
+            "type": "string",
+            "description": "Shared visual prompt, e.g. 'underwater scene' or 'underwater glass icons'."
+          },
+          "backgroundDescription": {
+            "type": "string",
+            "description": "Prompt for pixel-art home and desktop backgrounds."
+          },
+          "iconDescription": {
+            "type": "string",
+            "description": "Prompt for a pixel-art desktop icon pack."
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "home",
+              "desktop",
+              "both"
+            ],
+            "description": "Target screen for a supplied background image. Generated backgrounds default to both."
+          },
+          "app": {
+            "type": "string",
+            "description": "Optional app icon to change, e.g. notes, browser, agency, terminal."
+          },
+          "sourceImageUrl": {
+            "type": "string",
+            "description": "Optional same-origin user-supplied image URL. Do not use arbitrary external images."
+          }
+        },
+        "required": [
+          "action"
         ]
       },
       "passthrough": false
@@ -994,11 +1071,57 @@
     },
     "bot_onboarding_complete": {
       "name": "bot_onboarding_complete",
-      "description": "CRITICAL: Call this tool IMMEDIATELY when the onboarding flow is finished or if the user asks to skip. This is the ONLY way to exit onboarding mode. Do not just say you are done; you MUST call this function.",
+      "description": "CRITICAL: Call this tool only when onboarding has reached its final completion step and required actions are done, or when the user asks to skip, stop, or says onboarding is already done. Pass reason='completed', 'skip', 'stop', or 'already_done'. This is the ONLY way to exit onboarding mode. Do not just say you are done; you MUST call this function.",
       "feature_flag": "onboarding",
       "parameters": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "skip",
+              "stop",
+              "already_done"
+            ],
+            "description": "Why onboarding should end."
+          }
+        },
+        "required": []
+      },
+      "passthrough": false
+    },
+    "bot_onboarding_progress": {
+      "name": "bot_onboarding_progress",
+      "description": "Record deterministic onboarding progress after each beat or required action. Use this to set currentBeat, completedBeat, and required actions such as profileUpdated or welcomeNoteCreated. This tool keeps voice and text onboarding in the same persisted state.",
+      "feature_flag": "onboarding",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "currentBeat": {
+            "type": "number",
+            "description": "The current onboarding beat number."
+          },
+          "completedBeat": {
+            "type": "string",
+            "description": "The beat just completed, such as beat_1."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "profileUpdated",
+              "welcomeNoteCreated"
+            ],
+            "description": "A required onboarding action that was just completed."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "text"
+            ]
+          }
+        },
         "required": []
       },
       "passthrough": false
@@ -1010,6 +1133,22 @@
       "parameters": {
         "type": "object",
         "properties": {},
+        "required": []
+      },
+      "passthrough": true
+    },
+    "bot_open_files": {
+      "name": "bot_open_files",
+      "description": "Open FileSpace. If the user describes files naturally, pass query so FileSpace can search and open the relevant folder.",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural language file search to run inside FileSpace."
+          }
+        },
         "required": []
       },
       "passthrough": true
@@ -1372,7 +1511,7 @@
     },
     "bot_search_youtube_videos": {
       "name": "bot_search_youtube_videos",
-      "description": "Search for YouTube videos by query and automatically play the top result. Opens the YouTube player with search results.",
+      "description": "Search for YouTube videos by a specific non-empty query and automatically play the top result. Use this for requests like 'play/show/find a video about X' or 'search YouTube for X'. Include the exact game, topic, creator, or title from the user's request; never use generic queries like 'video' or 'game'.",
       "feature_flag": "youtube",
       "parameters": {
         "type": "object",
@@ -1593,8 +1732,24 @@
       "feature_flag": "openclawBridge",
       "parameters": {
         "type": "object",
-        "properties": {},
-        "required": []
+        "properties": {
+          "task_label": {
+            "type": "string",
+            "description": "A short label, title, or session key for the task to stop."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "cancel",
+              "kill"
+            ],
+            "description": "How strongly to stop the task. Defaults to stop."
+          }
+        },
+        "required": [
+          "task_label"
+        ]
       },
       "passthrough": false
     },
@@ -1618,19 +1773,17 @@
     },
     "bot_switch_desktop_mode": {
       "name": "bot_switch_desktop_mode",
-      "description": "Switch desktop mode: \"home\" (default), \"work\", \"quiet\", or \"create\". \"Desktop\"/\"go to desktop\" = \"home\". NOT for note privacy (use bot_switch_note_mode).",
+      "description": "Switch desktop mode: \"home\" (default home screen) or \"desktop\" (work surface with app icons). NOT for note privacy (use bot_switch_note_mode).",
       "feature_flag": "browserAutomation",
       "parameters": {
         "type": "object",
         "properties": {
           "mode": {
             "type": "string",
-            "description": "The PearlOS desktop background/theme mode to switch to. Valid values: 'home' (default home desktop \u2014 use this when user says 'switch to desktop' or just 'desktop'), 'work' (work background with app icons \u2014 use when user says 'work mode'), 'quiet' (minimal peaceful background \u2014 use when user says 'quiet mode'), or 'create' (Creation Engine workspace \u2014 use when user says 'create mode'). REQUIRED - always provide this parameter. DEFAULT to 'home' if the user says 'desktop' without specifying a mode.",
+            "description": "The PearlOS desktop mode to switch to. Valid values: 'home' (the home screen \u2014 use when user says 'home' or 'go home') or 'desktop' (the desktop work surface with app icons \u2014 use when user says 'desktop' or 'go to desktop'). REQUIRED - always provide this parameter.",
             "enum": [
               "home",
-              "work",
-              "quiet",
-              "create"
+              "desktop"
             ]
           }
         },
@@ -1642,7 +1795,7 @@
     },
     "bot_switch_layout_mode": {
       "name": "bot_switch_layout_mode",
-      "description": "Switch UI layout between desktop and mobile viewport. RARELY needed. If user says \"desktop\"/\"home mode\"/\"work mode\", use bot_switch_desktop_mode instead.",
+      "description": "Switch UI layout between desktop and mobile viewport. RARELY needed. If user says \"home\"/\"desktop\", use bot_switch_desktop_mode instead.",
       "feature_flag": "browserAutomation",
       "parameters": {
         "type": "object",
@@ -1869,7 +2022,7 @@
     },
     "bot_web_search": {
       "name": "bot_web_search",
-      "description": "Search the web for current information. Use when the user asks about recent events, news, facts, products, people, or anything that requires up-to-date knowledge. Returns titles, URLs, and snippets from web search results.",
+      "description": "Fast web search for current information. Use immediately when the user asks about latest, recent, today, news, current events, new models, products, people, best practices, or anything that requires up-to-date knowledge. This is the quick conversation-starting search, not a deep research task. Returns titles, URLs, and snippets from web search results.",
       "feature_flag": null,
       "parameters": {
         "type": "object",
@@ -2019,30 +2172,607 @@
     },
     "bot_wonder_canvas_template": {
       "name": "bot_wonder_canvas_template",
-      "description": "Display a pre-built Wonder Canvas template. ALWAYS prefer this over raw HTML. For images: image_url=/api/image?q=SEARCH_TERM. No emoji as primary visual. BEST templates: galaxy (100K star parallax \u2014 NO data needed, use for space/awe), editorial_split (cinematic split-screen photo+text \u2014 great for facts/reveals), photo_story (full-screen narrative), celebration (confetti party). DATA VIZ templates (use for charts/graphs/data): bar_chart (bars:[{label,value}]), line_chart (points:[{label,value}]), pie_chart (slices:[{label,value}]), scatter_plot (points:[{x,y,label}]), comparison_bars (items:[{label,value,color}]), timeline_chart (events:[{date,title,description}]), treemap (blocks:[{label,value,color}]), heatmap (x_labels,y_labels,values:2D array), gauge (value,max,label). All templates: weather_card, person_bio, fact_card, movie_card, recipe_card, quiz_question, quote_spotlight, photo_gallery, daily_briefing, celebration, news_headline, definition_card, book_card, image_showcase, location_card, countdown_timer, comparison_table, timeline, list_card, profile_card, before_after, achievement_unlocked, code_snippet, sports_score, event_card, map_card, stat_dashboard, calculator, music_now_playing, music_playlist, poll, story_choice, progress_tracker, game_scoreboard, galaxy, bar_chart, line_chart, pie_chart, scatter_plot, comparison_bars, timeline_chart, treemap, heatmap, gauge.",
+      "description": "Display a pre-built Wonder Canvas template. ALWAYS prefer this over raw HTML. Only use when you have specific subject data from the current user request; never display generic cards about 'game', 'video', or 'topic'. For complex canvas work, loading_card/progress_tracker may appear first, then replace it with a final specific visual. For images: image_url=/api/image?q=SEARCH_TERM. No emoji as primary visual. BEST templates: galaxy (100K star parallax \u2014 NO data needed, use for space/awe), editorial_split (cinematic split-screen photo+text \u2014 great for facts/reveals), photo_story (full-screen narrative), celebration (confetti party). DATA VIZ templates (use for charts/graphs/data): bar_chart (bars:[{label,value}]), line_chart (points:[{label,value}]), pie_chart (slices:[{label,value}]), scatter_plot (points:[{x,y,label}]), comparison_bars (items:[{label,value,color}]), timeline_chart (events:[{date,title,description}]), treemap (blocks:[{label,value,color}]), heatmap (x_labels,y_labels,values:2D array), gauge (value,max,label). All templates: weather_card, person_bio, fact_card, movie_card, recipe_card, quiz_question, quote_spotlight, photo_gallery, daily_briefing, celebration, news_headline, definition_card, book_card, image_showcase, location_card, countdown_timer, comparison_table, timeline, list_card, profile_card, before_after, achievement_unlocked, code_snippet, sports_score, event_card, map_card, stat_dashboard, calculator, music_now_playing, music_playlist, poll, story_choice, progress_tracker, game_scoreboard, galaxy, bar_chart, line_chart, pie_chart, scatter_plot, comparison_bars, timeline_chart, treemap, heatmap, gauge.",
       "feature_flag": "wonderCanvas",
       "parameters": {
-        "template": {
-          "type": "string",
-          "description": "Template name (e.g. weather_card, news_headline, person_bio, fact_card, etc.)"
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "Template name (e.g. weather_card, news_headline, person_bio, fact_card, etc.)"
+          },
+          "data": {
+            "type": "object",
+            "description": "Key-value data to fill into the template placeholders. Use the exact keys listed in the tool description for your chosen template."
+          },
+          "transition": {
+            "type": "string",
+            "enum": [
+              "fade",
+              "slide-left",
+              "slide-right",
+              "instant",
+              "dissolve"
+            ],
+            "description": "Scene transition animation. Default: fade."
+          }
         },
-        "data": {
-          "type": "object",
-          "description": "Key-value data to fill into the template placeholders. Use the exact keys listed in the tool description for your chosen template."
-        },
-        "transition": {
-          "type": "string",
-          "enum": [
-            "fade",
-            "slide-left",
-            "slide-right",
-            "instant",
-            "dissolve"
-          ],
-          "description": "Scene transition animation. Default: fade."
-        }
+        "required": [
+          "template",
+          "data"
+        ]
       },
       "passthrough": true
+    },
+    "pearl_apps": {
+      "name": "pearl_apps",
+      "description": "App/applet management. Actions: create_html (html,title?), create_from_description (description), create_from_note (noteId), update (appId,html?,css?,js?), rollback (appId), share_applet (appId,userId), share_note (noteId,userId)",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create_html",
+              "create_from_description",
+              "create_from_note",
+              "update",
+              "rollback",
+              "share_applet",
+              "share_note"
+            ]
+          },
+          "html": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "css": {
+            "type": "string"
+          },
+          "js": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "noteId": {
+            "type": "string"
+          },
+          "appId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_canvas": {
+      "name": "pearl_canvas",
+      "description": "Wonder Canvas visual display. Actions: template (name,data) \u2014 PREFERRED. Show pre-built visual templates. Canvas content must be specific to the user's current subject and visually useful; never show generic cards about 'game', 'video', or 'topic'. For complex visuals, a loading_card/progress_tracker may be shown first, then replace it with the final specific visual. Templates: person_bio, fact_card, news_headline, movie_card, weather_card, definition_card, book_card, recipe_card, location_card, image_showcase, comparison_table, timeline, stat_dashboard, list_card, countdown_timer, quiz_question, music_now_playing, achievement_unlocked, game_scoreboard, loading_card. Pass name=TEMPLATE_NAME, data={key:value} with template fields. Images: use /api/image?q=SUBJECT for photo_url/image_url. | scene (html) \u2014 raw HTML for unique creative visuals. | clear \u2014 clear canvas. | animate (animation,target?,duration?) \u2014 animate elements. | add_layer (html,layer?) \u2014 add content to layer. | avatar_hint (hint) \u2014 set avatar mood.",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "scene",
+              "template",
+              "clear",
+              "animate",
+              "add_layer",
+              "avatar_hint"
+            ]
+          },
+          "html": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Template name for action=template (e.g. person_bio, fact_card, news_headline)"
+          },
+          "data": {
+            "type": "object",
+            "description": "Template data as key-value pairs (e.g. {\"name\": \"Tim Cook\", \"title\": \"CEO\", \"bio\": \"...\", \"photo_url\": \"/api/image?q=Tim+Cook\"})"
+          },
+          "animation": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "layer": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_close": {
+      "name": "pearl_close",
+      "description": "Close things. Actions: notes, youtube, terminal, creation_engine, canvas, browser, experience",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "notes",
+              "youtube",
+              "terminal",
+              "creation_engine",
+              "canvas",
+              "browser",
+              "experience"
+            ]
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_experience": {
+      "name": "pearl_experience",
+      "description": "Interactive HTML experiences. Actions: render (html, css?, js?, transition?). Use pearl_close(action='experience') to dismiss.",
+      "feature_flag": "experiences",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "render"
+            ]
+          },
+          "html": {
+            "type": "string"
+          },
+          "css": {
+            "type": "string"
+          },
+          "js": {
+            "type": "string"
+          },
+          "transition": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_media": {
+      "name": "pearl_media",
+      "description": "Media control. Actions: play_soundtrack (genre?,mood?,query?), stop_soundtrack, volume (level), adjust_volume (direction,amount?), next_track, get_current, play_youtube (videoId?), pause_youtube, next_youtube, search_youtube (query)",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "play_soundtrack",
+              "stop_soundtrack",
+              "volume",
+              "adjust_volume",
+              "next_track",
+              "get_current",
+              "play_youtube",
+              "pause_youtube",
+              "next_youtube",
+              "search_youtube"
+            ]
+          },
+          "genre": {
+            "type": "string"
+          },
+          "mood": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "level": {
+            "type": "number"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "videoId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_notes": {
+      "name": "pearl_notes",
+      "description": "Note operations. Actions: create (title,content,mode?), read, list, add_content (content,position?), remove_content (content), replace (content), replace_content (search,replace), delete (noteId?), highlight (text,color?,duration?), highlight_text (text), clear_highlights, scroll (position/section/search_text), navigate_heading (heading), switch_mode (mode), save, download, back. CRITICAL: When user dictates content for a note, always pass the full dictated text in the 'content' parameter \u2014 never create a note with empty content.",
+      "feature_flag": "notes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "read",
+              "list",
+              "add_content",
+              "remove_content",
+              "replace",
+              "replace_content",
+              "delete",
+              "highlight",
+              "highlight_text",
+              "clear_highlights",
+              "scroll",
+              "navigate_heading",
+              "switch_mode",
+              "save",
+              "download",
+              "back"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "noteId": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "search_text": {
+            "type": "string"
+          },
+          "search": {
+            "type": "string"
+          },
+          "replace": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "heading": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_open": {
+      "name": "pearl_open",
+      "description": "Open/show things. Actions: notes, files (query?), note (noteId/title), news, youtube (plain open only; if query/videoId is present this routes to YouTube search/play), terminal, creation_engine, canvas (content/url), canvas_article, canvas_chart (chartType,chartData), canvas_file (filePath), canvas_image (imageUrl), canvas_table (headers,rows), html_applet (appId)",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "notes",
+              "files",
+              "filespace",
+              "note",
+              "news",
+              "youtube",
+              "terminal",
+              "creation_engine",
+              "canvas",
+              "canvas_article",
+              "canvas_chart",
+              "canvas_file",
+              "canvas_image",
+              "canvas_table",
+              "html_applet"
+            ]
+          },
+          "noteId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "videoId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "chartType": {
+            "type": "string"
+          },
+          "chartData": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "caption": {
+            "type": "string"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "appId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_search": {
+      "name": "pearl_search",
+      "description": "Search/fetch/info. Actions: web (query), fetch (url), weather (location), news (category?,query?)",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "web",
+              "fetch",
+              "weather",
+              "news"
+            ]
+          },
+          "query": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_system": {
+      "name": "pearl_system",
+      "description": "System ops. Actions: desktop_mode (mode), time, think_deeply (question), openclaw_task (task), look_at_user, start_call, end_call (reason?), summon_sprite (spriteId), customize_interface (theme,description,backgroundDescription,iconDescription,target,app), onboarding_progress, onboarding_complete, share_dialog, update_profile (key,value), delete_profile_meta (key), set_access_level (userId,level), upgrade_access (userId), downgrade_access (userId)",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "desktop_mode",
+              "time",
+              "think_deeply",
+              "openclaw_task",
+              "look_at_user",
+              "start_call",
+              "end_call",
+              "summon_sprite",
+              "customize_interface",
+              "onboarding_progress",
+              "onboarding_complete",
+              "share_dialog",
+              "update_profile",
+              "delete_profile_meta",
+              "set_access_level",
+              "upgrade_access",
+              "downgrade_access"
+            ]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          },
+          "spriteId": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "pixel",
+              "glass",
+              "professional",
+              "calm"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "backgroundDescription": {
+            "type": "string"
+          },
+          "iconDescription": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "home",
+              "desktop",
+              "both"
+            ]
+          },
+          "app": {
+            "type": "string"
+          },
+          "sourceImageUrl": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_tasks": {
+      "name": "pearl_tasks",
+      "description": "Task management and dispatch. Actions: create/dispatch/start (task or description), list, list_recent, stop (taskId), feedback (taskId,feedback), thumbs_up (taskId)",
+      "feature_flag": null,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "dispatch",
+              "start",
+              "list",
+              "list_recent",
+              "stop",
+              "feedback",
+              "thumbs_up"
+            ]
+          },
+          "task": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "feedback": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
+    },
+    "pearl_window": {
+      "name": "pearl_window",
+      "description": "Window management. Actions: maximize, minimize, restore, reset_position, snap_left, snap_right, switch_layout (mode?)",
+      "feature_flag": "maneuverableWindow",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "maximize",
+              "minimize",
+              "restore",
+              "reset_position",
+              "snap_left",
+              "snap_right",
+              "switch_layout"
+            ]
+          },
+          "mode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "passthrough": false
     }
   },
   "by_feature": {
@@ -2059,7 +2789,8 @@
     ],
     "experiences": [
       "bot_dismiss_experience",
-      "bot_render_experience"
+      "bot_render_experience",
+      "pearl_experience"
     ],
     "htmlContent": [
       "bot_close_applet_creation_engine",
@@ -2077,7 +2808,8 @@
       "bot_reset_window_position",
       "bot_restore_window",
       "bot_snap_window_left",
-      "bot_snap_window_right"
+      "bot_snap_window_right",
+      "pearl_window"
     ],
     "news": [
       "bot_get_news"
@@ -2102,10 +2834,12 @@
       "bot_replace_note_content",
       "bot_save_note",
       "bot_scroll_note",
-      "bot_switch_note_mode"
+      "bot_switch_note_mode",
+      "pearl_notes"
     ],
     "onboarding": [
-      "bot_onboarding_complete"
+      "bot_onboarding_complete",
+      "bot_onboarding_progress"
     ],
     "openclawBridge": [
       "bot_canvas_show",

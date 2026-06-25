@@ -10,7 +10,6 @@ import { Button } from '@interface/components/ui/button';
 import { useUI } from '@interface/contexts/ui-context';
 import { InviteViaEmailModal } from '@interface/features/InviteViaEmail';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
-import { useSpriteDisplayAutoHide } from '@interface/hooks/use-sprite-display-auto-hide';
 import { getClientLogger } from '@interface/lib/client-logger';
 import '../features/Notes/styles/notes.css';
 
@@ -26,9 +25,6 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Auto-hide when sprite is displayed in Quiet mode
-  const { controlsVisible } = useSpriteDisplayAutoHide();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -150,8 +146,8 @@ export function ProfileDropdown( { tenantId }: { tenantId?: string }) {
   return (
     <div
       ref={dropdownRef}
-      className={`fixed right-4 top-4 z-[60] flex items-center gap-2 pointer-events-auto isolate transition-all duration-300 ease-in-out ${isChatMode ? 'hidden' : ''} ${controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
-      style={{ pointerEvents: (isChatMode || !controlsVisible) ? 'none' : 'auto' }}
+      className={`fixed right-4 top-4 z-[60] flex items-center gap-2 pointer-events-auto isolate ${isChatMode ? 'hidden' : ''}`}
+      style={{ pointerEvents: isChatMode ? 'none' : 'auto' }}
       onPointerDown={(e) => { e.stopPropagation(); }}
       onMouseDown={(e) => { e.stopPropagation(); }}
     >

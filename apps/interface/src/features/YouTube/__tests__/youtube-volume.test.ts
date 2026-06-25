@@ -18,6 +18,7 @@ jest.mock('@interface/features/YouTube/lib/youtube-api', () => ({
     comments: []
   })
 }));
+jest.mock('@interface/features/YouTube/styles/youtube.css', () => ({}));
 
 import YouTubeViewWrapper from '../components/YouTubeViewWrapper';
 import { computeTargetVolume } from '../components/youtube-view';

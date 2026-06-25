@@ -1,0 +1,215 @@
+#!/bin/bash
+# pearl-claude — visibility-tracked wrapper around `claude --print`.
+#
+# Drop-in replacement for direct `claude --print` invocations from any caller
+# (Pearl tools, agency-router, MCP servers, ad-hoc CLI). Creates a task in
+# /api/tasks BEFORE spawning, flips it to in_progress, runs claude --print,
+# then PATCHes the task to completed (or failed) on exit. ActiveJobsWidget
+# polls /api/tasks, so the dispatched work is visible end-to-end.
+#
+# Usage:
+#   pearl-claude "<prompt>"                                # normal urgency
+#   pearl-claude --urgent "<prompt>"                       # mark urgent
+#   pearl-claude --title "Short title" "<prompt>"          # explicit title
+#   pearl-claude --source voice "<prompt>"                 # override source
+#   pearl-claude --created-by claude_cli "<prompt>"        # override created_by
+#   pearl-claude --timeout 1200 "<prompt>"                 # per-call timeout (s)
+#   pearl-claude -- --extra-claude-flag "<prompt>"         # forward flags
+#
+# Stdout is streamed live to the caller (so you can pipe / capture as if
+# you'd run claude --print directly). The trimmed final stdout is also stored
+# on the task record so it shows up in the widget's expanded view.
+#
+# Exit code is the underlying claude exit code; if claude itself can't be
+# spawned the script exits 127. Task status update never blocks the exit.
+#
+# Env:
+#   PEARL_TASKS_API              default http://localhost:4444/api/tasks
+#   BOT_CONTROL_SHARED_SECRET    sent as Bearer + X-Bot-Secret if set
+#   PEARL_CLAUDE_BIN             default `claude` (PATH-resolved)
+#   PEARL_CLAUDE_DEFAULT_TIMEOUT default 600 seconds
+#
+# Exit codes: 0+ = claude's exit code  |  2 = usage error  |  127 = no claude
+
+set -uo pipefail
+
+API="${PEARL_TASKS_API:-http://localhost:4444/api/tasks}"
+CLAUDE_BIN="${PEARL_CLAUDE_BIN:-claude}"
+DEFAULT_TIMEOUT="${PEARL_CLAUDE_DEFAULT_TIMEOUT:-600}"
+
+AUTH_HEADER=()
+if [[ -n "${BOT_CONTROL_SHARED_SECRET:-}" ]]; then
+  AUTH_HEADER=(-H "Authorization: Bearer ${BOT_CONTROL_SHARED_SECRET}" \
+               -H "X-Bot-Secret: ${BOT_CONTROL_SHARED_SECRET}")
+fi
+
+URGENCY="normal"
+EXPLICIT_TITLE=""
+SOURCE="manual"
+CREATED_BY="pearl"
+TIMEOUT_S="$DEFAULT_TIMEOUT"
+EXTRA_FLAGS=()
+
+usage() {
+  sed -n '2,30p' "$0" >&2
+  exit 2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "${1:-}" in
+    -h|--help) usage ;;
+    --urgent|-u) URGENCY="urgent"; shift ;;
+    --title|-t)
+      [[ $# -ge 2 ]] || { echo "error: --title requires a value" >&2; exit 2; }
+      EXPLICIT_TITLE="$2"; shift 2 ;;
+    --source)
+      [[ $# -ge 2 ]] || { echo "error: --source requires a value" >&2; exit 2; }
+      SOURCE="$2"; shift 2 ;;
+    --created-by)
+      [[ $# -ge 2 ]] || { echo "error: --created-by requires a value" >&2; exit 2; }
+      CREATED_BY="$2"; shift 2 ;;
+    --timeout)
+      [[ $# -ge 2 ]] || { echo "error: --timeout requires a value" >&2; exit 2; }
+      TIMEOUT_S="$2"; shift 2 ;;
+    --) shift; EXTRA_FLAGS=("$@"); break ;;
+    -*) echo "error: unknown option '$1'" >&2; usage ;;
+    *) break ;;
+  esac
+done
+
+if [[ ${#EXTRA_FLAGS[@]} -eq 0 && $# -lt 1 ]]; then
+  echo "error: prompt required" >&2
+  usage
+fi
+
+# Last positional (or last EXTRA_FLAGS entry) is the prompt; everything before
+# is forwarded to claude as additional flags.
+if [[ ${#EXTRA_FLAGS[@]} -gt 0 ]]; then
+  PROMPT="${EXTRA_FLAGS[-1]}"
+  unset 'EXTRA_FLAGS[-1]'
+else
+  PROMPT="${!#}"
+  # Build forwarded args from $1..$(($#-1))
+  if [[ $# -gt 1 ]]; then
+    EXTRA_FLAGS=("${@:1:$#-1}")
+  fi
+fi
+
+if [[ -z "${PROMPT// /}" ]]; then
+  echo "error: prompt is empty" >&2
+  exit 2
+fi
+
+# Auto-derive a short title from the first 5 words when --title was not
+# provided. Mirrors the pearl-task-dispatch convention so the widget renders
+# consistent cards regardless of dispatch source.
+auto_title() {
+  printf '%s' "$1" | tr -d "'\"" | awk '{
+    n = (NF<5 ? NF : 5)
+    for (i=1; i<=n; i++) {
+      first = toupper(substr($i, 1, 1))
+      rest  = substr($i, 2)
+      printf "%s%s%s", first, rest, (i<n ? " " : "")
+    }
+  }'
+}
+
+if [[ -n "$EXPLICIT_TITLE" ]]; then
+  TITLE="$EXPLICIT_TITLE"
+else
+  TITLE=$(auto_title "$PROMPT")
+fi
+[[ ${#TITLE} -gt 45 ]] && TITLE="${TITLE:0:45}..."
+
+# ---------------------------------------------------------------------------
+# Step 1 — create the task record (status=in_progress so it lights up
+# immediately on the widget rather than sitting "pending" until pearl-worker
+# notices it; this wrapper owns the full lifecycle itself).
+# ---------------------------------------------------------------------------
+need_jq() {
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "warn: jq not found — task visibility skipped, falling through to direct claude run" >&2
+    return 1
+  fi
+  return 0
+}
+
+TASK_ID=""
+if need_jq; then
+  CREATE_BODY=$(jq -n \
+    --arg task "$PROMPT" \
+    --arg title "$TITLE" \
+    --arg urgency "$URGENCY" \
+    --arg source "$SOURCE" \
+    --arg created_by "$CREATED_BY" \
+    '{source:$source, created_by:$created_by, assignee:"claude_cli", urgency:$urgency, task:$task, title:$title}')
+
+  CREATE_RESP=$(curl -sS -m 10 -X POST "$API" \
+    -H "Content-Type: application/json" \
+    "${AUTH_HEADER[@]}" \
+    --data-binary "$CREATE_BODY" 2>/dev/null) || CREATE_RESP=""
+
+  if [[ -n "$CREATE_RESP" ]]; then
+    TASK_ID=$(printf '%s' "$CREATE_RESP" | jq -r '.task.id // empty' 2>/dev/null || echo "")
+  fi
+
+  if [[ -n "$TASK_ID" ]]; then
+    # Flip pending -> in_progress so the widget renders a running job rather
+    # than a queued one. Best effort; failure here just leaves it pending.
+    curl -sS -m 5 -X PATCH "$API/$TASK_ID" \
+      -H "Content-Type: application/json" \
+      "${AUTH_HEADER[@]}" \
+      --data-binary '{"status":"in_progress","note":"pearl-claude: spawning claude --print"}' \
+      >/dev/null 2>&1 || true
+  else
+    echo "warn: failed to create task record — running claude anyway (no widget visibility)" >&2
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Step 2 — spawn `claude --print`, stream stdout to the caller, capture both
+# streams so we can record a result on the task. `tee` keeps the live stream
+# usable as if you'd run claude directly. `timeout` enforces the per-call cap.
+# ---------------------------------------------------------------------------
+STDOUT_TMP=$(mktemp -t pearl-claude.stdout.XXXXXX)
+STDERR_TMP=$(mktemp -t pearl-claude.stderr.XXXXXX)
+trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP"' EXIT
+
+# Use `script -q -c` would fight with TTY semantics here; plain pipe + tee is
+# enough since claude --print writes the result to stdout once.
+set +e
+timeout --preserve-status "$TIMEOUT_S" "$CLAUDE_BIN" --print "${EXTRA_FLAGS[@]}" "$PROMPT" \
+  > >(tee "$STDOUT_TMP") \
+  2> >(tee "$STDERR_TMP" >&2)
+EXIT_CODE=$?
+set -e
+
+# ---------------------------------------------------------------------------
+# Step 3 — finalize the task record (best effort; never blocks the exit).
+# ---------------------------------------------------------------------------
+if [[ -n "$TASK_ID" ]] && command -v jq >/dev/null 2>&1; then
+  STDOUT_TRIMMED=$(head -c 4000 "$STDOUT_TMP" 2>/dev/null || echo "")
+  STDERR_TRIMMED=$(head -c 800 "$STDERR_TMP" 2>/dev/null || echo "")
+
+  if [[ $EXIT_CODE -eq 0 ]]; then
+    RESULT="${STDOUT_TRIMMED:-(no output)}"
+    UPDATE_BODY=$(jq -n --arg result "$RESULT" \
+      '{status:"completed", result:$result, note:"pearl-claude: claude exited cleanly"}')
+  else
+    if [[ $EXIT_CODE -eq 124 ]]; then
+      NOTE="pearl-claude: timed out after ${TIMEOUT_S}s"
+    else
+      NOTE="pearl-claude: claude exited rc=${EXIT_CODE}"
+    fi
+    RESULT="${STDERR_TRIMMED:-${STDOUT_TRIMMED:-exit $EXIT_CODE}}"
+    UPDATE_BODY=$(jq -n --arg result "$RESULT" --arg note "$NOTE" \
+      '{status:"failed", result:$result, note:$note}')
+  fi
+
+  curl -sS -m 10 -X PATCH "$API/$TASK_ID" \
+    -H "Content-Type: application/json" \
+    "${AUTH_HEADER[@]}" \
+    --data-binary "$UPDATE_BODY" >/dev/null 2>&1 || true
+fi
+
+exit $EXIT_CODE

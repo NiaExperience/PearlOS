@@ -89,10 +89,10 @@ function main() {
     console.log('[env] Generated new MESH_SHARED_SECRET');
   }
 
-  // Ensure DISABLE_DASHBOARD_AUTH is set for local development
+  // Default: require dashboard login; set DISABLE_DASHBOARD_AUTH=true only for optional local no-login mode
   if (!root.env['DISABLE_DASHBOARD_AUTH']) {
-    root.raw = upsertEnvLine(root.raw, 'DISABLE_DASHBOARD_AUTH', 'true');
-    root.env['DISABLE_DASHBOARD_AUTH'] = 'true';
+    root.raw = upsertEnvLine(root.raw, 'DISABLE_DASHBOARD_AUTH', 'false');
+    root.env['DISABLE_DASHBOARD_AUTH'] = 'false';
     fs.writeFileSync(rootEnvPath, root.raw, 'utf8');
   }
 

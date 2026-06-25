@@ -33,8 +33,8 @@ export const SpriteDefinition: IDynamicContent = {
         // Personality
         primaryPrompt: { type: 'string' },
         
-        // Voice (Kokoro for POC)
-        voiceProvider: { type: 'string', enum: ['kokoro'] },
+        // Voice
+        voiceProvider: { type: 'string', enum: ['pocket', 'kokoro'] },
         voiceId: { type: 'string' },
         voiceParameters: { 
           type: 'object',

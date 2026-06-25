@@ -192,7 +192,7 @@ export default function AdminTenantsPage() {
       setUsersLoading(true);
       setUsersError(undefined);
       try {
-        const res = await fetch('/api/users/all');
+        const res = await fetch('/dashboard/api/users/all');
         if (!res.ok) throw new Error('Failed to load users');
         const list = await res.json();
         if (cancelled) return;
@@ -213,7 +213,7 @@ export default function AdminTenantsPage() {
       setUsersLoading(true);
       setUsersError(undefined);
       try {
-        const res = await fetch(`/api/users?tenantId=${selectedTenantId}`);
+        const res = await fetch(`/dashboard/api/users?tenantId=${selectedTenantId}`);
         if (!res.ok) throw new Error('Failed to load users');
         const list = await res.json();
         if (cancelled) return;
@@ -247,7 +247,7 @@ export default function AdminTenantsPage() {
         return;
       }
       try {
-        const resRoles = await fetch(`/api/tenant-roles?tenantId=${selectedTenantId}`);
+        const resRoles = await fetch(`/dashboard/api/tenant-roles?tenantId=${selectedTenantId}`);
         if (resRoles.ok) {
           const data = await resRoles.json();
           const map: Record<string, TenantRole | undefined> = {};
@@ -336,7 +336,7 @@ export default function AdminTenantsPage() {
     if (!selectedTenantId) return;
     try {
       if (!newRole) {
-        const res = await fetch('/api/tenant-roles', {
+        const res = await fetch('/dashboard/api/tenant-roles', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tenantId: selectedTenantId, userId }),
@@ -351,7 +351,7 @@ export default function AdminTenantsPage() {
       } else {
         const existing = rolesMap[userId];
         const method = existing ? 'PATCH' : 'POST';
-        const res = await fetch('/api/tenant-roles', {
+        const res = await fetch('/dashboard/api/tenant-roles', {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tenantId: selectedTenantId, userId, role: newRole }),
@@ -378,7 +378,7 @@ export default function AdminTenantsPage() {
       const existing = orgRolesMap[userId];
       if (!newRole) {
         if (!existing) return;
-        const res = await fetch('/api/organization-roles', {
+        const res = await fetch('/dashboard/api/organization-roles', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -396,7 +396,7 @@ export default function AdminTenantsPage() {
       } else if (!existing) {
         const user = users.find(u => u._id === userId);
         if (!user?.email) throw new Error('User email required');
-        const res = await fetch('/api/organization-roles', {
+        const res = await fetch('/dashboard/api/organization-roles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -411,7 +411,7 @@ export default function AdminTenantsPage() {
         setOrgRolesMap(prev => ({ ...prev, [userId]: data.role }));
         toast({ title: 'Org role assigned', description: newRole.toUpperCase() });
       } else {
-        const res = await fetch('/api/organization-roles', {
+        const res = await fetch('/dashboard/api/organization-roles', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -677,7 +677,7 @@ export default function AdminTenantsPage() {
       return next;
     });
     try {
-      const res = await fetch('/api/tenant-roles/bulk', {
+      const res = await fetch('/dashboard/api/tenant-roles/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -762,7 +762,7 @@ export default function AdminTenantsPage() {
         const user = users.find(u => u._id === uid);
         return { userId: uid, email: user?.email, role };
       });
-      const res = await fetch('/api/organization-roles/bulk', {
+      const res = await fetch('/dashboard/api/organization-roles/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -892,7 +892,7 @@ export default function AdminTenantsPage() {
     setError(undefined);
     try {
       // Ask backend for all tenants (superadmin only) and include assistant counts
-      const res = await fetch('/api/tenants?all=1&includeAssistantCounts=1');
+      const res = await fetch('/dashboard/api/tenants?all=1&includeAssistantCounts=1');
       if (!res.ok) throw new Error('Failed to load tenants');
       const data = await res.json();
       setAssistantCounts(data.assistantCounts || {});
@@ -981,7 +981,7 @@ export default function AdminTenantsPage() {
                     setEditDialogOpen(true);
                     setCreating(false);
                     try {
-                      const res = await fetch('/api/tenants', {
+                      const res = await fetch('/dashboard/api/tenants', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: newName.trim() }),
@@ -1264,7 +1264,7 @@ export default function AdminTenantsPage() {
                           )
                         );
                         try {
-                          const res = await fetch('/api/tenants', {
+                          const res = await fetch('/dashboard/api/tenants', {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ id, name: newName, description: newDesc }),
@@ -1341,12 +1341,12 @@ export default function AdminTenantsPage() {
                     try {
                       let list: any = [];
                       if (isSuperAdmin && !selectedTenantId) {
-                        const resUsers = await fetch('/api/users/all');
+                        const resUsers = await fetch('/dashboard/api/users/all');
                         if (!resUsers.ok) throw new Error('Failed to load users');
                         const raw = await resUsers.json();
                         list = Array.isArray(raw) ? raw : raw.users || [];
                       } else if (selectedTenantId) {
-                        const resUsers = await fetch(`/api/users?tenantId=${selectedTenantId}`);
+                        const resUsers = await fetch(`/dashboard/api/users?tenantId=${selectedTenantId}`);
                         if (!resUsers.ok) throw new Error('Failed to load users');
                         list = await resUsers.json();
                       }
@@ -1925,7 +1925,7 @@ export default function AdminTenantsPage() {
                 setDeleteTenantSubmitting(true);
                 const id = deleteTenantTargetId;
                 try {
-                  const res = await fetch(`/api/tenants/${id}/delete`, {
+                  const res = await fetch(`/dashboard/api/tenants/${id}/delete`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ purgeAll: deleteTenantIncludeData }),

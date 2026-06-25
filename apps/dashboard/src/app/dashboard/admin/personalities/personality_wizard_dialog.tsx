@@ -4,6 +4,7 @@
 import { diffLines, diffWordsWithSpace } from 'diff';
 import { ChevronDown, ChevronUp, Loader2, Wand2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import botToolsManifest from '@nia/features/generated/bot-tools-manifest.json';
 
 import { Button } from '@dashboard/components/ui/button';
 import {
@@ -78,6 +79,28 @@ interface PersonalityWizardDialogProps {
   onPersist: (payload: { primaryPrompt: string }) => Promise<boolean>;
 }
 
+const CURATED_AUTHORING_TOOLS = [
+  'bot_onboarding_progress',
+  'bot_update_user_profile',
+  'bot_create_note',
+  'bot_open_notes',
+  'bot_open_note',
+  'bot_onboarding_complete',
+  'bot_switch_desktop_mode',
+  'bot_load_html_applet',
+];
+
+function formatKnownTools(): string {
+  const tools = botToolsManifest.tools as Record<string, { description?: string }>;
+  return CURATED_AUTHORING_TOOLS
+    .filter((name) => tools[name])
+    .map((name) => {
+      const description = String(tools[name]?.description || '').replace(/\s+/g, ' ').trim();
+      return description ? `- ${name}: ${description.slice(0, 180)}` : `- ${name}`;
+    })
+    .join('\n');
+}
+
 const TOOL_APPX = `Authoring rules:
 - Section order: PERSONALITY → TONE/VOICE (opt) → AVAILABLE TOOLS (opt) → RULES → SEQUENCE LOGIC → PRIMARY OBJECTIVE → BEATs
 - One goal per beat, numbered, concise
@@ -94,7 +117,8 @@ Directive markers (use instead of // comments):
 
 CRITICAL: Tool calls must NOT precede user greeting unless explicitly required by the prompt.
 
-Known tools: bot_update_user_profile, bot_switch_desktop_mode, bot_load_html_applet, bot_onboarding_complete, summarize, search, calendar, notify_user`;
+Known tools:
+${formatKnownTools()}`;
 
 function toLines(value: string): string[] {
   return value
@@ -793,7 +817,7 @@ export function PersonalityWizardDialog({ open, onClose, target, onPersist }: Pe
         personalityName: target?.name,
         mode,
       });
-      const res = await fetch('/api/personalities/wizard/review', {
+      const res = await fetch('/dashboard/api/personalities/wizard/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

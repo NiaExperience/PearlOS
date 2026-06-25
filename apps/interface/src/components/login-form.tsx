@@ -1,15 +1,14 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { getAssistantLoginFeatureState } from '@nia/prism/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, AudioWaveform, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { FcGoogle } from 'react-icons/fc';
 import { z } from 'zod';
+import { isFeatureEnabled } from '@nia/features';
 
 import { Button } from '@interface/components/ui/button';
 import {
@@ -21,6 +20,7 @@ import {
 import { Input } from '@interface/components/ui/input';
 import { getClientLogger } from '@interface/lib/client-logger';
 import { useGlobalSettings } from '@interface/providers/global-settings-provider';
+import { BetaWaitlistSignboard } from '@interface/components/BetaWaitlistSignboard';
 
 // Client-side only wrapper to prevent hydration mismatches
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -40,20 +40,7 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
 // Legal links component - reusable across all login screens
 function LegalLinks() {
   return (
-    <div 
-      style={{
-        position: 'absolute',
-        bottom: '1.5rem',
-        left: 0,
-        right: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '1rem',
-        zIndex: 700, // Z-scale: modal/dialog layer
-        width: '100%',
-      }}
-    >
+    <div className="login-legal-links">
       <a 
         href="https://rsvp.pearlos.org/privacypolicy" 
         target="_blank" 
@@ -95,22 +82,63 @@ type LoginFormData = z.infer<typeof LoginSchema>;
 
 type AssistantLoginFeatureState = {
   googleAuth: boolean;
-  guestLogin: boolean;
   passwordLogin: boolean;
 };
 
 const loginLogger = getClientLogger('[login_form]');
 
+const NON_ASSISTANT_ROUTES = ['login', 'signup', 'accept-invite', 'reset-password', 'recovery', 'share', 'health', 'api', 'auth'];
+const LOGIN_FEATURE_KEYS = ['googleAuth', 'guestLogin', 'passwordLogin'] as const;
+
+// Google sign-in is always available on the interface login screen, regardless
+// of per-assistant `supportedFeatures.googleAuth` or the global
+// `interfaceLogin.googleAuth` toggle. Who can actually *complete* Google
+// sign-in is still governed by `GlobalSettings.allowListEmails` and
+// `denyListEmails` in Postgres (see docs/google-signin-allowlist.md).
+// Set this to `false` to restore the old flag-gated behavior.
+const GOOGLE_LOGIN_ALWAYS_ON = true;
+const GOOGLE_ONLY_LOGIN = true;
+
+function GoogleLogo() {
+  return (
+    <svg className="google-login-logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
 export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showErrorScreen, setShowErrorScreen] = useState(false);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [isSubmittingWaitlist, setIsSubmittingWaitlist] = useState(false);
+  const [waitlistMessage, setWaitlistMessage] = useState<string | null>(null);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+  /** Join button: green "Sent" or red "Failed" for 5s after response, then idle */
+  const [waitlistJoinButtonFeedback, setWaitlistJoinButtonFeedback] = useState<
+    'idle' | 'success' | 'failed'
+  >('idle');
+  const waitlistJoinFeedbackResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [assistantLoginFeatures, setAssistantLoginFeatures] = useState<AssistantLoginFeatureState>({
     googleAuth: false,
-    guestLogin: false,
     passwordLogin: false,
   });
 
@@ -120,15 +148,22 @@ export default function LoginForm() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const callbackUrlParam = searchParams?.get('callbackUrl');
-  // Default to preserving current path if callbackUrl not present
-  const fallbackCallbackUrl = typeof window !== 'undefined' ? window.location.pathname || '/' : '/';
+  // Default to root if current path is a non-assistant route (e.g. /login, /signup)
+  const rawPath = typeof window !== 'undefined' ? window.location.pathname || '/' : '/';
+  const firstSeg = rawPath.split('/').filter(Boolean)[0] || '';
+  const fallbackCallbackUrl = NON_ASSISTANT_ROUTES.includes(firstSeg) ? '/' : rawPath;
   // Sanitize callbackUrl to same-origin only
   const resolveSameOrigin = (urlLike: string) => {
     try {
-      const defaultBase = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const defaultBase = process.env.NEXT_PUBLIC_INTERFACE_URL || '';
       const base = typeof window !== 'undefined' ? window.location.origin : defaultBase;
+      if (!base) return fallbackCallbackUrl;
       const u = new URL(urlLike, base);
-      return u.origin === base ? u.pathname + u.search + u.hash : fallbackCallbackUrl;
+      const targetFirstSeg = u.pathname.split('/').filter(Boolean)[0] || '';
+      if (u.origin !== base || NON_ASSISTANT_ROUTES.includes(targetFirstSeg)) {
+        return fallbackCallbackUrl;
+      }
+      return u.pathname + u.search + u.hash;
     } catch {
       return fallbackCallbackUrl;
     }
@@ -141,7 +176,8 @@ export default function LoginForm() {
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(LoginSchema),
-    mode: 'onChange',
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
     defaultValues: {
       email: '',
       password: '',
@@ -159,6 +195,14 @@ export default function LoginForm() {
   // Handle mounting to prevent FOUC
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (waitlistJoinFeedbackResetRef.current) {
+        clearTimeout(waitlistJoinFeedbackResetRef.current);
+      }
+    };
   }, []);
 
   // Handle AccessDenied error (permanent ban or deny list)
@@ -180,7 +224,6 @@ export default function LoginForm() {
       }
       setAssistantLoginFeatures({
         googleAuth: true,
-        guestLogin: false,
         passwordLogin: true,
       });
       setAssistantFeaturesReady(true);
@@ -192,7 +235,6 @@ export default function LoginForm() {
       }
       setAssistantLoginFeatures({
         googleAuth: false,
-        guestLogin: false,
         passwordLogin: false,
       });
       setError('Unable to load login configuration.');
@@ -209,53 +251,40 @@ export default function LoginForm() {
 
     const decide = async () => {
       try {
-        if (searchParams?.get('noguest') === '1') {
+        const callbackSource = callbackUrl || fallbackCallbackUrl;
+        const assistant = new URL(callbackSource, window.location.origin)
+          .pathname
+          .split('/')
+          .filter(Boolean)[0] || '';
+
+        if (!assistant || NON_ASSISTANT_ROUTES.includes(assistant)) {
           setPlatformDefaultLogin();
           return;
         }
 
-        const cb = callbackUrlParam || fallbackCallbackUrl;
-        let assistantSeg = '';
-        try {
-          const defaultBase = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-          const u = new URL(cb, typeof window !== 'undefined' ? window.location.origin : defaultBase);
-          assistantSeg = (u.pathname.split('/').filter(Boolean)[0]) || '';
-        } catch {
-          // Ignore errors
-        }
+        const response = await fetch(`/api/assistant/meta?agent=${encodeURIComponent(assistant)}`, {
+          cache: 'no-store',
+        });
 
-        if (!assistantSeg) {
+        if (!response.ok) {
           setPlatformDefaultLogin();
           return;
         }
 
-        const resp = await fetch(`/api/assistant/meta?agent=${encodeURIComponent(assistantSeg)}`, { cache: 'no-store' });
-        if (!resp.ok) {
-          setLoginErrorState();
+        const meta = await response.json() as { supportedFeatures?: string[] };
+        const supportedFeatures = Array.isArray(meta.supportedFeatures) ? meta.supportedFeatures : undefined;
+        const hasLoginFeatureSelection = Boolean(
+          supportedFeatures?.some(feature => LOGIN_FEATURE_KEYS.includes(feature as typeof LOGIN_FEATURE_KEYS[number])),
+        );
+
+        if (!hasLoginFeatureSelection) {
+          setPlatformDefaultLogin();
           return;
         }
-
-        const meta: {
-          allowAnonymousLogin?: boolean;
-          supportedFeatures?: unknown;
-        } = await resp.json();
-        const loginKeys = new Set(['googleAuth', 'guestLogin', 'passwordLogin']);
-        const { supportedList, hasLoginFeatureSelection, guestAllowed } = getAssistantLoginFeatureState(meta);
-        const hasSupportedList = supportedList.length > 0;
-        const supportsFeature = (key: 'googleAuth' | 'guestLogin' | 'passwordLogin') => {
-          if (!hasSupportedList) {
-            return true;
-          }
-          if (!hasLoginFeatureSelection && loginKeys.has(key)) {
-            return true;
-          }
-          return supportedList.includes(key);
-        };
 
         applyFeatures({
-          googleAuth: supportsFeature('googleAuth'),
-          guestLogin: guestAllowed,
-          passwordLogin: supportsFeature('passwordLogin'),
+          googleAuth: isFeatureEnabled('googleAuth', supportedFeatures),
+          passwordLogin: isFeatureEnabled('passwordLogin', supportedFeatures),
         });
       } catch {
         setLoginErrorState();
@@ -276,21 +305,19 @@ export default function LoginForm() {
     setError(null);
 
     try {
+      // Keep credentials login same-origin by handling navigation client-side.
       const result = await signIn('credentials', {
         redirect: false,
         email: values.email,
         password: values.password,
         callbackUrl,
       });
-
       if (result?.error) {
-        setShowErrorScreen(true);
-        setError(null);
-        loginLogger.error('Invalid email or password', { event: 'credentials_rejected' });
-      } else {
-        router.refresh();
-        router.replace(callbackUrl || '/');
+        setError('Invalid email or password');
+        return;
       }
+      router.replace(callbackUrl || '/');
+      router.refresh();
     } catch (err) {
       const errorMessage = 'An unexpected error occurred';
       setError(errorMessage);
@@ -303,46 +330,18 @@ export default function LoginForm() {
     }
   };
 
-  // Handle Google sign-in
-  const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl });
-  };
-
-  // Handle anonymous/guest login
-  const handleGuestSignIn = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        isAnonymous: true,
-        callbackUrl,
-      });
-
-      if (result?.error) {
-        const errorMessage = 'Failed to create guest session';
-        setError(errorMessage);
-        loginLogger.error('Guest sign-in failed', { reason: result.error });
-      } else {
-        router.refresh();
-        router.replace(callbackUrl || '/');
-      }
-    } catch (err) {
-      const errorMessage = 'An unexpected error occurred';
-      setError(errorMessage);
-      loginLogger.error('Guest sign-in unexpected error', {
-        message: errorMessage,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle going back to assistant
   const handleBackToAssistant = () => {
     router.replace(callbackUrl || '/');
+  };
+
+  const handleJoinEarlyAccess = () => {
+    const params = new URLSearchParams();
+    params.set('error', 'AccessDenied');
+    if (callbackUrlParam) {
+      params.set('callbackUrl', callbackUrl);
+    }
+    router.push(`/login?${params.toString()}`);
   };
 
   const handleResendInvite = async () => {
@@ -384,6 +383,70 @@ export default function LoginForm() {
     }
   };
 
+  const clearWaitlistJoinFeedbackTimer = () => {
+    if (waitlistJoinFeedbackResetRef.current) {
+      clearTimeout(waitlistJoinFeedbackResetRef.current);
+      waitlistJoinFeedbackResetRef.current = null;
+    }
+  };
+
+  const scheduleWaitlistJoinFeedbackReset = () => {
+    clearWaitlistJoinFeedbackTimer();
+    waitlistJoinFeedbackResetRef.current = setTimeout(() => {
+      waitlistJoinFeedbackResetRef.current = null;
+      setWaitlistJoinButtonFeedback('idle');
+    }, 5000);
+  };
+
+  const handleWaitlistSignup = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    clearWaitlistJoinFeedbackTimer();
+    setWaitlistJoinButtonFeedback('idle');
+    setWaitlistMessage(null);
+    setWaitlistError(null);
+
+    const normalized = waitlistEmail.trim().toLowerCase();
+    if (!normalized) {
+      setWaitlistError('Please enter your email address.');
+      return;
+    }
+
+    setIsSubmittingWaitlist(true);
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalized }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setWaitlistError(
+          typeof data.error === 'string'
+            ? data.error
+            : 'Could not join the waitlist right now. Please try again.'
+        );
+        setWaitlistJoinButtonFeedback('failed');
+        scheduleWaitlistJoinFeedbackReset();
+        return;
+      }
+
+      const successMessage =
+        typeof data.message === 'string'
+          ? data.message
+          : 'You are on the waitlist. We send invites in weekly batches.';
+      setWaitlistMessage(successMessage);
+      setWaitlistEmail('');
+      setWaitlistJoinButtonFeedback('success');
+      scheduleWaitlistJoinFeedbackReset();
+    } catch {
+      setWaitlistError('Could not join the waitlist right now. Please try again.');
+      setWaitlistJoinButtonFeedback('failed');
+      scheduleWaitlistJoinFeedbackReset();
+    } finally {
+      setIsSubmittingWaitlist(false);
+    }
+  };
+
   // Show loading screen with proper background to prevent FOUC
   if (!isMounted || !assistantFeaturesReady) {
     return (
@@ -400,98 +463,78 @@ export default function LoginForm() {
           </div>
         </main>
 
-        <LegalLinks />
       </div>
     );
   }
 
-  const showPasswordForm = interfaceLogin.passwordLogin && assistantLoginFeatures.passwordLogin;
-  const showGoogleButton = interfaceLogin.googleAuth && assistantLoginFeatures.googleAuth;
-  const showGuestButton = interfaceLogin.guestLogin && assistantLoginFeatures.guestLogin;
-  const hasAnyLoginOption = showPasswordForm || showGoogleButton || showGuestButton;
+  const showPasswordForm = GOOGLE_ONLY_LOGIN
+    ? false
+    : interfaceLogin.passwordLogin && assistantLoginFeatures.passwordLogin;
+  // Bypass both feature-flag gates when the kill-switch above is on.
+  const showGoogleLogin = GOOGLE_LOGIN_ALWAYS_ON
+    ? true
+    : interfaceLogin.googleAuth && assistantLoginFeatures.googleAuth;
+  const hasAnyLoginOption = showPasswordForm || showGoogleLogin;
 
   // Show access denied screen - takes priority over all other states
   if (isAccessDenied) {
     return (
-      <div className="login-shell">
-        {/* Animated Background */}
-        <div className="animated-bg"></div>
-        
+      <div className="login-shell beta-denied-page">
+        <div className="animated-bg" />
+
         <main className="login-content-layer" role="main">
           <motion.div
-            className="error-container"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="beta-denied-shell"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="error-header">
-              <div className="error-icon">🚫</div>
-              <h1 className="error-title">Access Denied</h1>
-              <p className="error-description">
-                Your access to this platform has been restricted. If you believe this is an error, please contact our support team.
-              </p>
-            </div>
-            
-            <div className="error-actions">
-              <div className="contact-info">
-                <p>Need assistance? Contact our team:</p>
-                <a href="mailto:dev@niaxp.com" className="contact-link">
-                  dev@niaxp.com
-                </a>
-              </div>
-            </div>
+            <BetaWaitlistSignboard
+              email={waitlistEmail}
+              onEmailChange={(value) => {
+                setWaitlistEmail(value);
+                setWaitlistJoinButtonFeedback((f) => (f === 'failed' ? 'idle' : f));
+              }}
+              onSubmit={(event) => void handleWaitlistSignup(event)}
+              isSubmitting={isSubmittingWaitlist}
+              joinButtonFeedback={waitlistJoinButtonFeedback}
+              error={waitlistError}
+              message={waitlistMessage}
+            />
+            <style jsx>{`
+              /* Layout + waitlist field/button styles live in globals.css (beat login-shell input width:100%) */
+              .beta-denied-shell {
+                width: min(100%, 506px) !important;
+                max-width: 506px !important;
+                margin: 0 auto;
+                padding: 0 max(0.75rem, env(safe-area-inset-right)) 0
+                  max(0.75rem, env(safe-area-inset-left));
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+                font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+              }
+
+              .beta-waitlist-error {
+                margin: 0.15rem 0 0;
+                font-size: 0.72rem;
+                line-height: 1.45;
+                color: #ffb4b4;
+                text-align: center;
+              }
+            `}</style>
           </motion.div>
         </main>
-
-        <LegalLinks />
       </div>
     );
   }
 
-  // Show error screen for wrong credentials
-  if (showErrorScreen) {
-    return (
-      <div className="login-shell">
-        {/* Animated Background */}
-        <div className="animated-bg"></div>
-        
-        <main className="login-content-layer" role="main">
-          <motion.div
-            className="error-container"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="error-header">
-              <div className="error-icon">⚠️</div>
-              <h1 className="error-title">Authentication Failed</h1>
-              <p className="error-description">
-                The credentials you entered are incorrect. Please check your email and password, or contact our support team for assistance.
-              </p>
-            </div>
-            
-            <div className="error-actions">
-              <button
-                className="retry-button"
-                onClick={() => setShowErrorScreen(false)}
-              >
-                Try Again
-              </button>
-              
-              <div className="contact-info">
-                <p>Need help? Contact our team:</p>
-                <a href="mailto:dev@niaxp.com" className="contact-link">
-                  dev@niaxp.com
-                </a>
-              </div>
-            </div>
-          </motion.div>
-        </main>
-
-        <LegalLinks />
-      </div>
-    );
-  }
+  // For bad credentials, NextAuth redirects back to /login with an error query param.
+  // We avoid a separate error screen to keep the flow simple and consistent.
 
   return (
     <div className="login-shell">
@@ -512,7 +555,7 @@ export default function LoginForm() {
             transition={{ delay: 0.2, duration: 0.6 }}
           >
             <h1 className="login-title">Login</h1>
-            {showPasswordForm && (
+            {!GOOGLE_ONLY_LOGIN && showPasswordForm && (
               <p className="login-description">
                 Enter your email below to login to your account
               </p>
@@ -525,6 +568,34 @@ export default function LoginForm() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
           >
+            {showGoogleLogin && (
+              <div className="login-oauth-stack">
+                <button
+                  type="button"
+                  className="google-login-button"
+                  disabled={loading}
+                  onClick={() => void signIn('google', { callbackUrl })}
+                >
+                  <GoogleLogo />
+                  Continue with Google
+                </button>
+                <button
+                  type="button"
+                  className="early-access-login-button"
+                  disabled={loading}
+                  onClick={handleJoinEarlyAccess}
+                >
+                  Join wait list
+                </button>
+              </div>
+            )}
+
+            {showGoogleLogin && showPasswordForm && (
+              <div className="login-divider">
+                <span>or</span>
+              </div>
+            )}
+
             {showPasswordForm && (
               <Form {...form}>
                 <form
@@ -564,7 +635,7 @@ export default function LoginForm() {
                           color: '#ffffff',
                           border: 'none',
                           outline: 'none',
-                          fontSize: '0.9rem',
+                          fontSize: '16px',
                           fontFamily: 'inherit',
                           padding: '0.75rem 1rem',
                           margin: '0',
@@ -611,7 +682,7 @@ export default function LoginForm() {
                           color: '#ffffff',
                           border: 'none',
                           outline: 'none',
-                          fontSize: '0.9rem',
+                          fontSize: '16px',
                           fontFamily: 'inherit',
                           padding: '0.75rem 1rem',
                           margin: '0',
@@ -703,36 +774,6 @@ export default function LoginForm() {
                 </form>
               </Form>
             )}
-
-            {showPasswordForm && showGoogleButton && (
-              <div className="login-divider">
-                <span>Or continue with</span>
-              </div>
-            )}
-
-            {showGoogleButton && (
-              <button
-                type="button"
-                className="google-login-button"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-              >
-                <FcGoogle className="google-icon" />
-                Google
-              </button>
-            )}
-
-            {showGuestButton && (
-              <button
-                type="button"
-                className="guest-login-button"
-                onClick={handleGuestSignIn}
-                disabled={loading}
-              >
-                Continue as Guest
-              </button>
-            )}
-
             {!hasAnyLoginOption && (
               <div className="login-warning">
                 Login methods are currently disabled. Please contact your administrator for access.
@@ -751,19 +792,20 @@ export default function LoginForm() {
               </button>
             )}
 
-            {showPasswordForm && (
-              <p className="login-footer">
-                Don&apos;t have an account?{' '}
-                <a href="mailto:dev@niaxp.com" className="login-link">
-                  Contact dev@niaxp.com to create one.
-                </a>
-              </p>
-            )}
+            <div className="login-form-footer-stack">
+              {showPasswordForm && (
+                <p className="login-footer">
+                  Don&apos;t have an account?{' '}
+                  <a href={`/signup${callbackUrlParam ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`} className="login-link">
+                    Create an account
+                  </a>
+                </p>
+              )}
+              <LegalLinks />
+            </div>
           </motion.div>
         </motion.div>
       </main>
-
-      <LegalLinks />
     </div>
   );
 }

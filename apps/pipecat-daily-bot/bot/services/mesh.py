@@ -64,12 +64,44 @@ def _bot_control_secret() -> str | None:
     return secret.strip() if secret else None
 
 
+_REDACTED_PREVIEW_KEYS = {
+    "password",
+    "password_hash",
+    "token",
+    "secret",
+    "api_key",
+    "authorization",
+}
+
+
+def _redact_preview_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[str, Any] = {}
+        for key, nested in value.items():
+            key_text = str(key).lower()
+            if any(secret_key in key_text for secret_key in _REDACTED_PREVIEW_KEYS):
+                redacted[key] = "[redacted]"
+            else:
+                redacted[key] = _redact_preview_value(nested)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_preview_value(item) for item in value]
+    return value
+
+
 def _preview(value: Any, max_len: int = 200) -> str | None:
     """Return a compact, stringified preview for logging."""
     if value is None:
         return None
     try:
-        text = value if isinstance(value, str) else json.dumps(value)
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                text = json.dumps(_redact_preview_value(parsed))
+            except Exception:
+                text = value
+        else:
+            text = json.dumps(_redact_preview_value(value))
     except Exception:
         text = str(value)
     if len(text) > max_len:
@@ -366,4 +398,3 @@ __all__ = [
     'request',  # ✅ Generic HTTP client for REST API actions layer
     'graphql_request',  # ✅ GraphQL client for sharing_actions layer
 ]
-

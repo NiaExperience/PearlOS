@@ -104,7 +104,7 @@ export default function SummonAiSpriteClient() {
     };
 
     return (
-        <div className="min-h-screen bg-black">
+        <div className="min-h-dvh bg-black">
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                     <h1 className="text-xl font-semibold text-slate-900">Summon AI Sprite</h1>

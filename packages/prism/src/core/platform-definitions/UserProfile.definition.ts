@@ -13,9 +13,86 @@ export const UserProfileDefinition: IDynamicContent = {
                 email: { type: 'string' },
                 userId: { type: 'string', optional: true },
                 onboardingComplete: { type: 'boolean', optional: true },
+                onboardingState: {
+                    type: 'object',
+                    optional: true,
+                    additionalProperties: false,
+                    properties: {
+                        currentBeat: { type: 'number', optional: true },
+                        completedBeats: {
+                            type: 'array',
+                            optional: true,
+                            items: { type: 'string' }
+                        },
+                        requiredActions: {
+                            type: 'object',
+                            optional: true,
+                            additionalProperties: false,
+                            properties: {
+                                profileUpdated: { type: 'boolean', optional: true },
+                                welcomeNoteCreated: { type: 'boolean', optional: true }
+                            }
+                        },
+                        source: { type: 'string', optional: true },
+                        promptFeatureKey: { type: 'string', optional: true },
+                        updatedAt: { type: 'string', format: 'date-time', optional: true }
+                    }
+                },
                 overlayDismissed: { type: 'boolean', optional: true },
                 createdAt: { type: 'string', format: 'date-time', optional: true },
-                metadata: { type: 'object', additionalProperties: true, optional: true },
+                publicPersona: {
+                    type: 'object',
+                    optional: true,
+                    additionalProperties: false,
+                    properties: {
+                        displayName: { type: 'string', optional: true },
+                        bio: { type: 'string', optional: true },
+                        interests: {
+                            type: 'array',
+                            optional: true,
+                            items: { type: 'string' }
+                        },
+                        socialLinks: {
+                            type: 'object',
+                            optional: true,
+                            additionalProperties: false,
+                            properties: {
+                                twitter: { type: 'string', optional: true },
+                                bluesky: { type: 'string', optional: true },
+                                github: { type: 'string', optional: true },
+                                website: { type: 'string', optional: true }
+                            }
+                        },
+                        avatarUrl: { type: 'string', optional: true },
+                        location: { type: 'string', optional: true },
+                        profession: { type: 'string', optional: true },
+                        isPublic: { type: 'boolean', optional: true, default: false }
+                    }
+                },
+                privateMemory: {
+                    type: 'object',
+                    optional: true,
+                    additionalProperties: false,
+                    properties: {
+                        personalNotes: { type: 'string', optional: true },
+                        preferences: { type: 'object', additionalProperties: true, optional: true },
+                        reminders: {
+                            type: 'array',
+                            optional: true,
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    text: { type: 'string' },
+                                    createdAt: { type: 'string', format: 'date-time' },
+                                    dueDate: { type: 'string', format: 'date-time', optional: true }
+                                },
+                                required: ['text', 'createdAt']
+                            }
+                        },
+                        sensitiveData: { type: 'object', additionalProperties: true, optional: true },
+                        relationshipContext: { type: 'string', optional: true }
+                    }
+                },
                 sessionHistory: {
                     type: 'array',
                     optional: true,
@@ -77,7 +154,7 @@ export const UserProfileDefinition: IDynamicContent = {
     name: 'UserProfile',
     uiConfig: {
         card: { titleField: 'first_name', descriptionField: 'email' },
-        detailView: { displayFields: ['first_name', 'email', 'metadata', 'sessionHistory', 'personalityVoiceConfig', 'lastConversationSummary'] },
+        detailView: { displayFields: ['first_name', 'email', 'publicPersona', 'privateMemory', 'sessionHistory', 'personalityVoiceConfig', 'lastConversationSummary'] },
         listView: { displayFields: ['first_name', 'email'] }
     }
 };

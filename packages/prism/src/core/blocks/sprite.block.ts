@@ -4,9 +4,9 @@ export const BlockType_Sprite = 'Sprite';
 
 /**
  * Voice provider options for Sprite TTS
- * POC uses Kokoro, future: support additional providers
+ * Sprites default to PocketTTS; Kokoro remains accepted for legacy records.
  */
-export const SpriteVoiceProviderValues = ['kokoro'] as const;
+export const SpriteVoiceProviderValues = ['pocket', 'kokoro'] as const;
 export type SpriteVoiceProvider = typeof SpriteVoiceProviderValues[number];
 
 // ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ export interface ISprite {
   // Personality
   primaryPrompt: string;
   
-  // Voice (Kokoro for POC)
+  // Voice
   voiceProvider: SpriteVoiceProvider;
   voiceId: string;
   voiceParameters?: Record<string, unknown>;

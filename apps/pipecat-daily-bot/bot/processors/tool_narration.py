@@ -27,25 +27,19 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 
-# Narration phrases — short, natural, varied
+# Voice-only latency phrases. Keep these content-neutral and avoid promises or
+# process filler that would leak into text channels as mechanical copy.
 _NARRATION_PHRASES = [
-    "One moment...",
-    "Let me check on that.",
-    "Working on it.",
-    "Just a sec.",
-    "Looking into that.",
-    "Hang on...",
-    "On it.",
-    "Give me a moment.",
     "Checking now.",
+    "Working through it.",
+    "Still checking.",
 ]
 
 # Longer filler for tools that take >5s
 _EXTENDED_PHRASES = [
-    "Still working on that...",
+    "Still working.",
     "Almost there.",
-    "Just pulling that together.",
-    "Bear with me, still loading.",
+    "Still loading.",
 ]
 
 
@@ -70,15 +64,21 @@ class ToolNarrationProcessor(FrameProcessor):
         initial_delay: float = 2.5,
         repeat_interval: float = 4.0,
         enabled: bool = True,
+        silent_functions: set[str] | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self._initial_delay = initial_delay
         self._repeat_interval = repeat_interval
         self._enabled = enabled
+        self._silent_functions = silent_functions or {
+            "bot_end_call",
+            "bot_onboarding_complete",
+        }
 
         # Track in-flight tool calls by tool_call_id
         self._in_progress: set[str] = set()
+        self._silent_in_progress: set[str] = set()
         self._narration_task: asyncio.Task | None = None
         self._last_narration_time: float = 0
         self._used_phrases: list[str] = []
@@ -100,14 +100,21 @@ class ToolNarrationProcessor(FrameProcessor):
         if isinstance(frame, FunctionCallInProgressFrame):
             tool_id = getattr(frame, "tool_call_id", None)
             if tool_id:
+                function_name = getattr(frame, "function_name", "")
+                if function_name in self._silent_functions:
+                    self._silent_in_progress.add(tool_id)
+                    logger.debug(f"[tool-narration] Silent tool started: {function_name} ({tool_id})")
+                    await self.push_frame(frame, direction)
+                    return
                 self._in_progress.add(tool_id)
-                logger.debug(f"[tool-narration] Tool started: {frame.function_name} ({tool_id})")
+                logger.debug(f"[tool-narration] Tool started: {function_name} ({tool_id})")
                 if self._enabled and self._narration_task is None:
                     self._narration_task = asyncio.create_task(self._narrate_loop())
 
         elif isinstance(frame, FunctionCallResultFrame):
             tool_id = getattr(frame, "tool_call_id", None)
             if tool_id:
+                self._silent_in_progress.discard(tool_id)
                 self._in_progress.discard(tool_id)
                 logger.debug(f"[tool-narration] Tool finished: {frame.function_name} ({tool_id})")
                 if not self._in_progress:
@@ -152,6 +159,7 @@ class ToolNarrationProcessor(FrameProcessor):
             self._narration_task.cancel()
             self._narration_task = None
         self._used_phrases.clear()
+        self._silent_in_progress.clear()
 
     async def cleanup(self):
         self._stop_narration()

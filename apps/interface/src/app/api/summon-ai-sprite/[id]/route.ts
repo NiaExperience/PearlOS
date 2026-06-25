@@ -5,14 +5,21 @@ import { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { ISprite } from '@nia/prism/core/blocks/sprite.block';
 import { getLogger } from '@nia/prism/core/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('api:summon-ai-sprite:get');
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+function requestedTenantId(request: NextRequest): string | undefined {
+  return (
+    request.nextUrl?.searchParams.get('tenantId') ||
+    request.nextUrl?.searchParams.get('tenant_id') ||
+    undefined
+  );
 }
 
 /**
@@ -23,15 +30,15 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(interfaceAuthOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId: requestedTenantId(request),
+    });
+    if (!actorResult.ok) return actorResult.response;
 
     const { id } = await params;
-    const userId = session.user.id;
+    const { userId, tenantId } = actorResult.actor;
     
-    log.info('Fetching sprite', { spriteId: id, userId });
+    log.info('Fetching sprite', { spriteId: id, userId, tenantId });
     
     const sprite = await findById(id) as ISprite | null;
     
@@ -39,11 +46,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Sprite not found' }, { status: 404 });
     }
 
+    if (sprite.tenantId !== tenantId) {
+      log.warn('Cross-tenant sprite access denied', { spriteId: id, userId, tenantId, spriteTenantId: sprite.tenantId });
+      return NextResponse.json({ error: 'Sprite not found' }, { status: 404 });
+    }
+
     // Verify ownership or shared access
     if (sprite.parent_id !== userId) {
       // Check for shared access
       const tokens = await getTokensRedeemedByUser(userId, ResourceType.Sprite);
-      const hasAccess = tokens.some(t => t.resourceId === id);
+      const hasAccess = tokens.some(t => t.resourceId === id && t.tenantId === tenantId);
       
       if (!hasAccess) {
         log.warn('Unauthorized sprite access attempt', { spriteId: id, userId, ownerId: sprite.parent_id });
@@ -53,7 +65,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    log.info('Fetched sprite', { spriteId: id, name: sprite.name });
+    log.info('Fetched sprite', { spriteId: id, name: sprite.name, tenantId });
     
     const isShared = sprite.parent_id !== userId;
 
@@ -91,28 +103,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(interfaceAuthOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId: requestedTenantId(request),
+    });
+    if (!actorResult.ok) return actorResult.response;
 
     const { id } = await params;
-    const userId = session.user.id;
+    const { userId, tenantId } = actorResult.actor;
 
-    log.info('Deleting sprite', { spriteId: id, userId });
+    log.info('Deleting sprite', { spriteId: id, userId, tenantId });
 
     const sprite = (await findById(id)) as ISprite | null;
     if (!sprite) {
       return NextResponse.json({ error: 'Sprite not found' }, { status: 404 });
     }
 
-    if (sprite.parent_id !== userId) {
-      log.warn('Unauthorized sprite delete attempt', { spriteId: id, userId, ownerId: sprite.parent_id });
+    if (sprite.tenantId !== tenantId || sprite.parent_id !== userId) {
+      log.warn('Unauthorized sprite delete attempt', {
+        spriteId: id,
+        userId,
+        tenantId,
+        ownerId: sprite.parent_id,
+        spriteTenantId: sprite.tenantId,
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     await remove(id);
-    log.info('Deleted sprite', { spriteId: id, userId });
+    log.info('Deleted sprite', { spriteId: id, userId, tenantId });
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

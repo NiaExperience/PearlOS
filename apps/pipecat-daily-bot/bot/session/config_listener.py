@@ -5,12 +5,14 @@ import hashlib
 from loguru import logger
 import redis.asyncio as redis
 from core.config import BOT_PID
-from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE
+from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, PERSONAL_SELF_EVOLUTION_NOTE, VOICE_INTERACTIVE_TOOL_USE_NOTE
 from actions import personality_actions
 from room.state import get_room_tenant_id, set_desktop_mode
 from tools.sprite_bot_config import set_bot_config, clear_bot_config
 from providers.elevenlabs import ElevenLabsTTSService
 from providers.kokoro import KokoroTTSService
+from providers.cartesia import CartesiaTTSService
+from providers.voxtral import VoxtralTTSService
 from pipecat.frames.frames import ManuallySwitchServiceFrame
 
 # Track last applied config hash to deduplicate repeated configs
@@ -25,6 +27,27 @@ def _context_logger(room_url: str):
     user_id = os.getenv("BOT_SESSION_USER_ID")
     user_name = os.getenv("BOT_SESSION_USER_NAME")
     return logger.bind(roomUrl=room_url, sessionId=session_id, userId=user_id, userName=user_name)
+
+
+async def _call_set_voice(service, voice_id: str):
+    result = service.set_voice(voice_id)
+    if hasattr(result, "__await__"):
+        await result
+
+
+def _service_matches_provider(service, provider: str) -> bool:
+    provider = (provider or "").strip().lower()
+    if provider == "pockettts":
+        provider = "pocket"
+    if provider == "kokoro":
+        return isinstance(service, KokoroTTSService)
+    if provider in ["elevenlabs", "11labs"]:
+        return isinstance(service, ElevenLabsTTSService)
+    if provider == "cartesia":
+        return isinstance(service, CartesiaTTSService)
+    if provider == "voxtral":
+        return isinstance(service, VoxtralTTSService)
+    return False
 
 
 async def start_config_listener(
@@ -186,13 +209,7 @@ async def apply_config_update(
             target_index = -1
 
             for i, svc in enumerate(tts_service.services):
-                is_kokoro = isinstance(svc, KokoroTTSService)
-                is_eleven = isinstance(svc, ElevenLabsTTSService)
-
-                if provider == "kokoro" and is_kokoro:
-                    target_index = i
-                    break
-                if provider in ["elevenlabs", "11labs"] and is_eleven:
+                if _service_matches_provider(svc, provider):
                     target_index = i
                     break
 
@@ -228,7 +245,7 @@ async def apply_config_update(
 
                 # 1. If we identified a target service from mode switch, use it
                 if target_service and hasattr(target_service, "set_voice"):
-                    await target_service.set_voice(voice_id_to_set)
+                    await _call_set_voice(target_service, voice_id_to_set)
                     log.info(
                         f"[{BOT_PID}] [session.config] Updated voice on target service for mode '{config.get('mode')}'"
                     )
@@ -236,7 +253,7 @@ async def apply_config_update(
 
                 # 2. Else if tts_service IS the service (no switcher)
                 elif hasattr(tts_service, "set_voice"):
-                    await tts_service.set_voice(voice_id_to_set)
+                    await _call_set_voice(tts_service, voice_id_to_set)
                     updated = True
 
                 # 3. Else if we are using ServiceSwitcher but didn't switch mode (or couldn't resolve service)
@@ -260,16 +277,11 @@ async def apply_config_update(
                         for svc in services_iter:
                             # Filter by provider if voiceProvider is specified
                             if voice_provider:
-                                is_kokoro = isinstance(svc, KokoroTTSService)
-                                is_eleven = isinstance(svc, ElevenLabsTTSService)
-
-                                if voice_provider == "kokoro" and not is_kokoro:
-                                    continue
-                                if voice_provider in ["elevenlabs", "11labs"] and not is_eleven:
+                                if not _service_matches_provider(svc, voice_provider):
                                     continue
 
                             if hasattr(svc, "set_voice"):
-                                await svc.set_voice(voice_id_to_set)
+                                await _call_set_voice(svc, voice_id_to_set)
                                 count += 1
                         if count > 0:
                             log.info(
@@ -443,7 +455,7 @@ async def apply_config_update(
                         log.info(f"[{BOT_PID}] [session.config] Updating system prompt")
 
                         # Prepare extra notes
-                        extras = [new_prompt, "", MULTI_USER_NOTE]
+                        extras = [new_prompt, "", VOICE_INTERACTIVE_TOOL_USE_NOTE, PERSONAL_SELF_EVOLUTION_NOTE, MULTI_USER_NOTE]
 
                         # Check for smart silence - disable for sprite sessions
                         # Sprites are characters that should always respond, not be silent

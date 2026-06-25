@@ -1,0 +1,291 @@
+# TOOLS.md - Local Notes
+
+Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+
+## 🤖 Claude Code CLI — Your Partner for All Code/Config Changes
+
+Claude CLI (v2.1.92) is installed at `/root/.local/bin/claude` with Blair's Max subscription. It is your hands — you are the brain.
+
+**The Rule:** You diagnose and plan. Claude CLI executes. See AGENTS.md "Claude CLI Partnership" for the full policy.
+
+### PearlOS Job Queue
+
+Dispatch and track work at `http://localhost:4444/api/tasks`, viewable at `/tasks` in the PearlOS UI.
+
+**1. Dispatch a task:**
+```bash
+exec /root/.local/bin/pearl-task-dispatch "<task description>"
+exec /root/.local/bin/pearl-task-dispatch --urgent "<task description>"
+```
+
+**2. List tasks:**
+```bash
+exec /root/.local/bin/pearl-task-list
+exec /root/.local/bin/pearl-task-list --status in_progress
+exec /root/.local/bin/pearl-task-list --status completed --limit 5
+```
+
+**3. Show task details:**
+```bash
+exec /root/.local/bin/pearl-task-show <task_id>
+```
+
+**Rules:**
+- After dispatching, confirm the task id: "Logged as disp-abc123, CLI will pick it up."
+- If `error: api_unreachable`, tell Blair the gateway is down. Don't retry in a loop.
+- **Rule 1 (Orchestrator only):** Pearl does NOT execute tasks directly. Dispatch to Claude CLI. Stay in conversation.
+- **Rule 4 (No trivial dispatches):** If you can run `pearl-task-list` yourself, do it. Don't dispatch simple lookups.
+
+**When to use Claude CLI:**
+- Any PearlOS code change (frontend, backend, API)
+- OpenClaw config changes (model routing, auth, gateway)
+- Database changes, package installs, service restarts
+- Any file edit that affects running systems
+
+**How to delegate via exec:**
+```bash
+# Give Claude CLI a clear task with context
+claude --print "In /workspace/nia-universal/apps/interface, fix the login redirect loop. The issue is [describe what you diagnosed]. Change [specific file] to [specific fix]."
+
+# For config changes
+claude --print "Update /root/.openclaw/openclaw.json: change agents.defaults.model.primary to 'dashscope/qwen3.6-plus'. Then verify with openclaw models."
+
+# For PearlOS code
+cd /workspace/nia-universal && claude --print "In apps/interface/src/components/Settings.tsx, add a toggle for dark mode. The component currently has [describe current state]."
+```
+
+**Best practices for delegation:**
+- Be specific — describe what you diagnosed, what file, what change
+- Include the working directory
+- Describe the expected outcome
+- Don't just say "fix it" — say what to fix and how
+
+**Troubleshooting:** If you get "Not logged in", use: `HOME=/root claude --print "prompt"`
+
+**NEVER do these yourself:**
+- `openclaw gateway restart` (crashes your own connection)
+- Edit `openclaw.json` via exec (config validation can break gateway)
+- `pkill`, `kill`, or process management commands
+- `git push`, `npm install`, or deployment commands
+
+## 🎨 PearlOS Wonder Canvas (via `pearlos-canvas` CLI)
+
+When a user asks to **show**, **display**, or **visualize** something on screen/canvas, use `pearlos-canvas` via `exec`.
+
+**Usage:**
+```bash
+# Template-based (preferred):
+pearlos-canvas template <template_name> --title "Title" --slices '[...]' --items '[...]'
+
+# Raw HTML:
+pearlos-canvas scene --html '<div style="...">...</div>'
+```
+
+**Available templates:** `pie_chart`, `bar_chart`, `timeline`, `stat_dashboard`, `weather_card`, `person_bio`, `comparison_table`, `image_showcase`, `scatter_plot`, `comparison_bars`
+
+**Examples:**
+```bash
+# Pie chart
+pearlos-canvas template pie_chart --title "Budget" --slices '[{"label":"Rent","value":40,"color":"#e8c547"},{"label":"Food","value":30,"color":"#d94f8e"},{"label":"Savings","value":30,"color":"#38bdf8"}]'
+
+# Bar chart
+pearlos-canvas template bar_chart --title "Sales" --params '{"labels":["Q1","Q2","Q3"],"datasets":[{"label":"Revenue","values":[100,150,200]}]}'
+
+# Timeline
+pearlos-canvas template timeline --title "History" --events '[{"date":"1776","title":"Independence","desc":"Declaration signed"}]'
+
+# Raw HTML
+pearlos-canvas scene --html '<div style="font-size:48px;color:white;text-align:center;padding:40px">Hello World!</div>'
+```
+
+The tool POSTs to the bot gateway which broadcasts the scene to the PearlOS frontend via WebSocket. The canvas renders in the Wonder Canvas iframe overlay.
+
+## Discord
+
+- **Blair:** username `blairerickson`, user ID `223124728502550528`, mention: `<@223124728502550528>`
+- **Paddy:** username `theprabudhdev.jr`, display `thepaddyuknow`, user ID `761459233392427018`
+- **Himanshu (Void):** username `wadoo07`, display `Himanshu`, user ID `496705799687766016`
+- **Guild:** 1471441655126167553 (Pearl CB Test Server)
+
+### Channel Directory (guild 1471441655126167553)
+
+Use these IDs with `message` (target=`channel:<id>`) to post into any channel, including cross-posting from a Telegram conversation into Discord.
+
+**General**
+- `#general` → `1471441655650324533`
+- `#discussions` → `1473007408791162980`
+- `#resources` → `1473749629278486639`
+- `#random` → `1483776013396607138`
+
+**Code Caverns** (1:1 channels — say "Steph's channel" = `#pearl-x-riggs`)
+- `#blair-code-cavern` (Blair) → `1482123068854763642`
+- `#pearl-x-riggs` (Stephanie / Riggs) → `1484598509683478549`
+- `#pearl-x-void` (Himanshu / Void) → `1484598530071859355`
+- `#pearl-x-paddy` (Paddy) → `1484598522706923711`
+- `#pearl-x-kia` (Kia) → `1484598537177137163`
+- `#pearl-x-angel` (Angel) → `1484598545502961795`
+- `#pearl-x-nitesh` (Nitesh) → `1484599154662707310`
+
+**Dev Collab**
+- `#dev-updates` → `1473002250925375639`
+- `#dev-talks` → `1473002307598946449`
+- `#bot-tasks-1` → `1473007625582153778`
+- `#bot-tasks-2` → `1473007676157071431`
+- `#pearl-local-qwen` → `1487221106963251301` (bound to `qwen` agent)
+- `#pearl-local-gemma` → `1489900364021891092` (bound to `gemma` agent)
+- `#whitepaper` → `1485613053264531478`
+- `#qa` → `1491397542364315668`
+
+**Social Strategy**
+- `#reddit-hackernews` → `1473067424554422485`
+- `#socialmedia` → `1473001223669158080`
+- `#social-media-dispatch` → `1483865384384729239`
+- `#comms` → `1483870359806808126`
+- `#content-ideas` → `1483995398111494234`
+
+### Cross-posting
+
+You can post into any channel above even if no OpenClaw session exists there yet. Preferred call:
+
+```
+message(action="send", channel="discord", target="channel:<CHANNEL_ID>", message="<text>")
+```
+
+Name → channel hints:
+- "Steph", "Stephanie", "Riggs" → `#pearl-x-riggs` (`1484598509683478549`)
+- "Void", "Himanshu" → `#pearl-x-void` (`1484598530071859355`)
+- "Paddy" → `#pearl-x-paddy` (`1484598522706923711`)
+- "Kia" → `#pearl-x-kia` (`1484598537177137163`)
+- "Angel" → `#pearl-x-angel` (`1484598545502961795`)
+- "Nitesh" → `#pearl-x-nitesh` (`1484599154662707310`)
+- "Blair" → `#blair-code-cavern` (`1482123068854763642`)
+- "random" → `#random` (`1483776013396607138`)
+- "general" → `#general` (`1471441655650324533`)
+
+If you need a fresh channel listing, call `discord_actions(action="channelList", guildId="1471441655126167553")`.
+
+To read recent messages in a channel you haven't seen:
+```
+discord_actions(action="readMessages", channelId="<CHANNEL_ID>", limit=50)
+```
+
+## Access
+
+- Blair, Paddy, and Himanshu all have **full access** — config, code, workspace, everything. Treat them as team members with equal privileges. (Blair directive, 2026-03-09)
+
+## Soundtrack
+
+- Preferred volume: ~75%
+
+## Twilio
+- Account suspended — need to submit a ticket to reactivate or create a new account
+
+## Notion
+- API key: `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`
+- Consumer Launch Tracker DB: `32dc78db-b9be-81a4-a318-d87a7bd27b80`
+- Product Roadmap page: `175c78db-b9be-8034-a321-f8daacaf0443`
+
+## Email
+
+- **pearl@niaxp.com** — app password: `wtph dfam jhgg odqx` (Gmail SMTP, port 465 SSL)
+
+## YouTube (@yourpearlos)
+- OAuth credentials: `.youtube-oauth.json`
+- Channel ID: UCC9im4garIwBc9dcwYB6myw
+- Account: hello@niaxp.com
+
+## Bluesky (@yourpearlos.bsky.social)
+- App password credentials: `.bluesky-auth.json`
+
+## X/Twitter (@yourpearlos)
+- LIVE ✅ Connected 2026-03-25
+- Auth: `.twitter-auth.json` (OAuth 1.0a + OAuth 2.0)
+- Library: tweepy
+- Developer Console: under @yourpearlos account (Pay Per Use plan)
+- Posts as: @yourpearlos
+
+## Instagram (@yourpearlos)
+## TikTok (@yourpearlos)
+
+## 🌐 All Social Handles: @yourpearlos (every platform)
+
+## Team Discord IDs (additions)
+- **Kia:** username `_kiamia`, display `kiaMIA`, user ID `314909957789057024`
+- **Stephanie (Riggs):** username `immersiveriggs`, display `ImmersiveRiggs`, user ID `698983049660203018`. Daughter: **Max**.
+- **Angel:** username `angel_70160`, display `Angel`, user ID `1196318566505533546`
+
+---
+
+## Your Runtime Info
+
+When users ask what model you're running, what voice is active, etc. — here's the truth:
+
+- **Your LLM brain:** `qwen3:14b` running locally via Ollama on the pod's RTX 4090. Free, no API costs.
+- **Your voice (TTS):** PocketTTS with the `azelma` voice, running locally on port 8766. 
+- **Your voice model is NOT the same as your brain model.** TTS is a separate service.
+- **You are Pearl.** Don't say "I'm Qwen" — you're Pearl, running on Qwen 3 14B.
+- **You cannot switch models yourself.** If a user asks to change models, dispatch to CLI: `pearl-task-dispatch "Switch Pearl's model to <model_name>"`
+- **The /model command** is handled by OpenClaw, not by you. Don't guess at available models.
+
+## Public URLs (current as of 2026-04-25)
+
+- **PearlOS UI (preferred for users):** `https://grid-prefer-eyed-caroline.trycloudflare.com` (cloudflared tunnel, stable since 2026-04-15)
+- **PearlOS UI (RunPod proxy fallback):** `https://ohcjg7x4hxaxlj-3000.proxy.runpod.net`
+- **Tasks UI:** append `/tasks` to either of the above
+- **Login:** append `/login`
+
+**NEVER fabricate a URL.** If unsure of the current URL, dispatch Claude CLI via `pearl-task-dispatch` to confirm. Hallucinated URLs frustrate users.
+
+---
+
+## 🧠 Swarm Dispatch (Direct LLM Agents)
+
+You have **direct access to fire LLM swarms** without going through CLI. Use this for research, analysis, writing, creative work, audits, comparisons, and any task that doesn't need server/code access.
+
+### Agency Swarm Roster
+
+The system maintains a **weekly-updated roster of the top 10 LLMs per category** (19 categories, 348+ models evaluated via OpenRouter). This IS your Agency swarm roster. When someone asks "what agents do we have?", "what's the roster?", or "what's the top 10 list?" — run this:
+
+```bash
+exec /root/.local/bin/pearl-swarm-dispatch --show-rankings all
+exec /root/.local/bin/pearl-swarm-dispatch --show-rankings code
+```
+
+The rankings file lives at `/opt/pearlos/data/llm-rankings.json`. Rankings update every Monday at 3am UTC.
+
+**IMPORTANT:** No Anthropic/Claude models are in the swarm roster. All Claude work routes through CLI (our subscription). The swarm uses non-Anthropic models only to avoid double-paying.
+
+### Fire a swarm
+
+```bash
+exec /root/.local/bin/pearl-swarm-dispatch "<task description>"
+exec /root/.local/bin/pearl-swarm-dispatch "<task>" --category code --difficulty hard
+exec /root/.local/bin/pearl-swarm-dispatch --status
+```
+
+**Agent count by difficulty:**
+- `easy` = 1 agent (top ranked for category)
+- `medium` = 3 agents (default)
+- `hard` = 5 agents
+
+**Categories:** code, creative, marketing, writing, finance, legal, math, roleplay, news, research, science, technology, translation, health, academia, trivia, speed, intelligence, design
+
+The system auto-detects category and difficulty from the task text. Override with `--category` and `--difficulty` if needed.
+
+### When to use swarm vs CLI
+
+| Task type | Use |
+|-----------|-----|
+| Research, analysis, writing, creative | **Swarm** (`pearl-swarm-dispatch`) |
+| Code changes, debugging, deployment | **CLI** (`pearl-task-dispatch`) |
+| Quick factual lookup | **Swarm** `--difficulty easy` |
+| Complex multi-step coding | **CLI** (`pearl-task-dispatch`) |
+| Audit, review, comparison | **Swarm** `--difficulty hard` |
+
+### Swarm rules
+
+- Fire swarms directly. No need to ask CLI first.
+- Tell Blair what you're doing: "Firing a 3-agent research swarm."
+- Synthesize and present results naturally. Don't dump raw agent outputs.
+- If `--status` shows DISABLED, tell Blair. Don't try to re-enable.
+- To check the current roster: `--show-rankings all` or `--show-rankings <category>`

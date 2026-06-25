@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createOrganization, getOrganizationsForTenant, updateOrganization, deleteOrganization, assignUserToOrganization } from '@nia/prism/core/actions/organization-actions';
-import { getSessionSafely, requireAuth } from '@nia/prism/core/auth';
+import { getSessionSafely, requireAuth, requireTenantAccess, requireTenantAdmin } from '@nia/prism/core/auth';
 import { requireOrgAdminOrTenantAdmin } from '@nia/prism/core/auth/auth.middleware';
 import { OrganizationRole } from '@nia/prism/core/blocks/userOrganizationRole.block';
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const tenantId = searchParams.get('tenantId');
     if (!tenantId) return NextResponse.json({ error: 'tenantId required' }, { status: 400 });
+    const accessErr = await requireTenantAccess(tenantId, req, dashboardAuthOptions);
+    if (accessErr) return accessErr as NextResponse;
+
     const organizations = await getOrganizationsForTenant(tenantId) || [];
     return NextResponse.json({ organizations });
   } catch (e: any) {
@@ -34,6 +37,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { tenantId, name, description } = body;
     if (!tenantId || !name) return NextResponse.json({ error: 'tenantId and name required' }, { status: 400 });
+    const adminErr = await requireTenantAdmin(tenantId, req, dashboardAuthOptions);
+    if (adminErr) return adminErr as NextResponse;
+
     const organization = await createOrganization({ tenantId, name, description } as any);
     // Auto-assign creator as OWNER
     try {

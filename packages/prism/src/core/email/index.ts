@@ -153,18 +153,28 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams): P
 
 /** Resolve the Interface base URL using env and sensible localhost fallbacks */
 export function resolveInterfaceBaseUrl(reqUrl?: string): string {
-  let baseUrl = process.env.NEXT_PUBLIC_INTERFACE_BASE_URL || process.env.INTERFACE_BASE_URL || process.env.APP_BASE_URL_INTERFACE || process.env.APP_BASE_URL;
+  let baseUrl =
+    process.env.NEXT_PUBLIC_INTERFACE_BASE_URL ||
+    process.env.INTERFACE_BASE_URL ||
+    process.env.APP_BASE_URL_INTERFACE ||
+    process.env.APP_BASE_URL ||
+    process.env.NEXTAUTH_INTERFACE_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_INTERFACE_URL;
   if (!baseUrl) {
     try {
       if (reqUrl) {
-        const origin = new URL(reqUrl).origin;
-        const inferred = origin.replace('://localhost:4000', '://localhost:3000');
-        baseUrl = inferred !== origin ? inferred : 'http://localhost:3000';
-      } else {
-        baseUrl = 'http://localhost:3000';
+        baseUrl = new URL(reqUrl).origin;
       }
     } catch {
+      // handled below
+    }
+  }
+  if (!baseUrl) {
+    if (process.env.NODE_ENV !== 'production') {
       baseUrl = 'http://localhost:3000';
+    } else {
+      throw new Error('Missing interface base URL for email link generation');
     }
   }
   return baseUrl.replace(/\/$/, '');

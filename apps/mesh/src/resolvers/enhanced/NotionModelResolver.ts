@@ -16,6 +16,37 @@ import { v4 as uuidv4 } from 'uuid';
 import { NotionModel } from '../db';
 import { INotionModel } from '../models/notion-model';
 
+/**
+ * SECURITY: Escape a string value for safe use in SQL literals.
+ * Prevents SQL injection by escaping single quotes and backslashes.
+ */
+function escSql(value: unknown): string {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
+}
+
+/**
+ * SECURITY: Validate and escape a JSONB path segment.
+ * Only allows alphanumeric characters, underscores, and hyphens.
+ */
+function escPath(segment: string): string {
+  const clean = String(segment).trim();
+  if (!/^[a-zA-Z0-9_-]+$/.test(clean)) {
+    throw new Error(`Invalid JSONB path segment: ${clean}`);
+  }
+  return clean;
+}
+
+/**
+ * SECURITY: Validate a numeric value for safe use in SQL.
+ */
+function escNum(value: unknown): number {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    throw new Error(`Invalid numeric value: ${value}`);
+  }
+  return num;
+}
+
 // Conditionally import the cache service - helps with tests
 let CacheService: any;
 let CacheKeys: any;
@@ -187,7 +218,7 @@ export const NotionModelResolver: IResolvers = {
             if (args.where.indexer.path) {
               const path = args.where.indexer.path;
               const pathParts = path.split('.').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
-              const jsonbExpr = pathParts.reduce((acc: string, part: string) => `(${acc} -> '${part}')`, 'indexer');
+              const jsonbExpr = pathParts.reduce((acc: string, part: string) => `(${acc} -> '${escPath(part)}')`, 'indexer');
               const jsonbArrayExpr = `coalesce(${jsonbExpr}, '[]'::jsonb)`;
 
               if (args.where.indexer.equals) {
@@ -204,10 +235,10 @@ export const NotionModelResolver: IResolvers = {
                 // Use Sequelize.literal for JSONB path text search
                 whereClause[Op.and] = [
                   ...(whereClause[Op.and] || []),
-                  literal(`(indexer->>'${path}') ILIKE '%${value}%'`)
+                  literal(`(indexer->>'${escPath(path)}') ILIKE '%${escSql(value)}%'`)
                 ];
               } else if (args.where.indexer.has) {
-                const valueLiteral = JSON.stringify([args.where.indexer.has]).replace(/'/g, "''");
+                const valueLiteral = escSql(JSON.stringify([args.where.indexer.has]));
                 whereClause[Op.and] = [
                   ...(whereClause[Op.and] || []),
                   literal(`${jsonbArrayExpr} @> '${valueLiteral}'::jsonb`)
@@ -216,7 +247,7 @@ export const NotionModelResolver: IResolvers = {
                 const values = Array.isArray(args.where.indexer.hasSome)
                   ? args.where.indexer.hasSome
                   : [args.where.indexer.hasSome];
-                const checks = values.map((v: any) => `${jsonbArrayExpr} @> '${JSON.stringify([v]).replace(/'/g, "''")}'::jsonb`);
+                const checks = values.map((v: any) => `${jsonbArrayExpr} @> '${escSql(JSON.stringify([v]))}'::jsonb`);
                 whereClause[Op.and] = [
                   ...(whereClause[Op.and] || []),
                   literal(checks.join(' OR '))
@@ -225,7 +256,7 @@ export const NotionModelResolver: IResolvers = {
                 const values = Array.isArray(args.where.indexer.hasEvery)
                   ? args.where.indexer.hasEvery
                   : [args.where.indexer.hasEvery];
-                const checks = values.map((v: any) => `${jsonbArrayExpr} @> '${JSON.stringify([v]).replace(/'/g, "''")}'::jsonb`);
+                const checks = values.map((v: any) => `${jsonbArrayExpr} @> '${escSql(JSON.stringify([v]))}'::jsonb`);
                 whereClause[Op.and] = [
                   ...(whereClause[Op.and] || []),
                   literal(checks.join(' AND '))
@@ -234,13 +265,13 @@ export const NotionModelResolver: IResolvers = {
                 const values = Array.isArray(args.where.indexer.hasNone)
                   ? args.where.indexer.hasNone
                   : [args.where.indexer.hasNone];
-                const checks = values.map((v: any) => `NOT (${jsonbArrayExpr} @> '${JSON.stringify([v]).replace(/'/g, "''")}'::jsonb)`);
+                const checks = values.map((v: any) => `NOT (${jsonbArrayExpr} @> '${escSql(JSON.stringify([v]))}'::jsonb)`);
                 whereClause[Op.and] = [
                   ...(whereClause[Op.and] || []),
                   literal(checks.join(' AND '))
                 ];
               } else if (args.where.indexer.hasKey) {
-                const key = String(args.where.indexer.hasKey).replace(/'/g, "''");
+                const key = escSql(args.where.indexer.hasKey);
                 const existsExpr = `((jsonb_typeof(${jsonbExpr}) = 'object' AND jsonb_exists(${jsonbExpr}, '${key}')) OR (jsonb_typeof(${jsonbExpr}) = 'array' AND jsonb_exists(${jsonbExpr}, '${key}')))`;
                 whereClause[Op.and] = [
                   ...(whereClause[Op.and] || []),
@@ -251,7 +282,7 @@ export const NotionModelResolver: IResolvers = {
                   ? args.where.indexer.hasAnyKeys
                   : [args.where.indexer.hasAnyKeys];
                 const checks = keys.map((k: string) => {
-                  const safeKey = String(k).replace(/'/g, "''");
+                  const safeKey = escSql(k);
                   return `((jsonb_typeof(${jsonbExpr}) = 'object' AND jsonb_exists(${jsonbExpr}, '${safeKey}')) OR (jsonb_typeof(${jsonbExpr}) = 'array' AND jsonb_exists(${jsonbExpr}, '${safeKey}')))`;
                 });
                 whereClause[Op.and] = [
@@ -263,7 +294,7 @@ export const NotionModelResolver: IResolvers = {
                   ? args.where.indexer.hasAllKeys
                   : [args.where.indexer.hasAllKeys];
                 const checks = keys.map((k: string) => {
-                  const safeKey = String(k).replace(/'/g, "''");
+                  const safeKey = escSql(k);
                   return `((jsonb_typeof(${jsonbExpr}) = 'object' AND jsonb_exists(${jsonbExpr}, '${safeKey}')) OR (jsonb_typeof(${jsonbExpr}) = 'array' AND jsonb_exists(${jsonbExpr}, '${safeKey}')))`;
                 });
                 whereClause[Op.and] = [
@@ -284,16 +315,16 @@ export const NotionModelResolver: IResolvers = {
               if (filter.path) {
                 const pathParts = filter.path.split('.');
                 // Build proper JSONB path: 'key1'->'key2'->>'key3' for nested access
-                const jsonbPathForObject = pathParts.map((p: any) => `'${p}'`).join('->');
+                const jsonbPathForObject = pathParts.map((p: any) => `'${escPath(p)}'`).join('->');
                 // For text extraction, the last part uses ->> operator
                 // For path "data.level": "'data'->>'level'"
                 // For path "data.user.age": "'data'->'user'->>'age'"
                 let jsonbPathText: string;
                 if (pathParts.length === 1) {
-                  jsonbPathText = `->>'${pathParts[0]}'`;
+                  jsonbPathText = `->>'${escPath(pathParts[0])}'`;
                 } else {
-                  const middleParts = pathParts.slice(0, -1).map((p: any) => `'${p}'`).join('->');
-                  const lastPart = pathParts[pathParts.length - 1];
+                  const middleParts = pathParts.slice(0, -1).map((p: any) => `'${escPath(p)}'`).join('->');
+                  const lastPart = escPath(pathParts[pathParts.length - 1]);
                   jsonbPathText = `->${middleParts}->>'${lastPart}'`;
                 }
 
@@ -302,18 +333,18 @@ export const NotionModelResolver: IResolvers = {
                   if (typeof filter.eq === 'number') {
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`(content${jsonbPathText})::numeric = ${filter.eq}`)
+                      literal(`(content${jsonbPathText})::numeric = ${escNum(filter.eq)}`)
                     ];
                   } else if (typeof filter.eq === 'string') {
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`content${jsonbPathText} = '${filter.eq}'`)
+                      literal(`content${jsonbPathText} = '${escSql(filter.eq)}'`)
                     ];
                   } else {
                     // JSON comparison
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`content->${jsonbPathForObject} = '${JSON.stringify(filter.eq)}'::jsonb`)
+                      literal(`content->${jsonbPathForObject} = '${escSql(JSON.stringify(filter.eq))}'::jsonb`)
                     ];
                   }
                 }
@@ -322,12 +353,12 @@ export const NotionModelResolver: IResolvers = {
                   if (typeof filter.ne === 'number') {
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`(content${jsonbPathText})::numeric != ${filter.ne}`)
+                      literal(`(content${jsonbPathText})::numeric != ${escNum(filter.ne)}`)
                     ];
                   } else {
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`content${jsonbPathText} != '${filter.ne}'`)
+                      literal(`content${jsonbPathText} != '${escSql(filter.ne)}'`)
                     ];
                   }
                 }
@@ -335,28 +366,28 @@ export const NotionModelResolver: IResolvers = {
                 if (filter.gt !== undefined) {
                   whereClause[Op.and] = [
                     ...(whereClause[Op.and] || []),
-                    literal(`(content${jsonbPathText})::numeric > ${filter.gt}`)
+                    literal(`(content${jsonbPathText})::numeric > ${escNum(filter.gt)}`)
                   ];
                 }
 
                 if (filter.gte !== undefined) {
                   whereClause[Op.and] = [
                     ...(whereClause[Op.and] || []),
-                    literal(`(content${jsonbPathText})::numeric >= ${filter.gte}`)
+                    literal(`(content${jsonbPathText})::numeric >= ${escNum(filter.gte)}`)
                   ];
                 }
 
                 if (filter.lt !== undefined) {
                   whereClause[Op.and] = [
                     ...(whereClause[Op.and] || []),
-                    literal(`(content${jsonbPathText})::numeric < ${filter.lt}`)
+                    literal(`(content${jsonbPathText})::numeric < ${escNum(filter.lt)}`)
                   ];
                 }
 
                 if (filter.lte !== undefined) {
                   whereClause[Op.and] = [
                     ...(whereClause[Op.and] || []),
-                    literal(`(content${jsonbPathText})::numeric <= ${filter.lte}`)
+                    literal(`(content${jsonbPathText})::numeric <= ${escNum(filter.lte)}`)
                   ];
                 }
 
@@ -364,7 +395,7 @@ export const NotionModelResolver: IResolvers = {
                   // Check if all values are numbers for proper casting
                   const hasNumbers = filter.in.some((v: any) => typeof v === 'number');
                   const inValues = filter.in.map((v: any) =>
-                    typeof v === 'number' ? v : `'${v}'`
+                    typeof v === 'number' ? escNum(v) : `'${escSql(v)}'`
                   ).join(',');
 
                   if (hasNumbers) {
@@ -386,13 +417,13 @@ export const NotionModelResolver: IResolvers = {
                   if (typeof filter.contains === 'string') {
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`content${jsonbPathText} ILIKE '%${filter.contains}%'`)
+                      literal(`content${jsonbPathText} ILIKE '%${escSql(filter.contains)}%'`)
                     ];
                   } else {
                     // JSON containment
                     whereClause[Op.and] = [
                       ...(whereClause[Op.and] || []),
-                      literal(`content->${jsonbPathForObject} @> '${JSON.stringify(filter.contains)}'::jsonb`)
+                      literal(`content->${jsonbPathForObject} @> '${escSql(JSON.stringify(filter.contains))}'::jsonb`)
                     ];
                   }
                 }
@@ -410,49 +441,49 @@ export const NotionModelResolver: IResolvers = {
                 const filter = andCondition.contentJsonb;
                 if (filter.path) {
                   const pathParts = filter.path.split('.');
-                  const jsonbPathForObject = pathParts.map((p: any) => `'${p}'`).join('->');
+                  const jsonbPathForObject = pathParts.map((p: any) => `'${escPath(p)}'`).join('->');
                   let jsonbPathText: string;
                   if (pathParts.length === 1) {
-                    jsonbPathText = `->>'${pathParts[0]}'`;
+                    jsonbPathText = `->>'${escPath(pathParts[0])}'`;
                   } else {
-                    const middleParts = pathParts.slice(0, -1).map((p: any) => `'${p}'`).join('->');
-                    const lastPart = pathParts[pathParts.length - 1];
+                    const middleParts = pathParts.slice(0, -1).map((p: any) => `'${escPath(p)}'`).join('->');
+                    const lastPart = escPath(pathParts[pathParts.length - 1]);
                     jsonbPathText = `->${middleParts}->>'${lastPart}'`;
                   }
 
                   // Handle different operators
                   if (filter.eq !== undefined) {
                     if (typeof filter.eq === 'number') {
-                      andConditions.push(literal(`(content${jsonbPathText})::numeric = ${filter.eq}`));
+                      andConditions.push(literal(`(content${jsonbPathText})::numeric = ${escNum(filter.eq)}`));
                     } else if (typeof filter.eq === 'string') {
-                      andConditions.push(literal(`content${jsonbPathText} = '${filter.eq}'`));
+                      andConditions.push(literal(`content${jsonbPathText} = '${escSql(filter.eq)}'`));
                     } else {
-                      andConditions.push(literal(`content->${jsonbPathForObject} = '${JSON.stringify(filter.eq)}'::jsonb`));
+                      andConditions.push(literal(`content->${jsonbPathForObject} = '${escSql(JSON.stringify(filter.eq))}'::jsonb`));
                     }
                   }
                   if (filter.ne !== undefined) {
                     if (typeof filter.ne === 'number') {
-                      andConditions.push(literal(`(content${jsonbPathText})::numeric != ${filter.ne}`));
+                      andConditions.push(literal(`(content${jsonbPathText})::numeric != ${escNum(filter.ne)}`));
                     } else {
-                      andConditions.push(literal(`content${jsonbPathText} != '${filter.ne}'`));
+                      andConditions.push(literal(`content${jsonbPathText} != '${escSql(filter.ne)}'`));
                     }
                   }
                   if (filter.gt !== undefined) {
-                    andConditions.push(literal(`(content${jsonbPathText})::numeric > ${filter.gt}`));
+                    andConditions.push(literal(`(content${jsonbPathText})::numeric > ${escNum(filter.gt)}`));
                   }
                   if (filter.gte !== undefined) {
-                    andConditions.push(literal(`(content${jsonbPathText})::numeric >= ${filter.gte}`));
+                    andConditions.push(literal(`(content${jsonbPathText})::numeric >= ${escNum(filter.gte)}`));
                   }
                   if (filter.lt !== undefined) {
-                    andConditions.push(literal(`(content${jsonbPathText})::numeric < ${filter.lt}`));
+                    andConditions.push(literal(`(content${jsonbPathText})::numeric < ${escNum(filter.lt)}`));
                   }
                   if (filter.lte !== undefined) {
-                    andConditions.push(literal(`(content${jsonbPathText})::numeric <= ${filter.lte}`));
+                    andConditions.push(literal(`(content${jsonbPathText})::numeric <= ${escNum(filter.lte)}`));
                   }
                   if (filter.in) {
                     const hasNumbers = filter.in.some((v: any) => typeof v === 'number');
                     const inValues = filter.in.map((v: any) =>
-                      typeof v === 'number' ? v : `'${v}'`
+                      typeof v === 'number' ? escNum(v) : `'${escSql(v)}'`
                     ).join(',');
                     if (hasNumbers) {
                       andConditions.push(literal(`(content${jsonbPathText})::numeric IN (${inValues})`));
@@ -462,9 +493,9 @@ export const NotionModelResolver: IResolvers = {
                   }
                   if (filter.contains !== undefined) {
                     if (typeof filter.contains === 'string') {
-                      andConditions.push(literal(`content${jsonbPathText} ILIKE '%${filter.contains}%'`));
+                      andConditions.push(literal(`content${jsonbPathText} ILIKE '%${escSql(filter.contains)}%'`));
                     } else {
-                      andConditions.push(literal(`content->${jsonbPathForObject} @> '${JSON.stringify(filter.contains)}'::jsonb`));
+                      andConditions.push(literal(`content->${jsonbPathForObject} @> '${escSql(JSON.stringify(filter.contains))}'::jsonb`));
                     }
                   }
                 }
@@ -489,7 +520,7 @@ export const NotionModelResolver: IResolvers = {
                     // For partial matches, use JSON path with LIKE operator
                     const value = andCondition.indexer.contains;
                     andConditions.push(
-                      literal(`(indexer->>'${path}') ILIKE '%${value}%'`)
+                      literal(`(indexer->>'${escPath(path)}') ILIKE '%${escSql(value)}%'`)
                     );
                   }
                 }
@@ -526,49 +557,49 @@ export const NotionModelResolver: IResolvers = {
                 const filter = orCondition.contentJsonb;
                 if (filter.path) {
                   const pathParts = filter.path.split('.');
-                  const jsonbPathForObject = pathParts.map((p: any) => `'${p}'`).join('->');
+                  const jsonbPathForObject = pathParts.map((p: any) => `'${escPath(p)}'`).join('->');
                   let jsonbPathText: string;
                   if (pathParts.length === 1) {
-                    jsonbPathText = `->>'${pathParts[0]}'`;
+                    jsonbPathText = `->>'${escPath(pathParts[0])}'`;
                   } else {
-                    const middleParts = pathParts.slice(0, -1).map((p: any) => `'${p}'`).join('->');
-                    const lastPart = pathParts[pathParts.length - 1];
+                    const middleParts = pathParts.slice(0, -1).map((p: any) => `'${escPath(p)}'`).join('->');
+                    const lastPart = escPath(pathParts[pathParts.length - 1]);
                     jsonbPathText = `->${middleParts}->>'${lastPart}'`;
                   }
 
                   // Handle different operators
                   if (filter.eq !== undefined) {
                     if (typeof filter.eq === 'number') {
-                      orConditions.push(literal(`(content${jsonbPathText})::numeric = ${filter.eq}`));
+                      orConditions.push(literal(`(content${jsonbPathText})::numeric = ${escNum(filter.eq)}`));
                     } else if (typeof filter.eq === 'string') {
-                      orConditions.push(literal(`content${jsonbPathText} = '${filter.eq}'`));
+                      orConditions.push(literal(`content${jsonbPathText} = '${escSql(filter.eq)}'`));
                     } else {
-                      orConditions.push(literal(`content->${jsonbPathForObject} = '${JSON.stringify(filter.eq)}'::jsonb`));
+                      orConditions.push(literal(`content->${jsonbPathForObject} = '${escSql(JSON.stringify(filter.eq))}'::jsonb`));
                     }
                   }
                   if (filter.ne !== undefined) {
                     if (typeof filter.ne === 'number') {
-                      orConditions.push(literal(`(content${jsonbPathText})::numeric != ${filter.ne}`));
+                      orConditions.push(literal(`(content${jsonbPathText})::numeric != ${escNum(filter.ne)}`));
                     } else {
-                      orConditions.push(literal(`content${jsonbPathText} != '${filter.ne}'`));
+                      orConditions.push(literal(`content${jsonbPathText} != '${escSql(filter.ne)}'`));
                     }
                   }
                   if (filter.gt !== undefined) {
-                    orConditions.push(literal(`(content${jsonbPathText})::numeric > ${filter.gt}`));
+                    orConditions.push(literal(`(content${jsonbPathText})::numeric > ${escNum(filter.gt)}`));
                   }
                   if (filter.gte !== undefined) {
-                    orConditions.push(literal(`(content${jsonbPathText})::numeric >= ${filter.gte}`));
+                    orConditions.push(literal(`(content${jsonbPathText})::numeric >= ${escNum(filter.gte)}`));
                   }
                   if (filter.lt !== undefined) {
-                    orConditions.push(literal(`(content${jsonbPathText})::numeric < ${filter.lt}`));
+                    orConditions.push(literal(`(content${jsonbPathText})::numeric < ${escNum(filter.lt)}`));
                   }
                   if (filter.lte !== undefined) {
-                    orConditions.push(literal(`(content${jsonbPathText})::numeric <= ${filter.lte}`));
+                    orConditions.push(literal(`(content${jsonbPathText})::numeric <= ${escNum(filter.lte)}`));
                   }
                   if (filter.in) {
                     const hasNumbers = filter.in.some((v: any) => typeof v === 'number');
                     const inValues = filter.in.map((v: any) =>
-                      typeof v === 'number' ? v : `'${v}'`
+                      typeof v === 'number' ? escNum(v) : `'${escSql(v)}'`
                     ).join(',');
                     if (hasNumbers) {
                       orConditions.push(literal(`(content${jsonbPathText})::numeric IN (${inValues})`));
@@ -578,9 +609,9 @@ export const NotionModelResolver: IResolvers = {
                   }
                   if (filter.contains !== undefined) {
                     if (typeof filter.contains === 'string') {
-                      orConditions.push(literal(`content${jsonbPathText} ILIKE '%${filter.contains}%'`));
+                      orConditions.push(literal(`content${jsonbPathText} ILIKE '%${escSql(filter.contains)}%'`));
                     } else {
-                      orConditions.push(literal(`content->${jsonbPathForObject} @> '${JSON.stringify(filter.contains)}'::jsonb`));
+                      orConditions.push(literal(`content->${jsonbPathForObject} @> '${escSql(JSON.stringify(filter.contains))}'::jsonb`));
                     }
                   }
                 }
@@ -603,7 +634,7 @@ export const NotionModelResolver: IResolvers = {
                   } else if (orCondition.indexer.contains) {
                     const value = orCondition.indexer.contains;
                     orConditions.push(
-                      literal(`(indexer->>'${path}') ILIKE '%${value}%'`)
+                      literal(`(indexer->>'${escPath(path)}') ILIKE '%${escSql(value)}%'`)
                     );
                   }
                 }
@@ -703,6 +734,13 @@ export const NotionModelResolver: IResolvers = {
   },
 
   Mutation: {
+    /**
+     * SECURITY: All mutations require authentication — one of:
+     *   - serviceTrusted (x-mesh-secret header)
+     *   - botControlTrusted (x-bot-control-secret header)
+     *   - user (valid Bearer JWT)
+     */
+
     // Create a new NotionModel record
     createNotionModel: async (
       _: any,
@@ -710,6 +748,11 @@ export const NotionModelResolver: IResolvers = {
       context: any
     ) => {
       try {
+        // SECURITY: Require authentication for mutations
+        if (!context?.serviceTrusted && !context?.botControlTrusted && !context?.user) {
+          throw new Error('Unauthorized: authentication required for mutations');
+        }
+
         // Bot control auth: If both serviceTrusted and botControlTrusted are true,
         // bot service has tenant-wide access to create notes (bypasses user ownership checks)
         const isBotService = context?.serviceTrusted && context?.botControlTrusted;
@@ -779,6 +822,11 @@ export const NotionModelResolver: IResolvers = {
       context: any
     ) => {
       try {
+        // SECURITY: Require authentication for mutations
+        if (!context?.serviceTrusted && !context?.botControlTrusted && !context?.user) {
+          throw new Error('Unauthorized: authentication required for mutations');
+        }
+
         // Use a transaction to ensure data consistency
         const results = await NotionModel.sequelize!.transaction(async (transaction) => {
           // Prepare data for bulk creation
@@ -826,6 +874,11 @@ export const NotionModelResolver: IResolvers = {
       context: any
     ) => {
       try {
+        // SECURITY: Require authentication for mutations
+        if (!context?.serviceTrusted && !context?.botControlTrusted && !context?.user) {
+          throw new Error('Unauthorized: authentication required for mutations');
+        }
+
         // Bot control auth: If both serviceTrusted and botControlTrusted are true,
         // bot service has tenant-wide access to update notes (bypasses user ownership checks)
         // This is used for collaborative notes where bot edits shared/work notes during calls
@@ -863,7 +916,7 @@ export const NotionModelResolver: IResolvers = {
 
               if (key === 'content' && parsedValue !== null && parsedValue !== undefined) {
                 // Escape single quotes in JSON for SQL safety
-                const escapedJson = JSON.stringify(parsedValue).replace(/'/g, "''");
+                const escapedJson = escSql(JSON.stringify(parsedValue));
                 if (process.env.DEBUG_PRISM === 'true') {
                   console.log('🔍 [NotionModelResolver] PostgreSQL mode - merging content:', escapedJson);
                 }
@@ -874,7 +927,7 @@ export const NotionModelResolver: IResolvers = {
               } else if (key === 'indexer' && parsedValue !== null && parsedValue !== undefined) {
                 // CRITICAL: Also merge indexer field to preserve indexed fields not in the update
                 // Without this, partial updates lose indexer fields (e.g., updating role loses organizationId)
-                const escapedJson = JSON.stringify(parsedValue).replace(/'/g, "''");
+                const escapedJson = escSql(JSON.stringify(parsedValue));
                 updateFields.indexer = literal(`indexer || '${escapedJson}'::jsonb`);
               } else {
                 // Regular field updates
@@ -972,6 +1025,11 @@ export const NotionModelResolver: IResolvers = {
       context: any
     ) => {
       try {
+        // SECURITY: Require authentication for mutations
+        if (!context?.serviceTrusted && !context?.botControlTrusted && !context?.user) {
+          throw new Error('Unauthorized: authentication required for mutations');
+        }
+
         // Bot control auth: If both serviceTrusted and botControlTrusted are true,
         // bot service has tenant-wide access to replace notes (bypasses user ownership checks)
         const isBotService = context?.serviceTrusted && context?.botControlTrusted;
@@ -1042,6 +1100,11 @@ export const NotionModelResolver: IResolvers = {
       context: any
     ) => {
       try {
+        // SECURITY: Require authentication for mutations
+        if (!context?.serviceTrusted && !context?.botControlTrusted && !context?.user) {
+          throw new Error('Unauthorized: authentication required for mutations');
+        }
+
         // Use a transaction to ensure data consistency
         const deletionResult = await NotionModel.sequelize!.transaction(async (transaction) => {
           // First, get the record to extract content type before deletion

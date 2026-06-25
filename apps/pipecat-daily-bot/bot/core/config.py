@@ -12,8 +12,9 @@ import sys
 from dotenv import load_dotenv
 from loguru import logger
 
-# Load env only once at import – safe & cheap
-load_dotenv(override=True)
+# Load env only once at import – safe & cheap.
+# Do not override process env / upstream dotenv resolution from gateway startup.
+load_dotenv(override=False)
 
 
 def _resolve_log_level() -> str:
@@ -165,11 +166,24 @@ def _env_int_tuple(name: str) -> tuple[int, ...] | None:
 
 
 def BOT_EMPTY_INITIAL_SECS() -> float:
-    return _env_float("BOT_EMPTY_INITIAL_SECS", 10.0)
+    # 120s default gives webchat users a comfortable pause before the bot
+    # idle-shuts-down. Lower it via env for backend tests.
+    return _env_float("BOT_EMPTY_INITIAL_SECS", 120.0)
 
 
 def BOT_EMPTY_POST_LEAVE_SECS() -> float:
     return _env_float_with_alias("BOT_EMPTY_POST_LEAVE_SECS", 3.0, alias="BOT_EMPTY_GRACE_SECS")
+
+
+def BOT_SPAWN_COOLDOWN_SECS() -> float:
+    """Minimum elapsed seconds between consecutive _launch_session calls.
+
+    Guards against thrash when the gateway repeatedly invokes the runner's
+    launch path under retry storms or rapid page reloads. A small cooldown
+    (default 10s) is enough to prevent overlapping LLM/voice connections
+    from competing for GPU. Set to 0 to disable.
+    """
+    return _env_float("BOT_SPAWN_COOLDOWN_SECS", 10.0)
 
 
 def BOT_VOICE_ONLY() -> bool:
@@ -312,17 +326,84 @@ def BOT_VOICE_OPTIMIZE_STREAMING_LATENCY() -> float | None:
 
 
 # ---------------------------------------------------------------------------
-# Kokoro (Chorus) TTS configuration
+# TTS provider configuration. Kokoro/Chorus settings live below as legacy/optional provider settings.
 # ---------------------------------------------------------------------------
 
 
 def BOT_TTS_PROVIDER() -> str:
     provider = os.getenv("BOT_TTS_PROVIDER", "").strip().lower()
-    valid_providers = ["elevenlabs", "pocket", "kokoro"]
+    valid_providers = ["elevenlabs", "pocket", "kokoro", "voxtral", "cartesia"]
     if provider not in valid_providers:
         logger.warning(f"Invalid TTS provider '{provider}', falling back to 'pocket'")
         return "pocket"
     return provider
+
+
+def CARTESIA_API_KEY() -> str | None:
+    value = os.getenv("CARTESIA_API_KEY") or os.getenv("CARTESIA_TTS_API_KEY")
+    return value.strip() if value else None
+
+
+def CARTESIA_TTS_BASE_URL() -> str:
+    return _env_str("CARTESIA_TTS_BASE_URL", "https://api.cartesia.ai")
+
+
+def CARTESIA_TTS_MODEL() -> str:
+    return _env_str("CARTESIA_TTS_MODEL", "sonic-3")
+
+
+def CARTESIA_TTS_VERSION() -> str:
+    return _env_str("CARTESIA_TTS_VERSION", "2026-03-01")
+
+
+def CARTESIA_TTS_VOICE_ID(default: str | None = None) -> str:
+    value = os.getenv("CARTESIA_TTS_VOICE_ID")
+    if value:
+        return value.strip()
+    return default or "cc00e582-ed66-4004-8336-0175b85c85f6"
+
+
+def CARTESIA_TTS_DEFAULT_EMOTION() -> str:
+    return _env_str("CARTESIA_TTS_DEFAULT_EMOTION", "neutral")
+
+
+def CARTESIA_TTS_SPEED() -> float:
+    return _env_float("CARTESIA_TTS_SPEED", 1.0)
+
+
+def CARTESIA_TTS_VOLUME() -> float:
+    return _env_float("CARTESIA_TTS_VOLUME", 1.0)
+
+
+def VOXTRAL_TTS_BASE_URL() -> str:
+    return _env_str("VOXTRAL_TTS_BASE_URL", "http://localhost:18100")
+
+
+def VOXTRAL_TTS_API_KEY() -> str | None:
+    value = os.getenv("VOXTRAL_TTS_API_KEY")
+    return value.strip() if value else None
+
+
+def VOXTRAL_TTS_MODEL() -> str:
+    return _env_str("VOXTRAL_TTS_MODEL", "mistralai/Voxtral-4B-TTS-2603")
+
+
+def VOXTRAL_TTS_VOICE(default: str | None = None) -> str:
+    v = os.getenv("VOXTRAL_TTS_VOICE")
+    if v:
+        return v.strip()
+    return default or "casual_female"
+
+
+def VOXTRAL_TTS_SPEED() -> float:
+    try:
+        return float(os.getenv("VOXTRAL_TTS_SPEED", "1.0"))
+    except ValueError:
+        return 1.0
+
+
+def VOXTRAL_TTS_RESPONSE_FORMAT() -> str:
+    return _env_str("VOXTRAL_TTS_RESPONSE_FORMAT", "wav")
 
 
 def KOKORO_TTS_BASE_URL() -> str:
@@ -419,21 +500,33 @@ def BOT_BEAT_MIN_SPEAK_GAP_SECS() -> float:
 def BOT_GREETING_SINGLE_SYSTEM_MESSAGE() -> str:
     return _env_str(
         "BOT_GREETING_SINGLE_SYSTEM_MESSAGE",
-        "Greet user(s) {{username}} briefly, warmly, and naturally.",
+        (
+            "Greet user {{username}} casually like a friend, not a customer-service agent. "
+            "Be warm and relaxed. Never say 'How can I assist you today?' or anything that sounds like a support ticket. "
+            "Good tone: 'Hey, how's it going? Need any help?' or 'Hey {{username}}, good to see you. What's up?'"
+        ),
     )
 
 
 def BOT_GREETING_PAIR_SYSTEM_MESSAGE() -> str:
     return _env_str(
         "BOT_GREETING_PAIR_SYSTEM_MESSAGE",
-        "Greet user(s) {{username}} inclusively and concisely.",
+        (
+            "Greet users {{username}} casually, like friends catching up. "
+            "Be warm, inclusive, and relaxed. Never use customer-service language like 'How can I assist you?' "
+            "Good tone: 'Hey you two, how's everyone doing?' or 'Hey both of you, what's going on?'"
+        ),
     )
 
 
 def BOT_GREETING_GROUP_SYSTEM_MESSAGE() -> str:
     return _env_str(
         "BOT_GREETING_GROUP_SYSTEM_MESSAGE",
-        "Greet the group (don't bother with names here) and provide a concise kickoff for the conversation.",
+        (
+            "Greet the group casually and warmly like a host at a laid-back gathering. "
+            "Don't list names. Never use formal language like 'How can I assist everyone today?' "
+            "Good tone: 'Hey everyone, great to have you all here. What's the word?' or 'Hey everybody. What's on the agenda?'"
+        ),
     )
 
 
@@ -523,6 +616,7 @@ __all__ = [
     # lifecycle
     "BOT_EMPTY_INITIAL_SECS",
     "BOT_EMPTY_POST_LEAVE_SECS",
+    "BOT_SPAWN_COOLDOWN_SECS",
     "BOT_VOICE_ONLY",
     "BOT_ADMIN_MESSAGE_DIR",
     "BOT_IDENTITY_DIR",
@@ -553,6 +647,14 @@ __all__ = [
     "BOT_VOICE_STYLE",
     "BOT_VOICE_OPTIMIZE_STREAMING_LATENCY",
     "BOT_TTS_PROVIDER",
+    "CARTESIA_API_KEY",
+    "CARTESIA_TTS_BASE_URL",
+    "CARTESIA_TTS_MODEL",
+    "CARTESIA_TTS_VERSION",
+    "CARTESIA_TTS_VOICE_ID",
+    "CARTESIA_TTS_DEFAULT_EMOTION",
+    "CARTESIA_TTS_SPEED",
+    "CARTESIA_TTS_VOLUME",
     "KOKORO_TTS_BASE_URL",
     "KOKORO_TTS_API_KEY",
     "KOKORO_TTS_VOICE_ID",

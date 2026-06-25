@@ -11,6 +11,7 @@ export const GlobalSettingsDefinition: IDynamicContent = {
       properties: {
         _id: { type: 'string', format: 'uuid', optional: true },
         denyListEmails: { type: 'array', items: {type: 'string'}, default: []},
+        allowListEmails: { type: 'array', items: {type: 'string'}, default: []},
         singletonKey: {
           type: 'string',
           enum: [GLOBAL_SETTINGS_SINGLETON_KEY],

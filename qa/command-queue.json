@@ -1,0 +1,115 @@
+{
+  "commands": [
+    {
+      "action": "spawn-acp-agent",
+      "payload": {
+        "projectId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2",
+        "projectType": "game",
+        "projectTitle": "Pixel Landscape",
+        "mode": "games",
+        "swarmDurationMinutes": 20,
+        "taskId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2-opus-0",
+        "role": "opus",
+        "title": "Architecture & Build Plan",
+        "description": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.\n\nYour role in the swarm: Architecture & Build Plan. Build your slice \u2014 do not re-plan or produce alternative variations.",
+        "estimatedMinutes": 5,
+        "buildPrompt": "This is a note that describes a plan to build an app. Build the app it describes.",
+        "fullPrompt": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "noteContent": "Single-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "sourceNoteId": null
+      },
+      "id": "1777422932177-vp6oiu",
+      "issuedAt": "2026-04-29T00:35:32.177Z",
+      "executedAt": "2026-04-29T00:45:46Z"
+    },
+    {
+      "action": "spawn-acp-agent",
+      "payload": {
+        "projectId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2",
+        "projectType": "game",
+        "projectTitle": "Pixel Landscape",
+        "mode": "games",
+        "swarmDurationMinutes": 20,
+        "taskId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2-qwen-4",
+        "role": "qwen",
+        "title": "QA & Polish",
+        "description": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.\n\nYour role in the swarm: QA & Polish. Build your slice \u2014 do not re-plan or produce alternative variations.",
+        "estimatedMinutes": 4,
+        "buildPrompt": "This is a note that describes a plan to build an app. Build the app it describes.",
+        "fullPrompt": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "noteContent": "Single-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "sourceNoteId": null
+      },
+      "id": "1777422932177-14e1uv",
+      "issuedAt": "2026-04-29T00:35:32.177Z",
+      "executedAt": "2026-04-29T00:45:46Z"
+    },
+    {
+      "action": "spawn-acp-agent",
+      "payload": {
+        "projectId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2",
+        "projectType": "game",
+        "projectTitle": "Pixel Landscape",
+        "mode": "games",
+        "swarmDurationMinutes": 20,
+        "taskId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2-codex-1",
+        "role": "codex",
+        "title": "Core Implementation",
+        "description": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.\n\nYour role in the swarm: Core Implementation. Build your slice \u2014 do not re-plan or produce alternative variations.",
+        "estimatedMinutes": 10,
+        "buildPrompt": "This is a note that describes a plan to build an app. Build the app it describes.",
+        "fullPrompt": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "noteContent": "Single-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "sourceNoteId": null
+      },
+      "id": "1777422932177-c9c1um",
+      "issuedAt": "2026-04-29T00:35:32.177Z",
+      "executedAt": "2026-04-29T00:45:46Z"
+    },
+    {
+      "action": "spawn-acp-agent",
+      "payload": {
+        "projectId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2",
+        "projectType": "game",
+        "projectTitle": "Pixel Landscape",
+        "mode": "games",
+        "swarmDurationMinutes": 20,
+        "taskId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2-codex-3",
+        "role": "codex",
+        "title": "Game Mechanics & Physics",
+        "description": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.\n\nYour role in the swarm: Game Mechanics & Physics. Build your slice \u2014 do not re-plan or produce alternative variations.",
+        "estimatedMinutes": 7,
+        "buildPrompt": "This is a note that describes a plan to build an app. Build the app it describes.",
+        "fullPrompt": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "noteContent": "Single-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "sourceNoteId": null
+      },
+      "id": "1777422932178-1q76e2",
+      "issuedAt": "2026-04-29T00:35:32.178Z",
+      "executedAt": "2026-04-29T00:45:46Z"
+    },
+    {
+      "action": "spawn-acp-agent",
+      "payload": {
+        "projectId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2",
+        "projectType": "game",
+        "projectTitle": "Pixel Landscape",
+        "mode": "games",
+        "swarmDurationMinutes": 20,
+        "taskId": "ead51bf1-a87c-4300-945d-7cf47b5f07d2-gemma-2",
+        "role": "gemma",
+        "title": "Sprite & Asset Pipeline",
+        "description": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.\n\nYour role in the swarm: Sprite & Asset Pipeline. Build your slice \u2014 do not re-plan or produce alternative variations.",
+        "estimatedMinutes": 8,
+        "buildPrompt": "This is a note that describes a plan to build an app. Build the app it describes.",
+        "fullPrompt": "This is a note that describes a plan to build an app. Build the app it describes.\n\n\u2014 Note: Pixel Landscape \u2014\n\nSingle-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "noteContent": "Single-file HTML/JS app. Canvas 2D at 256x128 base resolution upscaled with image-rendering:pixelated. 5 parallax layers: sky, mountains, trees/hills, ocean/beach, foreground. Perlin noise terrain generation. 6-minute day/night cycle with palette interpolation. Weather (clear, fog, drizzle, mist). Autonomous pixel animals (birds, crabs, rabbits, deer, fireflies) with simple AI. Auto-panning camera. Tap interaction with ripple effects. No audio. Must run at 60fps. Minimal, elegant, peaceful. Pure Canvas 2D, no frameworks. Base resolution switches between 256x128 (landscape) and 128x256 (portrait) based on device orientation.",
+        "sourceNoteId": null
+      },
+      "id": "1777422932178-fx2r45",
+      "issuedAt": "2026-04-29T00:35:32.178Z",
+      "executedAt": "2026-04-29T00:45:46Z"
+    }
+  ],
+  "maxSize": 100
+}

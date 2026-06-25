@@ -18,7 +18,7 @@ interface ChatModeDesktopProps {
 }
 
 /**
- * Renders the WORK desktop background + icons when chat mode is active.
+ * Renders the DESKTOP background + icons when chat mode is active.
  * This layer sits behind the ChatMode overlay so icons are visible
  * when the chat panel is minimized.
  *
@@ -35,7 +35,7 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
   const { isChatMode, setIsChatMode } = useUI();
   const { currentMode } = useDesktopMode();
   const [wonderCanvasActive, setWonderCanvasActive] = useState(false);
-  const isWorkMode = currentMode === DesktopMode.WORK;
+  const isDesktopMode = currentMode === DesktopMode.DESKTOP;
 
   useEffect(() => {
     const handleWonderScene = () => setWonderCanvasActive(true);
@@ -48,13 +48,13 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
     };
   }, []);
 
-  // Show desktop icons when chat mode is active OR when in WORK desktop mode
-  if (!isChatMode && !isWorkMode) return null;
+  // Show desktop icons when chat mode is active OR when in DESKTOP mode
+  if (!isChatMode && !isDesktopMode) return null;
 
   return (
     <div
       className="pointer-events-none fixed inset-0"
-      data-desktop-mode="work"
+      data-desktop-mode="desktop"
       style={{
         zIndex: wonderCanvasActive ? -1 : 25,
         opacity: 1,
@@ -73,6 +73,7 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
       <button
         onClick={() => setIsChatMode(false)}
         aria-label="Go to home"
+        className="pearl-nav-button"
         style={{
           position: 'fixed',
           top: '12px',
@@ -84,10 +85,10 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: '10px',
-          background: 'rgba(255, 255, 255, 0.12)',
+          background: 'var(--pearl-nav-button-bg, rgba(255, 255, 255, 0.12))',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
+          border: '1px solid var(--pearl-nav-button-border, rgba(255, 255, 255, 0.18))',
           cursor: 'pointer',
           pointerEvents: 'auto',
           WebkitTapHighlightColor: 'transparent',
@@ -95,10 +96,10 @@ const ChatModeDesktop: React.FC<ChatModeDesktopProps> = ({
           transition: 'background 0.2s ease, transform 0.1s ease',
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.22)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--pearl-nav-button-hover-bg, rgba(255, 255, 255, 0.22))';
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.12)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--pearl-nav-button-bg, rgba(255, 255, 255, 0.12))';
         }}
         onTouchStart={(e) => {
           (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.92)';

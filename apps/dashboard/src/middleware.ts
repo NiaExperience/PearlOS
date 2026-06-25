@@ -4,30 +4,23 @@ import { getToken } from 'next-auth/jwt';
 // Always import from the app's own next/server
 
 const adminPaths = ['/secret', '/dashboard/users'];
-const publicRoutes = ['/', '/login', '/api/auth', '/unauthorized', '/auth/(.*)', '/api/google/(.*)','/api/google/auth/(.*)', '/health'];
+const publicRoutes = ['/', '/dashboard/login', '/api/auth', '/dashboard/api/auth', '/unauthorized', '/auth/(.*)', '/api/google/(.*)', '/dashboard/api/google/(.*)', '/api/google/auth/(.*)', '/health'];
 
 const middleware = authMiddleware({
   publicRoutes,
-  signInPath: '/login',
+  signInPath: '/dashboard/login',
   cookiePrefix: 'dashboard-auth',
 });
 
 export default async function dashboardMiddleware(request: NextRequest): Promise<NextResponse | Response | void> {
-  // Skip auth for local development if DISABLE_DASHBOARD_AUTH is set
-  // Check both env var and hostname for localhost
-  const disableAuth = 
-    process.env.DISABLE_DASHBOARD_AUTH === 'true' || 
-    (process.env.NODE_ENV === 'development' && 
-     (request.nextUrl.hostname === 'localhost' || 
-      request.nextUrl.hostname === '127.0.0.1' ||
-       request.nextUrl.hostname.includes('runpod.net') ||
-      process.env.NEXTAUTH_URL?.includes('localhost')));
+  // Only skip auth when DISABLE_DASHBOARD_AUTH=true (explicit opt-in).
+  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
   
   if (disableAuth) {
     console.log('🔓 Dashboard auth disabled for local development');
-    // If trying to access /login, redirect to /dashboard instead
-    if (request.nextUrl.pathname === '/login') {
-      return NextResponse.redirect(new URL('/dashboard', request.nextUrl));
+    // If trying to access dashboard login while auth is disabled, go straight to dashboard.
+    if (request.nextUrl.pathname === '/dashboard/login') {
+      return NextResponse.redirect(new URL('/dashboard/assistants', request.nextUrl));
     }
     const enrichedHeaders = new Headers(request.headers);
     if (!enrichedHeaders.get('x-forwarded-host')) {
@@ -41,6 +34,7 @@ export default async function dashboardMiddleware(request: NextRequest): Promise
 
   // Ensure forwarded headers are present for downstream (NextAuth, URL building)
   const enrichedHeaders = new Headers(request.headers);
+  enrichedHeaders.set('x-dashboard-pathname', request.nextUrl.pathname);
   if (!enrichedHeaders.get('x-forwarded-host')) {
     enrichedHeaders.set('x-forwarded-host', request.nextUrl.host);
   }
@@ -94,11 +88,11 @@ export default async function dashboardMiddleware(request: NextRequest): Promise
     } catch {
       // ignore
     }
-    if (publicRoutes.includes(path)) {
-      // Allow access to public routes even if not authenticated
+    const isPublicPath = publicRoutes.some(route => path === route || path.startsWith(route + '/'));
+    if (isPublicPath) {
       return NextResponse.next({ request: { headers: enrichedHeaders } });
     }
-    const response = NextResponse.redirect(new URL('/login', request.nextUrl));
+    const response = NextResponse.redirect(new URL('/dashboard/login', request.nextUrl));
     const cookieNames = [
       'dashboard-auth.session-token',
       '__Secure-dashboard-auth.session-token',
@@ -121,7 +115,7 @@ export default async function dashboardMiddleware(request: NextRequest): Promise
 
   // If token is anonymous, sign out and redirect to login
   if (token.is_anonymous) {
-    const response = NextResponse.redirect(new URL('/login', request.nextUrl));
+    const response = NextResponse.redirect(new URL('/dashboard/login', request.nextUrl));
     const cookieNames = [
       'dashboard-auth.session-token',
       '__Secure-dashboard-auth.session-token',
@@ -142,11 +136,6 @@ export default async function dashboardMiddleware(request: NextRequest): Promise
     return response;
   }
 
-  // If user is authenticated and trying to access /login, redirect to dashboard
-  if (path === '/login' && token) {
-    return NextResponse.redirect(new URL('/dashboard', request.nextUrl));
-  }
-
   // Block anonymous users from dashboard
   if (token?.is_anonymous) {
     return NextResponse.redirect(new URL('/unauthorized', request.nextUrl));
@@ -156,7 +145,7 @@ export default async function dashboardMiddleware(request: NextRequest): Promise
   if (adminPaths.includes(path)) {
     try {
       const baseUrl = request.nextUrl.origin;
-      const rolesResponse = await fetch(`${baseUrl}/api/users/me/tenant-roles`, {
+      const rolesResponse = await fetch(`${baseUrl}/dashboard/api/users/me/tenant-roles`, {
         headers: {
           'Cookie': request.headers.get('cookie') || '',
         },
@@ -180,12 +169,22 @@ export default async function dashboardMiddleware(request: NextRequest): Promise
 
   // Redirect root to dashboard only if user is authenticated
   if (path === '/' && token) {
-    return NextResponse.redirect(new URL('/dashboard', request.nextUrl));
+    return NextResponse.redirect(new URL('/dashboard/assistants', request.nextUrl));
   }
 
   return NextResponse.next({ request: { headers: enrichedHeaders } });
 }
 
 export const config = {
-  matcher: ['/', '/login', '/dashboard', '/dashboard/tools-marketplace', '/dashboard/tools', '/secret', '/dashboard/users', '/unauthorized'],
+  matcher: [
+    '/',
+    '/dashboard/:path*',
+    '/secret',
+    '/unauthorized',
+    '/api/auth/:path*',
+    '/auth/:path*',
+    '/api/google/:path*',
+    '/api/google/auth/:path*',
+    '/health',
+  ],
 };

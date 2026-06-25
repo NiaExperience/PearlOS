@@ -154,10 +154,10 @@ async function promptTtsProvider() {
       message: 'Which TTS (Text-to-Speech) provider would you like to use?',
       choices: [
         { name: 'Chorus TTS (local, open-source)', value: 'chorus' },
-        { name: 'Pocket TTS (local)', value: 'pocket' },
+        { name: 'Pocket TTS (local HTTP service)', value: 'pocket' },
         { name: 'ElevenLabs (cloud, requires API key)', value: 'elevenlabs' },
       ],
-      default: 'pocket',
+      default: 'chorus',
     },
   ]);
   return provider;
@@ -184,6 +184,14 @@ async function promptCredentials() {
   const existingEnv = readEnvFile(envPath);
   
   const creds = { ttsProvider };
+  if (ttsProvider === 'chorus') {
+    creds.BOT_TTS_PROVIDER = 'kokoro';
+    creds.botTtsProvider = 'kokoro';
+  } else {
+    creds.BOT_TTS_PROVIDER = ttsProvider;
+    creds.botTtsProvider = ttsProvider;
+  }
+
   const apiKeys = [
     {
       name: 'daily',
@@ -213,6 +221,21 @@ async function promptCredentials() {
       label: 'ELEVENLABS_API_KEY',
       url: 'https://elevenlabs.io/app/settings/api-keys',
     });
+  }
+
+  if (ttsProvider === 'pocket') {
+    const existingPocketUrl = existingEnv.POCKET_TTS_URL || 'http://localhost:8766';
+    const { pocketUrl } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'pocketUrl',
+        message: 'POCKET_TTS_URL (Pocket TTS endpoint):',
+        default: existingPocketUrl,
+        validate: (input) => input.length > 0 || 'POCKET_TTS_URL cannot be empty',
+      },
+    ]);
+    creds.POCKET_TTS_URL = pocketUrl;
+    creds.pocketTtsUrl = pocketUrl;
   }
 
   for (const apiKey of apiKeys) {

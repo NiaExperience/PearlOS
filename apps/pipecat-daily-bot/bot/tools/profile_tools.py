@@ -4,6 +4,7 @@ Tools for managing user profiles (preferences, settings, metadata).
 """
 
 import os
+from datetime import datetime, timezone
 
 from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
@@ -58,7 +59,14 @@ async def bot_update_user_profile(params: FunctionCallParams):
     
     # DON'T wrap in another metadata layer - these ARE the metadata updates
     # The upsert function will handle merging into existing metadata
-    wrapped_updates = {"metadata": updates}
+    wrapped_updates = {
+        "metadata": updates,
+        "onboardingState": {
+            "requiredActions": {"profileUpdated": True},
+            "promptFeatureKey": "onboarding",
+            "updatedAt": datetime.now(timezone.utc).isoformat()
+        }
+    }
     
     log = log.bind(updates=updates)
     log.debug("Profile metadata updates prepared")

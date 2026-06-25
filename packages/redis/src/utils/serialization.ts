@@ -85,8 +85,8 @@ export function safeSerialize(data: unknown): string {
  * Message serializer class wrapper
  */
 export class MessageSerializer {
-  async serialize<T extends BaseMessage>(message: T, options?: { compress?: boolean }): Promise<string> {
-    const result = serializeMessage(message);
+  async serialize<T>(message: T, options?: { compress?: boolean }): Promise<string> {
+    const result = serializeMessage(message as any);
     if (result.success && result.data) {
       return result.data;
     }

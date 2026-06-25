@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Breakout Roguelike</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f7f1dd;
+      --muted: #b9a98f;
+      --panel: rgba(14, 18, 24, 0.82);
+      --line: rgba(255, 255, 255, 0.16);
+      --gold: #f3c969;
+      --teal: #63d7c9;
+      --rose: #f0789a;
+      --green: #8ee28a;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #090b10;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(99, 215, 201, 0.16), transparent 30%),
+        radial-gradient(circle at 75% 25%, rgba(240, 120, 154, 0.13), transparent 32%),
+        linear-gradient(135deg, #090b10 0%, #15121a 54%, #0c1115 100%);
+    }
+
+    .wrap {
+      width: min(1180px, 100vw);
+      height: min(760px, 100vh);
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) 270px;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .stage, .side {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    .stage {
+      position: relative;
+      min-height: 420px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      cursor: none;
+    }
+
+    .side {
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat, .card, button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .stat {
+      min-height: 58px;
+      padding: 9px;
+    }
+
+    .label {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .value {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: 18px;
+    }
+
+    .card {
+      padding: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .relics {
+      min-height: 68px;
+    }
+
+    .choice {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(6, 8, 12, 0.7);
+      backdrop-filter: blur(4px);
+    }
+
+    .choice.open { display: flex; }
+
+    .choice-panel {
+      width: min(640px, 96%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(13, 16, 22, 0.96);
+      padding: 16px;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.55);
+    }
+
+    .choice-title {
+      font-size: 17px;
+      margin-bottom: 12px;
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      min-height: 92px;
+      padding: 11px;
+      color: var(--ink);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+
+    button:hover, button:focus-visible {
+      outline: none;
+      transform: translateY(-2px);
+      border-color: rgba(243, 201, 105, 0.75);
+      background: rgba(243, 201, 105, 0.12);
+    }
+
+    .btn-title {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--gold);
+      font-size: 13px;
+    }
+
+    .btn-copy {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .toast {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 3;
+      color: var(--ink);
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 11px;
+      pointer-events: none;
+    }
+
+    @media (max-width: 820px) {
+      .wrap {
+        height: 100vh;
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+        padding: 8px;
+      }
+
+      .side {
+        max-height: 230px;
+        overflow: auto;
+      }
+
+      .choice-grid { grid-template-columns: 1fr; }
+      button { min-height: 72px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main class="stage">
+      <canvas id="game" width="900" height="640" aria-label="Breakout Roguelike game board"></canvas>
+      <div class="toast" id="toast">Move with mouse, touch, arrows, or A/D. Space launches. Clear rooms to pick relics.</div>
+      <div class="choice" id="choice">
+        <div class="choice-panel">
+          <div class="choice-title">Choose a relic</div>
+          <div class="choice-grid" id="choiceGrid"></div>
+        </div>
+      </div>
+    </main>
+    <aside class="side">
+      <div>
+        <h1>Breakout Roguelike</h1>
+        <div class="sub">Break bricks, survive rooms, and stack relics until the run gets rude.</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="label">Room</span><span class="value" id="room">1</span></div>
+        <div class="stat"><span class="label">Lives</span><span class="value" id="lives">3</span></div>
+        <div class="stat"><span class="label">Score</span><span class="value" id="score">0</span></div>
+        <div class="stat"><span class="label">Best</span><span class="value" id="best">0</span></div>
+      </div>
+      <div class="card relics">
+        <span class="label">Relics</span>
+        <div id="relics">None yet.</div>
+      </div>
+      <div class="card">
+        Bricks have hit points. Gold bricks drop shards. Purple bricks push the ball faster. Every cleared room offers three relics.
+      </div>
+      <div class="card">
+        Press R after a run ends to restart. Pointer control works best in Studio.
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const ui = {
+      room: document.getElementById('room'),
+      lives: document.getElementById('lives'),
+      score: document.getElementById('score'),
+      best: document.getElementById('best'),
+      relics: document.getElementById('relics'),
+      toast: document.getElementById('toast'),
+      choice: document.getElementById('choice'),
+      choiceGrid: document.getElementById('choiceGrid')
+    };
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const keys = new Set();
+    const bestKey = 'pearlos.breakoutRoguelike.best';
+    let best = Number(localStorage.getItem(bestKey) || 0);
+    let state;
+
+    const relics = [
+      { name: 'Wide Paddle', copy: 'Paddle width +28%.', apply: s => s.paddle.w *= 1.28 },
+      { name: 'Twin Ball', copy: 'Launch an extra ball immediately.', apply: s => spawnBall(s, -1) },
+      { name: 'Heavy Ball', copy: 'Hits bricks for +1 damage.', apply: s => s.damage += 1 },
+      { name: 'Soft Hands', copy: 'Gain one life.', apply: s => s.lives += 1 },
+      { name: 'Magnet Rail', copy: 'Recover the first missed ball each room.', apply: s => s.magnet += 1 },
+      { name: 'Gold Fever', copy: 'Gold bricks pay triple.', apply: s => s.goldMult += 2 },
+      { name: 'Calm Core', copy: 'Ball speed drops 10%.', apply: s => s.speed *= 0.9 },
+      { name: 'Piercer', copy: 'Every fourth hit passes through a brick.', apply: s => s.pierce += 1 },
+      { name: 'Shard Shield', copy: 'Every 12 shards becomes a life.', apply: s => s.shield = true }
+    ];
+
+    function makeState() {
+      return {
+        room: 1,
+        lives: 3,
+        score: 0,
+        shards: 0,
+        speed: 5.2,
+        damage: 1,
+        goldMult: 1,
+        magnet: 0,
+        pierce: 0,
+        shield: false,
+        paused: false,
+        gameOver: false,
+        relicNames: [],
+        hitCount: 0,
+        paddle: { x: W / 2 - 62, y: H - 48, w: 124, h: 14, vx: 0 },
+        balls: [],
+        bricks: []
+      };
+    }
+
+    function reset() {
+      state = makeState();
+      makeRoom();
+      spawnBall(state, 1, true);
+      closeChoices();
+      setToast('Space launches. Clear the room for a relic.');
+      updateUi();
+    }
+
+    function makeRoom() {
+      const cols = 9;
+      const rows = Math.min(5 + Math.floor(state.room / 2), 9);
+      const gap = 8;
+      const bw = (W - 76 - gap * (cols - 1)) / cols;
+      const bh = 24;
+      state.bricks = [];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const roll = Math.random();
+          const hp = 1 + Math.floor((state.room + y) / 3) + (roll > 0.82 ? 1 : 0);
+          const kind = roll > 0.9 ? 'haste' : roll > 0.72 ? 'gold' : 'stone';
+          state.bricks.push({
+            x: 38 + x * (bw + gap),
+            y: 64 + y * (bh + gap),
+            w: bw,
+            h: bh,
+            hp,
+            max: hp,
+            kind
+          });
+        }
+      }
+    }
+
+    function spawnBall(s, dir, stuck = false) {
+      const angle = (-Math.PI / 2) + (dir || 1) * 0.34;
+      s.balls.push({
+        x: s.paddle.x + s.paddle.w / 2,
+        y: s.paddle.y - 10,
+        r: 7,
+        vx: Math.cos(angle) * s.speed,
+        vy: Math.sin(angle) * s.speed,
+        stuck
+      });
+    }
+
+    function setToast(text) {
+      ui.toast.textContent = text;
+    }
+
+    function updateUi() {
+      ui.room.textContent = state.room;
+      ui.lives.textContent = state.lives;
+      ui.score.textContent = state.score;
+      ui.best.textContent = best;
+      ui.relics.textContent = state.relicNames.length ? state.relicNames.join(', ') : 'None yet.';
+    }
+
+    function openChoices() {
+      state.paused = true;
+      const options = [...relics].sort(() => Math.random() - 0.5).slice(0, 3);
+      ui.choiceGrid.innerHTML = '';
+      for (const relic of options) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.innerHTML = '<span class="btn-title">' + relic.name + '</span><span class="btn-copy">' + relic.copy + '</span>';
+        button.addEventListener('click', () => chooseRelic(relic));
+        ui.choiceGrid.appendChild(button);
+      }
+      ui.choice.classList.add('open');
+    }
+
+    function closeChoices() {
+      ui.choice.classList.remove('open');
+      ui.choiceGrid.innerHTML = '';
+    }
+
+    function chooseRelic(relic) {
+      relic.apply(state);
+      state.relicNames.push(relic.name);
+      state.room += 1;
+      state.magnet += state.relicNames.includes('Magnet Rail') ? 1 : 0;
+      makeRoom();
+      state.balls = [];
+      spawnBall(state, 1, true);
+      state.paused = false;
+      closeChoices();
+      setToast(relic.name + ' acquired. Space launches the next room.');
+      updateUi();
+    }
+
+    function loseBall(index) {
+      state.balls.splice(index, 1);
+      if (state.balls.length) return;
+      if (state.magnet > 0) {
+        state.magnet -= 1;
+        spawnBall(state, 1, true);
+        setToast('Magnet Rail saved the ball.');
+        return;
+      }
+      state.lives -= 1;
+      if (state.lives <= 0) {
+        state.gameOver = true;
+        best = Math.max(best, state.score);
+        localStorage.setItem(bestKey, String(best));
+        setToast('Run ended. Press R to restart.');
+      } else {
+        spawnBall(state, 1, true);
+        setToast('Ball lost. Space launches.');
+      }
+      updateUi();
+    }
+
+    function launchBalls() {
+      for (const b of state.balls) {
+        if (!b.stuck) continue;
+        b.stuck = false;
+        b.vx = (Math.random() > 0.5 ? 1 : -1) * state.speed * 0.45;
+        b.vy = -state.speed;
+      }
+    }
+
+    function hitBrick(ball, brick) {
+      state.hitCount += 1;
+      brick.hp -= state.damage;
+      const piercing = state.pierce > 0 && state.hitCount % 4 === 0;
+      if (!piercing) ball.vy *= -1;
+      if (brick.kind === 'haste') {
+        ball.vx *= 1.04;
+        ball.vy *= 1.04;
+      }
+      if (brick.hp <= 0) {
+        state.score += 60 + state.room * 7 + brick.max * 12;
+        if (brick.kind === 'gold') {
+          const gain = 3 * state.goldMult;
+          state.shards += gain;
+          state.score += 50 * gain;
+          if (state.shield && state.shards >= 12) {
+            state.shards -= 12;
+            state.lives += 1;
+            setToast('Shard Shield made a life.');
+          }
+        }
+        state.bricks = state.bricks.filter(b => b !== brick);
+        if (!state.bricks.length) {
+          best = Math.max(best, state.score);
+          localStorage.setItem(bestKey, String(best));
+          setToast('Room clear. Pick a relic.');
+          updateUi();
+          openChoices();
+        }
+      }
+    }
+
+    function step() {
+      if (!state.paused && !state.gameOver) update();
+      draw();
+      requestAnimationFrame(step);
+    }
+
+    function update() {
+      const p = state.paddle;
+      p.vx = 0;
+      if (keys.has('ArrowLeft') || keys.has('a')) p.vx -= 8;
+      if (keys.has('ArrowRight') || keys.has('d')) p.vx += 8;
+      p.x = Math.max(16, Math.min(W - p.w - 16, p.x + p.vx));
+
+      for (let i = state.balls.length - 1; i >= 0; i--) {
+        const b = state.balls[i];
+        if (b.stuck) {
+          b.x = p.x + p.w / 2;
+          b.y = p.y - 11;
+          continue;
+        }
+        b.x += b.vx;
+        b.y += b.vy;
+        if (b.x < b.r || b.x > W - b.r) b.vx *= -1;
+        if (b.y < b.r) b.vy *= -1;
+        if (b.y > H + 40) {
+          loseBall(i);
+          continue;
+        }
+        if (b.y + b.r > p.y && b.y - b.r < p.y + p.h && b.x > p.x && b.x < p.x + p.w && b.vy > 0) {
+          const t = (b.x - (p.x + p.w / 2)) / (p.w / 2);
+          b.vx = t * state.speed * 1.35;
+          b.vy = -Math.abs(b.vy);
+          b.y = p.y - b.r - 1;
+        }
+        for (const brick of [...state.bricks]) {
+          if (b.x + b.r < brick.x || b.x - b.r > brick.x + brick.w || b.y + b.r < brick.y || b.y - b.r > brick.y + brick.h) continue;
+          hitBrick(b, brick);
+          break;
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#111722');
+      g.addColorStop(1, '#171019');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      for (let x = 0; x < W; x += 36) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+
+      for (const brick of state.bricks) {
+        const hue = brick.kind === 'gold' ? '#f3c969' : brick.kind === 'haste' ? '#b181ff' : '#63d7c9';
+        ctx.fillStyle = hue;
+        ctx.globalAlpha = 0.38 + 0.12 * brick.hp;
+        roundRect(brick.x, brick.y, brick.w, brick.h, 5);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.font = '12px monospace';
+        ctx.fillText(String(brick.hp), brick.x + 8, brick.y + 16);
+      }
+
+      ctx.fillStyle = '#f7f1dd';
+      roundRect(state.paddle.x, state.paddle.y, state.paddle.w, state.paddle.h, 7);
+      ctx.fill();
+      ctx.fillStyle = '#f3c969';
+      for (const b of state.balls) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = 'rgba(247,241,221,0.82)';
+      ctx.font = '14px monospace';
+      ctx.fillText('Shards: ' + state.shards, 18, 28);
+      if (state.gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.62)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#f7f1dd';
+        ctx.font = '34px monospace';
+        ctx.fillText('Run ended', W / 2 - 102, H / 2 - 12);
+        ctx.font = '16px monospace';
+        ctx.fillText('Score ' + state.score + ' - press R', W / 2 - 102, H / 2 + 22);
+      }
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    canvas.addEventListener('pointermove', event => {
+      const rect = canvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * W;
+      state.paddle.x = Math.max(16, Math.min(W - state.paddle.w - 16, x - state.paddle.w / 2));
+    });
+
+    canvas.addEventListener('pointerdown', () => {
+      if (state.gameOver) reset();
+      else launchBalls();
+    });
+
+    window.addEventListener('keydown', event => {
+      keys.add(event.key);
+      if (event.key === ' ') {
+        event.preventDefault();
+        launchBalls();
+      }
+      if (event.key.toLowerCase() === 'r') reset();
+    });
+
+    window.addEventListener('keyup', event => keys.delete(event.key));
+
+    reset();
+    ui.best.textContent = best;
+    step();
+  </script>
+</body>
+</html>

@@ -37,12 +37,12 @@ export default async function ToolDetails({ params }: { params: { id: string } }
   const session = await getSessionSafely(undefined, dashboardAuthOptions);
   
   if (!session || !session.user) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Deny access to anonymous users
   if (session.user.is_anonymous) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Check if user has admin access to any tenant
@@ -52,7 +52,7 @@ export default async function ToolDetails({ params }: { params: { id: string } }
   ) || false;
 
   if (!hasAdminAccess) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   const tool = tools.find((t) => t.id === params.id);

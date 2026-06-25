@@ -53,7 +53,7 @@ export function useCurrentRoles(): UseCurrentRolesResult {
       setLoading(true); setError(undefined);
       try {
         // Fetch tenant role for user
-        const trRes = await fetch(`/api/tenant-roles?tenantId=${selectedTenantId}&userId=${userId}`, { signal: controller.signal });
+        const trRes = await fetch(`/dashboard/api/tenant-roles?tenantId=${selectedTenantId}&userId=${userId}`, { signal: controller.signal });
         if (trRes.ok) {
           const trData = await trRes.json();
           if (!cancelled) setTenantRole(trData.roles[0] || undefined);
@@ -62,7 +62,7 @@ export function useCurrentRoles(): UseCurrentRolesResult {
         }
         // Fetch org role if org selected
         if (selectedOrganizationId) {
-          const orRes = await fetch(`/api/organization-roles?tenantId=${selectedTenantId}&organizationId=${selectedOrganizationId}&userId=${userId}`, { signal: controller.signal });
+          const orRes = await fetch(`/dashboard/api/organization-roles?tenantId=${selectedTenantId}&organizationId=${selectedOrganizationId}&userId=${userId}`, { signal: controller.signal });
           if (orRes.ok) {
             const orData = await orRes.json();
             const activeOrgRole = orData.roles[0];

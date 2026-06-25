@@ -60,7 +60,7 @@ export const AssistantHeader = ({ assistant }: { assistant: IAssistant }) => {
     }
     setIsCloning(true);
     try {
-      const response = await fetch(`/api/assistant/clone`, {
+      const response = await fetch(`/dashboard/api/assistant/clone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assistantId: assistant._id, newName: clonedAssistantName }),
@@ -104,7 +104,7 @@ export const AssistantHeader = ({ assistant }: { assistant: IAssistant }) => {
       return;
     }
     try {
-      const response = await fetch(`/api/assistant/delete`, {
+      const response = await fetch(`/dashboard/api/assistant/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assistantId: assistant._id }),

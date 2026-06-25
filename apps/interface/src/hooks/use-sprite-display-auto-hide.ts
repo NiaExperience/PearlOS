@@ -14,7 +14,6 @@ const HIDE_DELAY = 3000; // 3 seconds
 
 /**
  * Hook for auto-hiding UI elements when sprite is displayed in Quiet mode.
- * Similar behavior to ManeuverableWindowControls:
  * - Desktop: Show on mouse move, hide after 3s inactivity
  * - Mobile: Start hidden, show on touch/click
  * - Stays visible when dropdowns are open

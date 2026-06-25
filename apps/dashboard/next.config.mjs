@@ -21,8 +21,16 @@ if (result.parsed) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  assetPrefix: "/dashboard",
   reactStrictMode: true,
-  // Removed deprecated/invalid keys: experimental.appDir (auto-enabled in Next 15) and srcDir (unsupported) to silence runtime warnings.
+  async rewrites() {
+    return [
+      {
+        source: '/dashboard/api/:path*',
+        destination: '/api/:path*',
+      },
+    ];
+  },
   images: {
     domains: ['images.unsplash.com', 'res.cloudinary.com'],
   },
@@ -135,6 +143,7 @@ const nextConfig = {
     NEXT_PUBLIC_MESH_SHARED_SECRET: process.env.MESH_SHARED_SECRET,
     // Set Prism config path to the source location
     PRISM_CONFIG_PATH: resolve(projectRoot, 'packages/prism/src/data-bridge'),
+    DISABLE_DASHBOARD_AUTH: process.env.DISABLE_DASHBOARD_AUTH || "false",
   },
 };
 

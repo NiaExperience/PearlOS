@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@interface/components/ui/dropdown-menu';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
-import { NIA_EVENT_APPLET_OPEN, NIA_EVENT_APPLET_SHARE_OPEN, NIA_EVENT_HTML_MODIFICATION_REQUESTED, NIA_EVENT_HTML_GENERATION_REQUESTED } from '@interface/features/DailyCall/events/niaEventRouter';
+import { NIA_EVENT_APPLET_OPEN, NIA_EVENT_APPLET_REFRESH, NIA_EVENT_APPLET_SHARE_OPEN, NIA_EVENT_HTML_MODIFICATION_REQUESTED, NIA_EVENT_HTML_GENERATION_REQUESTED } from '@interface/features/DailyCall/events/niaEventRouter';
 import { SharedByBadge, SharedIndicator, SharingModal } from '@interface/features/ResourceSharing/components';
 import { createSharingOrganization, getUserSharedResources } from '@interface/features/ResourceSharing/lib';
 import { useToast } from '@interface/hooks/use-toast';
@@ -50,6 +50,11 @@ const ensureGohufont = () => {
 };
 
 const log = getClientLogger('[html-generation.html-content-viewer]');
+
+const deleteAppletUrl = (appletId: string, assistantName: string) => {
+  const qp = new URLSearchParams({ assistantName });
+  return `/api/html-generation/${encodeURIComponent(appletId)}?${qp.toString()}`;
+};
 
 interface HtmlContentViewerProps {
   // title: string;
@@ -239,7 +244,7 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [appletToDelete, setAppletToDelete] = useState<{ id: string; title: string; sourceNoteId?: string; isCurrent: boolean } | null>(null);
 
-  // Header auto-hide state (similar to ManeuverableWindowControls)
+  // Header auto-hide state (HTML viewer header bar)
   const [headerVisible, setHeaderVisible] = useState(true);
   const [isAppletDropdownOpen, setIsAppletDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -284,10 +289,20 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
     if (!appletToDelete) return;
     
     const { id: pageId, title, sourceNoteId, isCurrent } = appletToDelete;
+    const assistantName = agent || (session as any)?.user?.assistantName;
+
+    if (!assistantName) {
+      toast({
+        title: 'Delete Failed',
+        description: 'Assistant name not found',
+        variant: 'destructive',
+      } as any);
+      return;
+    }
     
     try {
       setDeletingAppletId(pageId);
-      const res = await fetch(`/api/html-generation/${encodeURIComponent(pageId)}`, { method: 'DELETE' });
+      const res = await fetch(deleteAppletUrl(pageId, assistantName), { method: 'DELETE' });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
         throw new Error(json?.message || 'Failed to delete');
@@ -328,6 +343,11 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
       });
       
       setAppletsRefreshCounter(c => c + 1);
+      window.dispatchEvent(
+        new CustomEvent(NIA_EVENT_APPLET_REFRESH, {
+          detail: { payload: { appletId: pageId } },
+        })
+      );
       setDeleteModalOpen(false);
       setAppletToDelete(null);
       setIsAppletDropdownOpen(false); // Close dropdown after deletion
@@ -344,7 +364,7 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
     } finally {
       setDeletingAppletId(null);
     }
-  }, [appletToDelete, appletId, onClose, onRequestAppletChange, posthog, toast]);
+  }, [agent, appletToDelete, appletId, onClose, onRequestAppletChange, posthog, session, toast]);
 
   const cancelDelete = useCallback(() => {
     setDeleteModalOpen(false);
@@ -465,34 +485,25 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
     }
   }, [isAppletDropdownOpen, isUserDropdownOpen, enableAppletSelector, resetHideTimer]);
 
-  // Notify ManeuverableWindowControls about dropdown state changes
+  // When a dropdown opens, keep header visible and cancel pending hide
   useEffect(() => {
     if (!enableAppletSelector) return;
     
     const anyDropdownOpen = isAppletDropdownOpen || isUserDropdownOpen;
     
-    // When any dropdown opens, force header to be visible
     if (anyDropdownOpen) {
       setHeaderVisible(true);
-      // Clear any pending hide timer
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
       }
     }
-    
-    // Dispatch custom event to inform window controls about dropdown state
-    window.dispatchEvent(
-      new CustomEvent('htmlViewer.dropdownStateChange', {
-        detail: { isDropdownOpen: anyDropdownOpen }
-      })
-    );
   }, [isAppletDropdownOpen, isUserDropdownOpen, enableAppletSelector]);
 
   // Handle mouse movement and window focus/blur for header auto-hide
   useEffect(() => {
     if (!enableAppletSelector) return;
     
-    // Find the window container (parent of both header and ManeuverableWindowControls)
+    // Find the window container (parent of header)
     const windowContainer = document.querySelector('[class*="border"][class*="rounded-xl"][class*="overflow-hidden"]');
     if (!windowContainer) return;
 
@@ -544,7 +555,7 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
       resetHideTimer();
     };
 
-    // Add event listeners to the window container (same as ManeuverableWindowControls uses)
+    // Add event listeners to the window container
     windowContainer.addEventListener('mousemove', handleMouseMove);
     windowContainer.addEventListener('mouseleave', handleMouseLeave);
     windowContainer.addEventListener('mouseenter', handleMouseEnter);
@@ -945,6 +956,25 @@ export function HtmlContentViewer(props: HtmlContentViewerProps) {
 })();`;
 
       let finalHtml = htmlContent;
+
+      // Frame-lock injection: AI-generated applets often omit a viewport meta
+      // and the inputs default to <16px font, which makes iOS Safari auto-zoom
+      // on focus and leaves the user pinned inside the iframe with no way out.
+      // Inject a viewport lock + 16px form-input floor + touch-action / overscroll
+      // rules so every applet behaves like the rest of PearlOS.
+      const frameLockMeta = '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />';
+      const frameLockStyle = '<style>html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;overscroll-behavior:contain;}@media (pointer:coarse),(max-width:1024px){input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),textarea,select,[contenteditable="true"],[contenteditable=""],[role="textbox"]{font-size:16px !important;}}</style>';
+      if (!/<meta\s+name=["']viewport["']/i.test(finalHtml)) {
+        if (finalHtml.includes('<head>')) {
+          finalHtml = finalHtml.replace('<head>', `<head>${frameLockMeta}${frameLockStyle}`);
+        } else if (finalHtml.includes('<html')) {
+          finalHtml = finalHtml.replace(/<html([^>]*)>/i, `<html$1><head>${frameLockMeta}${frameLockStyle}</head>`);
+        } else {
+          finalHtml = `<!DOCTYPE html><html><head>${frameLockMeta}${frameLockStyle}</head><body>${finalHtml}</body></html>`;
+        }
+      } else if (finalHtml.includes('</head>')) {
+        finalHtml = finalHtml.replace('</head>', `${frameLockStyle}</head>`);
+      }
 
       // Inject applet configuration bridge FIRST (before any other scripts)
       if (finalHtml.includes('<head>')) {

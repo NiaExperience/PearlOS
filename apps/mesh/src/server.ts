@@ -377,25 +377,58 @@ export async function startServer(port?: number | string, testMode = false): Pro
           await initDatabase(true);
         }
         
-        // Add bot control auth to context for resolvers
+        // Add auth context for resolvers (service, bot, and user tokens)
         const meshSecret = process.env.MESH_SHARED_SECRET;
         const botControlSecret = process.env.BOT_CONTROL_SHARED_SECRET;
-        
+        const authSigningKey = process.env.AUTH_SIGNING_KEY || process.env.NEXTAUTH_SECRET || meshSecret || '';
+
         let serviceTrusted = false;
         if (meshSecret) {
           const provided = request.headers.get('x-mesh-secret');
           serviceTrusted = !!provided && provided === meshSecret;
         }
-        
+
         let botControlTrusted = false;
         if (botControlSecret) {
           const provided = request.headers.get('x-bot-control-secret');
           botControlTrusted = !!provided && provided === botControlSecret;
         }
-        
+
+        // User Bearer token check (HS256 JWT)
+        let user: { id: string; tenant: string; roles?: string[] } | undefined;
+        const authz = request.headers.get('authorization');
+        if (authz && authz.startsWith('Bearer ') && authSigningKey) {
+          try {
+            const token = authz.substring('Bearer '.length).trim();
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const crypto = await import('crypto');
+              const [h64, p64, sig] = parts;
+              const data = `${h64}.${p64}`;
+              const expected = Buffer.from(
+                crypto.createHmac('sha256', authSigningKey).update(data).digest()
+              ).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+              if (expected === sig) {
+                const payload = JSON.parse(Buffer.from(p64, 'base64').toString('utf8'));
+                if (payload.sub && (!payload.exp || Date.now() / 1000 <= payload.exp)) {
+                  user = {
+                    id: payload.sub,
+                    tenant: payload.tenant || 'any',
+                    roles: Array.isArray(payload.roles) ? payload.roles : undefined,
+                  };
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[mesh] JWT validation failed:', err instanceof Error ? err.message : err);
+            // leave user undefined
+          }
+        }
+
         return {
           serviceTrusted,
-          botControlTrusted
+          botControlTrusted,
+          user,
         };
       },
     });

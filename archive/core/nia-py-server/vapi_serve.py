@@ -7,8 +7,8 @@ app = Flask(__name__)
 
 
 # MongoDB Configuration
-#DATABASE_URL = "MONGODB"
-DATABASE_URL = "MONGODB"
+#DATABASE_URL = "mongodb+srv://mukul:mukul123@pearl-cluster.fmrazto.mongodb.net/?retryWrites=true&w=majority&appName=pearl-cluster"
+DATABASE_URL = "mongodb+srv://stagetester:ceWma8-xorjeq-wawfar@nia-staging.kooc1.mongodb.net/"
 DATABASE_NAME = "nia-staging"
 COLLECTION_NAME = "nia-users"
 

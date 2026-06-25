@@ -29,6 +29,29 @@ def _build_role_messages(
     return messages
 
 
+def _has_greeted_participants(flow_state: Dict[str, Any]) -> bool:
+    """Return true once the runtime fast greeting has claimed a room."""
+    try:
+        rooms = flow_state.get("greeting_rooms")
+        if isinstance(rooms, dict):
+            for state in rooms.values():
+                if not isinstance(state, dict):
+                    continue
+                greeted_user_ids = state.get("greeted_user_ids")
+                if isinstance(greeted_user_ids, (set, list, tuple)) and greeted_user_ids:
+                    return True
+                if state.get("greeting_speech_started") is True:
+                    return True
+
+        for key in ("greeted_user_ids", "greeted_ids"):
+            greeted = flow_state.get(key)
+            if isinstance(greeted, (set, list, tuple)) and greeted:
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def _format_admin_task_message_content(prompt: str, sender_name: Optional[str], mode: str) -> str:
     mode_label = "IMMEDIATE" if mode == "immediate" else "QUEUED"
     sender_suffix = f" from {sender_name}" if sender_name else ""
@@ -111,35 +134,16 @@ def _build_greeting_policy_message(flow_state: Dict[str, Any]) -> Optional[dict[
     summaries reset the context. It does not replace the runtime greeting window
     logic in handlers; it augments model guidance.
     """
-    try:
-        rooms = flow_state.get("greeting_rooms")
-        if isinstance(rooms, dict):
-            # If any room has greeted participants, discourage re-greeting.
-            for state in rooms.values():
-                if isinstance(state, dict):
-                    greeted = state.get("greeted_ids", set())
-                    if isinstance(greeted, (set, list, tuple)) and len(greeted) > 0:
-                        return {
-                            "role": "system",
-                            "content": (
-                                "Policy: Participants who have already been greeted should not be greeted again. "
-                                "Acknowledge concisely when appropriate and continue the conversation without repeating welcome lines like "
-                                "'So great to see you here', 'It’s great having you here', 'What a pleasure to have you here tonight', "
-                                "or 'It’s fantastic to have you here with me'."
-                            ),
-                        }
-        # Fallback: check flat greeted_ids when greeting_rooms unavailable
-        greeted_ids = flow_state.get("greeted_ids")
-        if isinstance(greeted_ids, (set, list, tuple)) and len(greeted_ids) > 0:
-            return {
-                "role": "system",
-                "content": (
-                    "Policy: Participants who have already been greeted should not be greeted again. "
-                    "Avoid repeating welcome lines and proceed with normal facilitation."
-                ),
-            }
-    except Exception:
-        pass
+    if _has_greeted_participants(flow_state):
+        return {
+            "role": "system",
+            "content": (
+                "Policy: Participants who have already been greeted should not be greeted again. "
+                "Acknowledge concisely when appropriate and continue the conversation without repeating welcome lines like "
+                "'So great to see you here', 'It’s great having you here', 'What a pleasure to have you here tonight', "
+                "or 'It’s fantastic to have you here with me'."
+            ),
+        }
     return None
 
 

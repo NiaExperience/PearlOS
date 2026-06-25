@@ -239,6 +239,7 @@ def mesh_test_server():
     env['BOT_CONTROL_SHARED_SECRET'] = 'test-bot-secret'
     env['DEBUG_MESH'] = os.environ.get('DEBUG_MESH', 'false')
     env['DEBUG_PRISM'] = os.environ.get('DEBUG_PRISM', 'false')
+    env['TS_NODE_TRANSPILE_ONLY'] = os.environ.get('TS_NODE_TRANSPILE_ONLY', 'true')
     
     # Cleanup potential dangling processes from previous runs
     cleanup_ports([MESH_TEST_PORT, 5001])
@@ -584,5 +585,4 @@ def pytest_sessionfinish(session, exitstatus):
         print()
 
     print("=" * 80)
-
 

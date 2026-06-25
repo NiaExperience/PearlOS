@@ -104,6 +104,29 @@ class TestBotToolDiscovery:
         schemas = discovery.build_tool_schemas()
         
         assert isinstance(schemas, list)
+
+    def test_sandbox_inventory_tool_accepts_query(self):
+        """Voice can query the user's sandbox before saying a custom theme is missing."""
+        discovery = BotToolDiscovery()
+        tools = discovery.discover_tools()
+
+        inventory_tool = tools["bot_list_sandbox_assets"]
+        properties = inventory_tool["parameters"]["properties"]
+
+        assert "query" in properties
+        assert "custom theme" in inventory_tool["description"].lower()
+        assert "does not exist" in inventory_tool["description"].lower()
+
+    def test_customize_interface_theme_accepts_custom_ids(self):
+        """Custom theme IDs are valid, so the theme parameter must not be built-in only."""
+        discovery = BotToolDiscovery()
+        tools = discovery.discover_tools()
+
+        customize_tool = tools["bot_customize_interface"]
+        theme_schema = customize_tool["parameters"]["properties"]["theme"]
+
+        assert "enum" not in theme_schema
+        assert "custom theme" in theme_schema["description"].lower()
     
     def test_build_schemas_with_prompts_override(self):
         """Test that custom prompts override tool descriptions."""
@@ -403,4 +426,3 @@ class TestBotToolDiscoveryEdgeCases:
         
         # Handler names should match filtered tool names
         assert set(handlers.keys()) == set(filtered_tools.keys())
-

@@ -21,7 +21,6 @@ from .utils import (
     _extract_note_content,
     _inject_note_context_for_llm,
 )
-from .file_ops import list_notes as file_list_notes, search_notes as file_search_notes
 from .crud import USE_FILE_STORAGE
 
 _log = bind_context_logger(tag="[notes_tools]")
@@ -55,9 +54,7 @@ async def list_notes_handler(params: FunctionCallParams):
     arguments = params.arguments
     limit = arguments.get("limit", 50)
     result = await bot_list_notes(room_url, limit, params, log)
-    # run_llm=False: the result already contains user_message; skip the costly
-    # second LLM round-trip which adds 3-8s of latency with Claude.
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=False))
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 @bot_tool(
     name="bot_open_note",
@@ -112,11 +109,7 @@ async def open_note_handler(params: FunctionCallParams):
         note_id = arguments.get("note_id")
         title = arguments.get("title")
         result = await bot_open_note(room_url, note_id=note_id, title=title, forwarder=forwarder, params=params, log=log)
-        # run_llm=False for success path: result already has user_message ("Opened note: X").
-        # Skipping the second LLM round-trip saves 3-8s of latency with Claude.
-        # On failure, we still want run_llm=True so the LLM can explain the error conversationally.
-        should_run_llm = not result.get("success", False)
-        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
+        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
     except Exception as e:
         log.error(f"[notes] Error in open_note_handler: {e}", exc_info=True)
         await params.result_callback({
@@ -218,39 +211,25 @@ async def bot_list_notes(
     """
     all_notes: list[dict[str, Any]] = []
 
-    # ── File-based notes (primary when USE_FILE_STORAGE is enabled) ──
-    if USE_FILE_STORAGE:
-        try:
-            file_notes = file_list_notes()
-            # Strip full content to keep payload small
-            for n in file_notes:
-                stripped = {k: v for k, v in n.items() if k != "content"}
-                all_notes.append(stripped)
-            (log or _log).debug(f"[notes] Found {len(file_notes)} file-based notes")
-        except Exception as e:
-            (log or _log).error(f"[notes] Error listing file-based notes: {e}", exc_info=True)
-
     # ── Database notes (always attempt to merge for full library visibility) ──
     try:
         tenant_id = _get_room_state().get_room_tenant_id(room_url)
-        if tenant_id:
-            user_id, error_msg = await sharing_tools._resolve_user_id(params, room_url)
-            if user_id:
-                db_notes = await notes_actions.list_notes(tenant_id, user_id, limit=limit)
-                # Deduplicate against file notes by normalized title
-                file_titles = {(n.get("title") or "").strip().lower() for n in all_notes}
-                file_ids = {n.get("_id", "") for n in all_notes}
-                for db_note in db_notes:
-                    db_title = (db_note.get("title") or "").strip().lower()
-                    db_id = db_note.get("_id", "")
-                    if (db_title and db_title in file_titles) or (db_id and db_id in file_ids):
-                        continue
-                    all_notes.append(db_note)
-                (log or _log).debug(f"[notes] Merged {len(db_notes)} DB notes (total after dedup: {len(all_notes)})")
-            else:
-                (log or _log).warning(f"[notes] Could not resolve user for DB notes: {error_msg}")
-        else:
-            (log or _log).debug("[notes] No tenant context for DB notes")
+        if not tenant_id:
+            return {
+                "success": False,
+                "error": "No tenant context",
+                "user_message": "I need your signed-in workspace before I can access notes.",
+            }
+        user_id, error_msg = await sharing_tools._resolve_user_id(params, room_url)
+        if not user_id or str(user_id).lower() == "anonymous":
+            (log or _log).warning(f"[notes] Refusing note list without authenticated user: {error_msg}")
+            return {
+                "success": False,
+                "error": error_msg or "Could not identify user",
+                "user_message": "I need your signed-in profile before I can access notes.",
+            }
+        all_notes = await notes_actions.list_notes(tenant_id, user_id, limit=limit)
+        (log or _log).debug(f"[notes] Listed {len(all_notes)} DB/shared notes for user scope")
     except Exception as e:
         (log or _log).error(f"[notes] Error listing DB notes: {e}", exc_info=True)
 
@@ -334,14 +313,14 @@ async def bot_open_note(
 
         if tenant_id:
             user_id, error_msg = await sharing_tools._resolve_user_id(params, room_url)
-            if not user_id and not USE_FILE_STORAGE:
+            if not user_id or str(user_id).lower() == "anonymous":
                 (log or logger).warning(f"[notes] Could not identify user for permission check: {error_msg}")
                 return {
                     "success": False,
                     "error": error_msg or "Could not identify user",
                     "user_message": error_msg or "I couldn't identify which user is making this request. Please try again.",
                 }
-        elif not USE_FILE_STORAGE:
+        else:
             return {
                 "success": False,
                 "error": "No tenant context",
@@ -352,11 +331,7 @@ async def bot_open_note(
         note = None
         if (note_id):
             if tenant_id:
-                note = await notes_actions.get_note_by_id(tenant_id, note_id)
-            # Fallback: try file-based lookup if DB missed it
-            if not note and USE_FILE_STORAGE:
-                from .file_ops import get_note as file_get_note
-                note = file_get_note(note_id)
+                note = await notes_actions.get_note_by_id(tenant_id, note_id, user_id)
             if not note:
                 return {
                     "success": False,
@@ -366,14 +341,6 @@ async def bot_open_note(
         elif (title):
             notes = await notes_actions.fuzzy_search_notes(tenant_id, title, user_id)
             if not notes or len(notes) == 0:
-                # Fallback: try file-based search
-                if USE_FILE_STORAGE:
-                    file_results = file_search_notes(title)
-                    if len(file_results) == 1:
-                        note = file_results[0]
-                        (log or _log).info(f"[notes] Found note via file search: {note.get('title')}")
-                    elif len(file_results) > 1:
-                        notes = file_results  # fall through to multi-match handling below
                 if not note and (not notes or len(notes) == 0):
                     (log or _log).warning(f"[notes] No note found with title: {title} and tenant_id: {tenant_id}")
                     return {
@@ -398,7 +365,7 @@ async def bot_open_note(
         if not note:
             note_id = await _get_room_state().get_active_note_id(room_url)
             (log or logger).info(f"[notes] 📋 FETCHING BY ID - note_id={note_id}, tenant_id={tenant_id}")
-            note = await notes_actions.get_note_by_id(tenant_id, note_id)
+            note = await notes_actions.get_note_by_id(tenant_id, note_id, user_id)
             if not note:
                 return {
                     "success": False,
@@ -408,9 +375,7 @@ async def bot_open_note(
             (log or logger).info(f"[notes] ✅ FETCHED BY ID - note_id={note.get('_id')}, title={note.get('title')}, has_content={'content' in note and note.get('content') is not None}, content_type={type(note.get('content')).__name__ if 'content' in note else 'N/A'}")
         
         # SECURITY CHECK: private session - Verify user has permission to read this note
-        # Skip permission check for file-based notes (local filesystem = implicit access)
-        is_file_note = note.get("filePath") is not None
-        if not is_file_note and tenant_id and user_id:
+        if tenant_id and user_id:
             has_read = await sharing_actions.check_resource_read_permission(
                 tenant_id=tenant_id, user_id=user_id, resource_id=note["_id"], content_type='Notes'
             )

@@ -81,10 +81,20 @@ async def bot(runner_args):  # Entry point expected by pipecat runner
 
     # Propagate additional runner args to environment variables for warm bot reuse
     
-    # Voice Provider
+    # Voice Provider — frontend controls TTS selection via voiceProvider field
     voiceProvider = getattr(runner_args, "voiceProvider", None) or body.get("voiceProvider")
     if voiceProvider:
         os.environ["BOT_TTS_PROVIDER"] = str(voiceProvider)
+
+    voiceOnly = getattr(runner_args, "voiceOnly", None)
+    if voiceOnly is None:
+        voiceOnly = body.get("voiceOnly")
+    if voiceOnly is not None:
+        if isinstance(voiceOnly, str):
+            voice_only_enabled = voiceOnly.strip().lower() in {"1", "true", "yes", "on"}
+        else:
+            voice_only_enabled = bool(voiceOnly)
+        os.environ["BOT_VOICE_ONLY"] = "1" if voice_only_enabled else "0"
 
     # Voice Parameters
     voiceParameters = getattr(runner_args, "voiceParameters", None) or body.get("voiceParameters")
@@ -105,6 +115,8 @@ async def bot(runner_args):  # Entry point expected by pipecat runner
 
     # Session Override
     sessionOverride = getattr(runner_args, "sessionOverride", None) or body.get("sessionOverride")
+    webChatContext = getattr(runner_args, "webChatContext", None) or body.get("webChatContext")
+    activeNoteContext = getattr(runner_args, "activeNoteContext", None) or body.get("activeNoteContext")
 
     # Supported Features (Feature Flags)
     supportedFeatures = getattr(runner_args, "supportedFeatures", None) or body.get("supportedFeatures")
@@ -136,5 +148,7 @@ async def bot(runner_args):  # Entry point expected by pipecat runner
         isOnboarding=isOnboarding,
         headless=headless,
         session_id=body.get("sessionId"),
+        activeNoteId=activeNoteId,
+        webChatContext=webChatContext,
+        activeNoteContext=activeNoteContext,
     )
-

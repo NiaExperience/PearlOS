@@ -19,6 +19,8 @@ export interface SendBotMessageParams {
   sessionId?: string;
   /** Optional context for message attribution (e.g., sourceType: 'user-text') */
   context?: Record<string, unknown>;
+  /** Optional server-only headers (claims/signature, correlation IDs). */
+  extraHeaders?: Record<string, string>;
 }
 
 /**
@@ -38,6 +40,7 @@ export async function sendBotMessage(params: SendBotMessageParams): Promise<Resp
     tenantId,
     sessionId,
     context,
+    extraHeaders,
   } = params;
 
   if (!BOT_CONTROL_BASE_URL) {
@@ -80,6 +83,9 @@ export async function sendBotMessage(params: SendBotMessageParams): Promise<Resp
 
   if (process.env.BOT_CONTROL_SHARED_SECRET) {
     headers['X-Bot-Secret'] = process.env.BOT_CONTROL_SHARED_SECRET;
+  }
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
   }
 
   try {

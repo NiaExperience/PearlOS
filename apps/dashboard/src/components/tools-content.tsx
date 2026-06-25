@@ -40,7 +40,7 @@ export function ToolsContent({ selectedTool }: { selectedTool: ToolBlock.ITool }
   async function onSubmit(values: z.infer<typeof ToolBlock.ToolSchema>) {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/contentDetail/${selectedTool._id}`, {
+      const response = await fetch(`/dashboard/api/contentDetail/${selectedTool._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),

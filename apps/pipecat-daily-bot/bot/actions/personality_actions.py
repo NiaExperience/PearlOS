@@ -23,9 +23,29 @@ from services import mesh as mesh_client
 from services.mesh import MeshClientError
 
 
-async def list_personalities(limit: int = 50) -> list[dict]:
+def _record_tenant_id(record: dict) -> str:
+    return str(record.get("tenantId") or record.get("tenant_id") or record.get("parent_id") or "").strip()
+
+
+def _record_belongs_to_tenant(record: dict, tenant_id: str) -> bool:
+    return bool(tenant_id) and _record_tenant_id(record) == str(tenant_id).strip()
+
+
+def _first_tenant_match(data: object, tenant_id: str) -> Optional[dict]:
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict) and _record_belongs_to_tenant(item, tenant_id):
+                return item
+    if isinstance(data, dict) and _record_belongs_to_tenant(data, tenant_id):
+        return data
+    return None
+
+
+async def list_personalities(tenant_id: str, limit: int = 50) -> list[dict]:
     """Return Personality content items for a tenant."""
-    where = {}
+    where = {
+        "parent_id": {"eq": tenant_id},
+    }
     params = {
         "where": json.dumps(where, separators=(",", ":")),
         "limit": str(limit),
@@ -38,8 +58,9 @@ async def list_personalities(limit: int = 50) -> list[dict]:
 
     data = response.get("data")
     if isinstance(data, list):
+        data = [item for item in data if isinstance(item, dict) and _record_belongs_to_tenant(item, tenant_id)]
         logger.debug(
-            f"[personality_actions] Listed {len(data)} personalities"
+            f"[personality_actions] Listed {len(data)} personalities for tenant {tenant_id}"
         )
         return data
 
@@ -66,10 +87,9 @@ async def get_personality_by_name(tenant_id: str, name: str) -> Optional[dict]:
         raise MeshClientError(response.get("error") or "Failed to fetch personality by name")
 
     data = response.get("data")
-    if isinstance(data, list) and data:
-        return data[0]
-    if isinstance(data, dict) and data:
-        return data
+    matched = _first_tenant_match(data, tenant_id)
+    if matched:
+        return matched
 
     logger.debug(
         f"[personality_actions] Personality named {name} not found for tenant {tenant_id}"
@@ -78,8 +98,11 @@ async def get_personality_by_name(tenant_id: str, name: str) -> Optional[dict]:
 
 
 async def get_personality_by_id(tenant_id: str, personality_id: str) -> Optional[dict]:
-    """Fetch a single Personality by page_id (personalityId is unique system-wide)."""
-    where = {"page_id": {"eq": personality_id}}
+    """Fetch a single Personality by page_id within a tenant."""
+    where = {
+        "parent_id": {"eq": tenant_id},
+        "page_id": {"eq": personality_id},
+    }
     params = {
         "where": json.dumps(where, separators=(",", ":")),
         "limit": "1",
@@ -91,23 +114,25 @@ async def get_personality_by_id(tenant_id: str, personality_id: str) -> Optional
         raise MeshClientError(response.get("error") or "Failed to fetch personality by id")
 
     data = response.get("data")
-    if isinstance(data, list) and data:
-        return data[0]
-    if isinstance(data, dict) and data:
-        return data
+    matched = _first_tenant_match(data, tenant_id)
+    if matched:
+        return matched
 
     logger.debug(
-        f"[personality_actions] Personality {personality_id} not found"
+        f"[personality_actions] Personality {personality_id} not found for tenant {tenant_id}"
     )
     return None
 
 
-async def get_sprite_by_id(sprite_id: str) -> Optional[dict]:
+async def get_sprite_by_id(tenant_id: str, sprite_id: str) -> Optional[dict]:
     """Fetch a single Sprite by page_id.
     
     Returns Sprite record with voice configuration for personality switching.
     """
-    where = {"page_id": {"eq": sprite_id}}
+    where = {
+        "page_id": {"eq": sprite_id},
+        "indexer": {"path": "tenantId", "equals": tenant_id},
+    }
     params = {
         "where": json.dumps(where, separators=(",", ":")),
         "limit": "1",
@@ -124,12 +149,11 @@ async def get_sprite_by_id(sprite_id: str) -> Optional[dict]:
         raise MeshClientError(response.get("error") or "Failed to fetch sprite by id")
 
     data = response.get("data")
-    if isinstance(data, list) and data:
-        return data[0]
-    if isinstance(data, dict) and data:
-        return data
+    matched = _first_tenant_match(data, tenant_id)
+    if matched:
+        return matched
 
-    logger.debug(f"[personality_actions] Sprite {sprite_id} not found")
+    logger.debug(f"[personality_actions] Sprite {sprite_id} not found for tenant {tenant_id}")
     return None
 
 
@@ -146,7 +170,7 @@ async def resolve_personality(tenant_id: str, personality_id: str) -> Optional[d
         return personality
     
     # Try Sprite
-    sprite = await get_sprite_by_id(personality_id)
+    sprite = await get_sprite_by_id(tenant_id, personality_id)
     if sprite:
         logger.debug(f"[personality_actions] Resolved as Sprite: {personality_id}")
         

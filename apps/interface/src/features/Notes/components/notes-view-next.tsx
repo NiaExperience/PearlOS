@@ -5,6 +5,7 @@ import { OrganizationRole } from '@nia/prism/core/blocks/userOrganizationRole.bl
 import { useSession } from 'next-auth/react';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { usePostHog } from 'posthog-js/react';
+import { ArrowLeft, ChevronDown, ChevronRight, Download, FilePlus2, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { getClientLogger } from '@interface/lib/client-logger';
 import DOMPurify from 'dompurify';
 
@@ -40,6 +41,7 @@ import {
   fetchNotesIncremental,
   findNoteWithFuzzySearch,
   updateNote,
+  type Note as ApiNote,
   type NoteBatch,
   type NoteBatchType,
 } from '@interface/features/Notes/lib/notes-api';
@@ -60,9 +62,10 @@ import { getUserSharedResources } from '@interface/features/ResourceSharing/lib'
 import { useToast } from '@interface/hooks/use-toast';
 import { useLLMMessaging } from '@interface/lib/daily';
 import { trackSessionHistory } from '@interface/lib/session-history';
+import PearlCommandInput from '@interface/components/PearlCommandInput';
 
-import BookSpine from './BookSpine';
 import NoteShareControls from './NoteShareControls';
+import { requestWindowOpen } from '@interface/features/ManeuverableWindow/lib/windowLifecycleController';
 
 const ReactMarkdown = React.lazy(() => import('react-markdown'));
 // GFM (tables, strikethrough, task lists) and syntax highlighting
@@ -109,12 +112,20 @@ interface NotesViewProps {
   onClose?: () => void;
   supportedFeatures?: string[];
   tenantId?: string;
+  initialNoteId?: string;
 }
 
 type ViewState = 'library' | 'document';
-type LibraryLayout = 'cards' | 'spines';
+type NotesFolderId = 'recent' | 'your-notes' | 'pearl' | 'tasks' | 'chat-archive';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function inferType(content: string): 'game' | 'app' | 'feature' {
+  const lower = content.toLowerCase();
+  if (lower.includes('godot') || lower.includes('game') || lower.includes('play') || lower.includes('player')) return 'game';
+  if (lower.includes('app') || lower.includes('web') || lower.includes('site') || lower.includes('dashboard')) return 'app';
+  return 'feature';
+}
 
 function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -166,9 +177,140 @@ function formatDate(note: Note) {
 
 function getPreview(content: string, maxLen = 120): string {
   if (!content) return '';
-  const clean = content.replace(/^#+ /gm, '').replace(/[*_~`]/g, '').replace(/\n+/g, ' ').trim();
+  const clean = content
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^#+ /gm, '')
+    .replace(/[*_~`]/g, '')
+    .replace(/\n+/g, ' ')
+    .trim();
   return clean.length > maxLen ? clean.slice(0, maxLen) + '…' : clean;
 }
+
+function normalizeNoteLookupToken(value: string | undefined | null): string {
+  return String(value || '')
+    .trim()
+    .replace(/\.md$/i, '')
+    .toLowerCase();
+}
+
+function slugifyNoteTitle(value: string | undefined | null): string {
+  return String(value || '')
+    .trim()
+    .replace(/\.md$/i, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function noteDateMs(note: Note): number {
+  const raw = note.createdAt || note.timestamp || note.updatedAt;
+  const parsed = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isArchivedChatNote(note: Note): boolean {
+  const content = note.content || '';
+  const title = note.title || '';
+  return /^Chat(?::|\s+archive\b)/i.test(title) || content.includes('<!-- pearl:pre-existing-chat');
+}
+
+function isLocalChatArchiveNote(note: Note | null | undefined): boolean {
+  return Boolean(note?.isLocalArchive || note?._id?.startsWith('local-chat-archive:'));
+}
+
+function isPearlDiaryNote(note: Note): boolean {
+  const id = note._id || '';
+  const title = note.title || '';
+  const filePath = note.filePath || note.fileName || '';
+  return Boolean(
+    note.isDiary ||
+    id.startsWith('diary--') ||
+    /(^|\/)pearl-diary\//i.test(filePath) ||
+    /^pearl'?s diary$/i.test(title.trim())
+  );
+}
+
+function isTaskLogNote(note: Note): boolean {
+  const id = note._id || '';
+  const title = note.title || '';
+  const filePath = note.filePath || note.fileName || '';
+  const haystack = `${id} ${title} ${filePath}`.toLowerCase();
+  if (isPearlDiaryNote(note) || isArchivedChatNote(note) || isLocalChatArchiveNote(note)) return false;
+  return Boolean(
+    /^discord-follow-up-from-/i.test(id) ||
+    /^voice-follow-up/i.test(id) ||
+    /^pearl-autonomous-continuation/i.test(id) ||
+    /^search-(?:the-web|for|community)/i.test(id) ||
+    /^runtime-qa/i.test(id) ||
+    /^verify-(?:agency|auto|scoped)/i.test(id) ||
+    /\b(task log|agency|codex|runtime|qa|audit|handoff|preflight|smoke|dispatch|follow-up)\b/i.test(haystack)
+  );
+}
+
+function inferFolderId(note: Note): NotesFolderId {
+  if (isPearlDiaryNote(note)) return 'pearl';
+  if (isArchivedChatNote(note)) return 'chat-archive';
+  const title = (note.title || '').toLowerCase();
+  const haystack = `${title} ${note.content || ''}`.toLowerCase();
+  if (title.match(/^(chat|conversation|transcript|session)\b/i) || haystack.includes('chat transcript') || haystack.includes('conversation log')) return 'chat-archive';
+  if (isTaskLogNote(note)) return 'tasks';
+  return 'your-notes';
+}
+
+function isProtectedNotesSection(note: Note | null | undefined): boolean {
+  if (!note) return false;
+  const section = inferFolderId(note);
+  return section === 'pearl' || section === 'tasks' || section === 'chat-archive';
+}
+
+function findNoteByDeepLinkToken(notes: Note[], token: string | undefined | null): Note | null {
+  const normalized = normalizeNoteLookupToken(token);
+  if (!normalized) return null;
+  return notes.find(note => {
+    const id = normalizeNoteLookupToken(note._id);
+    const fileName = normalizeNoteLookupToken(note.fileName);
+    const filePath = normalizeNoteLookupToken(note.filePath?.split('/').pop());
+    const titleSlug = slugifyNoteTitle(note.title);
+    return id === normalized || fileName === normalized || filePath === normalized || titleSlug === normalized;
+  }) || null;
+}
+
+function inferChatTopicName(note: Note): string {
+  const title = note.title || '';
+  if (title.startsWith('Chat: ')) {
+    const rest = title.slice(6).trim();
+    if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(rest) || /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(rest)) {
+      const preview = getPreview(note.content || '', 60);
+      if (preview && preview.length > 10) {
+        const topicWords = preview.split(/\s+/).slice(0, 6).join(' ');
+        return `Chat: ${topicWords}`;
+      }
+    }
+  }
+  return title;
+}
+
+const RECENT_NOTE_LIMIT = 8;
+const PEARL_DIARY_NOTE_ID = 'pearl-diary-default';
+
+const NOTE_FOLDERS: Array<{ id: NotesFolderId; title: string; color: string }> = [
+  { id: 'recent', title: 'RECENT', color: '#6aa6ff' },
+  { id: 'your-notes', title: 'YOUR NOTES', color: '#74c69d' },
+  { id: 'pearl', title: 'PEARL', color: '#f5b8e8' },
+  { id: 'tasks', title: 'TASKS', color: '#e1a44f' },
+  { id: 'chat-archive', title: 'CHAT ARCHIVE', color: '#9f8df1' },
+];
+
+const LOCAL_CHAT_ARCHIVES_KEY = 'pearl-chat-archives-v1';
+
+type LocalChatArchiveRecord = {
+  id?: unknown;
+  title?: unknown;
+  transcript?: unknown;
+  content?: unknown;
+  archivedAt?: unknown;
+  messageCount?: unknown;
+};
 
 // ─── Streaming Renderer ─────────────────────────────────────────────────────
 
@@ -176,9 +318,27 @@ interface StreamingRendererProps {
   content: string;
   isStreaming: boolean;
   noteId?: string;
+  noteTitle?: string;
 }
 
-const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStreaming, noteId }) => {
+const normalizeHeadingText = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ');
+
+const removeDuplicateTopHeading = (markdown: string, noteTitle?: string): string => {
+  if (!markdown || !noteTitle?.trim()) return markdown;
+  const match = markdown.match(/^\s*#\s+(.+?)\s*(?:\r?\n)+/);
+  if (!match) return markdown;
+  const headingText = normalizeHeadingText(match[1] || '');
+  const titleText = normalizeHeadingText(noteTitle);
+  if (!headingText || headingText !== titleText) return markdown;
+  return markdown.slice(match[0].length).replace(/^\s+/, '');
+};
+
+const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStreaming, noteId, noteTitle }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevContentRef = useRef('');
   const prevLinesRef = useRef<string[]>([]);
@@ -375,14 +535,18 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
     });
   };
 
-  const contentIsHtml = useMemo(() => isHtmlContent(displayedContent), [displayedContent]);
+  const normalizedContent = useMemo(
+    () => removeDuplicateTopHeading(displayedContent, noteTitle),
+    [displayedContent, noteTitle]
+  );
+  const contentIsHtml = useMemo(() => isHtmlContent(normalizedContent), [normalizedContent]);
 
   return (
     <div ref={containerRef} className={containerClass}>
       {contentIsHtml ? (
         <div
           className="nn-html-content"
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayedContent) }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(normalizedContent) }}
         />
       ) : (
       <React.Suspense fallback={<div className="nn-loading">Loading…</div>}>
@@ -439,7 +603,7 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
             em: ({ children }) => <em className="nn-em">{children}</em>,
           }}
         >
-          {displayedContent}
+          {normalizedContent}
         </ReactMarkdown>
       </React.Suspense>
       )}
@@ -452,7 +616,7 @@ const StreamingRenderer: React.FC<StreamingRendererProps> = ({ content, isStream
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: propTenantId }: NotesViewProps) => {
+const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: propTenantId, initialNoteId }: NotesViewProps) => {
   const { data: session } = useSession();
   const posthog = usePostHog();
   const { toast } = useToast();
@@ -464,23 +628,30 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [originalNote, setOriginalNote] = useState<Note | null>(null);
   const [viewState, setViewState] = useState<ViewState>('library');
-  const [libraryLayout, setLibraryLayout] = useState<LibraryLayout>('cards');
   const [isEditMode, setIsEditMode] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [studioPickMode, setStudioPickMode] = useState(false);
+
+  // Folder collapse state — all requested sections open by default.
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<NotesFolderId>>(
+    () => new Set<NotesFolderId>()
+  );
+
+  // Manual folder overrides from drag-and-drop (noteId -> folderId)
+  const [noteFolderOverrides, setNoteFolderOverrides] = useState<Map<string, NotesFolderId>>(new Map());
+
+  // Drag-and-drop for note reordering between folders
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<NotesFolderId | null>(null);
 
   // Loading / saving
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Search expansion
-  const [searchExpanded, setSearchExpanded] = useState(false);
-
   // Dialogs
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [noteToDeleteId, setNoteToDeleteId] = useState<string | null>(null);
-  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   // Mobile
   const [isMobile, setIsMobile] = useState(false);
@@ -500,9 +671,11 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
   const commandQueueRef = useRef<Array<{ action: string; payload: Record<string, unknown> }>>([]);
   const incrementalAbortRef = useRef<(() => void) | null>(null);
   const refreshTargetRef = useRef<{ noteId: string; mode?: NoteMode | null } | null>(null);
+  const lastInitialNoteIdRef = useRef<string>('');
   const recentCommandsRef = useRef<Map<string, number>>(new Map());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const saveInFlightRef = useRef(false);
+  const saveAgainAfterCurrentRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Drag-drop
@@ -520,6 +693,22 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
   const sendNoteState = useCallback(async (action: 'opened' | 'updated' | 'closed', note?: Note | null) => {
     try {
+      if (typeof window !== 'undefined') {
+        if (action === 'closed' || !note?._id) {
+          window.sessionStorage.removeItem('pearl-active-note-context-v1');
+        } else {
+          const content = typeof note.content === 'string'
+            ? note.content
+            : (note.content as any)?.content ?? '';
+          window.sessionStorage.setItem('pearl-active-note-context-v1', JSON.stringify({
+            noteId: note._id,
+            title: note.title || null,
+            content,
+            tenantId: note.tenantId || propTenantId || null,
+            updatedAt: Date.now(),
+          }));
+        }
+      }
       const baseUrl = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:4444';
       await fetch(`${baseUrl}/api/note-state`, {
         method: 'POST',
@@ -530,12 +719,15 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
           title: note?.title || null,
           content: note?.content || null,
           viewState: note ? 'document' : 'library',
+          tenantId: note?.tenantId || propTenantId || null,
+          userId: session?.user?.id || null,
+          sessionId: (session as any)?.sessionId || (session as any)?.user?.sessionId || null,
         }),
       });
     } catch (e) {
       // Non-fatal, don't block UI
     }
-  }, []);
+  }, [propTenantId, session]);
 
   // Debounced content update broadcaster
   const noteStateDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -598,6 +790,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
   const hasWriteAccess = useCallback((note: Note | null): boolean => {
     if (!note) return false;
+    if (isLocalChatArchiveNote(note) || isProtectedNotesSection(note)) return false;
     const isTestAnon = process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true' || process.env.NODE_ENV === 'test';
     const effectiveUserId = session?.user?.id || (isTestAnon ? '00000000-0000-0000-0000-000000000099' : null);
     // If no auth session and note is not shared, allow write (single-user / PearlOS mode)
@@ -606,6 +799,79 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     const userRole = note.sharedVia.role?.role;
     return userRole === OrganizationRole.ADMIN || userRole === OrganizationRole.OWNER;
   }, [session]);
+
+  const toViewNote = useCallback((note: ApiNote): Note => {
+    const maybeViewNote = note as Partial<Note>;
+    return {
+      ...note,
+      content: note.content || '',
+      mode: note.mode === 'work' ? 'work' : 'personal',
+      userId: maybeViewNote.userId || session?.user?.id || '',
+      tenantId: maybeViewNote.tenantId || propTenantId || '',
+    };
+  }, [propTenantId, session?.user?.id]);
+
+  const readLocalChatArchiveNotes = useCallback((): Note[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem(LOCAL_CHAT_ARCHIVES_KEY);
+      const records = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(records)) return [];
+      return records.flatMap((record: LocalChatArchiveRecord, index): Note[] => {
+        const archivedAtValue =
+          typeof record.archivedAt === 'number' || typeof record.archivedAt === 'string'
+            ? record.archivedAt
+            : Date.now();
+        const archivedAtDate = new Date(archivedAtValue);
+        if (Number.isNaN(archivedAtDate.getTime())) return [];
+        const archivedAt = archivedAtDate.toISOString();
+        const transcript = typeof record.transcript === 'string'
+          ? record.transcript
+          : typeof record.content === 'string'
+            ? record.content
+            : '';
+        if (!transcript.trim()) return [];
+        const id = typeof record.id === 'string' && record.id.trim()
+          ? record.id.trim()
+          : `legacy-${archivedAtValue}-${index}`;
+        const title = typeof record.title === 'string' && record.title.trim()
+          ? record.title.trim()
+          : `Chat archive - ${new Date(archivedAt).toLocaleString()}`;
+        return [{
+          _id: `local-chat-archive:${id}`,
+          title,
+          content: `<!-- pearl:pre-existing-chat -->\n\n${transcript}`,
+          mode: 'personal',
+          userId: session?.user?.id || '',
+          tenantId: propTenantId || '',
+          createdAt: archivedAt,
+          timestamp: archivedAt,
+          isLocalArchive: true,
+        }];
+      });
+    } catch {
+      return [];
+    }
+  }, [propTenantId, session?.user?.id]);
+
+  const mergeRecoverableChatArchives = useCallback((serverNotes: Note[]): Note[] => {
+    const localArchives = readLocalChatArchiveNotes();
+    if (localArchives.length === 0) return serverNotes;
+    const seenIds = new Set(serverNotes.map(note => note._id).filter(Boolean));
+    const serverChatTitles = new Set(
+      serverNotes
+        .filter(isArchivedChatNote)
+        .map(note => (note.title || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const recoverable = localArchives.filter(note => {
+      if (note._id && seenIds.has(note._id)) return false;
+      const normalizedTitle = (note.title || '').trim().toLowerCase();
+      if (normalizedTitle && serverChatTitles.has(normalizedTitle)) return false;
+      return true;
+    });
+    return [...serverNotes, ...recoverable];
+  }, [readLocalChatArchiveNotes]);
 
   // ─── Filtered notes ───────────────────────────────────────────────────────
 
@@ -628,6 +894,57 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       return true;
     });
   }, [notes, searchQuery]);
+
+  const recentNotes = useMemo(() => {
+    return [...filteredNotes]
+      .sort((a, b) => noteDateMs(b) - noteDateMs(a))
+      .slice(0, RECENT_NOTE_LIMIT);
+  }, [filteredNotes]);
+
+  const pearlDiaryNote = useMemo<Note>(() => {
+    const diaryNotes = filteredNotes
+      .filter(isPearlDiaryNote)
+      .sort((a, b) => noteDateMs(b) - noteDateMs(a));
+    if (diaryNotes.length === 0) {
+      const now = new Date().toISOString();
+      return {
+        _id: PEARL_DIARY_NOTE_ID,
+        title: "Pearl's diary",
+        content: "# Pearl's diary\n\nPearl hasn't written here yet.",
+        mode: 'personal',
+        userId: session?.user?.id || '',
+        tenantId: propTenantId || '',
+        createdAt: now,
+        updatedAt: now,
+        isDiary: true,
+      };
+    }
+
+    const latest = diaryNotes[0];
+    return {
+      ...latest,
+      _id: PEARL_DIARY_NOTE_ID,
+      title: "Pearl's diary",
+      content: diaryNotes.map(note => note.content || `# ${note.title || "Pearl's diary"}`).join('\n\n---\n\n'),
+      isDiary: true,
+    };
+  }, [filteredNotes, propTenantId, session?.user?.id]);
+
+  const notesByFolder = useMemo(() => {
+    const map = new Map<NotesFolderId, Note[]>();
+    NOTE_FOLDERS.forEach(folder => map.set(folder.id, []));
+    map.set('pearl', [pearlDiaryNote]);
+    filteredNotes.forEach(note => {
+      const inferredId = inferFolderId(note);
+      if (inferredId === 'pearl') return;
+      const overrideId = note._id && !isProtectedNotesSection(note)
+        ? noteFolderOverrides.get(note._id)
+        : undefined;
+      const id = overrideId && overrideId !== 'recent' ? overrideId : inferredId;
+      map.set(id, [...(map.get(id) || []), note]);
+    });
+    return map;
+  }, [filteredNotes, noteFolderOverrides, pearlDiaryNote]);
 
   // ─── Load notes ───────────────────────────────────────────────────────────
 
@@ -662,7 +979,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         if (batch.batch === 'shared-to-user' || batch.batch === 'shared-to-all') {
           for (const item of batch.items) { if (item._id) sharedIds.add(item._id); }
         }
-        setNotes([...allNotes]);
+        setNotes(mergeRecoverableChatArchives([...allNotes]));
         setSharedNoteIds(new Set(sharedIds));
       };
 
@@ -675,16 +992,21 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
       const refreshTarget = refreshTargetRef.current;
       if (refreshTarget?.noteId) {
-        const target = allNotes.find(n => n._id === refreshTarget.noteId);
-        if (target) { setCurrentNote(target); setOriginalNote(target); }
+        const target = findNoteByDeepLinkToken(mergeRecoverableChatArchives([...allNotes]), refreshTarget.noteId);
+        if (target) {
+          setCurrentNote(target);
+          setOriginalNote(target);
+          setIsEditMode(false);
+          setViewState('document');
+        }
         refreshTargetRef.current = null;
       }
     } catch (e) {
       log.error('Error loading notes, falling back to legacy', { error: e instanceof Error ? e.message : String(e) });
       try {
         const data = await fetchNotes(mode, assistantName);
-        setNotes(data);
-      } catch { setNotes([]); }
+        setNotes(mergeRecoverableChatArchives(data.map(toViewNote)));
+      } catch { setNotes(mergeRecoverableChatArchives([])); }
     } finally {
       setIsLoading(false);
       isReadyRef.current = true;
@@ -695,7 +1017,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         commandQueueRef.current = [];
       }
     }
-  }, [assistantName]);
+  }, [assistantName, mode, toViewNote, mergeRecoverableChatArchives]);
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
@@ -707,8 +1029,20 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     while (next) {
       try {
         const updated = await updateNote(next.noteId, next.data, next.assistantName);
-        setNotes(prev => prev.map(n => n._id === updated._id ? updated : n));
-        if (currentNoteRef.current?._id === updated._id) { setCurrentNote(updated); setOriginalNote(updated); }
+        const latest = currentNoteRef.current;
+        const latestHasNewerChanges =
+          !!latest &&
+          latest._id === updated._id &&
+          (latest.title !== next.data.title || latest.content !== next.data.content);
+        const currentReplacement = latestHasNewerChanges
+          ? { ...updated, title: latest.title || '', content: latest.content || '' }
+          : updated;
+
+        setNotes(prev => prev.map(n => n._id === updated._id ? currentReplacement : n));
+        if (latest?._id === updated._id) {
+          setCurrentNote(currentReplacement);
+          setOriginalNote(updated);
+        }
       } catch (error) {
         const retried = { ...next, attempts: next.attempts + 1 };
         if (!shouldDropQueuedItem(retried)) requeueNoteUpdate(retried);
@@ -722,44 +1056,86 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
 
-  const handleSaveNote = useCallback(async () => {
-    if (!currentNote || !(currentNote.content || '').trim()) return;
-    if (!hasWriteAccess(currentNote)) {
-      toast({ title: 'Read-only access', description: 'You do not have write access to this note.' });
+  const persistCurrentNote = useCallback(async (options: { showErrors?: boolean } = {}) => {
+    const note = currentNoteRef.current;
+    const original = originalNoteRef.current;
+    if (!note?._id || !original) return;
+    if (note.title === original.title && note.content === original.content) return;
+    if (!hasWriteAccess(note)) {
+      if (options.showErrors) {
+        toast({ title: 'Read-only access', description: 'You do not have write access to this note.' });
+      }
       return;
     }
+
+    if (saveInFlightRef.current) {
+      saveAgainAfterCurrentRef.current = true;
+      return;
+    }
+
+    const snapshot: Note & { _id: string; title: string; content: string } = {
+      ...note,
+      _id: note._id,
+      title: note.title || '',
+      content: note.content || '',
+    };
 
     if (!isOnline) {
       queueOfflineNoteUpdate({
-        noteId: currentNote._id!,
+        noteId: snapshot._id,
         assistantName,
-        data: { title: currentNote.title || '', content: currentNote.content || '', isPinned: currentNote.isPinned },
+        data: { title: snapshot.title, content: snapshot.content || '', isPinned: snapshot.isPinned },
       });
-      setOriginalNote(currentNote);
-      toast({ title: 'Saved offline', description: 'Will sync when back online.', duration: 3000 });
+      setOriginalNote(snapshot);
+      setNotes(prev => prev.map(n => n._id === snapshot._id ? snapshot : n));
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     try {
       const updated = await updateNote(
-        currentNote._id!,
-        { title: currentNote.title || '', content: currentNote.content || '', isPinned: currentNote.isPinned },
+        snapshot._id,
+        { title: snapshot.title, content: snapshot.content || '', isPinned: snapshot.isPinned },
         assistantName
       );
-      posthog?.capture('note_saved', { noteId: currentNote._id, mode: currentNote.mode });
-      await trackSessionHistory('Updated Note', [{ type: 'Notes', id: currentNote._id!, description: `Title: ${currentNote.title}` }]);
-      setNotes(prev => prev.map(n => n._id === currentNote._id ? updated : n));
-      setCurrentNote(updated);
-      setOriginalNote(updated);
-      setIsEditMode(false);
-      sendNoteState('updated', updated);
-    } catch (e: any) {
-      toast({ title: 'Failed to save', description: e.message === 'Failed to update note' ? 'Access denied.' : 'Please try again.' });
+      posthog?.capture('note_saved', { noteId: snapshot._id, mode: snapshot.mode });
+      await trackSessionHistory('Updated Note', [{ type: 'Notes', id: snapshot._id, description: `Title: ${snapshot.title}` }]);
+
+      const latest = currentNoteRef.current;
+      const latestHasNewerChanges =
+        !!latest &&
+        latest._id === snapshot._id &&
+        (latest.title !== snapshot.title || latest.content !== snapshot.content);
+      const currentReplacement = latestHasNewerChanges
+        ? { ...updated, title: latest.title || '', content: latest.content || '' }
+        : updated;
+
+      setNotes(prev => prev.map(n => n._id === snapshot._id ? currentReplacement : n));
+      if (latest?._id === snapshot._id) {
+        setCurrentNote(currentReplacement);
+        setOriginalNote(updated);
+      }
+      sendNoteState('updated', currentReplacement);
+    } catch (e: unknown) {
+      queueOfflineNoteUpdate({
+        noteId: snapshot._id,
+        assistantName,
+        data: { title: snapshot.title, content: snapshot.content || '', isPinned: snapshot.isPinned },
+      });
+      if (options.showErrors) {
+        const message = e instanceof Error ? e.message : '';
+        toast({ title: 'Autosave queued', description: message === 'Failed to update note' ? 'Access denied.' : 'Will retry when the connection is healthy.' });
+      }
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
+      if (saveAgainAfterCurrentRef.current) {
+        saveAgainAfterCurrentRef.current = false;
+        void persistCurrentNote();
+      }
     }
-  }, [currentNote, assistantName, isOnline, hasWriteAccess, posthog, toast]);
+  }, [assistantName, isOnline, hasWriteAccess, posthog, toast, sendNoteState]);
 
   const handleCreateNote = useCallback(async (title = 'New Note', initialContent?: string, forcedMode?: NoteMode) => {
     setIsLoading(true);
@@ -779,12 +1155,24 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
   }, [mode, assistantName, posthog, toast]);
 
   const handleDeleteNote = useCallback(async (noteId: string) => {
+    const note = notesRef.current.find(n => n._id === noteId) || null;
+    if (!hasWriteAccess(note)) {
+      toast({ title: 'Read-only note', description: 'This note cannot be edited from Notes.' });
+      return;
+    }
     setNoteToDeleteId(noteId);
     setShowDeleteDialog(true);
-  }, []);
+  }, [hasWriteAccess, toast]);
 
   const confirmDelete = useCallback(async () => {
     if (!noteToDeleteId) return;
+    const target = notes.find(n => n._id === noteToDeleteId) || null;
+    if (!hasWriteAccess(target)) {
+      setNoteToDeleteId(null);
+      setShowDeleteDialog(false);
+      toast({ title: 'Read-only note', description: 'This note cannot be edited from Notes.' });
+      return;
+    }
     setIsLoading(true);
     setShowDeleteDialog(false);
     try {
@@ -802,7 +1190,11 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     } catch {
       toast({ title: 'Failed to delete note', description: 'Please try again.' });
     } finally { setIsLoading(false); }
-  }, [noteToDeleteId, assistantName, notes, currentNote, posthog, toast]);
+  }, [noteToDeleteId, assistantName, notes, currentNote, hasWriteAccess, posthog, toast]);
+
+  const handleNotesCommandInput = useCallback((value: string) => {
+    setSearchQuery(value);
+  }, []);
 
   const downloadNote = useCallback(() => {
     if (!currentNote) return;
@@ -817,6 +1209,118 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }, [currentNote, posthog]);
+
+  const handleSendNoteToLaunchpad = useCallback(async (noteId: string) => {
+    const selectedNote = notesRef.current.find(n => n._id === noteId) || currentNote;
+    if (!selectedNote) return;
+    try {
+      const noteContent =
+        typeof selectedNote.content === 'string'
+          ? selectedNote.content
+          : (selectedNote.content as any)?.content ?? '';
+      const noteTitle = selectedNote.title || 'Untitled note';
+
+      // Open the Studio window first so the listener is mounted, then attach the note.
+      requestWindowOpen({ viewType: 'creationLaunchpad', source: 'notes:magic-wand' });
+
+      const dispatchAttach = () => {
+        window.dispatchEvent(
+          new CustomEvent('nia.studio.note.attach', {
+            detail: {
+              note: {
+                id: noteId,
+                title: noteTitle,
+                content: noteContent,
+              },
+            },
+          })
+        );
+      };
+      // Fire immediately, and once again on the next frame so a freshly-mounted
+      // CreationLaunchpad has a chance to wire up its listener.
+      dispatchAttach();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(dispatchAttach);
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('nia.toast', {
+          detail: { message: `Attached "${noteTitle}" to Studio`, type: 'success' },
+        })
+      );
+      setStudioPickMode(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to send to Launchpad';
+      window.dispatchEvent(
+        new CustomEvent('nia.toast', {
+          detail: { message, type: 'error' },
+        })
+      );
+    }
+  }, [currentNote]);
+
+  const toggleFolderCollapse = useCallback((folderId: NotesFolderId) => {
+    setCollapsedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  }, []);
+
+  const handleNoteDragStart = useCallback((e: React.DragEvent, noteId: string) => {
+    const note = notesRef.current.find(n => n._id === noteId);
+    if (!note || isProtectedNotesSection(note)) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData('text/plain', noteId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingNoteId(noteId);
+  }, []);
+
+  const handleNoteDragEnd = useCallback(() => {
+    setDraggingNoteId(null);
+    setDragOverFolderId(null);
+  }, []);
+
+  const handleFolderDragOver = useCallback((e: React.DragEvent, folderId: NotesFolderId) => {
+    if (!draggingNoteId) return;
+    if (folderId !== 'your-notes') return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverFolderId(folderId);
+  }, [draggingNoteId]);
+
+  const handleFolderDragLeave = useCallback(() => {
+    setDragOverFolderId(null);
+  }, []);
+
+  const handleFolderDrop = useCallback((e: React.DragEvent, targetFolderId: NotesFolderId) => {
+    e.preventDefault();
+    if (targetFolderId !== 'your-notes') return;
+    const noteId = e.dataTransfer.getData('text/plain');
+    if (!noteId) return;
+    const targetNote = notesRef.current.find(n => n._id === noteId);
+    if (!targetNote || isProtectedNotesSection(targetNote)) return;
+    setNoteFolderOverrides(prev => {
+      const next = new Map(prev);
+      const currentFolder = next.get(noteId) || inferFolderId(targetNote);
+      if (currentFolder === targetFolderId) return prev;
+      next.set(noteId, targetFolderId);
+      return next;
+    });
+    if (collapsedFolders.has(targetFolderId)) {
+      setCollapsedFolders(prev => {
+        const next = new Set(prev);
+        next.delete(targetFolderId);
+        return next;
+      });
+    }
+    setDraggingNoteId(null);
+    setDragOverFolderId(null);
+    toast({ title: 'Note moved', description: `Moved to ${NOTE_FOLDERS.find(f => f.id === targetFolderId)?.title || targetFolderId}` });
+  }, [collapsedFolders, toast]);
 
   // ─── Note switching with unsaved check ────────────────────────────────────
 
@@ -839,41 +1343,26 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     } catch { /* non-fatal */ }
   }, [sendNoteState]);
 
-  const handleNoteSwitch = useCallback((note: Note) => {
-    if (hasUnsavedChanges()) {
-      setPendingAction(() => () => openNote(note));
-      setShowUnsavedDialog(true);
-    } else {
-      openNote(note);
-    }
-  }, [hasUnsavedChanges, openNote]);
+  const handleNoteSwitch = useCallback(async (note: Note) => {
+    await persistCurrentNote();
+    openNote(note);
+  }, [openNote, persistCurrentNote]);
 
   const handleModeSwitch = useCallback((newMode: NoteMode) => {
     if (newMode === mode) return;
     posthog?.capture('note_mode_switched', { mode: newMode });
-    if (hasUnsavedChanges()) {
-      setPendingAction(() => () => setMode(newMode));
-      setShowUnsavedDialog(true);
-    } else {
-      setMode(newMode);
-    }
-  }, [mode, hasUnsavedChanges, posthog]);
+    void persistCurrentNote();
+    setMode(newMode);
+  }, [mode, persistCurrentNote, posthog]);
 
-  const handleBackToLibrary = useCallback(() => {
-    const doClose = () => {
-      setViewState('library');
-      setCurrentNote(null);
-      setIsEditMode(false);
-      sendNoteState('closed');
-      try { forwardAppEvent(EventEnum.NOTE_CLOSE, { source: 'user' }); } catch { /* non-fatal */ }
-    };
-    if (hasUnsavedChanges()) {
-      setPendingAction(() => doClose);
-      setShowUnsavedDialog(true);
-    } else {
-      doClose();
-    }
-  }, [hasUnsavedChanges, sendNoteState]);
+  const handleBackToLibrary = useCallback(async () => {
+    await persistCurrentNote();
+    setViewState('library');
+    setCurrentNote(null);
+    setIsEditMode(false);
+    sendNoteState('closed');
+    try { forwardAppEvent(EventEnum.NOTE_CLOSE, { source: 'user' }); } catch { /* non-fatal */ }
+  }, [persistCurrentNote, sendNoteState]);
 
   // ─── Auto-save ────────────────────────────────────────────────────────────
 
@@ -881,38 +1370,28 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     if (!hasUnsavedChanges() || !isEditMode) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
-      // Auto-save: persist current changes to the file system
-      const note = currentNoteRef.current;
-      if (note && note._id) {
-        fetch('/api/notes/files', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: note._id,
-            title: note.title || '',
-            content: note.content || '',
-          }),
-        }).then(res => {
-          if (res.ok) {
-            return res.json().then(updated => {
-              originalNoteRef.current = updated;
-            });
-          }
-        }).catch(() => { /* best-effort auto-save */ });
-      }
-    }, 3000);
+      void persistCurrentNote();
+    }, 800);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [currentNote, isEditMode, hasUnsavedChanges]);
+  }, [currentNote?.title, currentNote?.content, currentNote?._id, isEditMode, hasUnsavedChanges, persistCurrentNote]);
 
   // ─── beforeunload ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const h = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
+    const h = () => {
+      const note = currentNoteRef.current;
+      const orig = originalNoteRef.current;
+      if (!note?._id || !orig) return;
+      if (note.title === orig.title && note.content === orig.content) return;
+      queueOfflineNoteUpdate({
+        noteId: note._id,
+        assistantName,
+        data: { title: note.title || '', content: note.content || '', isPinned: note.isPinned },
+      });
     };
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
-  }, [hasUnsavedChanges]);
+  }, [assistantName]);
 
   // ─── Document drop ────────────────────────────────────────────────────────
 
@@ -1068,13 +1547,13 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         setCurrentNote(note);
         setOriginalNote(note);
         setViewState('document');
-        setIsEditMode(false);
+        setIsEditMode(hasWriteAccess(note));
       } else if (noteId) {
         // Existing note saved — refresh from server (don't re-save, the bot already saved)
-        const existing = notesRef.current.find(n => n._id === noteId);
+        const existing = findNoteByDeepLinkToken(notesRef.current, noteId);
         if (existing) {
           // If it's the current note, just mark original = current (no unsaved changes)
-          if (currentNoteRef.current?._id === noteId) {
+          if (currentNoteRef.current?._id === existing._id) {
             setOriginalNote(currentNoteRef.current);
           }
         } else {
@@ -1093,7 +1572,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
     };
     window.addEventListener(NIA_EVENT_NOTE_SAVED, handler as EventListener);
     return () => window.removeEventListener(NIA_EVENT_NOTE_SAVED, handler as EventListener);
-  }, [assistantName, handleSaveNote]);
+  }, [assistantName, hasWriteAccess]);
 
   // Bridge NOTE_DOWNLOAD
   useEffect(() => {
@@ -1113,7 +1592,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
   const refreshDebounceRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     const handler = async (event: Event) => {
-      const customEvent = event as CustomEvent<NiaEventDetail<Record<string, unknown>>>;
+      const customEvent = event as CustomEvent<NiaEventDetail>;
       const payload = (customEvent.detail?.payload ?? {}) as Record<string, unknown>;
       const noteId = typeof payload.noteId === 'string' ? payload.noteId : undefined;
       const noteMode = typeof payload.mode === 'string' ? (payload.mode as NoteMode) : undefined;
@@ -1163,7 +1642,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       const noteId = detail?.noteId;
       if (!noteId) return;
       log.info('[NotesView] Opening note from file click', { noteId });
-      const local = notesRef.current.find(n => n._id === noteId);
+      const local = findNoteByDeepLinkToken(notesRef.current, noteId);
       if (local) {
         openNote(local);
       } else {
@@ -1199,7 +1678,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       log.info('[NotesView] Received note.open event', { noteId });
 
       // Fast path: full note object is embedded in the event payload
-      if (embeddedNote && embeddedNote._id) {
+      if (embeddedNote && embeddedNote._id && typeof (embeddedNote as any).content === 'string') {
         // Merge into notes list (add if new, update if existing)
         setNotes(prev => {
           const idx = prev.findIndex(n => n._id === embeddedNote._id);
@@ -1218,7 +1697,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       const targetId = noteId || undefined;
       if (!targetId) return;
 
-      const local = notesRef.current.find(n => n._id === targetId);
+      const local = findNoteByDeepLinkToken(notesRef.current, targetId);
       if (local) {
         openNote(local);
         return;
@@ -1238,7 +1717,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         } else {
           // Fallback: full reload then open
           await loadNotes();
-          const target = notesRef.current.find(n => n._id === targetId);
+          const target = findNoteByDeepLinkToken(notesRef.current, targetId);
           if (target) openNote(target);
         }
       } catch (err) {
@@ -1267,7 +1746,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         setCurrentNote(null);
         setOriginalNote(null);
         setViewState('library');
-        setIsEditMode(false);
+        setIsEditMode(true);
       }
     };
     window.addEventListener(NIA_EVENT_NOTE_DELETED, handler as EventListener);
@@ -1525,7 +2004,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         const existing = notes.find(n => (n.title || '').trim().toLowerCase() === title.trim().toLowerCase() && (n.mode || 'personal') === targetMode);
         if (existing) {
           openNote(existing);
-          if (initialContent) {
+          if (initialContent && hasWriteAccess(existing)) {
             const merged = mergeBulletList(existing.content || '', parseListItems(initialContent));
             setCurrentNote(prev => prev ? { ...prev, content: merged } : prev);
             setIsEditMode(true);
@@ -1539,10 +2018,11 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         const target = notes.find(n => (n.title || '').toLowerCase() === title.toLowerCase());
         if (target?._id) { if (!shouldIgnoreDuplicate(action, { title })) handleDeleteNote(target._id); }
       }
-      if (action === 'saveNote') { if (!shouldIgnoreDuplicate(action, {})) handleSaveNote(); }
+      if (action === 'saveNote') { if (!shouldIgnoreDuplicate(action, {})) void persistCurrentNote({ showErrors: true }); }
       if (action === 'downloadNote') { if (!shouldIgnoreDuplicate(action, {})) downloadNote(); }
       if (action === 'writeContent') {
         const content = (payload.content as string) || '';
+        if (!hasWriteAccess(currentNoteRef.current)) return;
         if (!shouldIgnoreDuplicate(action, { content })) {
           setCurrentNote(prev => prev ? { ...prev, content } : prev);
           setIsEditMode(true);
@@ -1550,6 +2030,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       }
       if (action === 'addContent') {
         const content = (payload.content as string) || '';
+        if (!hasWriteAccess(currentNoteRef.current)) return;
         if (!shouldIgnoreDuplicate(action, { content })) {
           const merged = mergeBulletList(currentNoteRef.current?.content || '', parseListItems(content));
           setCurrentNote(prev => prev ? { ...prev, content: merged } : prev);
@@ -1559,6 +2040,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       if (action === 'updateContent') {
         const fromText = (payload.fromText as string) || '';
         const toText = (payload.toText as string) || '';
+        if (!hasWriteAccess(currentNoteRef.current)) return;
         if (!shouldIgnoreDuplicate(action, { fromText, toText })) {
           setCurrentNote(prev => prev ? { ...prev, content: (prev.content || '').replace(fromText, toText) } : prev);
           setIsEditMode(true);
@@ -1566,6 +2048,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       }
       if (action === 'removeContent') {
         const targetText = (payload.targetText as string) || '';
+        if (!hasWriteAccess(currentNoteRef.current)) return;
         if (!shouldIgnoreDuplicate(action, { targetText })) {
           setCurrentNote(prev => prev ? { ...prev, content: removeTargetFromContent(prev.content || '', targetText) } : prev);
           setIsEditMode(true);
@@ -1577,13 +2060,12 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       }
       if (action === 'updateNoteTitle') {
         const newTitle = (payload.title as string) || '';
+        if (!hasWriteAccess(currentNoteRef.current)) return;
         if (newTitle) { setCurrentNote(prev => prev ? { ...prev, title: newTitle } : prev); setIsEditMode(true); }
       }
       if (action === 'attemptClose') {
-        if (hasUnsavedChanges()) {
-          setPendingAction(() => () => onClose?.());
-          setShowUnsavedDialog(true);
-        } else { onClose?.(); }
+        void persistCurrentNote();
+        onClose?.();
       }
       if (action === 'openNote') {
         if (!isReadyRef.current) { commandQueueRef.current.push({ action, payload }); return; }
@@ -1595,7 +2077,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         if (!noteId && eventNote?._id) noteId = eventNote._id;
 
         // If we got a full note object from the event, use it directly
-        if (eventNote && eventNote._id) {
+        if (eventNote && eventNote._id && typeof (eventNote as any).content === 'string') {
           const fresh = eventNote as Note;
           setNotes(prev => {
             const idx = prev.findIndex(n => n._id === fresh._id);
@@ -1608,6 +2090,11 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         }
 
         if (noteId) {
+          const localBeforeFetch = findNoteByDeepLinkToken(notesRef.current, noteId);
+          if (localBeforeFetch) {
+            openNote(localBeforeFetch);
+            return;
+          }
           try {
             const lookup = await findNoteWithFuzzySearch({ id: noteId }, assistantName);
             if (lookup.found && lookup.note) {
@@ -1624,7 +2111,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
             }
           } catch (err) { log.error('Failed to fetch note by ID', { noteId, error: err }); }
           // Try from local state
-          const local = notesRef.current.find(n => n._id === noteId);
+          const local = findNoteByDeepLinkToken(notesRef.current, noteId);
           if (local) { openNote(local); return; }
           sendMessage({ content: 'Could not find the requested note.', role: 'assistant', mode: 'queued' });
           return;
@@ -1635,7 +2122,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
 
         // Title-based fuzzy search
         let freshNotes: Note[] = notes;
-        try { freshNotes = await fetchNotes(targetMode, assistantName) || []; } catch { /* use current */ }
+        try { freshNotes = (await fetchNotes(targetMode, assistantName) || []).map(toViewNote); } catch { /* use current */ }
         const allToSearch = [...freshNotes];
         for (const n of notes) { if (!allToSearch.find(x => x._id === n._id)) allToSearch.push(n); }
         const inMode = allToSearch.filter(n => (n.mode || 'personal') === targetMode);
@@ -1653,14 +2140,23 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
         if (shouldIgnoreDuplicate(action, {})) return;
         setViewState('library');
         setCurrentNote(null);
-        setIsEditMode(false);
+        setIsEditMode(true);
         sendMessage({ content: 'Returned to notes list.', role: 'assistant', mode: 'queued' });
       }
     };
 
     window.addEventListener('notepadCommand', handler as EventListener);
     return () => window.removeEventListener('notepadCommand', handler as EventListener);
-  }, [notes, mode, assistantName, hasUnsavedChanges, shouldIgnoreDuplicate, openNote, handleCreateNote, handleDeleteNote, handleSaveNote, downloadNote, handleModeSwitch, onClose, sendMessage, loadNotes]);
+  }, [notes, mode, assistantName, shouldIgnoreDuplicate, openNote, handleCreateNote, handleDeleteNote, persistCurrentNote, downloadNote, handleModeSwitch, onClose, sendMessage, loadNotes, toViewNote, hasWriteAccess]);
+
+  useEffect(() => {
+    const noteId = (initialNoteId || '').trim();
+    if (!noteId || lastInitialNoteIdRef.current === noteId) return;
+    lastInitialNoteIdRef.current = noteId;
+    window.dispatchEvent(new CustomEvent('notepadCommand', {
+      detail: { action: 'openNote', payload: { noteId } },
+    }));
+  }, [initialNoteId]);
 
   // ─── Cleanup (save unsaved changes on unmount) ─────────────────────────
 
@@ -1669,27 +2165,19 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       if (incrementalAbortRef.current) incrementalAbortRef.current();
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
-      // Save unsaved changes when component is unmounted externally
-      // (e.g. bot_close_notes, apps.close, window removal)
+      // Preserve the latest draft when the Notes window is closed before
+      // the debounce fires. The queue is flushed through updateNote.
       const note = currentNoteRef.current;
       const orig = originalNoteRef.current;
-      if (note && note._id && orig) {
-        const hasChanges = note.title !== orig.title || note.content !== orig.content;
-        if (hasChanges) {
-          // Fire-and-forget save via the file API
-          fetch('/api/notes/files', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: note._id,
-              title: note.title || '',
-              content: note.content || '',
-            }),
-          }).catch(() => { /* best-effort */ });
-        }
+      if (note?._id && orig && (note.title !== orig.title || note.content !== orig.content)) {
+        queueOfflineNoteUpdate({
+          noteId: note._id,
+          assistantName,
+          data: { title: note.title || '', content: note.content || '', isPinned: note.isPinned },
+        });
       }
     };
-  }, []);
+  }, [assistantName]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -1700,7 +2188,6 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
       {showDeleteDialog && (
         <div className="nn-overlay">
           <div className="nn-dialog">
-            <div className="nn-dialog-icon">⚠️</div>
             <h3 className="nn-dialog-title">Delete Note</h3>
             <p className="nn-dialog-text">This action cannot be undone.</p>
             <div className="nn-dialog-actions">
@@ -1708,32 +2195,6 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
               <button className="nn-btn nn-btn-danger" onClick={confirmDelete} disabled={isLoading}>
                 {isLoading ? 'Deleting…' : 'Delete'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Unsaved Dialog */}
-      {showUnsavedDialog && (
-        <div className="nn-overlay">
-          <div className="nn-dialog">
-            <div className="nn-dialog-icon">💾</div>
-            <h3 className="nn-dialog-title">Unsaved Changes</h3>
-            <p className="nn-dialog-text">Save your changes before continuing?</p>
-            <div className="nn-dialog-actions">
-              <button className="nn-btn nn-btn-ghost" onClick={() => { setShowUnsavedDialog(false); setPendingAction(null); }}>Cancel</button>
-              <button className="nn-btn nn-btn-danger" onClick={() => {
-                setShowUnsavedDialog(false);
-                setOriginalNote(currentNote);
-                pendingAction?.();
-                setPendingAction(null);
-              }}>Discard</button>
-              <button className="nn-btn nn-btn-primary" onClick={async () => {
-                await handleSaveNote();
-                setShowUnsavedDialog(false);
-                pendingAction?.();
-                setPendingAction(null);
-              }} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>
@@ -1754,7 +2215,7 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
               </div>
             ) : (
               <div className="nn-drag-content">
-                <div className="nn-drag-icon">📄</div>
+                <div className="nn-drag-icon"><FilePlus2 size={46} aria-hidden="true" /></div>
                 <p className="nn-drag-title">Drop Document</p>
                 <p className="nn-drag-subtitle">PDF, DOCX, CSV, MD, TXT</p>
               </div>
@@ -1774,141 +2235,188 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
             </div>
             {/* Header */}
             <div className="nn-library-header">
-              <div className="nn-library-header-top">
+              <div className="nn-library-title-row">
                 <h1 className="nn-library-title">Notes</h1>
-                <div className="nn-library-header-actions">
-                  <button className="nn-btn nn-btn-icon" onClick={() => { setSearchExpanded(e => !e); setTimeout(() => searchInputRef.current?.focus(), 100); }} title="Search">
-                    🔍
-                  </button>
-                </div>
+                <PearlCommandInput
+                  ariaLabel="Notes command"
+                  className="nn-library-command-input"
+                  disabled={isLoading}
+                  onCommandInput={handleNotesCommandInput}
+                  placeholder="Create a new note, re-organize, search, or use a Note as a blueprint and send it to the Studio."
+                />
               </div>
-
-              {/* Search — collapsed to magnifying glass icon */}
-              {searchExpanded ? (
-                <div className="nn-search-wrap nn-search-expanded">
-                  <span className="nn-search-icon">🔍</span>
-                  <input
-                    ref={searchInputRef}
-                    className="nn-search-input"
-                    type="text"
-                    placeholder="Search notes…"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    autoFocus
-                    onBlur={() => { if (!searchQuery) setSearchExpanded(false); }}
-                  />
-                  {searchQuery && (
-                    <button className="nn-search-clear" onClick={() => { setSearchQuery(''); setSearchExpanded(false); }}>✕</button>
-                  )}
-                </div>
-              ) : null}
             </div>
 
             {/* Content */}
             <div className="nn-library-body">
+              {studioPickMode && (
+                <div className="nn-studio-pick-banner">
+                  <span>Choose a note for Studio</span>
+                  <button onClick={() => setStudioPickMode(false)} aria-label="Cancel Studio note selection">
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
               {isLoading && notes.length === 0 ? (
                 <div className="nn-empty">
                   <div className="nn-spinner" />
                   <p>Loading notes…</p>
                 </div>
-              ) : filteredNotes.length === 0 ? (
-                searchQuery ? (
-                  <div className="nn-empty">
-                    <div className="nn-empty-icon">🔍</div>
-                    <p className="nn-empty-title">No matches</p>
-                    <p className="nn-empty-subtitle">Try a different search</p>
-                  </div>
-                ) : (
-                  <div className="nn-empty-magic">
-                    <div className="nn-empty-ring">✦</div>
-                    <p className="nn-empty-magic-title">Your canvas awaits</p>
-                    <p className="nn-empty-magic-sub">Tap + to begin creating</p>
-                  </div>
-                )
-              ) : libraryLayout === 'cards' ? (
-                <div className="nn-card-grid">
-                  {filteredNotes.map((note, index) => (
-                    <div
-                      key={note._id || `note-${index}`}
-                      className={`nn-card ${currentNote?._id === note._id ? 'nn-card-active' : ''} ${note.isPinned ? 'nn-card-pinned' : ''}`}
-                      style={{ animationDelay: `${index * 60}ms` }}
-                      onClick={() => handleNoteSwitch(note)}
-                    >
-                      {note.isPinned && <span className="nn-pin-diamond">◆</span>}
-                      {isFeatureEnabled('resourceSharing', supportedFeatures) && sharedNoteIds.has(note._id!) && (
-                        <div className="nn-shared-badge"><SharedIndicator /></div>
-                      )}
-                      <h3 className="nn-card-title">{note.title || 'Untitled'}</h3>
-                      <p className="nn-card-preview">{getPreview(note.content || '')}</p>
-                      <div className="nn-card-footer">
-                        <span className="nn-card-date">{formatDate(note)}</span>
-                        {hasWriteAccess(note) && (
-                          <button className="nn-card-delete" onClick={e => { e.stopPropagation(); handleDeleteNote(note._id!); }} title="Delete">🗑️</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+              ) : searchQuery && filteredNotes.length === 0 ? (
+                <div className="nn-empty">
+                  <div className="nn-empty-icon"><Sparkles size={44} aria-hidden="true" /></div>
+                  <p className="nn-empty-title">No matches</p>
+                  <p className="nn-empty-subtitle">Try a different search</p>
                 </div>
               ) : (
-                <div className="nn-spine-list">
-                  {filteredNotes.map((note, index) => (
-                    <div key={note._id || `spine-${index}`} className="nn-spine-item">
-                      {isFeatureEnabled('resourceSharing', supportedFeatures) && sharedNoteIds.has(note._id!) && (
-                        <div className="nn-shared-badge-spine"><SharedIndicator /></div>
-                      )}
-                      <BookSpine
-                        title={note.title}
-                        contentLength={note.content?.length || 0}
-                        isSelected={currentNote?._id === note._id}
-                        onClick={() => handleNoteSwitch(note)}
-                        onDelete={hasWriteAccess(note) ? () => handleDeleteNote(note._id!) : undefined}
-                      />
-                    </div>
-                  ))}
+                <div className="nn-folder-board">
+                  {NOTE_FOLDERS.map(folder => {
+                    const folderNotes = folder.id === 'recent' ? recentNotes : (notesByFolder.get(folder.id) || []);
+                    if (folderNotes.length === 0) return null;
+                    const isCollapsed = collapsedFolders.has(folder.id);
+                    const isDragTarget = dragOverFolderId === folder.id;
+                    const isPearlDiary = folder.id === 'pearl';
+                    return (
+                      <section
+                        className={`nn-folder-section ${isDragTarget ? 'nn-folder-drop-target' : ''} ${isPearlDiary ? 'nn-folder-pearl-diary' : ''}`}
+                        key={folder.id}
+                        onDragOver={e => handleFolderDragOver(e, folder.id)}
+                        onDragLeave={handleFolderDragLeave}
+                        onDrop={e => handleFolderDrop(e, folder.id)}
+                      >
+                        <div
+                          className="nn-folder-header nn-folder-header-clickable"
+                          onClick={() => toggleFolderCollapse(folder.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFolderCollapse(folder.id); } }}
+                        >
+                          <span className="nn-folder-chevron" aria-hidden="true">
+                            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                          </span>
+                          <span className="nn-book-stack-sprite" style={{ '--folder-color': folder.color } as React.CSSProperties} aria-hidden="true">
+                            <span /><span /><span />
+                          </span>
+                          <div>
+                            <h2>{folder.title}</h2>
+                            <p>{folderNotes.length} {folderNotes.length === 1 ? 'note' : 'notes'}</p>
+                          </div>
+                        </div>
+                        {!isCollapsed && (
+                          <div className="nn-card-grid">
+                            {folderNotes.map((note, index) => {
+                              const displayTitle = (folder.id === 'chat-archive' && isArchivedChatNote(note))
+                                ? inferChatTopicName(note)
+                                : (note.title || 'Untitled');
+                              const isProtected = !hasWriteAccess(note);
+                              return (
+                                <div
+                                  key={note._id || `${folder.id}-${index}`}
+                                  className={`nn-card ${studioPickMode ? 'nn-card-pick-mode' : ''} ${currentNote?._id === note._id ? 'nn-card-active' : ''} ${note.isPinned ? 'nn-card-pinned' : ''} ${draggingNoteId === note._id ? 'nn-card-dragging' : ''} ${isProtected ? 'nn-card-read-only' : ''}`}
+                                  style={{ animationDelay: `${index * 35}ms` }}
+                                  draggable={folder.id === 'your-notes' && !!note._id && hasWriteAccess(note)}
+                                  onDragStart={e => note._id && handleNoteDragStart(e, note._id)}
+                                  onDragEnd={handleNoteDragEnd}
+                                  onClick={() => studioPickMode && note._id ? handleSendNoteToLaunchpad(note._id) : handleNoteSwitch(note)}
+                                >
+                                  {note.isPinned && <span className="nn-pin-diamond">◆</span>}
+                                  {isFeatureEnabled('resourceSharing', supportedFeatures) && sharedNoteIds.has(note._id!) && (
+                                    <div className="nn-shared-badge"><SharedIndicator /></div>
+                                  )}
+                                  <h3 className="nn-card-title">{displayTitle}</h3>
+                                  <p className="nn-card-preview">{getPreview(note.content || '')}</p>
+                                  <div className="nn-card-footer">
+                                    <span className="nn-card-date">{folder.id === 'tasks' ? 'Task log' : isArchivedChatNote(note) ? 'Chat archive' : formatDate(note)}</span>
+                                    {hasWriteAccess(note) && (
+                                      <button className="nn-card-delete" onClick={e => { e.stopPropagation(); handleDeleteNote(note._id!); }} title="Delete" aria-label="Delete note">
+                                        <Trash2 size={14} aria-hidden="true" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
                 </div>
               )}
             </div>
-
-            {/* FAB — Create New Note */}
-            <button
-              className={`nn-fab ${filteredNotes.length === 0 && !searchQuery ? 'nn-fab-glow-strong' : ''}`}
-              onClick={() => handleCreateNote()}
-              disabled={isLoading}
-              title="Create new note"
-            >
-              +
-            </button>
           </div>
         ) : (
           // ═══ DOCUMENT VIEW ═══
           <div className="nn-document">
             {/* Back button - stays at top */}
             <div className="nn-toolbar-top">
-              <button className="nn-btn nn-btn-icon nn-btn-back" onClick={handleBackToLibrary} title="Back to library">
-                ←
+              <button className="nn-btn nn-btn-icon nn-btn-back" onClick={handleBackToLibrary} title="Back to library" aria-label="Back to library">
+                <ArrowLeft size={22} aria-hidden="true" />
               </button>
               <h2 className="nn-toolbar-top-title">{currentNote?.title || 'Untitled'}</h2>
+              <div className="nn-toolbar-top-actions">
+                <div className="nn-toolbar-right nn-toolbar-top-icons">
+                  {hasUnsavedChanges() && <span className="nn-unsaved-dot" title="Unsaved changes" />}
+                  {hasWriteAccess(currentNote) && (
+                    <button
+                      className={`nn-btn nn-btn-icon ${isEditMode ? 'nn-btn-active' : ''}`}
+                      onClick={() => setIsEditMode(v => !v)}
+                      title={isEditMode ? 'Preview' : 'Edit'}
+                      aria-label={isEditMode ? 'Preview note' : 'Edit note'}
+                    >
+                      <Pencil size={17} aria-hidden="true" />
+                    </button>
+                  )}
+                  {hasWriteAccess(currentNote) && currentNote?._id && (
+                    <button className="nn-btn nn-btn-icon nn-btn-delete-toolbar" onClick={() => handleDeleteNote(currentNote._id!)} title="Delete" aria-label="Delete note">
+                      <Trash2 size={17} aria-hidden="true" />
+                    </button>
+                  )}
+                  {currentNote && (
+                    <NoteShareControls
+                      currentNote={currentNote}
+                      supportedFeatures={supportedFeatures}
+                      tenantId={currentNote?.tenantId || propTenantId}
+                      onSharingUpdated={() => toast({ title: 'Sharing Updated' })}
+                    />
+                  )}
+                  <button className="nn-btn nn-btn-icon" onClick={downloadNote} title="Download" aria-label="Download note">
+                    <Download size={17} aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="nn-toolbar-top-save">
+                  {!hasWriteAccess(currentNote) ? (
+                    <span className="nn-readonly-badge">Read-only</span>
+                  ) : isSaving ? (
+                    <span className="nn-autosave-status">Saving…</span>
+                  ) : hasUnsavedChanges() ? (
+                    <span className="nn-autosave-status">Autosaving…</span>
+                  ) : (
+                    <span className="nn-autosave-status">Saved</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Document content */}
             {currentNote ? (
               <div className="nn-doc-content">
-                {/* Title — always visible h1, with edit input when in edit mode */}
-                {!isEditMode && <h1 className="nn-doc-title-always">{currentNote.title || 'Untitled'}</h1>}
-                {isEditMode && hasWriteAccess(currentNote) && (
+                {hasWriteAccess(currentNote) ? (
                   <input
                     className="nn-title-input"
                     type="text"
                     value={currentNote.title || ''}
                     onChange={e => setCurrentNote(prev => prev ? { ...prev, title: e.target.value } : prev)}
                     placeholder="Untitled"
-                    disabled={isSaving}
                   />
+                ) : (
+                  <h1 className="nn-doc-title-always">{currentNote.title || 'Untitled'}</h1>
                 )}
 
                 {/* Meta */}
                 <div className="nn-doc-meta">
                   <span>{formatDate(currentNote)}</span>
+                  {isArchivedChatNote(currentNote) && <span className="nn-work-badge">CHAT HISTORY</span>}
                   {currentNote.mode === 'work' && <span className="nn-work-badge">WORK</span>}
                   {currentNote.sourceFile && (
                     <span className="nn-source-badge">
@@ -1918,17 +2426,21 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
                 </div>
 
                 {/* Body */}
-                {isEditMode && hasWriteAccess(currentNote) ? (
+                {hasWriteAccess(currentNote) && isEditMode ? (
                   <textarea
                     className="nn-editor"
                     value={currentNote.content || ''}
                     onChange={e => setCurrentNote(prev => prev ? { ...prev, content: e.target.value } : prev)}
                     placeholder="Start writing…"
-                    disabled={isSaving}
                   />
                 ) : (
                   <div className="nn-rendered-content">
-                    <StreamingRenderer content={currentNote.content || ''} isStreaming={isStreaming} noteId={currentNote._id} />
+                    <StreamingRenderer
+                      content={currentNote.content || ''}
+                      isStreaming={isStreaming}
+                      noteId={currentNote._id}
+                      noteTitle={currentNote.title || ''}
+                    />
                   </div>
                 )}
               </div>
@@ -1938,45 +2450,6 @@ const NotesViewNext = ({ assistantName, onClose, supportedFeatures, tenantId: pr
               </div>
             )}
 
-            {/* Bottom Toolbar */}
-            <div className="nn-toolbar nn-toolbar-bottom">
-              <div className="nn-toolbar-left">
-                {hasUnsavedChanges() && <span className="nn-unsaved-dot" title="Unsaved changes" />}
-                {!hasWriteAccess(currentNote) ? (
-                  <span className="nn-readonly-badge">🔒 Read-only</span>
-                ) : (
-                  <button
-                    className="nn-btn nn-btn-save"
-                    onClick={handleSaveNote}
-                    disabled={!hasUnsavedChanges() || isSaving || !currentNote?.content?.trim()}
-                  >
-                    {isSaving ? '⏳' : '💾'} {isSaving ? 'Saving…' : 'Save'}
-                  </button>
-                )}
-              </div>
-              <div className="nn-toolbar-right nn-toolbar-right-bottom">
-                {hasWriteAccess(currentNote) && currentNote?._id && (
-                  <button className="nn-btn nn-btn-icon nn-btn-delete-toolbar" onClick={() => handleDeleteNote(currentNote._id!)} title="Delete">🗑️</button>
-                )}
-                <button className="nn-btn nn-btn-icon" onClick={() => fileInputRef.current?.click()} title="Import">📎</button>
-                {currentNote && (
-                  <NoteShareControls
-                    currentNote={currentNote}
-                    supportedFeatures={supportedFeatures}
-                    tenantId={currentNote?.tenantId || propTenantId}
-                    onSharingUpdated={() => toast({ title: 'Sharing Updated' })}
-                  />
-                )}
-                <button
-                  className={`nn-btn nn-btn-icon ${isEditMode ? 'nn-btn-active' : ''}`}
-                  onClick={() => { if (isEditMode && hasWriteAccess(currentNote)) setIsEditMode(false); else if (hasWriteAccess(currentNote)) setIsEditMode(true); }}
-                  title={isEditMode ? 'Preview' : 'Edit'}
-                >
-                  {isEditMode ? '👁️' : '✏️'}
-                </button>
-                <button className="nn-btn nn-btn-icon" onClick={downloadNote} title="Download">⬇️</button>
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -2064,24 +2537,6 @@ const NN_STYLES = `
   border-color: rgba(124, 111, 159, 0.5);
 }
 
-.nn-btn-new-note {
-  background: linear-gradient(135deg, #7c6f9f, #9b8ec4);
-  color: #fff;
-  border: none;
-  padding: 8px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(124, 111, 159, 0.4), 0 0 24px rgba(124, 111, 159, 0.15);
-  letter-spacing: 0.02em;
-  transition: all 0.25s ease-out;
-}
-.nn-btn-new-note:hover:not(:disabled) {
-  background: linear-gradient(135deg, #8d7fb3, #ac9fd4);
-  box-shadow: 0 6px 24px rgba(124, 111, 159, 0.55), 0 0 32px rgba(124, 111, 159, 0.25);
-  transform: translateY(-1px);
-}
-
 .nn-btn-primary {
   background: #7c6f9f;
   color: #fff;
@@ -2099,15 +2554,6 @@ const NN_STYLES = `
 
 .nn-btn-ghost { color: #8a8a9a; }
 .nn-btn-ghost:hover:not(:disabled) { color: #e8e6e3; }
-
-.nn-btn-save {
-  background: rgba(124, 111, 159, 0.2);
-  color: #c4b5fd;
-  border: 1px solid rgba(124, 111, 159, 0.3);
-  font-size: 13px;
-  padding: 6px 16px;
-}
-.nn-btn-save:hover:not(:disabled) { background: rgba(124, 111, 159, 0.4); }
 
 .nn-btn-back { font-size: 20px; }
 
@@ -2164,34 +2610,191 @@ const NN_STYLES = `
 }
 
 .nn-library-header {
-  padding: 28px 28px 20px;
+  padding: 10px 28px 18px;
   border-bottom: 1px solid rgba(30, 30, 46, 0.6);
   flex-shrink: 0;
   background: linear-gradient(180deg, rgba(18, 18, 26, 0.5) 0%, transparent 100%);
 }
 
-.nn-library-header-top {
+.nn-library-title-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  justify-content: center;
+  gap: 14px;
+  position: relative;
 }
 
 .nn-library-title {
   font-family: 'Crimson Pro', serif;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   background: linear-gradient(135deg, #e8e6e3, #c4b5fd);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  margin: 0;
 }
 
-.nn-library-header-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.nn-library-command-input {
+  width: min(820px, 100%);
 }
+
+.pearl-command-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid rgba(169, 187, 204, 0.22);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.095), rgba(111, 169, 193, 0.055)),
+    rgba(12, 13, 18, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 44px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.pearl-command-input:focus-within {
+  border-color: rgba(135, 210, 205, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 18px 48px rgba(0, 0, 0, 0.34),
+    0 0 0 3px rgba(135, 210, 205, 0.09);
+}
+
+.pearl-command-input-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ed9d4;
+  pointer-events: none;
+}
+
+.pearl-command-input-field {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #f2f0ec;
+  padding: 0 22px 0 50px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+}
+
+.pearl-command-input-field::placeholder {
+  color: rgba(232, 230, 227, 0.62);
+}
+
+.pearl-command-input-field:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.nn-library-primary-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.nn-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #e8e6e3;
+  padding: 7px 12px;
+  font-family: 'Gohufont', 'Inter', monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.nn-action-pill:hover {
+  background: rgba(124, 111, 159, 0.18);
+  border-color: rgba(196, 181, 253, 0.35);
+}
+
+.nn-action-pill-magic {
+  color: #ffd4f0;
+  border-color: rgba(217, 95, 159, 0.28);
+}
+
+.nn-magic-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 10px;
+  background: rgba(18, 18, 26, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.nn-magic-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #f6f1eb;
+  background: rgba(255, 255, 255, 0.045);
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.nn-magic-choice:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nn-magic-choice-organize { color: #cce5ff; }
+.nn-magic-choice-studio { color: #ffd4f0; }
+
+.nn-book-stack-icon,
+.nn-book-stack-sprite {
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.nn-book-stack-icon span,
+.nn-book-stack-sprite span {
+  display: block;
+  height: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: inset 2px 0 rgba(255, 255, 255, 0.16), 2px 2px 0 rgba(0, 0, 0, 0.25);
+  image-rendering: pixelated;
+}
+
+.nn-book-stack-icon span:nth-child(1) { width: 24px; background: #6aa6ff; }
+.nn-book-stack-icon span:nth-child(2) { width: 19px; background: #e1a44f; margin-left: 5px; }
+.nn-book-stack-icon span:nth-child(3) { width: 27px; background: #d95f9f; margin-left: 1px; }
+
+.nn-book-stack-sprite span:nth-child(1) { width: 28px; background: var(--folder-color); }
+.nn-book-stack-sprite span:nth-child(2) { width: 22px; background: color-mix(in srgb, var(--folder-color), #ffffff 16%); margin-left: 5px; }
+.nn-book-stack-sprite span:nth-child(3) { width: 31px; background: color-mix(in srgb, var(--folder-color), #000000 18%); margin-left: 1px; }
 
 /* Search */
 .nn-search-wrap {
@@ -2203,7 +2806,6 @@ const NN_STYLES = `
 .nn-search-icon {
   position: absolute;
   left: 12px;
-  font-size: 14px;
   pointer-events: none;
   opacity: 0.5;
 }
@@ -2234,6 +2836,31 @@ const NN_STYLES = `
   padding: 4px;
 }
 .nn-search-clear:hover { color: #e8e6e3; }
+
+.nn-studio-pick-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 95, 159, 0.25);
+  border-radius: 8px;
+  background: rgba(47, 24, 46, 0.95);
+  color: #ffd4f0;
+  font-size: 13px;
+}
+
+.nn-studio-pick-banner button {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
 
 .nn-search-expanded {
   animation: nn-search-expand 0.25s ease-out;
@@ -2271,7 +2898,90 @@ const NN_STYLES = `
 .nn-empty-title { font-size: 18px; font-weight: 500; color: #8a8a9a; margin-bottom: 4px; }
 .nn-empty-subtitle { font-size: 13px; color: #555; }
 
-/* Card grid */
+/* Folders and cards */
+.nn-folder-board {
+  display: grid;
+  gap: 24px;
+}
+
+.nn-folder-section {
+  display: grid;
+  gap: 12px;
+}
+
+.nn-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.nn-folder-header-clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  transition: background 0.15s;
+}
+.nn-folder-header-clickable:hover {
+  background: rgba(124, 111, 159, 0.1);
+}
+
+.nn-folder-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: #747486;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.nn-folder-header-clickable:hover .nn-folder-chevron {
+  color: #b8a1ff;
+}
+
+.nn-folder-drop-target {
+  outline: 2px dashed rgba(124, 111, 159, 0.5);
+  outline-offset: 4px;
+  border-radius: 12px;
+  background: rgba(124, 111, 159, 0.05);
+}
+
+.nn-card-dragging {
+  opacity: 0.4;
+  transform: scale(0.97);
+}
+
+.nn-card-grip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #555;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.nn-card:hover .nn-card-grip {
+  opacity: 0.6;
+}
+.nn-card-grip:hover {
+  opacity: 1 !important;
+  color: #b8a1ff;
+}
+
+.nn-folder-header h2 {
+  margin: 0;
+  color: #f0ede8;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.nn-folder-header p {
+  margin: 2px 0 0;
+  color: #747486;
+  font-size: 11px;
+}
+
 .nn-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -2302,9 +3012,17 @@ const NN_STYLES = `
   transform: translateY(-4px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 0 20px rgba(124, 111, 159, 0.1);
 }
+.nn-card-read-only {
+  border-color: rgba(169, 187, 204, 0.16);
+}
+.nn-card-read-only:hover {
+  border-color: rgba(169, 187, 204, 0.28);
+}
 .nn-card:hover::before { opacity: 1; }
 .nn-card-active { border-color: rgba(124, 111, 159, 0.5); }
 .nn-card-pinned { border-color: rgba(196, 181, 253, 0.2); }
+.nn-card-pick-mode { border-color: rgba(217, 95, 159, 0.35); }
+.nn-card-pick-mode:hover { border-color: rgba(217, 95, 159, 0.75); }
 
 .nn-pin {
   position: absolute;
@@ -2355,10 +3073,10 @@ const NN_STYLES = `
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
   opacity: 0;
   transition: opacity 0.2s;
   padding: 2px 4px;
+  color: #ef9a9a;
 }
 .nn-card:hover .nn-card-delete { opacity: 0.6; }
 .nn-card-delete:hover { opacity: 1 !important; }
@@ -2379,18 +3097,22 @@ const NN_STYLES = `
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
-/* Top mini-bar: back button + title */
+/* Top mini-bar: back button + title + actions */
 .nn-toolbar-top {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  padding: 56px 16px 8px;
+  /* Reserve space so title never collides with right action cluster */
+  padding-right: 260px;
   gap: 8px;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(30, 30, 46, 0.4);
   z-index: 35;
+  position: relative;
 }
 
 .nn-toolbar-top-title {
@@ -2402,6 +3124,8 @@ const NN_STYLES = `
   overflow: hidden;
   text-overflow: ellipsis;
   margin: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Bottom toolbar */
@@ -2433,6 +3157,29 @@ const NN_STYLES = `
   padding-right: 0;
 }
 
+.nn-toolbar-top-actions {
+  margin-left: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 6px;
+  /* Pin actions on the same top chrome line without overlap */
+  position: absolute;
+  top: 10px;
+  right: 16px;
+}
+
+.nn-toolbar-top-icons,
+.nn-toolbar-top-save {
+  display: flex;
+  align-items: center;
+}
+
+.nn-toolbar-top-icons {
+  gap: 4px;
+}
+
 .nn-unsaved-dot {
   width: 8px;
   height: 8px;
@@ -2451,9 +3198,17 @@ const NN_STYLES = `
   border-radius: 6px;
 }
 
+.nn-autosave-status {
+  font-family: 'Gohufont', monospace;
+  font-size: 11px;
+  color: #8a8a9a;
+  white-space: nowrap;
+}
+
 /* Document content area */
 .nn-doc-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px 48px 24px;
   max-width: 800px;
@@ -2475,9 +3230,8 @@ const NN_STYLES = `
     padding: 20px 16px 48px; 
   }
 
-  /* Add top padding so "Notes" title isn't hidden behind window control overlay */
   .nn-library-header { 
-    padding: 40px 16px 12px; 
+    padding: 10px 16px 12px;
   }
 
   /* Ensure title is always visible and not overlapped */
@@ -2485,6 +3239,17 @@ const NN_STYLES = `
     font-size: 24px;
     position: relative;
     z-index: 1;
+  }
+
+  .pearl-command-input {
+    min-height: 44px;
+  }
+
+  .pearl-command-input-field {
+    height: 44px;
+    font-size: 12px;
+    padding-left: 46px;
+    padding-right: 16px;
   }
 
   .nn-library-body { padding: 12px 16px 16px; }
@@ -2507,23 +3272,79 @@ const NN_STYLES = `
     padding-right: 0;
   }
 
+  /* One row: back + icons (title hidden) — back is not on its own line */
   .nn-toolbar-top {
-    padding: 6px 10px;
+    padding: calc(env(safe-area-inset-top, 0px) + 52px) 10px 6px;
+    padding-right: 10px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
 
-  /* Ensure FAB is always visible and tappable on mobile */
-  .nn-fab {
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  .nn-toolbar-top .nn-btn-back {
+    flex-shrink: 0;
+  }
+
+  .nn-toolbar-top-actions {
+    position: static;
+    margin-left: 0;
+    top: auto;
+    right: auto;
+    gap: 8px;
+    flex-wrap: nowrap;
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    justify-content: space-between;
+  }
+
+  .nn-toolbar-top-icons,
+  .nn-toolbar-top-save {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+  }
+
+  .nn-toolbar-top-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Mobile: hide mini title next to back button */
+  .nn-toolbar-top-title {
+    display: none;
+  }
+
+  .nn-toolbar-top-icons .nn-btn-icon {
+    min-width: 28px;
+    padding: 4px 6px;
+    font-size: 14px;
+  }
+
+  .nn-toolbar-top-icons {
+    flex: 1;
+    justify-content: space-evenly;
+  }
+
+  .nn-toolbar-top-save .nn-autosave-status {
+    font-size: 10px;
+  }
+
+  .nn-magic-wand-fab {
+    /* Keep position: fixed on mobile so it pins to viewport, not the
+       transformed .nn-document containing block. */
+    position: fixed;
     right: 16px;
-    width: 52px;
-    height: 52px;
-    font-size: 26px;
-    z-index: 60;
-    /* Ensure it's not clipped — keep absolute but with high z-index */
-    position: absolute;
-    /* Force visibility */
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    z-index: 1000;
     pointer-events: auto;
-    touch-action: manipulation;
   }
 
   /* Reduce editor min-height on mobile */
@@ -2637,7 +3458,10 @@ const NN_STYLES = `
 
 /* ── Streaming / Rendered Content ─────────────────────────────────────── */
 
-.nn-rendered-content { min-height: 200px; }
+.nn-rendered-content {
+  min-height: calc(100dvh - 190px);
+  padding-bottom: 80px;
+}
 
 /* HTML content rendered via dangerouslySetInnerHTML */
 .nn-html-content {
@@ -2904,7 +3728,7 @@ const NN_STYLES = `
 }
 
 .nn-drag-content { text-align: center; }
-.nn-drag-icon { font-size: 48px; margin-bottom: 12px; }
+.nn-drag-icon { display: flex; justify-content: center; color: #c4b5fd; margin-bottom: 12px; }
 .nn-drag-title { font-size: 20px; font-weight: 600; color: #c4b5fd; margin-bottom: 4px; }
 .nn-drag-subtitle { font-size: 13px; color: #8a8a9a; }
 
@@ -2912,39 +3736,17 @@ const NN_STYLES = `
 
 .nn-loading { color: #8a8a9a; padding: 24px; text-align: center; }
 
-/* ── FAB ──────────────────────────────────────────────────────────────── */
-
-.nn-fab {
-  position: absolute;
-  bottom: 24px;
+/* Launchpad magic wand — document view only; fixed above Pearl chat bar */
+.nn-magic-wand-fab {
+  position: fixed;
   right: 24px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, #7c6f9f, #9b8ec4);
-  color: #fff;
-  font-size: 28px;
-  font-weight: 300;
-  cursor: pointer;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 24px rgba(124, 111, 159, 0.5), 0 0 40px rgba(124, 111, 159, 0.2);
-  transition: all 0.25s ease-out;
-  z-index: 50;
-  animation: nn-fab-glow 3s ease-in-out infinite;
-}
-.nn-fab:hover:not(:disabled) {
-  transform: scale(1.1);
-  box-shadow: 0 8px 32px rgba(124, 111, 159, 0.65), 0 0 60px rgba(124, 111, 159, 0.3);
-}
-.nn-fab:active:not(:disabled) { transform: scale(0.95); }
-.nn-fab:disabled { opacity: 0.4; cursor: not-allowed; }
-
-@keyframes nn-fab-glow {
-  0%, 100% { box-shadow: 0 6px 24px rgba(124, 111, 159, 0.5), 0 0 40px rgba(124, 111, 159, 0.15); }
-  50% { box-shadow: 0 6px 28px rgba(124, 111, 159, 0.6), 0 0 56px rgba(124, 111, 159, 0.25); }
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 /* ── View transitions ─────────────────────────────────────────────────── */
@@ -3192,15 +3994,6 @@ const NN_STYLES = `
   color: #555;
 }
 
-.nn-fab-glow-strong {
-  box-shadow: 0 8px 32px rgba(124, 111, 159, 0.7), 0 0 60px rgba(124, 111, 159, 0.35) !important;
-  animation: nn-fab-glow-intense 2s ease-in-out infinite !important;
-}
-@keyframes nn-fab-glow-intense {
-  0%, 100% { box-shadow: 0 8px 32px rgba(124, 111, 159, 0.7), 0 0 60px rgba(124, 111, 159, 0.35); }
-  50% { box-shadow: 0 8px 40px rgba(124, 111, 159, 0.85), 0 0 80px rgba(124, 111, 159, 0.5); }
-}
-
 /* ── 7. Card Preview Enhancement ──────────────────────────────────────── */
 
 .nn-card {
@@ -3290,11 +4083,6 @@ const NN_STYLES = `
 
 /* ── 11. Micro-interactions ───────────────────────────────────────────── */
 
-.nn-btn-save:active:not(:disabled) {
-  transform: scale(1.05);
-  transition: transform 0.1s ease-out;
-}
-
 .nn-overlay {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -3320,6 +4108,141 @@ const NN_STYLES = `
 .nn-title-input:focus {
   border-bottom-color: transparent;
   background-size: 100% 2px, 100% 2px;
+}
+
+/* ── PearlOS theme bridge ─────────────────────────────────────────────── */
+
+.nn-root {
+  background: var(--pearl-stage-bg, #0a0a0f);
+  color: var(--pearl-text, #e8e6e3);
+  font-family: var(--pearl-ui-font, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+}
+
+.nn-root *,
+.nn-btn,
+.nn-action-pill,
+.nn-search-input,
+.nn-editor {
+  font-family: var(--pearl-ui-font, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+}
+
+.nn-library-header,
+.nn-toolbar-top,
+.nn-toolbar-bottom,
+.nn-dialog,
+.nn-magic-menu {
+  background: var(--pearl-window-bg, #12121a);
+  border-color: var(--pearl-window-border, #1e1e2e);
+  color: var(--pearl-text, #e8e6e3);
+  -webkit-backdrop-filter: var(--pearl-window-backdrop, none);
+  backdrop-filter: var(--pearl-window-backdrop, none);
+}
+
+.nn-card,
+.nn-search-input,
+.nn-action-pill,
+.nn-magic-choice,
+.nn-doc-meta,
+.nn-pre,
+.nn-table-wrap,
+.nn-source-badge,
+.nn-readonly-badge {
+  background: var(--pearl-window-content-bg, #12121a);
+  border-color: var(--pearl-window-border, #1e1e2e);
+  color: var(--pearl-text, #e8e6e3);
+}
+
+.nn-card:hover,
+.nn-action-pill:hover,
+.nn-btn:hover:not(:disabled),
+.nn-btn-icon:hover:not(:disabled),
+.nn-magic-choice:hover {
+  background: color-mix(in srgb, var(--pearl-accent, #7c6f9f), transparent 86%);
+  border-color: color-mix(in srgb, var(--pearl-accent, #7c6f9f), transparent 56%);
+}
+
+.nn-library-title {
+  background: linear-gradient(135deg, var(--pearl-text, #e8e6e3), var(--pearl-accent, #c4b5fd));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.nn-loading-bar,
+.nn-accent-line,
+.nn-btn-primary {
+  background: linear-gradient(135deg, var(--pearl-accent, #7c6f9f), color-mix(in srgb, var(--pearl-accent, #7c6f9f), #ffffff 24%));
+}
+
+.nn-h1,
+.nn-h2,
+.nn-h3,
+.nn-h4,
+.nn-doc-title,
+.nn-doc-title-always,
+.nn-title-input,
+.nn-card-title,
+.nn-dialog-title,
+.nn-folder-header h2,
+.nn-strong {
+  color: var(--pearl-text, #e8e6e3) !important;
+  -webkit-text-fill-color: var(--pearl-text, #e8e6e3) !important;
+}
+
+.nn-p,
+.nn-li,
+.nn-code-block,
+.nn-td,
+.nn-html-content,
+.nn-editor {
+  color: var(--pearl-soft, #d4d2cf);
+}
+
+.nn-card-preview,
+.nn-card-date,
+.nn-toolbar-top-title,
+.nn-dialog-text,
+.nn-empty-title,
+.nn-empty-subtitle,
+.nn-folder-header p,
+.nn-autosave-status,
+.nn-doc-meta,
+.nn-loading,
+.nn-drag-subtitle,
+.nn-em {
+  color: var(--pearl-muted, #8a8a9a);
+}
+
+.nn-a,
+.nn-code-inline,
+.nn-th,
+.nn-cursor,
+.nn-work-badge,
+.nn-empty-magic-title,
+.nn-drag-icon,
+.nn-drag-title,
+.nn-pin-diamond {
+  color: var(--pearl-accent, #c4b5fd);
+}
+
+.nn-cursor {
+  background: var(--pearl-accent, #c4b5fd);
+}
+
+.nn-doc-content {
+  background:
+    linear-gradient(var(--pearl-stage-bg, #0a0a0f) 30%, transparent) center top,
+    linear-gradient(transparent, var(--pearl-stage-bg, #0a0a0f) 70%) center bottom,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--pearl-accent, #7c6f9f), transparent 88%), transparent) center top,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--pearl-accent, #7c6f9f), transparent 88%), transparent) center bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 40px, 100% 40px, 100% 14px, 100% 14px;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.nn-title-input {
+  background-image:
+    linear-gradient(var(--pearl-stage-bg, #0a0a0f), var(--pearl-stage-bg, #0a0a0f)),
+    linear-gradient(90deg, transparent, var(--pearl-accent, #7c6f9f), transparent);
 }
 `;
 

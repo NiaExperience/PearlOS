@@ -7,24 +7,27 @@
   position: fixed;
   inset: 0;
   width: 100%;
+  /* Dynamic viewport tracks iOS Safari URL bar collapse/expand; 100vh is the
+     fallback for browsers that don't understand dvh. Last valid declaration wins. */
   height: 100vh;
-
-  @supports (height: 100dvh) {
-    height: 100dvh;
-  }
+  height: 100dvh;
+  /* border-box so the safe-area padding below does not extend the box past
+     100dvh and clip the bottom of the background on iOS. */
+  box-sizing: border-box;
   overflow: hidden;
   z-index: 0;
   /* Prevent double-tap zoom and pinch-zoom on the desktop surface */
   touch-action: manipulation;
   /* Prevent overscroll bounce */
   overscroll-behavior: none;
-  background: radial-gradient(
+  background: var(--pearl-stage-bg, radial-gradient(
     ellipse 80% 60% at 50% 40%,
     #0a0a12 0%,
     #050508 50%,
     #000000 100%
-  );
-  
+  ));
+  font-family: var(--pearl-ui-font, inherit);
+
   /* iOS safe area support - ensure stage respects notch/Dynamic Island */
   @supports (padding: max(0px)) {
     padding-top: env(safe-area-inset-top, 0px);
@@ -43,9 +46,11 @@
 
 /* HOME — sunset image with animated aurora overlay */
 .stage--home {
-  background-image: url('/backgrounds/home-sunset.png');
+  background-image: var(--pearl-home-background-image, var(--pearl-home-default-background-image, url('/backgrounds/home-sunset.png')));
   background-size: cover;
-  background-position: center center;
+  /* Anchor horizon to bottom so portrait viewports show the full sky→ground
+     pixel art instead of clipping mid-frame. */
+  background-position: center bottom;
   background-repeat: no-repeat;
   /* Fallback colour while image loads */
   background-color: #0a0520;
@@ -75,90 +80,19 @@
   z-index: 0;
 }
 
-/* WORK — subtle blue-green professional tint */
-.stage--work {
-  background: radial-gradient(
+/* DESKTOP — subtle blue-green professional tint */
+.stage--desktop {
+  background:
+    var(--pearl-desktop-background-image, var(--pearl-desktop-default-background-image, url('/backgrounds/desktop-forest.png'))),
+    var(--pearl-desktop-stage-bg, radial-gradient(
     ellipse 80% 60% at 50% 40%,
     #040d0a 0%,
     #030908 50%,
     #000000 100%
-  );
-}
-
-/* CREATIVE — warm purple/magenta undertone */
-.stage--creative {
-  background: radial-gradient(
-    ellipse 80% 60% at 50% 40%,
-    #0d040a 0%,
-    #080308 50%,
-    #000000 100%
-  );
-}
-
-/* GAMING — deeper purple/neon hint */
-.stage--gaming {
-  background: radial-gradient(
-    ellipse 80% 60% at 50% 40%,
-    #08041a 0%,
-    #050310 50%,
-    #000000 100%
-  );
-}
-
-/* FOCUS — near-black with minimal distraction */
-.stage--focus {
-  background: radial-gradient(
-    ellipse 80% 60% at 50% 40%,
-    #060608 0%,
-    #030304 50%,
-    #000000 100%
-  );
-}
-
-/* RELAXATION — soft teal undertone */
-.stage--relaxation {
-  background: radial-gradient(
-    ellipse 80% 60% at 50% 40%,
-    #040a0d 0%,
-    #030608 50%,
-    #000000 100%
-  );
-}
-
-/* QUIET — deepest, most peaceful void */
-.stage--quiet {
-  background: radial-gradient(
-    ellipse 80% 60% at 50% 40%,
-    #060608 0%,
-    #020204 50%,
-    #000000 100%
-  );
-}
-
-/* DEFAULT — same as home */
-.stage--default {
-  background-image: url('/backgrounds/home-sunset.png');
-  background-size: cover;
-  background-position: center center;
+  ));
+  background-size: cover, cover;
+  background-position: center, center;
   background-repeat: no-repeat;
-  background-color: #0a0520;
-}
-
-.stage--default::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    #1a0533, #2d1b69, #4b2e83, #1e3a5f, #0d4f6b,
-    #1a6b5a, #2d5a4e, #4b2e83, #6b2fa0, #8b3a8f,
-    #a0456b, #6b2fa0, #2d1b69, #1a0533
-  );
-  background-size: 600% 600%;
-  animation: pearl-aurora-shift 30s ease infinite;
-  opacity: 0.05;
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* Subtle ambient particle drift — pure CSS */

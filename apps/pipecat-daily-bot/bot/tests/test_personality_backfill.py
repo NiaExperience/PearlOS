@@ -11,7 +11,8 @@ async def test_resolve_personality_backfills_sprite_primary_prompt_from_original
     async def fake_get_personality_by_id(_tenant_id: str, _personality_id: str):
         return None
 
-    async def fake_get_sprite_by_id(_sprite_id: str):
+    async def fake_get_sprite_by_id(_tenant_id: str, _sprite_id: str):
+        assert _tenant_id == tenant_id
         return {
             "_id": sprite_id,
             "name": "Unicorn robot",
@@ -46,7 +47,8 @@ async def test_resolve_personality_does_not_override_existing_sprite_primary_pro
     async def fake_get_personality_by_id(_tenant_id: str, _personality_id: str):
         return None
 
-    async def fake_get_sprite_by_id(_sprite_id: str):
+    async def fake_get_sprite_by_id(_tenant_id: str, _sprite_id: str):
+        assert _tenant_id == tenant_id
         return {
             "_id": sprite_id,
             "name": "Funky salamander",

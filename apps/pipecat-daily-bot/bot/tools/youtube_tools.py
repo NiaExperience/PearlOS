@@ -15,7 +15,9 @@ from tools import events
 # Built-in fallback descriptions
 DEFAULT_YOUTUBE_TOOL_PROMPTS: dict[str, str] = {
     'bot_search_youtube_videos': (
-        "Search for YouTube videos by query and automatically play the top result. Opens the YouTube player with search results."
+        "Search for YouTube videos by a specific non-empty query and automatically play the top result. "
+        "Use this for requests like 'play/show/find a video about X' or 'search YouTube for X'. "
+        "Include the exact game, topic, creator, or title from the user's request; never use generic queries like 'video' or 'game'."
     ),
     'bot_pause_youtube_video': (
         "Pause the currently playing YouTube video."

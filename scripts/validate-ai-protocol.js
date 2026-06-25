@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * validate-ai-protocol.js
- * Generates lightweight instruction + bootstrap docs derived from pearl-docs/internal/ai-assistant-protocol.md.
+ * Generates lightweight instruction + bootstrap docs derived from docs/ai-assistant-protocol.md.
  * Exit Codes:
  *  0 success
  *  1 canonical missing
@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const CANONICAL = path.join(ROOT, '/pearl-docs/internal/ai-assistant-protocol.md');
+const CANONICAL = path.join(ROOT, '/docs/ai-assistant-protocol.md');
 // Outputs moved under .github/instructions/* to centralize instruction artifacts
 const SUMMARY = path.join(ROOT, '.github', 'instructions', 'copilot.instructions.md');
 const BOOTSTRAP = path.join(ROOT, '.github', 'instructions', 'AI_SESSION_BOOTSTRAP.instructions.md');
@@ -95,7 +95,7 @@ function buildSummary(canonicalContent, sections, hash) {
     .map((s, idx) => `| ${idx + 1} | ${s.title} | ${s.firstSentence.replace(/\|/g, '&#124;')} |`) // escape pipes
     .join('\n');
   let out = `# Copilot Instructions (Auto-Generated)\n\n` +
-    `DO NOT EDIT. Source: pearl-docs/internal/ai-assistant-protocol.md\n\n` +
+    `DO NOT EDIT. Source: docs/ai-assistant-protocol.md\n\n` +
     `Source SHA256: ${hash}\nGenerated: ${now}\n\n` +
     `## Purpose\nProvide condensed enforceable guardrails for AI sessions (plans-first, boundaries, tests, security).\n\n` +
     `## Core Principles Snapshot\n| # | Title | First Sentence |\n|---|-------|----------------|\n${tableRows}\n\n` +
@@ -111,12 +111,12 @@ function buildSummary(canonicalContent, sections, hash) {
 
 function buildBootstrap(hash) {
   return `# AI Session Bootstrap\n\n` +
-    `This short file primes AI context. Full rules live in \`pearl-docs/internal/ai-assistant-protocol.md\`.\n\n` +
+    `This short file primes AI context. Full rules live in \`docs/ai-assistant-protocol.md\`.\n\n` +
     `Source SHA256: ${hash}\n\n` +
     `## Load Order\n\n`+
     `1. "QUICK_REFERENCE.md" (essential quick reference)\n`+
     `2. ".github/instructions/copilot.instructions.md" (auto-generated summary)\n`+
-    `3. "pearl-docs/internal/ai-assistant-protocol.md" (canonical full spec)\n\n`+
+    `3. "docs/ai-assistant-protocol.md" (canonical full spec)\n\n`+
     `**On-demand references** (load only when needed):\n\n`+
     `- \`ARCHITECTURE.reference.md\` - Platform architecture concepts\n`+
     `- \`DEVELOPMENT.reference.md\` - Testing, PRs, CI/CD workflows\n`+

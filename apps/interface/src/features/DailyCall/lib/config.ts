@@ -126,7 +126,7 @@ export async function getDevRoomUrl(): Promise<string> {
           enable_screenshare: true,
           enable_recording: 'cloud',
           start_cloud_recording: true,
-          enable_transcription: false,
+          enable_transcription: 'deepgram:nova-2-general',
           max_participants: 10,
           eject_at_room_exp: false,
         },

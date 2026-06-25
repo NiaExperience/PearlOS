@@ -10,7 +10,8 @@ import ipaddress
 import os
 import re
 import socket
-from urllib.parse import urlparse
+from html import unescape
+from urllib.parse import parse_qs, unquote, urlparse
 
 try:
     import aiohttp
@@ -25,6 +26,118 @@ from tools.logging_utils import bind_tool_logger
 
 BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+DUCKDUCKGO_SEARCH_URL = "https://html.duckduckgo.com/html/"
+SEARCH_TIMEOUT_SECS = float(os.environ.get("BOT_WEB_SEARCH_TIMEOUT_SECS", "5.0"))
+
+
+def _clean_html_text(value: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", value)
+    text = unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _normalize_duckduckgo_url(raw_url: str) -> str:
+    url = unescape(raw_url).strip()
+    if url.startswith("//"):
+        url = f"https:{url}"
+    parsed = urlparse(url)
+    if "duckduckgo.com" in (parsed.hostname or "") and parsed.path.startswith("/l/"):
+        target = parse_qs(parsed.query).get("uddg", [""])[0]
+        if target:
+            return unquote(target)
+    return url
+
+
+async def _search_duckduckgo(query: str, count: int, log) -> list[dict]:
+    """Fast no-key fallback search using DuckDuckGo's lightweight HTML endpoint."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PearlOS/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+    }
+    params = {"q": query}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            DUCKDUCKGO_SEARCH_URL,
+            headers=headers,
+            data=params,
+            timeout=aiohttp.ClientTimeout(total=SEARCH_TIMEOUT_SECS),
+        ) as resp:
+            if resp.status != 200:
+                log.error("DuckDuckGo search failed", status=resp.status)
+                return []
+            html = await resp.text(errors="replace")
+
+    results = []
+    blocks = re.findall(
+        r'<div class="result[^"]*".*?</div>\s*</div>',
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    if not blocks:
+        blocks = re.split(r'<div class="result', html, flags=re.IGNORECASE)[1:]
+
+    for block in blocks:
+        link_match = re.search(
+            r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
+            block,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        if not link_match:
+            continue
+        snippet_match = re.search(
+            r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>|<div[^>]+class="result__snippet"[^>]*>(.*?)</div>',
+            block,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        snippet_html = ""
+        if snippet_match:
+            snippet_html = snippet_match.group(1) or snippet_match.group(2) or ""
+
+        title = _clean_html_text(link_match.group(2))
+        url = _normalize_duckduckgo_url(link_match.group(1))
+        snippet = _clean_html_text(snippet_html)
+        if title and url:
+            results.append({"title": title, "url": url, "snippet": snippet})
+        if len(results) >= count:
+            break
+
+    return results
+
+
+async def _search_brave(query: str, count: int, log) -> list[dict]:
+    if not BRAVE_API_KEY:
+        return []
+
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": BRAVE_API_KEY,
+    }
+    params_qs = {"q": query, "count": str(count)}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            BRAVE_SEARCH_URL,
+            headers=headers,
+            params=params_qs,
+            timeout=aiohttp.ClientTimeout(total=SEARCH_TIMEOUT_SECS),
+        ) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                log.error("Brave search failed", status=resp.status, body=text[:200])
+                return []
+            data = await resp.json()
+
+    web_results = data.get("web", {}).get("results", [])
+    return [
+        {
+            "title": r.get("title", ""),
+            "url": r.get("url", ""),
+            "snippet": r.get("description", ""),
+        }
+        for r in web_results[:count]
+    ]
 
 
 def _validate_url(url: str) -> str | None:
@@ -69,9 +182,11 @@ def _validate_url(url: str) -> str | None:
 @bot_tool(
     name="bot_web_search",
     description=(
-        "Search the web for current information. Use when the user asks about recent events, "
-        "news, facts, products, people, or anything that requires up-to-date knowledge. "
-        "Returns titles, URLs, and snippets from web search results."
+        "Fast web search for current information. Use immediately when the user asks about "
+        "latest, recent, today, news, current events, new models, products, people, best "
+        "practices, or anything that requires up-to-date knowledge. This is the quick "
+        "conversation-starting search, not a deep research task. Returns titles, URLs, "
+        "and snippets from web search results."
     ),
     parameters={
         "type": "object",
@@ -113,40 +228,18 @@ async def bot_web_search(params: FunctionCallParams):
     log.info("bot_web_search invoked", query=query, count=count)
 
     try:
-        headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "X-Subscription-Token": BRAVE_API_KEY,
-        }
-        params_qs = {"q": query, "count": str(count)}
+        provider = "brave"
+        results = await _search_brave(query, count, log)
+        if not results:
+            provider = "duckduckgo"
+            results = await _search_duckduckgo(query, count, log)
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(BRAVE_SEARCH_URL, headers=headers, params=params_qs, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    log.error("Brave search failed", status=resp.status, body=text[:200])
-                    await params.result_callback(
-                        {"success": False, "error": f"Search API returned status {resp.status}"},
-                        properties=FunctionCallResultProperties(run_llm=True),
-                    )
-                    return
-
-                data = await resp.json()
-
-        web_results = data.get("web", {}).get("results", [])
-        results = []
-        for r in web_results[:count]:
-            results.append({
-                "title": r.get("title", ""),
-                "url": r.get("url", ""),
-                "snippet": r.get("description", ""),
-            })
-
-        log.info("bot_web_search results", num_results=len(results))
+        log.info("bot_web_search results", provider=provider, num_results=len(results))
 
         await params.result_callback(
             {
                 "success": True,
+                "provider": provider,
                 "query": query,
                 "num_results": len(results),
                 "results": results,

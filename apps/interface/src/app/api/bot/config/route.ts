@@ -1,8 +1,8 @@
-import { getSessionSafely } from '@nia/prism/core/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { createBotClaimHeaders } from '@interface/lib/bot-auth-claims';
 import { getLogger, setLogContext } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const BOT_BASE = (process.env.BOT_CONTROL_BASE_URL || process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '').replace(/\/$/, '');
 
@@ -13,50 +13,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'bot_control_base_unconfigured' }, { status: 500 });
   }
 
-  // Try to get session (optional - some callers may not be authenticated)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const session = await getSessionSafely(req, interfaceAuthOptions);
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any = {};
   try {
-    body = await req.json();
+    const parsed = await req.json();
+    body = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch (_) {
     // empty body is fine
   }
 
+  const actorResult = await resolveInterfaceActorContext({
+    requestedTenantId: body?.tenantId ?? body?.tenant_id,
+  });
+  if (!actorResult.ok) return actorResult.response;
+  const actor = actorResult.actor;
+
   const headerSessionId = req.headers.get('x-session-id') || undefined;
   const headerRoomUrl = req.headers.get('x-room-url') || undefined;
-  const headerUserId = req.headers.get('x-user-id') || undefined;
-  const headerUserName = req.headers.get('x-user-name') || undefined;
-  const headerUserEmail = req.headers.get('x-user-email') || undefined;
 
   const resolvedSessionId =
     body?.sessionId ||
     headerSessionId ||
-    (session as any)?.sessionId ||
-    (session?.user as any)?.sessionId;
-
-  const sessionUser = session?.user as any;
+    body?.session_id;
 
   const resolvedUserId =
-    body?.sessionUserId ||
-    headerUserId ||
-    sessionUser?.id ||
-    (session as any)?.userId;
+    actor.userId;
 
   const resolvedUserName =
-    body?.sessionUserName ||
-    headerUserName ||
-    sessionUser?.name ||
-    sessionUser?.userName ||
-    (session as any)?.userName;
+    actor.userName;
 
   const resolvedUserEmail =
-    body?.sessionUserEmail ||
-    headerUserEmail ||
-    sessionUser?.email ||
-    (session as any)?.userEmail;
+    actor.userEmail;
+  const resolvedTenantId = actor.tenantId;
+  log.info('Multitenancy audit context resolved', {
+    event: 'multitenancy_audit_config_context',
+    tenantId: resolvedTenantId,
+    sessionUserId: resolvedUserId,
+    sessionId: resolvedSessionId,
+    roomUrl: body?.room_url || body?.roomUrl || null,
+    hasTenantAccess: true,
+  });
 
   const resolvedRoomUrl = body?.room_url || body?.roomUrl || headerRoomUrl;
 
@@ -71,13 +67,31 @@ export async function POST(req: NextRequest) {
     userName: resolvedUserName ?? null,
   });
 
+  const safeBody = { ...body };
+  for (const key of [
+    'tenantId',
+    'tenant_id',
+    'requester_user_id',
+    'requester_email',
+    'requester_tenant_id',
+    'sessionUserId',
+    'session_user_id',
+    'sessionUserEmail',
+    'session_user_email',
+    'sessionUserName',
+    'session_user_name',
+  ]) {
+    delete safeBody[key];
+  }
+
   body = {
-    ...body,
+    ...safeBody,
     ...(resolvedRoomUrl ? { room_url: resolvedRoomUrl } : {}),
     ...(resolvedSessionId ? { sessionId: resolvedSessionId } : {}),
     ...(resolvedUserId ? { sessionUserId: resolvedUserId } : {}),
     ...(resolvedUserName ? { sessionUserName: resolvedUserName } : {}),
     ...(resolvedUserEmail ? { sessionUserEmail: resolvedUserEmail } : {}),
+    tenantId: resolvedTenantId,
   };
 
   log.info('Config request forwarded to bot control', {
@@ -88,6 +102,14 @@ export async function POST(req: NextRequest) {
   });
 
   try {
+    const claimHeaders = createBotClaimHeaders({
+      tenantId: resolvedTenantId,
+      sessionUserId: resolvedUserId,
+      sessionId: resolvedSessionId,
+      sessionUserEmail: resolvedUserEmail,
+      sessionUserName: resolvedUserName,
+    });
+
     const r = await fetch(BOT_BASE + '/config', {
       method: 'POST',
       headers: {
@@ -100,6 +122,7 @@ export async function POST(req: NextRequest) {
         ...(resolvedUserId ? { 'x-user-id': resolvedUserId } : {}),
         ...(resolvedUserName ? { 'x-user-name': resolvedUserName } : {}),
         ...(resolvedUserEmail ? { 'x-user-email': resolvedUserEmail } : {}),
+        ...claimHeaders,
       },
       body: JSON.stringify(body),
     });

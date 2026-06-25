@@ -1,0 +1,38 @@
+PearlOS QA Screenshot Audit - Tue Apr 28 17:13:04 UTC 2026
+==========================================
+
+PASS: PM2 has 13 processes
+WARN: Potential crash loops or unhealthy processes: pipecat-gateway(52)|pipecat-runner(250)|openclaw-gateway(2027)|interface(126)|dashboard[stopped]
+PASS: PM2 process 'interface' is online
+PASS: PM2 process 'mesh' is online
+PASS: Port 3000 (Interface) responding (HTTP 307)
+PASS: Port 4444 (BotServer) responding (HTTP 404)
+PASS: Deployed BUILD_ID: build-3b596bbf-1777395500420
+Source commit: d3a932b5 (Pearl-Staging-Private-Omega)
+Deploy commit: 3b596bbf
+Deployed BUILD_ID: build-3b596bbf-1777395500420
+WARN: Source (d3a932b5) and deploy (3b596bbf) commits differ -- deploy may be stale
+PASS: Login page returns HTTP 200
+PASS: Login page contains expected element: 'email'
+PASS: Login page contains expected element: 'password'
+FAIL: Login page missing expected element: 'Login'
+PASS: CSRF token obtained
+PASS: Auth flow succeeded -- session cookie obtained (HTTP 302)
+Capturing 01-login -> http://localhost:3000/login
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-171304/01-login.png
+Injected session cookie: __Secure-interface-auth.session-token (secure=true)
+Authenticated as: pearl@niaxp.com
+Capturing 02-post-login-dashboard -> http://localhost:3000/ (auth=true)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-171304/02-post-login-dashboard.png
+Capturing 03-settings -> http://localhost:3000/settings (auth=true)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-171304/03-settings.png
+Capturing 04-notes -> http://localhost:3000/notes (auth=true)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-171304/04-notes.png
+Capturing 05-launchpad -> http://localhost:3000/launchpad (auth=true)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-171304/05-launchpad.png
+
+Results: 5 passed, 0 failed
+PASS: All screenshots captured successfully
+
+==========================================
+TOTAL: 12 passed, 1 failed, 2 warnings

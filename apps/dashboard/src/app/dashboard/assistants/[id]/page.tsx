@@ -1,7 +1,6 @@
 import { AssistantActions, TenantActions } from '@nia/prism/core/actions';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import React from 'react';
 
 import { AssistantHeader } from '@dashboard/components/assistant-header';
@@ -13,27 +12,19 @@ export const dynamic = 'force-dynamic';
 
 const AssistantDetailPage = async ({ params }: { params: { id: string } }) => {
   // Check if dashboard auth is disabled for local development
-  const headersList = await headers();
-  const host = headersList.get('host') || headersList.get('x-forwarded-host') || '';
-  const disableAuth =
-     process.env.DISABLE_DASHBOARD_AUTH === 'true' ||
-    (process.env.NODE_ENV === 'development' &&
-      (host.includes('localhost') ||
-        host.includes('127.0.0.1') ||
-        host.includes('runpod.net') ||
-        process.env.NEXTAUTH_URL?.includes('localhost')));
+  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
 
   const session = disableAuth ? null : await getSessionSafely(undefined, dashboardAuthOptions);
   
   // Only enforce auth checks when auth is enabled
   if (!disableAuth) {
   if (!session || !session.user) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Deny access to anonymous users
   if (session.user.is_anonymous) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Check if user has admin access to any tenant
@@ -43,7 +34,7 @@ const AssistantDetailPage = async ({ params }: { params: { id: string } }) => {
   ) || false;
 
   if (!hasAdminAccess) {
-    redirect('/login');
+    redirect('/dashboard/login');
     }
   }
 

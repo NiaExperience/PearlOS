@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${HOME:?PearlOS terminal HOME is required}"
+cd "$HOME"
+
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_DATA_HOME="$HOME/.local/share"
+export OPENCLAW_STATE_DIR="$HOME/.openclaw"
+export OPENCLAW_CONFIG_PATH="$OPENCLAW_STATE_DIR/config.json"
+
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$OPENCLAW_STATE_DIR" "$HOME/.pearlos-terminal/audit"
+printf '{"tool":"openclaw","cwd":"%s","ts":"%s"}\n' "$PWD" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$HOME/.pearlos-terminal/audit/cli-launches.jsonl"
+
+SANDBOX_OPENCLAW_BIN="${PEARLOS_SANDBOX_OPENCLAW_BIN:-/usr/local/lib/pearl-cli/openclaw}"
+
+if [ -x "$SANDBOX_OPENCLAW_BIN" ]; then
+  OPENCLAW_BIN="$SANDBOX_OPENCLAW_BIN"
+elif command -v openclaw >/dev/null 2>&1 && ! grep -q 'HOME=/home/deploy' "$(command -v openclaw)" 2>/dev/null; then
+  OPENCLAW_BIN="$(command -v openclaw)"
+else
+  echo "OpenClaw CLI is not installed in this terminal image." >&2
+  echo "Use Codex, Claude, or the Agency task path for this account-local PearlOS workspace." >&2
+  exit 127
+fi
+
+if ! "$OPENCLAW_BIN" --version >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+OpenClaw CLI is installed on the host, but it is not packaged for ordinary
+PearlOS sandboxes yet. Use Pearl or the Agency task path for now.
+EOF
+  exit 127
+fi
+
+if [ ! -f "$OPENCLAW_CONFIG_PATH" ]; then
+  cat <<'EOF'
+OpenClaw is available in this PearlOS sandbox. No account-local OpenClaw config
+was found yet, so this session will start with a fresh per-user state directory.
+Shared server credentials are not copied into user sandboxes.
+EOF
+fi
+
+exec "$OPENCLAW_BIN" tui "$@"

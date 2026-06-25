@@ -18,7 +18,7 @@ export const TenantSelector: React.FC = () => {
     const run = async () => {
       setLoading(true); setError(undefined);
       try {
-        const res = await fetch('/api/tenants');
+        const res = await fetch('/dashboard/api/tenants');
         if (!res.ok) throw new Error('Failed to load tenants');
         const data = await res.json();
         if (!cancelled) setTenants((data.tenants || []).map((t: any) => ({ _id: t._id, name: t.name })));
@@ -44,7 +44,7 @@ export const TenantSelector: React.FC = () => {
     setSelectedTenantId(tempId);
     setCreating(false);
     try {
-      const res = await fetch('/api/tenants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim() }) });
+      const res = await fetch('/dashboard/api/tenants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim() }) });
       if (!res.ok) throw new Error('Create failed');
       const data = await res.json();
       const real = data.tenant;

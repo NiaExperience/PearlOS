@@ -16,16 +16,20 @@ export class GmailAuthRecoveryService {
       // Client-side: use relative URLs
       return '';
     }
-    
-    // Server-side: construct proper localhost URL
-    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+
+    const envUrl =
+      process.env.NEXT_PUBLIC_INTERFACE_URL ||
+      process.env.NEXTAUTH_INTERFACE_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.APP_BASE_URL;
     if (envUrl) {
-      // If environment URL uses HTTPS with 127.0.0.1, convert to HTTP with localhost
-      return envUrl.replace('https://127.0.0.1', 'http://localhost');
+      return envUrl.replace(/\/$/, '');
     }
-    
-    // Fallback to HTTP localhost
-    return 'http://localhost:3000';
+
+    if (process.env.NODE_ENV !== 'production') {
+      return 'http://localhost:3000';
+    }
+    throw new Error('Missing base URL configuration for Gmail auth recovery');
   }
 
   /**

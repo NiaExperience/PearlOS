@@ -24,22 +24,40 @@ export type GridPosition =
     | 'bottom-left'    // 4 windows - bottom left quarter
     | 'bottom-right-quad'; // 4 windows - bottom right quarter
 
-export type ViewType = 
+export type ViewType =
     | 'contentList'
     | 'contentDetail'
     | 'youtube'
     | 'googleDrive'
     | 'gmail'
     | 'notes'
+    | 'docs'
+    | 'chart'
+    | 'discord'
     | 'terminal'
     | 'miniBrowser'
     | 'enhancedBrowser'
     | 'htmlContent'
     | 'canvas'
+    | 'wonderCanvas'
     | 'dailyCall'
     | 'photoMagic'
     | 'files'
     | 'sprites'
+    | 'settings'
+    | 'styles'
+    | 'browser'
+    | 'news'
+    | 'pulse'
+    | 'weather'
+    | 'custom'
+    | 'creation'
+    | 'creationLaunchpad'
+    | 'launchpadProject'
+    | 'council'
+    | 'agency'
+    | 'studio'
+    | 'ourPearlos'
     | null;
 
 export interface WindowInstance {
@@ -55,6 +73,7 @@ export interface WindowInstance {
         
         // Browser
         browserUrl?: string;
+        miniBrowserPresentation?: 'browser' | 'seamless';
         enhancedBrowserUrl?: string;
         enhancedKey?: number;
         
@@ -77,7 +96,19 @@ export interface WindowInstance {
         // Notes — open a specific note by file ID
         openNoteId?: string;
         filePath?: string;
-        
+
+        // FileSpace — natural language search request from voice/web text
+        fileSpacePath?: string;
+        fileSearchQuery?: string;
+        fileSearchNonce?: number;
+
+        // Launchpad project view — open a project by id
+        launchpadProjectId?: string;
+        launchpadProjectVersion?: number;
+
+        // Daily Call variants
+        dailyMode?: 'voice' | 'vision';
+
         // Add other view-specific states as needed
     };
 }
@@ -104,5 +135,3 @@ export type WindowControlAction =
     | 'center'
     | 'close'
     | 'none';
-
-

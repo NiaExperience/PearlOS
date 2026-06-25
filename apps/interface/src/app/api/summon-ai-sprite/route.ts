@@ -1,18 +1,27 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-
-import sharp from 'sharp';
 import * as SpriteActions from '@nia/prism/core/actions/sprite-actions';
-import { getSessionSafely } from '@nia/prism/core/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import {
+  completeImageGenerationTask,
+  failImageGenerationTask,
+  startImageGenerationTask,
+  type ImageGenerationTaskHandle,
+} from '@interface/lib/image-generation-tasks';
 import { getLogger } from '@interface/lib/logger';
+import {
+  generateSpriteImage,
+  getModelRankingFor,
+  type SpriteKind,
+  wrapPromptForKind,
+} from '@interface/lib/openrouter-image';
+import { cleanSpriteBackground } from '@interface/lib/sprite-postprocess';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
+import { createJob, updateJob } from './jobStore';
 
 const log = getLogger('[api_summon_ai_sprite]');
 
 // Default voice configuration for Sprites (PocketTTS)
-const DEFAULT_SPRITE_VOICE_PROVIDER = 'kokoro' as const;
+const DEFAULT_SPRITE_VOICE_PROVIDER = 'pocket' as const;
 const DEFAULT_SPRITE_VOICE_SPEED = 1.0;
 
 // PocketTTS built-in voices (Les Misérables themed)
@@ -23,12 +32,6 @@ const POCKET_FEMALE_VOICES = [
 const POCKET_MALE_VOICES = [
   'marius', 'javert', 'jean'
 ] as const;
-
-// Legacy Kokoro arrays kept for reference but unused
-const KOKORO_AMERICAN_FEMALE_VOICES = POCKET_FEMALE_VOICES;
-const KOKORO_AMERICAN_MALE_VOICES = POCKET_MALE_VOICES;
-const KOKORO_BRITISH_FEMALE_VOICES = POCKET_FEMALE_VOICES;
-const KOKORO_BRITISH_MALE_VOICES = POCKET_MALE_VOICES;
 
 // Keywords that suggest female character
 const FEMALE_KEYWORDS = [
@@ -98,1018 +101,557 @@ const MALE_KEYWORDS = [
 
 type InferredGender = 'female' | 'male' | 'unknown';
 
-/**
- * Infer gender from sprite prompt for voice selection
- */
 function inferGenderFromPrompt(prompt: string): InferredGender {
   const lowerPrompt = prompt.toLowerCase();
   const words = lowerPrompt.split(/\s+/);
-  
+
   let femaleScore = 0;
   let maleScore = 0;
-  
+
   for (const word of words) {
-    // Clean punctuation from word
     const cleanWord = word.replace(/[^a-z]/g, '');
-    if (FEMALE_KEYWORDS.includes(cleanWord)) {
-      femaleScore++;
-    }
-    if (MALE_KEYWORDS.includes(cleanWord)) {
-      maleScore++;
-    }
+    if (FEMALE_KEYWORDS.includes(cleanWord)) femaleScore++;
+    if (MALE_KEYWORDS.includes(cleanWord)) maleScore++;
   }
-  
-  // Also check for multi-word phrases
+
   for (const keyword of FEMALE_KEYWORDS) {
-    if (keyword.includes(' ') && lowerPrompt.includes(keyword)) {
-      femaleScore++;
-    }
+    if (keyword.includes(' ') && lowerPrompt.includes(keyword)) femaleScore++;
   }
   for (const keyword of MALE_KEYWORDS) {
-    if (keyword.includes(' ') && lowerPrompt.includes(keyword)) {
-      maleScore++;
-    }
+    if (keyword.includes(' ') && lowerPrompt.includes(keyword)) maleScore++;
   }
-  
+
   if (femaleScore > maleScore) return 'female';
   if (maleScore > femaleScore) return 'male';
   return 'unknown';
 }
 
 /**
- * Select a random PocketTTS voice based on inferred gender.
  * Pearl uses "azelma" — exclude it from the pool so summoned sprites sound distinct.
  */
 function selectSpriteVoice(prompt: string): string {
   const gender = inferGenderFromPrompt(prompt);
-  
-  // Exclude 'azelma' (Pearl's voice) from sprite pool
   const femalePool = POCKET_FEMALE_VOICES.filter(v => v !== 'azelma');
   const malePool = [...POCKET_MALE_VOICES];
-  
+
   let voicePool: string[];
-  
   if (gender === 'female') {
     voicePool = femalePool;
   } else if (gender === 'male') {
     voicePool = malePool;
   } else {
-    // Unknown gender - 60% chance female, 40% chance male
     voicePool = Math.random() < 0.6 ? femalePool : malePool;
   }
-  
+
   const selectedVoice = voicePool[Math.floor(Math.random() * voicePool.length)];
   log.info('Selected sprite voice (PocketTTS)', { prompt: prompt.slice(0, 50), gender, selectedVoice });
   return selectedVoice;
 }
 
 function generateSpritePersonalityPrompt(originalPrompt: string): string {
-    return `You are a helpful AI sprite companion. Your appearance is described as: "${originalPrompt}".
+  return `You are a helpful AI sprite companion. Your appearance is described as: "${originalPrompt}".
 Act according to this persona. Keep your responses concise and helpful.`;
 }
 
 function generateSpriteName(prompt: string): string {
-    // Simple implementation: first 2-3 words title cased
-    const words = prompt.split(' ');
-    const name = words.slice(0, 3).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-    // Remove punctuation from the end
-    return name.replace(/[.,;!?]+$/, '') || 'Sprite';
+  const words = prompt.split(' ');
+  const name = words.slice(0, 3).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  return name.replace(/[.,;!?]+$/, '') || 'Sprite';
 }
 
-type WorkflowNode = {
-    title?: string;
-    widgets_values?: unknown[];
-    inputs?: Record<string, unknown>;
-    class_type?: string;
-};
+type WorkflowStatus =
+  | { type: 'log'; message: string }
+  | { type: 'result'; data: Record<string, unknown> }
+  | { type: 'error'; error: string; details?: string }
+  | { type: 'job'; jobId: string };
 
-type ApiWorkflow = Record<string, WorkflowNode>;
-type LiteGraphWorkflow = { nodes: WorkflowNode[] };
-type Workflow = ApiWorkflow | LiteGraphWorkflow;
-
-type ComfyImage = {
-    filename: string;
-    subfolder?: string;
-    type?: string;
-};
-
-type ComfyOutput = {
-    images?: ComfyImage[];
-    gifs?: ComfyImage[];
-    files?: ComfyImage[];
-};
-
-type HistoryEntry = {
-    outputs?: Record<string, ComfyOutput>;
-};
-
-const ORIGIN_WORKFLOW_API = 'origin-sprite-creator_API_no_llm.json';
-// Prefer transparent output workflow; fallback to older GIF workflow if missing
-const ANIMATION_WORKFLOW_API = 'SingleAnimationfromPic_ClearGifOutput.json';
-const ANIMATION_WORKFLOW_FALLBACK_API = 'SingleAnimationfromPic_GifOutput_API.json';
-const PROMPT_NODE_ID = '486';
-const LOAD_IMAGE_NODE_ID = '1405';
-const POLL_INTERVAL_MS = 1000;
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function resolveWorkflowPath(filename: string): Promise<string> {
-    const cwd = process.cwd();
-
-    const candidates = [
-        path.resolve(cwd, '..', 'sprite-maker', filename),
-        path.resolve(cwd, '..', '..', 'apps', 'sprite-maker', filename),
-        path.join(cwd, 'apps', 'sprite-maker', filename),
-        path.resolve(cwd, '..', '..', '..', '..', '..', 'sprite-maker', filename),
-        path.resolve(cwd, '..', 'apps', 'sprite-maker', filename),
-    ];
-
-    log.debug(`Resolving workflow "${filename}" from cwd: ${cwd}`);
-
-    for (const candidate of candidates) {
-        try {
-            await fs.access(candidate);
-            log.debug(`Found workflow at: ${candidate}`);
-            return candidate;
-        } catch {
-            log.debug(`Not found at: ${candidate}`);
-        }
-    }
-
-    const errorMsg = `Workflow file "${filename}" not found. Searched: ${candidates.join(', ')}`;
-    throw new Error(errorMsg);
-}
-
-function normalizeBaseUrl(base: string): string {
-    return base.endsWith('/') ? base.slice(0, -1) : base;
-}
-
-function wrapInSpritePromptTemplate(userPrompt: string): string {
-    return `Foreground: \nStyle - Pixel art. Sprite sheet cutout. 16Bit Color. 256x256. Detailed Classic Video Game Sprite.\n\nSubject - ${userPrompt}\n\nBackground: CLEAR WHITE #FFFFFF, RGB(255, 255, 255), CMYK(0, 0, 0, 0)`;
-}
-
-/** Randomize all KSampler seeds to bust ComfyUI cache */
-function randomizeSeeds(template: Workflow): Workflow {
-    const clone = JSON.parse(JSON.stringify(template)) as Workflow;
-    if (!('nodes' in clone)) {
-        // API format
-        for (const node of Object.values(clone as ApiWorkflow)) {
-            const inputs = node?.inputs as Record<string, unknown> | undefined;
-            if (inputs && typeof inputs.seed === 'number') {
-                inputs.seed = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
-            }
-        }
-    }
-    return clone;
-}
-
-function injectPrompt(template: Workflow, prompt: string): Workflow {
-    const clone = JSON.parse(JSON.stringify(template)) as Workflow;
-
-    if (!('nodes' in clone)) {
-        const node = (clone as ApiWorkflow)[PROMPT_NODE_ID];
-        if (node?.inputs) {
-            (node.inputs as Record<string, unknown>).string = wrapInSpritePromptTemplate(prompt);
-            return clone;
-        }
-    }
-
-    const nodesArray = 'nodes' in clone && Array.isArray(clone.nodes) ? clone.nodes : [];
-    const promptNode = nodesArray.find(node => node?.title === 'Pearl_Input_Prompt' || node?.title === 'Pearl_Input_Single_Animation_Prompt');
-    if (!promptNode || !Array.isArray(promptNode.widgets_values) || promptNode.widgets_values.length === 0) {
-        throw new Error('Prompt node not found or malformed in workflow');
-    }
-    promptNode.widgets_values[0] = prompt;
-    return clone;
-}
-
-function setDimensions(template: Workflow, width: number, height: number): Workflow {
-    const clone = JSON.parse(JSON.stringify(template)) as Workflow;
-
-    if (!('nodes' in clone)) {
-        const widthNode = (clone as ApiWorkflow)['1385']; // width
-        const heightNode = (clone as ApiWorkflow)['1384']; // height
-        if (widthNode?.inputs) {
-            (widthNode.inputs as Record<string, unknown>).value = width;
-        }
-        if (heightNode?.inputs) {
-            (heightNode.inputs as Record<string, unknown>).value = height;
-        }
-        return clone;
-    }
-
-    // If litegraph, try to find Int nodes with matching titles (best-effort)
-    const nodesArray = Array.isArray(clone.nodes) ? clone.nodes : [];
-    nodesArray.forEach(node => {
-        const title = (node.title ?? '').toLowerCase();
-        if (title.includes('width') && node.inputs) {
-            (node.inputs as Record<string, unknown>).value = width;
-        }
-        if (title.includes('height') && node.inputs) {
-            (node.inputs as Record<string, unknown>).value = height;
-        }
-    });
-    return clone;
-}
-
-function setLoadImage(template: Workflow, imagePath: string, subfolder?: string, type: string = 'input'): Workflow {
-    const clone = JSON.parse(JSON.stringify(template)) as Workflow;
-
-    if (!('nodes' in clone)) {
-        const node = (clone as ApiWorkflow)[LOAD_IMAGE_NODE_ID];
-        if (!node?.inputs) {
-            throw new Error('LoadImage node missing in animation workflow');
-        }
-        (node.inputs as Record<string, unknown>).image = imagePath;
-        (node.inputs as Record<string, unknown>).subfolder = subfolder ?? '';
-        (node.inputs as Record<string, unknown>).type = type;
-        return clone;
-    }
-
-    const nodesArray = 'nodes' in clone && Array.isArray(clone.nodes) ? clone.nodes : [];
-    const loadNode = nodesArray.find(n => n?.title?.toLowerCase().includes('load image'));
-    if (!loadNode || !loadNode.widgets_values) {
-        throw new Error('LoadImage node missing (litegraph)');
-    }
-    // Common LoadImage widgets: [image, upload, cache, label, type, subfolder]
-    loadNode.widgets_values[0] = imagePath;
-    if (loadNode.widgets_values.length > 4) {
-        loadNode.widgets_values[4] = type;
-    }
-    if (loadNode.widgets_values.length > 5) {
-        loadNode.widgets_values[5] = subfolder ?? '';
-    }
-    return clone;
+function encodeStreamData(data: WorkflowStatus): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(data) + '\n');
 }
 
 /**
- * Classic sprite cleanup pipeline:
- * 1. Binary alpha threshold (no semi-transparency)
- * 2. Erode alpha 1px to trim dark fringe pixels from background removal
- * 3. Add 1px black outline (classic sprite border)
- * 4. Quantize to 32-color palette (true retro look)
- * Downloads from ComfyUI, processes with sharp, re-uploads as cleaned version.
+ * Heuristic: an already-detailed prompt does not benefit much from a Sonnet
+ * enhancement round-trip and the 1–3 s latency is the dominant complaint.
+ * Skip enhancement once the user has typed enough detail on their own.
  */
-async function cleanSpriteAlpha(
-    baseUrl: string,
-    image: ComfyImage,
-    threshold = 128,
-): Promise<ComfyImage> {
-    const viewUrl = buildViewUrl(baseUrl, image);
-    const resp = await fetch(viewUrl);
-    if (!resp.ok) {
-        log.warn('Failed to download sprite for alpha cleanup', { status: resp.status });
-        return image;
-    }
-    const buffer = Buffer.from(await resp.arrayBuffer());
-
-    const { data, info } = await sharp(buffer)
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-
-    const w = info.width;
-    const h = info.height;
-    const pixels = new Uint8Array(data);
-
-    // Helper to get alpha at (x,y)
-    const getA = (x: number, y: number) => pixels[(y * w + x) * 4 + 3];
-
-    // Step 1: Binary alpha threshold
-    for (let i = 3; i < pixels.length; i += 4) {
-        pixels[i] = pixels[i] > threshold ? 255 : 0;
-    }
-
-    // Step 2: Erode alpha by 1px (if any neighbor is transparent, become transparent)
-    // This trims dark fringe pixels from background removal
-    const erodedAlpha = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const idx = y * w + x;
-            if (pixels[idx * 4 + 3] === 0) { erodedAlpha[idx] = 0; continue; }
-            // Check 4-connected neighbors
-            let hasTransparentNeighbor = false;
-            if (x > 0 && pixels[((y) * w + (x - 1)) * 4 + 3] === 0) hasTransparentNeighbor = true;
-            if (x < w - 1 && pixels[((y) * w + (x + 1)) * 4 + 3] === 0) hasTransparentNeighbor = true;
-            if (y > 0 && pixels[((y - 1) * w + (x)) * 4 + 3] === 0) hasTransparentNeighbor = true;
-            if (y < h - 1 && pixels[((y + 1) * w + (x)) * 4 + 3] === 0) hasTransparentNeighbor = true;
-            erodedAlpha[idx] = hasTransparentNeighbor ? 0 : 255;
-        }
-    }
-
-    // Step 3: Add 1px black outline (dilate eroded mask, difference = outline)
-    const outlineAlpha = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const idx = y * w + x;
-            if (erodedAlpha[idx] > 0) { outlineAlpha[idx] = 0; continue; } // not outline, it's interior
-            // Check if any neighbor is opaque in eroded mask
-            let nearOpaque = false;
-            for (let dy = -1; dy <= 1; dy++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    const nx = x + dx, ny = y + dy;
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h && erodedAlpha[ny * w + nx] > 0) {
-                        nearOpaque = true; break;
-                    }
-                }
-                if (nearOpaque) break;
-            }
-            outlineAlpha[idx] = nearOpaque ? 255 : 0;
-        }
-    }
-
-    // Step 4: Build color histogram for quantization (32 colors)
-    // Collect opaque pixel colors
-    const colorCounts = new Map<number, number>();
-    for (let i = 0; i < w * h; i++) {
-        if (erodedAlpha[i] > 0) {
-            const pi = i * 4;
-            // Reduce to 5-bit per channel for grouping
-            const r5 = (pixels[pi] >> 3) << 3;
-            const g5 = (pixels[pi + 1] >> 3) << 3;
-            const b5 = (pixels[pi + 2] >> 3) << 3;
-            const key = (r5 << 16) | (g5 << 8) | b5;
-            colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
-        }
-    }
-    // Get top 32 colors
-    const palette = [...colorCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 32)
-        .map(([key]) => [(key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF]);
-
-    // Map each pixel to nearest palette color
-    const findNearest = (r: number, g: number, b: number): [number, number, number] => {
-        let bestDist = Infinity;
-        let best = palette[0] || [0, 0, 0];
-        for (const c of palette) {
-            const dr = r - c[0], dg = g - c[1], db = b - c[2];
-            const dist = dr * dr + dg * dg + db * db;
-            if (dist < bestDist) { bestDist = dist; best = c; }
-        }
-        return best as [number, number, number];
-    };
-
-    // Step 5: Assemble final image
-    const output = new Uint8Array(w * h * 4);
-    for (let i = 0; i < w * h; i++) {
-        const pi = i * 4;
-        if (outlineAlpha[i] > 0) {
-            // Black outline pixel
-            output[pi] = 0; output[pi + 1] = 0; output[pi + 2] = 0; output[pi + 3] = 255;
-        } else if (erodedAlpha[i] > 0) {
-            // Interior pixel, quantized
-            const [qr, qg, qb] = findNearest(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-            output[pi] = qr; output[pi + 1] = qg; output[pi + 2] = qb; output[pi + 3] = 255;
-        } else {
-            // Transparent
-            output[pi] = 0; output[pi + 1] = 0; output[pi + 2] = 0; output[pi + 3] = 0;
-        }
-    }
-
-    const cleanedBuffer = await sharp(Buffer.from(output), {
-        raw: { width: w, height: h, channels: 4 },
-    }).png().toBuffer();
-
-    // Upload back to ComfyUI
-    const formData = new FormData();
-    formData.append('image', new Blob([new Uint8Array(cleanedBuffer)], { type: 'image/png' }), image.filename);
-    formData.append('overwrite', 'true');
-    const uploadResp = await fetch(`${baseUrl}/upload/image`, { method: 'POST', body: formData });
-
-    if (uploadResp.ok) {
-        const result = await uploadResp.json();
-        log.info('Classic sprite cleanup complete', { filename: result.name });
-        return { ...image, filename: result.name, type: 'input' };
-    }
-
-    log.warn('Failed to re-upload cleaned sprite', { status: uploadResp.status });
-    return image;
+function promptNeedsEnhancement(userPrompt: string): boolean {
+  const trimmed = userPrompt.trim();
+  if (trimmed.length >= 60) return false;
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount >= 8) return false;
+  return true;
 }
 
-function buildViewUrl(baseUrl: string, image: ComfyImage): string {
-    const url = new URL('/view', baseUrl);
-    url.searchParams.set('filename', image.filename);
-    url.searchParams.set('subfolder', image.subfolder ?? '');
-    url.searchParams.set('type', image.type ?? 'output');
-    return url.toString();
-}
+async function enhancePromptWithLLM(userPrompt: string): Promise<string> {
+  const apiKey = process.env.OPENCLAW_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+  let baseUrl: string;
+  let model: string;
+  if (process.env.OPENCLAW_API_KEY) {
+    baseUrl = process.env.OPENCLAW_API_URL || 'http://localhost:18789/v1';
+    model = 'anthropic/claude-sonnet-4-5';
+  } else if (process.env.OPENROUTER_API_KEY) {
+    baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    model = 'anthropic/claude-sonnet-4-5';
+  } else {
+    baseUrl = 'https://api.openai.com/v1';
+    model = 'gpt-4o-mini';
+  }
 
-async function uploadImageToComfyUI(
-    targetBaseUrl: string,
-    image: ComfyImage,
-    downloadBaseUrl?: string
-): Promise<{ name: string; subfolder?: string; type?: string } | null> {
-    try {
-        const viewUrl = buildViewUrl(downloadBaseUrl ?? targetBaseUrl, image);
-        const imageRes = await fetch(viewUrl, { cache: 'no-store' });
-        if (!imageRes.ok) {
-            log.error('Failed to download image', { statusText: imageRes.statusText });
-            return null;
-        }
+  if (!apiKey) {
+    log.warn('No LLM API key configured, skipping prompt enhancement');
+    return userPrompt;
+  }
 
-        const imageBlob = await imageRes.blob();
-        const formData = new FormData();
-        formData.append('image', imageBlob, image.filename);
-        formData.append('overwrite', 'true');
+  const systemPrompt = `You're a pixel sprite character creator. Transform a brief character description into a fully fleshed-out visual prompt for an image-generation model. The sprite will be rendered at 256x256 to 512x512, single character on a clear white #FFFFFF background. Make sure to fill the character description with rich, colorful detail. Describe body parts, accessories, colors, textures, posture, and any important visual traits. DO NOT DESCRIBE ANY BACKGROUND OBJECTS OR SCENERY. CLEAR HEX #FFFFFF BACKGROUND only. Write only the raw character description, no preamble.`;
 
-        const uploadUrl = `${targetBaseUrl}/upload/image`;
-        const uploadRes = await fetch(uploadUrl, { method: 'POST', body: formData, cache: 'no-store' });
-        if (!uploadRes.ok) {
-            const errorText = await uploadRes.text().catch(() => '');
-            log.error('Upload failed', { status: uploadRes.status, errorText });
-            return null;
-        }
-
-        const uploadData = await uploadRes.json().catch(() => null);
-        if (uploadData?.name) {
-            return { name: uploadData.name, subfolder: uploadData.subfolder ?? '', type: uploadData.type ?? 'input' };
-        }
-
-        return { name: image.filename, subfolder: '', type: 'input' };
-    } catch (err) {
-        log.error('Error uploading image', { error: err });
-        return null;
-    }
-}
-
-async function fetchHistory(baseUrl: string, promptId: string) {
-    const res = await fetch(`${baseUrl}/history/${promptId}`, { cache: 'no-store' });
-    if (!res.ok) return null;
-    return res.json();
-}
-
-type ImageResult = ComfyImage & { url: string };
-
-function buildOutputs(baseUrl: string, historyEntry: HistoryEntry): ImageResult[] {
-    const outputs = historyEntry?.outputs as Record<string, ComfyOutput>;
-    if (!outputs) return [];
-
-    const results: ImageResult[] = [];
-    for (const output of Object.values(outputs)) {
-        const items = [
-            ...(output.images || []), 
-            ...(output.gifs || []), 
-            ...(output.files || [])
-        ];
-
-        for (const item of items) {
-             const url = `${baseUrl}/view?filename=${encodeURIComponent(item.filename)}&subfolder=${encodeURIComponent(item.subfolder || '')}&type=${encodeURIComponent(item.type || '')}`;
-             results.push({
-                 ...item,
-                 url
-             });
-        }
-    }
-    return results;
-}
-
-function pickFirstOutputImage(historyEntry: HistoryEntry) {
-    const outputs = historyEntry?.outputs as Record<string, ComfyOutput>;
-    if (!outputs) return null;
-
-    const allImages: ComfyImage[] = [];
-    for (const output of Object.values(outputs)) {
-        if (output?.images && Array.isArray(output.images)) {
-            allImages.push(...output.images);
-        }
-        if (output?.gifs && Array.isArray(output.gifs)) {
-            allImages.push(...output.gifs);
-        }
-        if (output?.files && Array.isArray(output.files)) {
-            allImages.push(...output.files);
-        }
-    }
-
-    const nonTemp = allImages.filter(img => img.filename && !img.filename.toLowerCase().includes('temp'));
-    const candidates = nonTemp.length ? nonTemp : allImages;
-
-    return (
-        candidates.find(img => img.filename?.toLowerCase().endsWith('.gif')) ||
-        candidates.find(img => img.type === 'output') ||
-        candidates[0] ||
-        null
-    );
-}
-
-
-type WorkflowStatus = 
-    | { type: 'log', message: string }
-    | { type: 'result', data: Record<string, unknown> }
-    | { type: 'error', error: string, details?: string };
-
-async function runWorkflowStream(
-    baseUrl: string, 
-    workflow: Workflow, 
-    logStep: (msg: string) => void
-): Promise<{ promptId: string, historyEntry: HistoryEntry } | { error: string }> {
-    const promptRes = await fetch(`${baseUrl}/prompt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({ prompt: workflow }),
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.9,
+        max_tokens: 1024,
+      }),
     });
 
-    if (!promptRes.ok) {
-        const text = await promptRes.text().catch(() => '');
-        return { error: text || 'Failed to submit prompt' };
+    if (!response.ok) {
+      log.error('Prompt-enhance LLM call failed', { status: response.status });
+      return userPrompt;
     }
 
-    const promptData = await promptRes.json().catch(() => null);
-    const promptId = promptData?.prompt_id;
-    if (!promptId || typeof promptId !== 'string') {
-        return { error: 'Invalid response from ComfyUI (missing prompt_id)' };
+    const data = await response.json();
+    const enhanced = data.choices?.[0]?.message?.content?.trim();
+    if (enhanced) {
+      log.info('Prompt enhanced', { original: userPrompt.slice(0, 50), enhanced: enhanced.slice(0, 50) });
+      return enhanced;
     }
-
-    let historyEntry: HistoryEntry | null = null;
-    const maxPolls = 600; // 10 minutes (600 * 1000ms)
-    
-    // Check history every second
-    for (let i = 0; i < maxPolls; i++) {
-        await sleep(POLL_INTERVAL_MS);
-        
-        // Emit a keep-alive/progress log every 5 seconds to prevent 504
-        if (i % 5 === 0) {
-            logStep(`Waiting for workflow... (${i}s)`);
-        }
-
-        const history = await fetchHistory(baseUrl, promptId);
-        const entry = history?.[promptId];
-        if (entry?.outputs && Object.keys(entry.outputs).length > 0) {
-            historyEntry = entry;
-            break;
-        }
-        // Also break on explicit completion status even if outputs empty
-        if (entry?.status?.status_str === 'error') {
-            return { error: entry.status.messages?.find((m: unknown[]) => m[0] === 'execution_error')?.[1]?.exception_message || 'Workflow execution error' };
-        }
-    }
-
-    if (!historyEntry) {
-        return { error: 'Workflow timed out waiting for output' };
-    }
-
-    return { promptId, historyEntry };
-}
-
-// Helper to encode streaming data
-function encodeStreamData(data: WorkflowStatus): Uint8Array {
-    return new TextEncoder().encode(JSON.stringify(data) + '\n');
-}
-
-async function enhancePromptWithOpenAI(userPrompt: string): Promise<string> {
-    // Prefer OpenClaw (Claude) over OpenAI
-    const apiKey = process.env.OPENCLAW_API_KEY || process.env.OPENAI_API_KEY;
-    const baseUrl = process.env.OPENCLAW_API_KEY ? (process.env.OPENCLAW_API_URL || 'http://localhost:18789/v1') : 'https://api.openai.com/v1';
-    if (!apiKey) {
-        log.warn('No LLM API key configured, skipping prompt enhancement');
-        return userPrompt;
-    }
-
-    const systemPrompt = `You're pixel sprite character creator. You will create the original master character pose and prompt for ComfyUI that all subsequent images and animations will refer to. This character will be rendered on a clear white background at a resolution of 512 height and 256 width. Make sure to fill the character description with rich and colorful detail. Ensure all relevant information, color, texture, and style is fully explained with nothing left to imagine. Describe body parts, accessories and any important character visual traits. Transform a brief character description into a fully fleshed out new prompt. DO NOT DESCRIBE ANY BACKGROUND OBJECTS OR SCENERY. CLEAR HEX #FFFFFF BACKGROUND only.
-
-Example succesful prompts (do not copy details, for example purposes only):
-<example1>
-input prompt: "Indian cyberpunk pirate with bright right hookhand. He has a robot parrot on his shoulder. His eye is covered by a bionic eyepatch. His hand grips an electric saber."
-correct response: An Indian cyberpunk pirate stands tall and imposing against a backdrop of clear white space, his pixelated form crafted with exquisite precision. The character measures 512 pixels in height and 256 pixels in width, ensuring a detailed yet clean appearance that captures the essence of both cyberpunk aesthetics and Indian cultural influences. Our protagonist's body is decked out in an ornate brass armor, its intricate patterns and designs inspired by rich Indian artistry.  His left eye is concealed by a sleek, bionic eyepatch that blends seamlessly into his cybernetic arm, giving him a menacing yet sophisticated appearance. The armor features subtle highlights and shadows to create depth and realism, with a combination of rough, rusted metal and smooth, polished brass textures that reflect the character's cybernetic nature. A golden band adorns his wrist, encircling it as a testament to his wealth and power. On his left shoulder, our pirate proudly sports an elegant silver mechanical parrot, its metallic feathers shimmering with an ethereal glow. The mechanical parrot perches alertly on his shoulder, watching over him with unwavering vigilance. In his right hand, our pirate grips an electric saber with a vibrant blue energy crackling along its length. The character's posture is powerful and imposing, his foot planted firmly on the ground as he prepares for action. His cybernetic hook hand, a biomechanical pointed grappling hook, rests casually on his hip.
-
-<example2>
-input prompt: "A 1940's gangster Santa Claus with a dark red fedora hat, red mobster suit, a red sack of green cash, and a tommy gun in his gloved hand."
-correct response: "An iconic 1940's Gangster Santa stands tall against a backdrop of crisp white space, his pixels painstakingly crafted with impeccable precision. The character is rendered at a resolution of 512 pixels height and 256 pixels width to ensure a detailed yet clean appearance that blends the charm of Christmas with the grittiness of a mobster's world. Our protagonist dons a red mobster suit, complete with sharp peaks and creases that reflect the meticulous care taken in his attire. A dark red fedora hat sits atop his head, its brim casting an shadows across his face as he cocks his head to one side. The suit is accessorized with a sash around his waist, adorned with glimmering golden bells that jingle softly every time he moves. A red satchel slung over his shoulder houses his ill-gotten gains – bundles of green cash that spill from the sack's mouth. In his left hand, he holds a sleek tommy gun, its barrel silenced for discretion in the line of work. Each bullet casing slides out with an elegant grace, echoing his unyielding power as a gangster. Our 1940's Gangster Santa's posture exudes confidence and menace, ready to take on any challenges that come his way in the cold winter night. A thick white beard and mustache add a touch of warmth to an otherwise hardened face, hinting at the holiday season that lies just beneath the surface."
-
-<example3> input prompt: "A cartoon squirrel who is also a badass sniper. Sniper Squirrel!"
-correct response: "An adorable yet deadly cartoon squirrel stands tall and supreme against the backdrop of clear white space, his pixels meticulously crafted to capture breathtaking detail at 512 pixels in height and 256 pixels in width. With an attitude that is both charming and deadly, Sniper Squirrel wears a camouflaged tunic designed to blend seamlessly with every environment, whether it's the dense, verdant forest or the sprawling concrete jungle. His bushy tail is a testament to his squirrel origin and swings behind him as he gears up for action. A wide-brimmed hat adorned with pointed ears and neon accents sits atop his head, accentuating his fierce yet playful persona.A bulletproof vest surrounds Sniper Squirrel's torso for protection during battle, while protective gloves wrapped around nimble paws allow him to maintain a firm grip on his sniper rifle. Protective boots made with reinforced leather are ready for fast movement across any landscape. Sniper Squirrel's weapon of choice is a sleek black steel sniper rifle crafted with intricate details that speak volumes about its precision and power. The gun features a small, red-tinted scope that can be adjusted for the perfect shot, and a sling made of sturdy material ensures easy transport between missions. Sniper Squirrel's posture is intense and focused – eyes peering through his sniper rifle's scope with unwavering determination – as he poises himself for action on the battlefield."
-
-
----
-
-
-Write only the raw text response, no backgrounds, no additional words. Just pure character visual descriptions.`;
-
-    try {
-        const response = await fetch(`${baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: process.env.OPENCLAW_API_KEY ? 'anthropic/claude-sonnet-4-5' : 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                temperature: 0.9,
-                max_tokens: 1920,
-            }),
-        });
-
-        if (!response.ok) {
-            log.error('OpenAI API error', { status: response.status });
-            return userPrompt; // Fallback to original prompt
-        }
-
-        const data = await response.json();
-        const enhancedPrompt = data.choices?.[0]?.message?.content?.trim();
-        
-        if (enhancedPrompt) {
-            log.info('Prompt enhanced via OpenAI', { 
-                original: userPrompt.slice(0, 50), 
-                enhanced: enhancedPrompt.slice(0, 50) 
-            });
-            return enhancedPrompt;
-        }
-        
-        return userPrompt;
-    } catch (error) {
-        log.error('Failed to enhance prompt', { error });
-        return userPrompt; // Fallback to original prompt
-    }
+    return userPrompt;
+  } catch (error) {
+    log.error('Failed to enhance prompt', { error });
+    return userPrompt;
+  }
 }
 
 interface QAResult {
-    passed: boolean;
-    score: number;
-    reason: string;
-    suggestion?: string;
+  passed: boolean;
+  score: number;
+  reason: string;
+  suggestion?: string;
 }
 
 /**
- * Vision QA gate: sends the generated sprite image to Sonnet for quality evaluation.
- * Checks for prompt adherence, visual quality, and pixel art style fidelity.
+ * Vision QA gate against the produced PNG (passed in as base64).
  */
 async function evaluateSpriteQuality(
-    imageUrl: string,
-    originalPrompt: string,
-    enhancedPrompt: string,
+  imageBase64: string,
+  mimeType: string,
+  originalPrompt: string,
 ): Promise<QAResult> {
-    const apiKey = process.env.OPENCLAW_API_KEY || process.env.OPENAI_API_KEY;
-    const baseUrl = process.env.OPENCLAW_API_KEY
-        ? (process.env.OPENCLAW_API_URL || 'http://localhost:18789/v1')
-        : 'https://api.openai.com/v1';
+  const apiKey = process.env.OPENCLAW_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+  let baseUrl: string;
+  let model: string;
+  if (process.env.OPENCLAW_API_KEY) {
+    baseUrl = process.env.OPENCLAW_API_URL || 'http://localhost:18789/v1';
+    model = 'anthropic/claude-sonnet-4-5';
+  } else if (process.env.OPENROUTER_API_KEY) {
+    baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    model = 'anthropic/claude-sonnet-4-5';
+  } else {
+    baseUrl = 'https://api.openai.com/v1';
+    model = 'gpt-4o';
+  }
 
-    if (!apiKey) {
-        log.warn('No API key for sprite QA, skipping quality gate');
-        return { passed: true, score: 0, reason: 'No API key — skipped' };
+  if (!apiKey) {
+    return { passed: true, score: 0, reason: 'No API key — skipped' };
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: `You are a pixel art quality inspector. Score 1-10 on prompt adherence, visual quality, pixel-art style, character clarity, and absence of artifacts. Pass threshold: score >= 6. Respond with ONLY a JSON object: {"passed": true/false, "score": 1-10, "reason": "...", "suggestion": "..."|null}`,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `User requested: "${originalPrompt}"\n\nEvaluate this generated sprite:` },
+              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+            ],
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 256,
+      }),
+    });
+
+    if (!response.ok) {
+      return { passed: true, score: 0, reason: 'API error — skipped' };
     }
 
-    try {
-        // Fetch the image and convert to base64
-        const imgRes = await fetch(imageUrl, { cache: 'no-store' });
-        if (!imgRes.ok) {
-            log.warn('Could not fetch sprite image for QA', { status: imgRes.status });
-            return { passed: true, score: 0, reason: 'Could not fetch image — skipped' };
-        }
-        const imgBuffer = await imgRes.arrayBuffer();
-        const imgBase64 = Buffer.from(imgBuffer).toString('base64');
-        const mimeType = imgRes.headers.get('content-type') || 'image/png';
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) return { passed: true, score: 0, reason: 'Empty response — skipped' };
 
-        const response = await fetch(`${baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: process.env.OPENCLAW_API_KEY ? 'anthropic/claude-sonnet-4-5' : 'gpt-4o',
-                messages: [
-                    {
-                        role: 'system',
-                        content: `You are a pixel art quality inspector for a sprite summoning app. Evaluate the generated sprite image against the user's request. Score 1-10 on these criteria:
+    const jsonStr = content.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const qa = JSON.parse(jsonStr) as QAResult;
+    log.info('Sprite QA result', { score: qa.score, passed: qa.passed, reason: qa.reason });
+    return qa;
+  } catch (err) {
+    log.error('Sprite QA evaluation failed', { error: err });
+    return { passed: true, score: 0, reason: 'Evaluation error — skipped' };
+  }
+}
 
-1. **Prompt adherence** — Does it match what was requested?
-2. **Visual quality** — Is it well-formed, clear, and detailed?
-3. **Pixel art style** — Does it look like proper pixel art with crisp edges?
-4. **Character clarity** — Is the character/object clearly defined on the background?
-5. **No artifacts** — Free of distortion, extra limbs, text, watermarks?
+// Allowed character sprite output sizes (square). 256 stays the default for
+// back-compat with the existing UI; 512 is opt-in via the new size field.
+const CHARACTER_SIZES = [256, 512] as const;
+type CharacterSize = (typeof CHARACTER_SIZES)[number];
 
-Respond with ONLY a JSON object (no markdown):
-{"passed": true/false, "score": 1-10, "reason": "brief explanation", "suggestion": "improvement hint for regeneration or null"}
+// Background scene presets the summon flow accepts directly. For arbitrary
+// dimensions callers should hit /api/pixel-art/generate with type=background.
+const BACKGROUND_PRESETS: Record<string, { width: number; height: number }> = {
+  '1024x576': { width: 1024, height: 576 },
+  '1280x720': { width: 1280, height: 720 },
+  '1920x1080': { width: 1920, height: 1080 },
+  '1024x1024': { width: 1024, height: 1024 },
+};
 
-Pass threshold: score >= 6. Be fair but maintain standards. A blurry mess or completely wrong subject should fail.`,
-                    },
-                    {
-                        role: 'user',
-                        content: [
-                            {
-                                type: 'text',
-                                text: `User requested: "${originalPrompt}"\n\nEvaluate this generated sprite:`,
-                            },
-                            {
-                                type: 'image_url',
-                                image_url: { url: `data:${mimeType};base64,${imgBase64}` },
-                            },
-                        ],
-                    },
-                ],
-                temperature: 0.3,
-                max_tokens: 256,
-            }),
-        });
+interface SpriteSizing {
+  kind: SpriteKind;
+  width: number;
+  height: number;
+  aspectRatio: string;
+  imageSize: '1K' | '2K';
+}
 
-        if (!response.ok) {
-            log.warn('QA API call failed', { status: response.status });
-            return { passed: true, score: 0, reason: 'API error — skipped' };
-        }
+function aspectRatioStringFor(width: number, height: number): string {
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const g = gcd(width, height);
+  return `${width / g}:${height / g}`;
+}
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content?.trim();
-        if (!content) {
-            return { passed: true, score: 0, reason: 'Empty response — skipped' };
-        }
+function resolveSizing(body: Record<string, unknown> | null): SpriteSizing | { error: string } {
+  const rawKind = typeof body?.kind === 'string' ? body.kind : 'character';
+  const kind: SpriteKind =
+    rawKind === 'icon' || rawKind === 'character' || rawKind === 'background'
+      ? (rawKind as SpriteKind)
+      : 'character';
 
-        // Parse JSON, handling possible markdown wrapping
-        const jsonStr = content.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-        const qa = JSON.parse(jsonStr) as QAResult;
-        log.info('Sprite QA result', { score: qa.score, passed: qa.passed, reason: qa.reason });
-        return qa;
-    } catch (err) {
-        log.error('Sprite QA evaluation failed', { error: err });
-        return { passed: true, score: 0, reason: 'Evaluation error — skipped' };
+  if (kind === 'background') {
+    const preset = typeof body?.preset === 'string' ? body.preset : undefined;
+    const widthIn = typeof body?.width === 'number' ? body.width : undefined;
+    const heightIn = typeof body?.height === 'number' ? body.height : undefined;
+    let width: number;
+    let height: number;
+    if (preset && BACKGROUND_PRESETS[preset]) {
+      ({ width, height } = BACKGROUND_PRESETS[preset]);
+    } else if (
+      typeof widthIn === 'number' && typeof heightIn === 'number' &&
+      widthIn >= 256 && widthIn <= 4096 && heightIn >= 256 && heightIn <= 4096
+    ) {
+      width = Math.round(widthIn);
+      height = Math.round(heightIn);
+    } else {
+      return {
+        error: `For kind=background supply preset (${Object.keys(BACKGROUND_PRESETS).join(', ')}) or width+height in [256, 4096]`,
+      };
     }
+    return {
+      kind,
+      width,
+      height,
+      aspectRatio: aspectRatioStringFor(width, height),
+      imageSize: '2K',
+    };
+  }
+
+  if (kind === 'icon') {
+    const allowed = [16, 32, 48, 64];
+    const sizeIn = typeof body?.size === 'number' ? body.size : 32;
+    if (!allowed.includes(sizeIn)) {
+      return { error: `For kind=icon size must be one of: ${allowed.join(', ')}` };
+    }
+    return { kind, width: sizeIn, height: sizeIn, aspectRatio: '1:1', imageSize: '1K' };
+  }
+
+  // character (default)
+  const sizeIn = typeof body?.size === 'number' ? body.size : 256;
+  if (!(CHARACTER_SIZES as readonly number[]).includes(sizeIn)) {
+    return { error: `For kind=character size must be one of: ${CHARACTER_SIZES.join(', ')}` };
+  }
+  const size = sizeIn as CharacterSize;
+  return {
+    kind,
+    width: size,
+    height: size,
+    aspectRatio: '1:1',
+    imageSize: size === 512 ? '2K' : '1K',
+  };
 }
 
 export async function POST(request: NextRequest) {
-    const body = await request.json().catch(() => null);
-    const rawPrompt = typeof body?.prompt === 'string' ? body.prompt : '';
-    const prompt = rawPrompt.trim();
-    const tenantId = typeof body?.tenantId === 'string' ? body.tenantId : null;
+  const body = await request.json().catch(() => null);
+  const rawPrompt = typeof body?.prompt === 'string' ? body.prompt : '';
+  const prompt = rawPrompt.trim();
+  const requestedTenantId =
+    typeof body?.tenantId === 'string' ? body.tenantId :
+    typeof body?.tenant_id === 'string' ? body.tenant_id :
+    undefined;
 
-    if (!prompt) {
-        return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
-    }
+  if (!prompt) {
+    return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+  }
 
-    // Prepare stream
-    const stream = new ReadableStream({
-        async start(controller) {
-            const send = (data: WorkflowStatus) => {
-                try {
-                    if (!controller.desiredSize || controller.desiredSize <= 0) {
-                        // Stream closed or backpressure - skip
-                        return;
-                    }
-                    controller.enqueue(encodeStreamData(data));
-                } catch (err) {
-                    // Controller already closed, ignore
-                    log.warn('Stream controller error, client may have disconnected', { error: err });
-                }
-            };
-            const sendLog = (message: string) => send({ type: 'log', message });
+  const sizing = resolveSizing(body);
+  if ('error' in sizing) {
+    return NextResponse.json({ error: sizing.error }, { status: 400 });
+  }
 
-            try {
-                const t0 = Date.now();
-                sendLog(`Starting sprite generation for: "${prompt}"`);
+  const actorResult = await resolveInterfaceActorContext({ requestedTenantId });
+  if (!actorResult.ok) return actorResult.response;
+  const { tenantId, userId } = actorResult.actor;
+  let imageTask: ImageGenerationTaskHandle | null = null;
+  try {
+    imageTask = await startImageGenerationTask(request, {
+      title: `Summon sprite - ${sizing.kind} ${sizing.width}x${sizing.height}`,
+      task: [
+        `Summon a PearlOS ${sizing.kind} sprite/image at ${sizing.width}x${sizing.height}.`,
+        '',
+        prompt,
+      ].join('\n'),
+      requestedTenantId,
+      note: `Sprite ${sizing.kind} generation started.`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Agency task tracking failed';
+    log.error('Summon AI Sprite task tracking failed', { message });
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 
-                // Get authenticated user (optional - sprites can be created anonymously for now)
-                const session = await getSessionSafely(request, interfaceAuthOptions);
-                const userId = session?.user?.id || 'anonymous';
-                const effectiveTenantId = tenantId || 'default';
+  // Register the job BEFORE creating the stream so the client always
+  // gets a jobId on the very first chunk it reads — even if the stream
+  // controller is closed early. The lifecycle is updated as we progress
+  // and persists for ~10 min so a remounted client can poll
+  // /api/summon-ai-sprite/job/:id and pick up a finished sprite that
+  // streamed past a closed panel/tab. See SPECTRUM bug #4.
+  const job = createJob(prompt);
 
-                log.info('Summoning sprite', { prompt, userId, tenantId: effectiveTenantId });
-
-                // Origin (base image) uses only COMFYUI_ORIGIN_BASE_URL
-                const originEnv = process.env.COMFYUI_ORIGIN_BASE_URL;
-
-                // Animation (GIF) uses only COMFYUI_ANIMATION_BASE_URL
-                const animationEnv = process.env.COMFYUI_ANIMATION_BASE_URL;
-
-                if (!originEnv) {
-                    send({ type: 'error', error: 'COMFYUI_ORIGIN_BASE_URL is not configured for origin generation' });
-                    controller.close();
-                    return;
-                }
-                if (!animationEnv) {
-                    send({ type: 'error', error: 'COMFYUI_ANIMATION_BASE_URL is not configured for animation' });
-                    controller.close();
-                    return;
-                }
-                const originBaseUrl = normalizeBaseUrl(originEnv);
-                const animationBaseUrl = normalizeBaseUrl(animationEnv);
-
-                // Enhance the user's simple prompt into a rich character description
-                sendLog('Enhancing character description...');
-                const enhancedPrompt = await enhancePromptWithOpenAI(prompt);
-
-                // 1) Run origin sprite creator to get a base character image/GIF
-                sendLog('Preparing origin workflow...');
-                const originPath = await resolveWorkflowPath(ORIGIN_WORKFLOW_API);
-                const originRaw = await fs.readFile(originPath, 'utf8');
-                const originJson = JSON.parse(originRaw) as Workflow;
-                const originWorkflow = randomizeSeeds(injectPrompt(originJson, enhancedPrompt));
-
-                log.debug('Origin prompt', { prompt });
-
-                const tOriginSubmit = Date.now();
-                sendLog('Running origin generation (this may take a minute)...');
-                
-                const originRun = await runWorkflowStream(originBaseUrl, originWorkflow, (msg) => {
-                    // Forward progress logs from the runner to keep connection alive
-                    sendLog(`[Origin] ${msg}`);
-                });
-                
-                const tOriginDone = Date.now();
-                if ('error' in originRun) {
-                    send({ type: 'error', error: 'Failed to run origin workflow', details: originRun.error });
-                    controller.close();
-                    return;
-                }
-
-                const sourceImage = pickFirstOutputImage(originRun.historyEntry);
-                if (!sourceImage?.filename) {
-                    send({ 
-                        type: 'error', 
-                        error: 'No output image found from origin workflow', 
-                        details: `Prompt ID: ${originRun.promptId}` 
-                    });
-                    controller.close();
-                    return;
-                }
-
-                // ── Quality Gate: Vision QA pass ──
-                sendLog('Evaluating sprite quality...');
-                const qaResult = await evaluateSpriteQuality(
-                    buildViewUrl(originBaseUrl, sourceImage),
-                    prompt,
-                    enhancedPrompt,
-                );
-                if (!qaResult.passed) {
-                    sendLog(`Quality check: ${qaResult.reason} — regenerating...`);
-                    log.info('Sprite failed QA, regenerating', { reason: qaResult.reason, suggestion: qaResult.suggestion });
-
-                    // Retry once with QA feedback baked into the prompt
-                    const refinedPrompt = qaResult.suggestion
-                        ? `${enhancedPrompt}. IMPORTANT: ${qaResult.suggestion}`
-                        : enhancedPrompt;
-                    const retryWorkflow = injectPrompt(
-                        JSON.parse(originRaw) as Workflow,
-                        refinedPrompt,
-                    );
-
-                    sendLog('Running refined generation...');
-                    const retryRun = await runWorkflowStream(originBaseUrl, retryWorkflow, (msg) => {
-                        sendLog(`[Retry] ${msg}`);
-                    });
-
-                    if (!('error' in retryRun)) {
-                        const retryImage = pickFirstOutputImage(retryRun.historyEntry);
-                        if (retryImage?.filename) {
-                            // Use the retry output instead
-                            Object.assign(sourceImage, retryImage);
-                            log.info('Using retry sprite output', { filename: retryImage.filename });
-                        }
-                    }
-                } else {
-                    sendLog('Quality check passed ✓');
-                    log.info('Sprite passed QA', { score: qaResult.score });
-                }
-
-                // Clean semi-transparent pixels from sprite edges
-                sendLog('Cleaning alpha channel...');
-                const cleanedImage = await cleanSpriteAlpha(originBaseUrl, sourceImage);
-
-                // Upload output so animation workflow can load it
-                sendLog('Processing source image...');
-                const tUploadStart = Date.now();
-                const uploaded = await uploadImageToComfyUI(animationBaseUrl, cleanedImage, originBaseUrl);
-                const tUploadDone = Date.now();
-                const imagePath = uploaded?.name || sourceImage.filename;
-                const imageSubfolder = uploaded?.subfolder ?? '';
-                const imageType = uploaded?.type ?? 'input';
-
-                // 2) Run animation workflow (optional — gracefully degrade to static sprite)
-                let animationOutputs: ReturnType<typeof buildOutputs> = [];
-                let gifOutput: ReturnType<typeof buildOutputs>[number] | undefined;
-                
-                try {
-                    sendLog('Preparing animation workflow...');
-                    let animationPath: string;
-                    try {
-                        animationPath = await resolveWorkflowPath(ANIMATION_WORKFLOW_API);
-                    } catch {
-                        animationPath = await resolveWorkflowPath(ANIMATION_WORKFLOW_FALLBACK_API);
-                    }
-                    const animationRaw = await fs.readFile(animationPath, 'utf8');
-                    const animationJson = JSON.parse(animationRaw) as Workflow;
-
-                    const animationPrompt = `${prompt} subtle mouth movement`;
-                    log.debug('Animation prompt', { animationPrompt });
-                    const animationWithPrompt = injectPrompt(animationJson, animationPrompt);
-                    const dimensionedWorkflow = setDimensions(animationWithPrompt, 256, 256);
-                    const animationWorkflow = setLoadImage(dimensionedWorkflow, imagePath, imageSubfolder, imageType);
-
-                    sendLog('Running animation generation (this may take a minute)...');
-                    
-                    const animationRun = await runWorkflowStream(animationBaseUrl, animationWorkflow, (msg) => {
-                        sendLog(`[Animation] ${msg}`);
-                    });
-
-                    if (!('error' in animationRun)) {
-                        animationOutputs = buildOutputs(animationBaseUrl, animationRun.historyEntry);
-                        gifOutput = animationOutputs.find(media => media.filename?.toLowerCase().endsWith('.gif'));
-                    } else {
-                        log.warn('Animation workflow run failed', { error: animationRun.error });
-                    }
-                } catch (animError) {
-                    log.warn('Animation workflow unavailable, using static sprite', { 
-                        error: animError instanceof Error ? animError.message : animError 
-                    });
-                    sendLog('Animation unavailable, using static sprite...');
-                }
-
-                const tEnd = Date.now();
-                log.info('Sprite generation timings (ms)', {
-                    total: tEnd - t0,
-                    originSubmit: tOriginSubmit - t0,
-                    originRun: tOriginDone - tOriginSubmit,
-                    upload: tUploadDone - tUploadStart,
-                });
-
-                // Select voice based on character gender inference
-                const selectedVoiceId = selectSpriteVoice(prompt);
-                
-                // Persist Sprite record to Prism (use GIF if available, else static PNG)
-                let spriteId: string | undefined;
-                const hasGif = gifOutput?.url;
-                const persistImage = hasGif ? gifOutput!.url : buildViewUrl(originBaseUrl, sourceImage);
-                if (persistImage) {
-                    try {
-                        sendLog('Finalizing sprite record...');
-                        const imgResponse = await fetch(persistImage, { cache: 'no-store' });
-                        if (imgResponse.ok) {
-                            const imgBuffer = await imgResponse.arrayBuffer();
-                            const imgBase64 = Buffer.from(imgBuffer).toString('base64');
-                            const mimeType = hasGif ? 'image/gif' : 'image/png';
-
-                            const sprite = await SpriteActions.create({
-                                parent_id: userId,
-                                tenantId: effectiveTenantId,
-                                name: generateSpriteName(prompt),
-                                description: `Sprite summoned from: "${prompt}"`,
-                                originalRequest: prompt,
-                                gifData: imgBase64,
-                                gifMimeType: mimeType,
-                                primaryPrompt: generateSpritePersonalityPrompt(prompt),
-                                voiceProvider: DEFAULT_SPRITE_VOICE_PROVIDER,
-                                voiceId: selectedVoiceId,
-                                voiceParameters: { speed: DEFAULT_SPRITE_VOICE_SPEED },
-                            });
-                            spriteId = sprite._id;
-                            log.info('Sprite record created', { spriteId, name: sprite.name });
-                        } else {
-                            log.warn('Failed to fetch image for persistence', { url: persistImage, status: imgResponse.status });
-                        }
-                    } catch (spriteError) {
-                        log.error('Failed to persist Sprite record', { error: spriteError });
-                    }
-                }
-
-                // const responseVoiceId = spriteId ? selectedVoiceId : selectSpriteVoice(prompt);
-                const responseVoiceId = undefined;
-                
-                // Fetch source image as base64 so it's accessible through the tunnel
-                let sourceImageDataUrl = '';
-                try {
-                    const srcUrl = buildViewUrl(originBaseUrl, sourceImage);
-                    const srcRes = await fetch(srcUrl, { cache: 'no-store' });
-                    if (srcRes.ok) {
-                        const srcBuf = await srcRes.arrayBuffer();
-                        sourceImageDataUrl = `data:image/png;base64,${Buffer.from(srcBuf).toString('base64')}`;
-                    }
-                } catch { /* fall back to direct URL */ }
-
-                // Send final success result
-                send({ 
-                    type: 'result', 
-                    data: {
-                        promptId: originRun.promptId,
-                        sourceImage: { 
-                            ...sourceImage, 
-                            url: sourceImageDataUrl || buildViewUrl(originBaseUrl, sourceImage),
-                        },
-                        gif: gifOutput,
-                        images: animationOutputs,
-                        spriteId,
-                        spriteName: generateSpriteName(prompt),
-                    } 
-                });
-                
-            } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : 'Unknown error';
-                log.error('Summon AI Sprite error', { message, error: err });
-                send({ type: 'error', error: 'Unexpected error', details: message });
-            } finally {
-                controller.close();
-            }
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: WorkflowStatus) => {
+        try {
+          if (!controller.desiredSize || controller.desiredSize <= 0) return;
+          controller.enqueue(encodeStreamData(data));
+        } catch (err) {
+          log.warn('Stream controller error, client may have disconnected', { error: err });
         }
-    });
+      };
+      const sendLog = (message: string) => {
+        send({ type: 'log', message });
+        updateJob(job.jobId, { status: 'generating', bubbleLine: message });
+      };
 
-    return new NextResponse(stream, {
-        headers: {
-            'Content-Type': 'application/x-ndjson',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-        },
-    });
+      try {
+        const t0 = Date.now();
+        // Always announce the jobId as the very first event so the client
+        // can persist it before any await points where it could lose the
+        // connection.
+        send({ type: 'job', jobId: job.jobId });
+        sendLog(`Summoning sprite from "${prompt}"...`);
+
+        if (!process.env.OPENROUTER_API_KEY) {
+          const errMsg = 'OpenRouter image credentials are not configured';
+          await failImageGenerationTask(imageTask, new Error(errMsg));
+          send({
+            type: 'error',
+            error: errMsg,
+            details: 'Configure the OpenRouter image credential in the interface environment to enable sprite generation.',
+          });
+          updateJob(job.jobId, { status: 'error', error: errMsg });
+          controller.close();
+          return;
+        }
+
+        log.info('Summoning sprite', { prompt, userId, tenantId });
+
+        // 1) Enhance terse prompts with Sonnet so the image model gets enough
+        //    detail. Detailed user prompts skip this step — the LLM round-trip
+        //    was adding 1–3 s of perceived latency for little quality lift.
+        const tEnhanceStart = Date.now();
+        let enhancedPrompt = prompt;
+        if (promptNeedsEnhancement(prompt)) {
+          sendLog('Calling forth the essence...');
+          enhancedPrompt = await enhancePromptWithLLM(prompt);
+        }
+        const tEnhanceDone = Date.now();
+
+        // 2) Generate the base sprite via OpenRouter
+        sendLog('Weaving the magic (this may take a moment)...');
+        const tGenStart = Date.now();
+        const wrappedPrompt = wrapPromptForKind(sizing.kind, enhancedPrompt);
+
+        const generation = await generateSpriteImage(wrappedPrompt, {
+          models: getModelRankingFor(sizing.kind),
+          aspectRatio: sizing.aspectRatio,
+          imageSize: sizing.imageSize,
+        });
+        const tGenDone = Date.now();
+        sendLog(`Form taking shape... (${generation.model.split('/').pop()})`);
+
+        // 3) Vision QA observability — fire-and-forget so the user doesn't
+        //    wait on a Sonnet vision round-trip in the critical path. The
+        //    retry-on-fail loop was removed: it added 3–15s of latency for a
+        //    quality bump that was rarely visible to users. Set
+        //    SPRITE_QA_BLOCKING=1 to re-enable the synchronous gate.
+        const qaBlocking = process.env.SPRITE_QA_BLOCKING === '1';
+        let qaResultForResponse: QAResult | null = null;
+        if (qaBlocking) {
+          qaResultForResponse = await evaluateSpriteQuality(
+            generation.png.toString('base64'),
+            generation.mimeType,
+            prompt,
+          );
+        } else {
+          // Don't await — log only.
+          evaluateSpriteQuality(
+            generation.png.toString('base64'),
+            generation.mimeType,
+            prompt,
+          ).then((qa) => {
+            log.info('Sprite QA (async)', { score: qa.score, passed: qa.passed, reason: qa.reason });
+          }).catch((err) => {
+            log.warn('Sprite QA (async) errored', { error: err instanceof Error ? err.message : err });
+          });
+        }
+
+        // 4) Background removal + cleanup pass — params follow the chosen kind.
+        //    Pipeline order: rembg/isnet-anime matting on the full-res buffer,
+        //    THEN resize to target. The 128 short-side floor applies to the
+        //    character and background tiers (icon stays at its UI-tier size).
+        sendLog('Polishing the form...');
+        const cleanedPng = await cleanSpriteBackground(generation.png, {
+          resizeTo:
+            sizing.kind === 'background'
+              ? { width: sizing.width, height: sizing.height }
+              : sizing.width,
+          minShortSide: sizing.kind === 'icon' ? undefined : 128,
+          addOutline: sizing.kind !== 'background',
+          chromaKey: sizing.kind !== 'background',
+          erodeAlpha: sizing.kind === 'icon',
+          quantize:
+            sizing.kind === 'icon' ? 32 :
+            sizing.kind === 'character' ? 64 :
+            128,
+        });
+
+        const tEnd = Date.now();
+        log.info('Sprite generation timings (ms)', {
+          total: tEnd - t0,
+          enhancement: tEnhanceDone - tEnhanceStart,
+          enhancementSkipped: !promptNeedsEnhancement(prompt),
+          generation: tGenDone - tGenStart,
+          model: generation.model,
+        });
+
+        const cleanedBase64 = cleanedPng.toString('base64');
+        const sourceImageDataUrl = `data:image/png;base64,${cleanedBase64}`;
+
+        // 5) Kick off Prism persistence in parallel with the response send so
+        //    the user sees the sprite without waiting on a DB round-trip. The
+        //    spriteId is filled in on the client's next /list rehydrate; until
+        //    then it falls back to a local UUID, which is fine for the active
+        //    pad render. Saves 200–500ms of perceived latency per summon.
+        let persistPromise: Promise<void> = Promise.resolve();
+        if (sizing.kind !== 'background') {
+          const selectedVoiceId = selectSpriteVoice(prompt);
+          persistPromise = SpriteActions.create({
+            parent_id: userId,
+            tenantId,
+            name: generateSpriteName(prompt),
+            description: `Sprite summoned from: "${prompt}"`,
+            originalRequest: prompt,
+            // Reuse the gif* fields for the static PNG so the existing list/detail
+            // routes keep working without a schema change.
+            gifData: cleanedBase64,
+            gifMimeType: 'image/png',
+            primaryPrompt: generateSpritePersonalityPrompt(prompt),
+            voiceProvider: DEFAULT_SPRITE_VOICE_PROVIDER,
+            voiceId: selectedVoiceId,
+            voiceParameters: { speed: DEFAULT_SPRITE_VOICE_SPEED },
+          }).then((sprite) => {
+            log.info('Sprite record created', { spriteId: sprite._id, name: sprite.name, model: generation.model });
+          }).catch((spriteError) => {
+            log.error('Failed to persist Sprite record', {
+              message: spriteError instanceof Error ? spriteError.message : String(spriteError),
+              stack: spriteError instanceof Error ? spriteError.stack : undefined,
+            });
+          });
+        }
+
+        const resultData = {
+          sourceImage: { url: sourceImageDataUrl, filename: `${sizing.kind}-${sizing.width}x${sizing.height}.png` },
+          // No animation step in the OpenRouter pipeline — keep the field shape
+          // so the frontend's gif?.url || sourceImage?.url fallback still works.
+          gif: undefined,
+          images: [],
+          // spriteId omitted on first render — the gallery rehydrates from
+          // /api/summon-ai-sprite/list on next mount and picks up the real id.
+          spriteId: undefined,
+          spriteName: sizing.kind === 'background' ? `Scene: ${prompt.slice(0, 40)}` : generateSpriteName(prompt),
+          kind: sizing.kind,
+          width: sizing.width,
+          height: sizing.height,
+          model: generation.model,
+          qaScore: qaResultForResponse?.score,
+          agencyTracked: Boolean(imageTask),
+        };
+        send({ type: 'result', data: resultData });
+        // Park the result on the job so a remounted client that missed
+        // the streaming `result` event can still pick the sprite up via
+        // /job/:id polling. See SPECTRUM bug #4.
+        updateJob(job.jobId, { status: 'complete', result: resultData });
+        await completeImageGenerationTask(
+          imageTask,
+          `Sprite ${sizing.kind} generated at ${sizing.width}x${sizing.height} with ${generation.model}.`,
+        );
+
+        // Hold the response open until persistence finishes so the request
+        // lifecycle doesn't get killed mid-write. The user already has the
+        // sprite — this just makes sure the DB record completes.
+        await persistPromise;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        log.error('Summon AI Sprite error', { message, error: err });
+        await failImageGenerationTask(imageTask, err);
+        send({ type: 'error', error: 'Unexpected error', details: message });
+        updateJob(job.jobId, { status: 'error', error: message });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new NextResponse(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  });
 }
-
-

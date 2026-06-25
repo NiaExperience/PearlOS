@@ -13,6 +13,8 @@ import {
   UserScopeStatus
 } from './incremental-auth.types';
 
+const isProduction = () => process.env.NODE_ENV === 'production';
+
 /**
  * Core service for handling incremental OAuth authorization
  * Implements Google's best practices for requesting additional scopes in context
@@ -358,9 +360,17 @@ export function createIncrementalAuthService(
     ? process.env.GOOGLE_DASHBOARD_CLIENT_ID || process.env.GOOGLE_CLIENT_ID!
     : process.env.GOOGLE_INTERFACE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID!;
 
-  const baseUrl = appType === 'dashboard' 
-    ? process.env.NEXTAUTH_DASHBOARD_URL || 'http://localhost:4000'
-    : process.env.NEXTAUTH_INTERFACE_URL || 'http://localhost:3000';
+  const baseUrl = appType === 'dashboard'
+    ? (process.env.NEXTAUTH_DASHBOARD_URL || (!isProduction() ? 'http://localhost:4000' : ''))
+    : (
+      process.env.NEXTAUTH_INTERFACE_URL
+      || process.env.NEXTAUTH_URL
+      || process.env.NEXT_PUBLIC_INTERFACE_URL
+      || (!isProduction() ? 'http://localhost:3000' : '')
+    );
+  if (!baseUrl) {
+    throw new Error(`Missing base URL for incremental auth (${appType}) in production`);
+  }
 
   return new IncrementalAuthService({
     clientId,

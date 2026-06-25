@@ -48,7 +48,7 @@ const AssistantSchema = AssistantBlock.AssistantSchema;
 async function composeFunctionalPromptFromDB(enabledFeatures: FeatureKey[]): Promise<string> {
   try {
     // Fetch all functional prompts from database
-    const response = await fetch('/api/functionalPrompt');
+    const response = await fetch('/dashboard/api/functionalPrompt');
     if (!response.ok) {
       console.warn('Failed to fetch functional prompts from database');
       return '';
@@ -254,7 +254,7 @@ export default function AssistantPersonalityVoiceTab({
     const fetchPersonalities = async () => {
       try {
         setLoadingPersonalities(true);
-        const res = await fetch(`/api/personalities?tenantId=${selectedAssistant.tenantId}`);
+        const res = await fetch(`/dashboard/api/personalities?tenantId=${selectedAssistant.tenantId}`);
         if (!res.ok) {
           setPersonalities([]);
           return;
@@ -290,7 +290,7 @@ export default function AssistantPersonalityVoiceTab({
           const functionalPrompt = await composeFunctionalPromptFromDB((watchedSupportedFeatures as FeatureKey[]) || []);
           
           // Fetch personality
-          const res = await fetch(`/api/personalities/${targetPersonalityId}?tenantId=${selectedAssistant.tenantId}`);
+          const res = await fetch(`/dashboard/api/personalities/${targetPersonalityId}?tenantId=${selectedAssistant.tenantId}`);
           let systemPromptLocal = functionalPrompt;
           if (res.ok) {
             const data = await res.json();

@@ -1,16 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
-import { ConnectionsPanel } from '@interface/components/settings-panels/ConnectionsPanel';
+import { SocialConnectionsPanel } from '@interface/components/settings-panels/SocialConnectionsPanel';
 import { LaunchModePanel } from '@interface/components/settings-panels/LaunchModePanel';
+import { AudioPreferencesPanel } from '@interface/components/settings-panels/AudioPreferencesPanel';
 import { ModelSettingsPanel } from '@interface/components/settings-panels/ModelSettingsPanel';
 import { ChannelModelsPanel } from '@interface/components/settings-panels/ChannelModelsPanel';
-import { MetadataDisplay, type MetadataDisplayRef } from '@interface/components/settings-panels/MetadataDisplay';
-import { useUserProfileMetadata } from '@interface/components/settings-panels/useUserProfileMetadata';
-import { Avatar, AvatarFallback, AvatarImage } from '@interface/components/ui/avatar';
+import { ProfilePanel } from '@interface/components/settings-panels/ProfilePanel';
+import { PearlOSCodeResetPanel } from '@interface/components/settings-panels/PearlOSCodeResetPanel';
 import { Button } from '@interface/components/ui/button';
+import { UserProfileProvider } from '@interface/contexts/user-profile-context';
 import {
   Card,
   CardContent,
@@ -18,45 +19,65 @@ import {
   CardHeader,
   CardTitle,
 } from '@interface/components/ui/card';
-import { Input } from '@interface/components/ui/input';
-import { Label } from '@interface/components/ui/label';
-import { Switch } from '@interface/components/ui/switch';
-import { useResilientSession } from '@interface/hooks/use-resilient-session';
-import { getClientLogger } from '@interface/lib/client-logger';
-import { validateMetadata } from '@interface/lib/metadata-utils';
+import { BUILD_STAMP } from '@interface/build-stamp';
 
 import '../../features/Notes/styles/notes.css';
-import { NIA_EVENT_ONBOARDING_COMPLETE } from '../../features/DailyCall/events/niaEventRouter';
 
-type PanelKey = 'connections' | 'model-config' | 'channel-models' | 'launch-mode' | 'profile' | 'notifications' | 'appearance' | 'privacy' | 'contact' | 'stored-information' | null;
+interface BuildInfo {
+  buildId: string;
+  commitSha: string;
+  buildDate: string;
+  packageVersion: string;
+  buildName: string;
+}
+
+const DEFAULT_BUILD_INFO: BuildInfo = {
+  buildId: BUILD_STAMP.commitSha,
+  commitSha: BUILD_STAMP.commitSha,
+  buildDate: BUILD_STAMP.buildTime.slice(0, 10),
+  packageVersion: 'v2026.04.28',
+  buildName: `PearlOS ${BUILD_STAMP.codename}`
+};
+
+export type PanelKey = 'connections' | 'model-config' | 'channel-models' | 'launch-mode' | 'audio-preferences' | 'profile' | 'recovery' | 'contact' | null;
+
+const URL_PANEL_KEYS: readonly Exclude<PanelKey, null>[] = [
+  'connections',
+  'model-config',
+  'channel-models',
+  'launch-mode',
+  'audio-preferences',
+  'profile',
+  'recovery',
+  'contact',
+];
+
+/** Valid values for `?panel=` on `/settings` or `?settingsPanel=` on `/{assistant}` (e.g. `connections`). */
+export function parseSettingsPanelUrlParam(raw: string | null): PanelKey {
+  if (!raw) return null;
+  const key = raw as Exclude<PanelKey, null>;
+  return URL_PANEL_KEYS.includes(key) ? key : null;
+}
 
 interface Props {
   initialOpenPanel?: PanelKey;
   tenantId?: string;
+  onOpenPanelChange?: (panel: PanelKey) => void;
 }
 
-export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Props) {
-  const logger = getClientLogger('[settings_panels]');
-  const { data: session } = useResilientSession();
-  const [openPanel, setOpenPanel] = useState<PanelKey>(initialOpenPanel ?? 'model-config');
+export default function SettingsPanels({ initialOpenPanel = null, tenantId, onOpenPanelChange }: Props) {
+  const [openPanel, setOpenPanel] = useState<PanelKey>(initialOpenPanel ?? 'connections');
   const [isMobile, setIsMobile] = useState(false);
 
-  const [notifications, setNotifications] = useState(true);
-  const [emailUpdates, setEmailUpdates] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const [contactPressed, setContactPressed] = useState(false);
-  const [twoFAPressed, setTwoFAPressed] = useState(false);
-  const [updatePwdPressed, setUpdatePwdPressed] = useState(false);
-  const [exportPressed, setExportPressed] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [loadingDots, setLoadingDots] = useState(1);
-  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    if (initialOpenPanel != null) {
+      setOpenPanel(initialOpenPanel);
+    }
+  }, [initialOpenPanel]);
+  const buildInfo = DEFAULT_BUILD_INFO;
 
-  const user = session?.user;
-  const { metadata, userProfileId, loading: metadataLoading, error: metadataError, refresh: refreshMetadata, onboardingComplete } = useUserProfileMetadata(openPanel === 'stored-information', tenantId);
-  const metadataDisplayRef = useRef<MetadataDisplayRef>(null);
-  const userInitial = user?.name?.charAt(0) || user?.email?.charAt(0) || '?';
+  const [contactPressed, setContactPressed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   // Track viewport for mobile/desktop layout — only after hydration to avoid SSR mismatch
   useEffect(() => {
@@ -67,21 +88,12 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Animate loading dots
   useEffect(() => {
-    if (!metadataLoading) {
-      setLoadingDots(1);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setLoadingDots((prev) => (prev >= 3 ? 1 : prev + 1));
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [metadataLoading]);
+    onOpenPanelChange?.(openPanel);
+  }, [openPanel, onOpenPanelChange]);
 
   const navItems = [
+    /* Hidden from settings menu — panel switch cases below unchanged
     { key: 'model-config', label: '🧠 Pearl Mind', icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5" style={{ imageRendering: 'pixelated' }}>
         <path d="M10 2c-1.5 0-2.5 1-3 2-1.5.5-2.5 2-2.5 3.5 0 1 .5 2 1.5 2.5-.5.5-1 1.5-1 2.5 0 1.5 1 2.5 2.5 3 .5 1 1.5 1.5 2.5 1.5s2-.5 2.5-1.5c1.5-.5 2.5-1.5 2.5-3 0-1-.5-2-1-2.5 1-.5 1.5-1.5 1.5-2.5 0-1.5-1-3-2.5-3.5-.5-1-1.5-2-3-2z" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -98,6 +110,7 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
         <circle cx="18" cy="10" r="1.5" fill="currentColor" opacity="0.6" />
       </svg>
     ) },
+    */
     { key: 'connections', label: 'Connections', icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5" style={{ imageRendering: 'pixelated' }}>
         <path d="M3 10h4m6 0h4M10 3v4m0 6v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" />
@@ -108,42 +121,33 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
         <circle cx="10" cy="17" r="1.5" fill="currentColor" />
       </svg>
     ) },
+    { key: 'profile', label: 'Profile', icon: <img src="/ProfileIco.png" alt="Profile" className="h-5 w-5" style={{ imageRendering: 'pixelated' }} /> },
     { key: 'launch-mode', label: 'Launch Mode', icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
         <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
         <path d="M8 8l4 2-4 2V8z" fill="currentColor" />
       </svg>
     ) },
-    { key: 'profile', label: 'Profile', icon: <img src="/ProfileIco.png" alt="Profile" className="h-5 w-5" style={{ imageRendering: 'pixelated' }} /> },
-    /*
-    {
-      key: 'notifications',
-      label: 'Notifications',
-      icon: <img src="/BellIco.png" alt="Notifications" className="h-5 w-5" style={{ imageRendering: 'pixelated' }} />,
-    },
-    {
-      key: 'appearance',
-      label: 'Appearance',
-      icon: <img src="/ThemeIco.png" alt="Appearance" className="h-5 w-5" style={{ imageRendering: 'pixelated' }} />,
-    },
-    {
-      key: 'privacy',
-      label: 'Privacy & Security',
-      icon: <img src="/sheildIcon.png" alt="Privacy" className="h-6 w-6" style={{ imageRendering: 'pixelated' }} />,
-    },
-    */
-    { key: 'contact', label: 'Contact Us', icon: <img src="/EmailIcon.png" alt="Email" className="h-4 w-5" style={{ imageRendering: 'pixelated' }} /> },
-    {
-      key: 'stored-information',
-      label: 'Stored Information',
-      icon: <img src="/FolderIcon.png" alt="Stored Information" className="h-5 w-5" style={{ imageRendering: 'pixelated' }} />,
-    },
+    { key: 'audio-preferences', label: 'Audio', icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+        <path d="M4 7v6h3l4 3V4L7 7H4z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
+        <path d="M14 6c1.5 1 1.5 3 0 4M16 4c3 2 3 6 0 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      </svg>
+    ) },
+    { key: 'recovery', label: 'Recovery', icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+        <path d="M5 5v4h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M5.5 9A5 5 0 1 0 7 4.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M10 7v4l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ) },
+    /* { key: 'contact', label: 'Contact Us', icon: <img src="/EmailIcon.png" alt="Email" className="h-4 w-5" style={{ imageRendering: 'pixelated' }} /> }, */
   ];
 
   const renderPanel = () => {
     switch (openPanel) {
       case 'connections':
-        return <ConnectionsPanel />;
+        return <SocialConnectionsPanel />;
 
       case 'model-config':
         return <ModelSettingsPanel />;
@@ -154,209 +158,14 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
       case 'launch-mode':
         return <LaunchModePanel />;
 
+      case 'audio-preferences':
+        return <AudioPreferencesPanel />;
+
       case 'profile':
-        return (
-          <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
-            <CardHeader>
-              <CardTitle className="text-white" style={{ fontFamily: 'Gohufont, monospace' }}>Profile Information</CardTitle>
-              <CardDescription className="text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                Manage your personal information and account details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6" style={{ fontFamily: 'Gohufont, monospace' }}>
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  {user?.image ? (
-                    <AvatarImage src={user.image} alt={user?.name || user?.email || ''} />
-                  ) : null}
-                  <AvatarFallback className="bg-gray-700 text-lg font-medium text-white" style={{ fontFamily: 'Gohufont, monospace' }}>
-                    {userInitial}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
+        return <ProfilePanel tenantId={tenantId} buildName={buildInfo.buildName} commitSha={buildInfo.commitSha} />;
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>
-                    Full Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={user?.name || ''}
-                    readOnly
-                    disabled
-                    className="border-gray-700 bg-gray-800 text-white"
-                    style={{ fontFamily: 'Gohufont, monospace' }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={user?.email || ''}
-                    readOnly
-                    disabled
-                    className="border-gray-700 bg-gray-800 text-white"
-                    style={{ fontFamily: 'Gohufont, monospace' }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      /*
-      case 'notifications':
-        return (
-          <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
-            <CardHeader>
-              <CardTitle className="text-white" style={{ fontFamily: 'Gohufont, monospace' }}>Notifications</CardTitle>
-              <CardDescription className="text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                Choose how you want to be notified about updates
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4" style={{ fontFamily: 'Gohufont, monospace' }}>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Push Notifications</Label>
-                  <p className="text-sm text-gray-500" style={{ fontFamily: 'Gohufont, monospace' }}>
-                    Receive notifications about important updates
-                  </p>
-                </div>
-                <Switch checked={notifications} onCheckedChange={setNotifications} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Email Updates</Label>
-                  <p className="text-sm text-gray-500" style={{ fontFamily: 'Gohufont, monospace' }}>Get updates via email about new features</p>
-                </div>
-                <Switch checked={emailUpdates} onCheckedChange={setEmailUpdates} />
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 'appearance':
-        return (
-          <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
-            <CardHeader>
-              <CardTitle className="text-white" style={{ fontFamily: 'Gohufont, monospace' }}>Appearance</CardTitle>
-              <CardDescription className="text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                Customize how the interface looks and feels
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4" style={{ fontFamily: 'Gohufont, monospace' }}>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Dark Mode</Label>
-                  <p className="text-sm text-gray-500" style={{ fontFamily: 'Gohufont, monospace' }}>Switch between light and dark themes</p>
-                </div>
-                <Switch checked={darkMode} onCheckedChange={setDarkMode} />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Language</Label>
-                <select className="w-full rounded-md border border-gray-600 bg-gray-700 p-2 text-white" style={{ fontFamily: 'Gohufont, monospace' }}>
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                </select>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 'privacy':
-        return (
-          <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
-            <CardHeader>
-              <CardTitle className="text-white" style={{ fontFamily: 'Gohufont, monospace' }}>Privacy & Security</CardTitle>
-              <CardDescription className="text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                Manage your privacy settings and security preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4" style={{ fontFamily: 'Gohufont, monospace' }}>
-              <div className="space-y-2">
-                <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Change Password</Label>
-                <Button
-                  onMouseDown={() => setUpdatePwdPressed(true)}
-                  onMouseUp={() => setUpdatePwdPressed(false)}
-                  onMouseLeave={() => setUpdatePwdPressed(false)}
-                  className="flex items-center justify-center p-0 font-semibold text-white"
-                  style={{
-                    width: '120px',
-                    height: '60px',
-                    backgroundImage: `url(${updatePwdPressed ? '/GreenButtonDown.png' : '/GreenButtonUp.png'})`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '100% 100%',
-                    backgroundPosition: 'center',
-                    imageRendering: 'pixelated',
-                    border: '0',
-                    boxShadow: 'none',
-                    fontFamily: 'Gohufont, monospace',
-                  }}
-                >
-                  Update Password
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Two-Factor Authentication</Label>
-                <Button
-                  onMouseDown={() => setTwoFAPressed(true)}
-                  onMouseUp={() => setTwoFAPressed(false)}
-                  onMouseLeave={() => setTwoFAPressed(false)}
-                  className="flex items-center justify-center p-0 font-semibold text-white"
-                  style={{
-                    width: '120px',
-                    height: '60px',
-                    backgroundImage: `url(${twoFAPressed ? '/GreenButtonDown.png' : '/GreenButtonUp.png'})`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '100% 100%',
-                    backgroundPosition: 'center',
-                    imageRendering: 'pixelated',
-                    border: '0',
-                    boxShadow: 'none',
-                    fontFamily: 'Gohufont, monospace',
-                  }}
-                >
-                  Enable 2FA
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-300" style={{ fontFamily: 'Gohufont, monospace' }}>Data Export</Label>
-                <p className="text-sm text-gray-500" style={{ fontFamily: 'Gohufont, monospace' }}>Download a copy of your data</p>
-                <Button
-                  onMouseDown={() => setExportPressed(true)}
-                  onMouseUp={() => setExportPressed(false)}
-                  onMouseLeave={() => setExportPressed(false)}
-                  className="flex items-center justify-center p-0 font-semibold text-white"
-                  style={{
-                    width: '120px',
-                    height: '60px',
-                    backgroundImage: `url(${exportPressed ? '/GreenButtonDown.png' : '/GreenButtonUp.png'})`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '100% 100%',
-                    backgroundPosition: 'center',
-                    imageRendering: 'pixelated',
-                    border: '0',
-                    boxShadow: 'none',
-                    fontFamily: 'Gohufont, monospace',
-                  }}
-                >
-                  Export Data
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      */
+      case 'recovery':
+        return <PearlOSCodeResetPanel />;
 
       case 'contact':
         return (
@@ -405,146 +214,6 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
           </Card>
         );
 
-      case 'stored-information': {
-        const handleSaveMetadata = async () => {
-          if (!userProfileId || !metadataDisplayRef.current) {
-            return;
-          }
-
-          const currentMetadata = metadataDisplayRef.current.getCurrentMetadata();
-          // Validate metadata before saving
-          try {
-            validateMetadata(currentMetadata);
-          } catch (validationError: any) {
-            alert(`Validation error: ${validationError.message}`);
-            return;
-          }
-
-          setSaving(true);
-          try {
-            // Fetch the full UserProfile record first
-            const fetchResponse = await fetch(`/api/userProfile?userId=${encodeURIComponent(user?.id || '')}`);
-            if (!fetchResponse.ok) {
-              throw new Error('Failed to fetch user profile');
-            }
-            const fetchData = await fetchResponse.json();
-            const userProfile = fetchData.items?.[0];
-            if (!userProfile) {
-              throw new Error('User profile not found');
-            }
-            
-            // Use PUT with REPLACE operation to completely replace metadata
-            const response = await fetch('/api/userProfile', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                id: userProfileId,
-                first_name: userProfile.first_name,
-                email: userProfile.email,
-                userId: userProfile.userId,
-                metadata: currentMetadata,
-                metadataOperation: 'replace',
-              }),
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Failed to save metadata');
-            }
-
-            // Refresh metadata after successful save
-            await refreshMetadata();
-            setIsEditMode(false);
-          } catch (e: any) {
-            logger.error('Failed to save metadata', {
-              error: e instanceof Error ? e.message : String(e),
-            });
-            alert(`Failed to save metadata: ${e.message}`);
-          } finally {
-            setSaving(false);
-          }
-        };
-
-        return (
-          <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-white" style={{ fontFamily: 'Gohufont, monospace' }}>Stored Information</CardTitle>
-                  <CardDescription className="text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                    {isEditMode ? 'Edit metadata associated with your user profile' : 'View metadata associated with your user profile'}
-                  </CardDescription>
-                </div>
-                {!metadataLoading && !metadataError && (
-                  <div className="flex gap-2">
-                    {!isEditMode ? (
-                      <Button
-                        onClick={() => setIsEditMode(true)}
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        Edit
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          onClick={() => setIsEditMode(false)}
-                          size="sm"
-                          variant="outline"
-                          className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                          disabled={saving}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleSaveMetadata}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          disabled={saving}
-                        >
-                          {saving ? 'Saving...' : 'Save All'}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4" style={{ fontFamily: 'Gohufont, monospace' }}>
-              {metadataLoading && (
-                <div className="flex items-center justify-center py-8" style={{ fontFamily: 'Gohufont, monospace' }}>
-                  <span className="text-blue-400 text-lg font-medium">
-                    Loading{'.'.repeat(loadingDots)}
-                  </span>
-                </div>
-              )}
-              {metadataError && (
-                <div className="rounded-md border border-red-600 bg-red-900/20 p-4 text-sm text-red-400" style={{ fontFamily: 'Gohufont, monospace' }}>
-                  Error: {metadataError}
-                </div>
-              )}
-              {!metadataLoading && !metadataError && (
-                <>
-                  {(metadata && Object.keys(metadata).length > 0) || isEditMode ? (
-                    <MetadataDisplay
-                      ref={metadataDisplayRef}
-                      metadata={metadata || {}}
-                      readOnly={!isEditMode}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center py-8 text-gray-500" style={{ fontFamily: 'Gohufont, monospace' }}>
-                      No stored information available
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        );
-      }
-
       default:
         return (
           <div className="flex h-[300px] items-center justify-center text-gray-400" style={{ fontFamily: 'Gohufont, monospace' }}>
@@ -553,6 +222,12 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
         );
     }
   };
+
+  const renderProfileBackedPanel = () => (
+    <UserProfileProvider tenantId={tenantId}>
+      {renderPanel()}
+    </UserProfileProvider>
+  );
 
   // Before hydration, render a minimal loading skeleton that matches
   // regardless of viewport width to prevent SSR hydration mismatch on iOS
@@ -567,15 +242,15 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
   if (isMobile) {
     // Mobile: full-width menu on top, content below
     return (
-      <div className="flex flex-col gap-3 overflow-visible">
-        <Card className={`border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
-          <CardContent className="p-3">
-            <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-3 w-full min-w-0">
+        <Card className="border-gray-700 bg-gray-800" style={{ fontFamily: 'Gohufont, monospace' }}>
+          <CardContent className="p-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {navItems.map(item => (
                 <button
                   key={item.key}
                   onClick={() => setOpenPanel(openPanel === item.key ? null : (item.key as PanelKey))}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-3 text-left transition-colors
+                  className={`flex items-center gap-2 rounded-lg px-2 py-2.5 text-left transition-colors min-w-0
                     ${
                       openPanel === item.key
                         ? 'bg-gray-700 text-white'
@@ -583,20 +258,29 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
                     }`}
                   style={{ fontFamily: 'Gohufont, monospace' }}
                 >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="text-sm" style={{ fontFamily: 'Gohufont, monospace' }}>{item.label}</span>
+                  <span className="shrink-0 text-sm">{item.icon}</span>
+                  <span className="text-xs truncate" style={{ fontFamily: 'Gohufont, monospace' }}>{item.label}</span>
                 </button>
               ))}
             </div>
           </CardContent>
         </Card>
-        <div className="overflow-visible">{renderPanel()}</div>
+        <div className="w-full min-w-0 overflow-x-hidden">
+          <div className="mb-3 px-3 py-2 rounded-md border border-yellow-400/40 bg-yellow-400/10 text-yellow-200 text-xs" style={{ fontFamily: 'Gohufont, monospace' }}>
+            ✨ {buildInfo.buildName} · {buildInfo.commitSha}
+          </div>
+          {renderProfileBackedPanel()}
+        </div>
       </div>
     );
   }
 
   // Desktop: sidebar + content
   return (
+    <div className="flex flex-col gap-3 overflow-visible">
+    <div className="px-3 py-2 rounded-md border border-yellow-400/40 bg-yellow-400/10 text-yellow-200 text-sm" style={{ fontFamily: 'Gohufont, monospace' }}>
+      ✨ {buildInfo.buildName} — build {buildInfo.commitSha} · {buildInfo.buildDate}
+    </div>
     <div className="flex gap-6 overflow-visible">
       {/* Navigation Sidebar */}
       <Card className={`h-fit w-64 flex-shrink-0 border-gray-700 bg-gray-800 `} style={{ fontFamily: 'Gohufont, monospace' }}>
@@ -623,7 +307,8 @@ export default function SettingsPanels({ initialOpenPanel = null, tenantId }: Pr
       </Card>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-visible">{renderPanel()}</div>
+      <div className="flex-1 overflow-visible">{renderProfileBackedPanel()}</div>
+    </div>
     </div>
   );
 }

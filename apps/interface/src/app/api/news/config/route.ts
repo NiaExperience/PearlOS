@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname } from 'path';
+import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
+
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 /**
  * /api/news/config — User-controllable news feed configuration.
@@ -13,6 +16,14 @@ import { dirname } from 'path';
  */
 
 const CONFIG_PATH = '/tmp/pearlos-news-config.json';
+
+async function requireTenantAdmin(request: NextRequest): Promise<NextResponse | null> {
+  const actorResult = await resolveInterfaceActorContext({
+    request,
+    minimumRole: TenantRole.ADMIN,
+  });
+  return actorResult.ok ? null : actorResult.response;
+}
 
 interface FeedConfig {
   url: string;
@@ -63,6 +74,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireTenantAdmin(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { action, feed, feeds: newFeeds } = body as {

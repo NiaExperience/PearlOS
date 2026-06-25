@@ -12,13 +12,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function TenantDetailPage({ params }: { params: { tenantId: string } }) {
   const session = await getSessionSafely(undefined, dashboardAuthOptions);
-  if (!session?.user || session.user.is_anonymous) redirect('/login');
+  if (!session?.user || session.user.is_anonymous) redirect('/dashboard/login');
   const { tenantId } = params;
   const tenant = await TenantActions.getTenantById(tenantId);
   if (!tenant) return notFound();
   const roles = await TenantActions.getTenantRolesForTenant(tenantId) as any[];
   const isAdmin = roles.some(r => r.userId === session.user.id && (r.role === TenantRole.ADMIN || r.role === TenantRole.OWNER));
-  if (!isAdmin) redirect('/login');
+  if (!isAdmin) redirect('/dashboard/login');
 
   return (
     <div className="space-y-6">
@@ -86,7 +86,7 @@ function TenantEditClient({ initialTenant }: { initialTenant: { id: string; name
     setSaving(true);
     toast({ title: 'Saving tenant…', description: 'Applying changes', duration: 1500 });
     try {
-      const res = await fetch('/api/tenants', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: initialTenant.id, name: optimisticName, description: optimisticDescription }) });
+      const res = await fetch('/dashboard/api/tenants', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: initialTenant.id, name: optimisticName, description: optimisticDescription }) });
       if (!res.ok) throw new Error(await res.text() || 'Save failed');
       toast({ title: 'Tenant updated', description: 'Changes saved successfully' });
       setDirty(false);

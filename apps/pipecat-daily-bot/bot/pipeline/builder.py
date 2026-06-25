@@ -1,4 +1,8 @@
+import json
 import os
+import re
+import urllib.parse
+import urllib.request
 from typing import Any
 from loguru import logger as base_logger
 
@@ -14,6 +18,8 @@ from flows.registry import register_flow_manager
 
 from tools import toolbox
 from processors.canvas_prefetch import CanvasPrefetchProcessor
+from processors.end_call_intent import EndCallIntentProcessor
+from processors.tts_safety import TTSSafetyProcessor
 try:
     from pipecat.services.anthropic.llm import AnthropicLLMService as _BaseAnthropicLLMService
     from pipecat.services.anthropic.llm import AnthropicLLMContext
@@ -59,9 +65,56 @@ from core.config import (
     BOT_VISION_ENABLED, BOT_VISION_MODEL, BOT_VISION_INTERVAL, BOT_VISION_PROMPT,
 )
 
-from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, ONBOARDING_NOTE, NOTES_NOTE, VOICE_COMMAND_NOTE
+from core.prompts import MULTI_USER_NOTE, SMART_SILENCE_NOTE, PERSONAL_SELF_EVOLUTION_NOTE, VOICE_INTERACTIVE_TOOL_USE_NOTE, build_onboarding_system_note_async, NOTES_NOTE, QA_RELEASE_GATE_NOTE, VOICE_COMMAND_NOTE, VOICE_TTS_NOTE, TONE_CONTROL_NOTE, CARTESIA_TONE_CONTROL_NOTE, FAST_WEB_SEARCH_NOTE, VOICE_PRONUNCIATION_NOTE
 
-def _fetch_msam_context(timeout: float = 3.0) -> str:
+_CARTESIA_VOICE_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+_VOXTRAL_HEALTH_CACHE: dict[str, tuple[float, bool]] = {}
+_VOXTRAL_HEALTH_TTL_SECS = 30.0
+
+
+def _env_float(name: str, default: float, *, minimum: float = 0.0) -> float:
+    try:
+        value = float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, value)
+
+
+def _is_voxtral_healthy(vox_url: str, vox_key: str | None) -> bool:
+    """Cache Voxtral health checks so multi-mode voice startup does one probe."""
+    import time
+
+    cache_key = vox_url.rstrip("/")
+    now = time.time()
+    cached = _VOXTRAL_HEALTH_CACHE.get(cache_key)
+    if cached and now - cached[0] < _VOXTRAL_HEALTH_TTL_SECS:
+        return cached[1]
+
+    healthy = False
+    try:
+        req = urllib.request.Request(
+            f"{cache_key}/v1/models",
+            headers={"Authorization": f"Bearer {vox_key}"} if vox_key else {},
+        )
+        with urllib.request.urlopen(req, timeout=1.0) as r:
+            healthy = r.status == 200
+    except Exception as e:
+        base_logger.warning(f"[{BOT_PID}] Voxtral preflight failed ({e}); trying Cartesia as first fallback.")
+
+    _VOXTRAL_HEALTH_CACHE[cache_key] = (now, healthy)
+    return healthy
+
+
+def _cartesia_voice_id(value: object, fallback: str) -> str:
+    if isinstance(value, str) and _CARTESIA_VOICE_ID_RE.match(value.strip()):
+        return value.strip()
+    return fallback
+
+def _fetch_msam_context(timeout: float | None = None) -> str:
     """Fetch semantic memory context from MSAM if available.
     
     Returns a formatted string of Pearl's most relevant memories,
@@ -74,6 +127,8 @@ def _fetch_msam_context(timeout: float = 3.0) -> str:
     msam_url = os.getenv("MSAM_URL", "http://127.0.0.1:3001")
     if os.getenv("MSAM_DISABLED", "").lower() in ("true", "1", "yes"):
         return ""
+    if timeout is None:
+        timeout = _env_float("PEARL_VOICE_MSAM_TIMEOUT_SECS", 0.75, minimum=0.1)
     
     try:
         # Use /v1/context for session startup (returns compressed top memories)
@@ -110,22 +165,246 @@ def _fetch_msam_context(timeout: float = 3.0) -> str:
     return ""
 
 
-def load_workspace_context() -> str:
+def _clean_voice_identity(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    cleaned = " ".join(value.split()).strip()
+    if cleaned.lower() in {"anonymous", "null", "none", "undefined"}:
+        return ""
+    return cleaned[:240]
+
+
+def _mesh_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    mesh_secret = os.getenv("MESH_SHARED_SECRET", "").strip()
+    bot_secret = os.getenv("BOT_CONTROL_SHARED_SECRET", "").strip()
+    if mesh_secret:
+        headers["x-mesh-secret"] = mesh_secret
+    if bot_secret:
+        headers["x-bot-control-secret"] = bot_secret
+    return headers
+
+
+def _sync_mesh_profile_lookup(where: dict[str, Any], timeout: float) -> dict[str, Any] | None:
+    base_url = os.getenv("MESH_API_ENDPOINT", "").strip().rstrip("/")
+    if not base_url:
+        return None
+    params = urllib.parse.urlencode(
+        {
+            "where": json.dumps(where, separators=(",", ":")),
+            "limit": "1",
+        }
+    )
+    req = urllib.request.Request(
+        f"{base_url}/content/UserProfile?{params}",
+        headers=_mesh_headers(),
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            parsed = json.loads(resp.read().decode("utf-8") or "{}")
+    except Exception as exc:
+        base_logger.warning(f"[{BOT_PID}] [voice.profile] UserProfile lookup failed: {exc}")
+        return None
+
+    data = parsed.get("data") if isinstance(parsed, dict) else None
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return data[0]
+    if isinstance(data, dict):
+        return data
+    return None
+
+
+def _sync_fetch_voice_profile(user_id: str, user_email: str) -> dict[str, Any] | None:
+    timeout = _env_float("PEARL_VOICE_PROFILE_LOOKUP_TIMEOUT_SECS", 0.75, minimum=0.1)
+    if user_id and user_id.lower() != "anonymous":
+        profile = _sync_mesh_profile_lookup({"indexer": {"path": "userId", "equals": user_id}}, timeout)
+        if profile:
+            return profile
+    if user_email:
+        return _sync_mesh_profile_lookup({"indexer": {"path": "email", "equals": user_email}}, timeout)
+    return None
+
+
+def _voice_profile_preferred_name(profile: dict[str, Any] | None) -> str:
+    if not isinstance(profile, dict):
+        return ""
+    first_name = _clean_voice_identity(profile.get("first_name"))
+    if first_name:
+        return first_name
+    public_persona = profile.get("publicPersona")
+    if isinstance(public_persona, dict):
+        display_name = _clean_voice_identity(public_persona.get("displayName"))
+        if display_name:
+            return display_name
+    metadata = profile.get("metadata")
+    if isinstance(metadata, dict):
+        for key in ("preferred_name", "first_name", "name", "full_name"):
+            value = _clean_voice_identity(metadata.get(key))
+            if value:
+                return value
+    return ""
+
+
+def _voice_profile_context_block(
+    profile: dict[str, Any] | None,
+    *,
+    session_user_id: str,
+    session_user_email: str,
+    session_user_name: str,
+) -> str:
+    if not isinstance(profile, dict):
+        return ""
+
+    lines = [
+        "## Current Authenticated Voice User Profile",
+        (
+            "This UserProfile is authoritative for the person speaking in this "
+            "voice session. Prefer it over Daily display names, stale session "
+            "metadata, old transcripts, or global project memory. Apply it only "
+            "to this authenticated voice user."
+        ),
+    ]
+    user_id = _clean_voice_identity(profile.get("userId") or session_user_id)
+    email = _clean_voice_identity(profile.get("email") or session_user_email).lower()
+    first_name = _clean_voice_identity(profile.get("first_name"))
+    if user_id:
+        lines.append(f"- PearlOS userId: {user_id}")
+    if email:
+        lines.append(f"- Email: {email}")
+    if first_name:
+        lines.append(f"- First name: {first_name}")
+    if session_user_name and session_user_name not in {first_name}:
+        lines.append(f"- Lower-priority session display name: {session_user_name}")
+
+    public_persona = profile.get("publicPersona")
+    if isinstance(public_persona, dict):
+        persona_lines = []
+        for key in ("displayName", "bio", "location", "profession"):
+            value = _clean_voice_identity(public_persona.get(key))
+            if value:
+                persona_lines.append(f"- {key}: {value}")
+        interests = public_persona.get("interests")
+        if isinstance(interests, list):
+            clean_interests = [
+                _clean_voice_identity(item)
+                for item in interests
+                if _clean_voice_identity(item)
+            ][:12]
+            if clean_interests:
+                persona_lines.append("- interests: " + ", ".join(clean_interests))
+        if persona_lines:
+            lines.append("\n### Public Persona")
+            lines.extend(persona_lines)
+
+    private_memory = profile.get("privateMemory")
+    if isinstance(private_memory, dict):
+        memory_lines = []
+        for key in ("personalNotes", "relationshipContext"):
+            value = _clean_voice_identity(private_memory.get(key))
+            if value:
+                memory_lines.append(f"- {key}: {value[:1800]}")
+        preferences = private_memory.get("preferences")
+        if isinstance(preferences, dict) and preferences:
+            memory_lines.append(
+                "- preferences: "
+                + json.dumps(preferences, ensure_ascii=False, sort_keys=True)[:1800]
+            )
+        if memory_lines:
+            lines.append("\n### Private Memory")
+            lines.extend(memory_lines)
+
+    summary = profile.get("lastConversationSummary")
+    if isinstance(summary, dict):
+        summary_text = _clean_voice_identity(summary.get("summary"))
+        if summary_text:
+            lines.append("\n### Last Conversation Summary")
+            lines.append(summary_text[:1400])
+
+    return "\n".join(lines)[:8000]
+
+
+def load_workspace_context(
+    session_user_id: str | None = None,
+    session_user_name: str | None = None,
+    session_user_email: str | None = None,
+    session_tenant_id: str | None = None,
+) -> str:
     """Load Pearl's identity and context from workspace files.
-    
-    Returns combined context from SOUL.md, IDENTITY.md, USER.md, and activity-log.md
-    to give voice Pearl the same awareness as Discord/webchat Pearl.
-    Also fetches semantic memory from MSAM if available.
+
+    Returns shared Pearl identity context for voice. User-specific memory files
+    are excluded by default because voice sessions can belong to different
+    authenticated users; only enable the legacy shared memory path with
+    PEARL_VOICE_INCLUDE_PRIVATE_MEMORY=true.
     """
     workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
+    include_private_memory = os.getenv("PEARL_VOICE_INCLUDE_PRIVATE_MEMORY", "").lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     context_parts = []
-    
+
+    session_user_name = _clean_voice_identity(session_user_name or os.getenv("BOT_SESSION_USER_NAME", ""))
+    session_user_id = _clean_voice_identity(session_user_id or os.getenv("BOT_SESSION_USER_ID", ""))
+    session_user_email = _clean_voice_identity(session_user_email or os.getenv("BOT_SESSION_USER_EMAIL", "")).lower()
+    voice_profile = _sync_fetch_voice_profile(session_user_id, session_user_email)
+    profile_user_name = _voice_profile_preferred_name(voice_profile)
+    caller_name = profile_user_name or session_user_name
+    if caller_name or session_user_id or session_user_email:
+        identity_bits = []
+        if caller_name:
+            identity_bits.append(f"name: {caller_name}")
+        if session_user_email:
+            identity_bits.append(f"email: {session_user_email}")
+        if session_user_id:
+            identity_bits.append(f"user id: {session_user_id}")
+        context_parts.append(
+            "## Current Voice Caller\n"
+            "This is the person currently speaking in this voice session: "
+            + ", ".join(identity_bits)
+            + ". Address this caller by this authenticated profile name if you use a name. "
+            "Other names may appear in global PearlOS memory, project notes, old transcripts, "
+            "or stale Daily metadata. Do not use those names for the current caller unless "
+            "this current voice caller/profile block says so."
+        )
+    profile_block = _voice_profile_context_block(
+        voice_profile,
+        session_user_id=session_user_id,
+        session_user_email=session_user_email,
+        session_user_name=session_user_name,
+    )
+    if profile_block:
+        context_parts.append(profile_block)
+
+    # Per-user memory injection (authenticated sessions only)
+    tenant_id = (session_tenant_id or os.getenv("BOT_SESSION_TENANT_ID", "")).strip()
+    user_id = session_user_id or ""
+    user_email = session_user_email or ""
+
+    has_per_user_scope = bool(tenant_id and user_id and user_id.lower() != "anonymous")
+    if has_per_user_scope:
+        try:
+            from pearl.user_memory import scope_from_values, build_memory_block
+            scope = scope_from_values(tenant_id=tenant_id, user_id=user_id, user_email=user_email)
+            if scope:
+                per_user_block = build_memory_block(scope, limit=30, user_name=caller_name)
+                if per_user_block:
+                    context_parts.append(per_user_block)
+        except Exception:
+            pass
+
     # Read identity files
     identity_files = [
         ("SOUL.md", "Core Identity"),
         ("IDENTITY.md", "Personal Details"),
-        ("USER.md", "User Context"),
     ]
+    if include_private_memory:
+        identity_files.extend([
+            ("USER.md", "User Context"),
+            ("USER_FACTS.md", "Durable User Facts"),
+        ])
     
     for filename, label in identity_files:
         filepath = os.path.join(workspace_root, filename)
@@ -139,69 +418,107 @@ def load_workspace_context() -> str:
         except Exception as e:
             base_logger.error(f"[{BOT_PID}] Error reading {filepath}: {e}")
     
-    # Read cross-session state file (quick-read shared state)
-    cross_session_path = os.path.join(workspace_root, "memory", "cross-session-state.md")
-    try:
-        with open(cross_session_path, 'r', encoding='utf-8') as f:
-            content = f.read().strip()
-            if content:
-                context_parts.append(f"## RECENT CONVERSATIONS (from other channels)\nThis is what you (Pearl) have been discussing with the user in other sessions. Treat this as your own memory.\n\n{content}")
-    except FileNotFoundError:
-        base_logger.warning(f"[{BOT_PID}] Cross-session state not found: {cross_session_path}")
-    except Exception as e:
-        base_logger.error(f"[{BOT_PID}] Error reading cross-session state: {e}")
-    
-    # Read recent activity log for cross-session awareness
-    activity_log_path = os.path.join(workspace_root, "memory", "activity-log.md")
-    try:
-        with open(activity_log_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            # Get last 10 entries for recent context
-            recent_entries = [line.strip() for line in lines if line.strip() and line.startswith('[')][-10:]
-            if recent_entries:
-                context_parts.append(
-                    "## Recent Cross-Session Activity\n" +
-                    "You are the same Pearl across all channels (Discord, webchat, PearlOS voice). " +
-                    "Here's what happened in other sessions recently:\n" +
-                    "\n".join(recent_entries)
-                )
-    except FileNotFoundError:
-        base_logger.warning(f"[{BOT_PID}] Activity log not found: {activity_log_path}")
-    except Exception as e:
-        base_logger.error(f"[{BOT_PID}] Error reading activity log: {e}")
-    
-    # Read today's daily memory file for detailed context
-    from datetime import datetime, timezone
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    daily_memory_path = os.path.join(workspace_root, "memory", f"{today_str}.md")
-    try:
-        with open(daily_memory_path, 'r', encoding='utf-8') as f:
-            content = f.read().strip()
-            if content:
-                # Limit to last ~2000 chars to avoid blowing up context window
-                if len(content) > 2000:
-                    content = "...\n" + content[-2000:]
-                context_parts.append(f"## Today's Activity Detail ({today_str})\n{content}")
-    except FileNotFoundError:
-        pass  # Normal - no activity yet today
-    except Exception as e:
-        base_logger.error(f"[{BOT_PID}] Error reading daily memory: {e}")
-    
-    # Read MEMORY.md for long-term context (trimmed)
-    memory_path = os.path.join(workspace_root, "MEMORY.md")
-    try:
-        with open(memory_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            if lines:
-                # Take last 50 lines to stay within context budget
-                trimmed = lines[-50:]
-                content = "".join(trimmed).strip()
+    if include_private_memory:
+        # Read cross-session state file (quick-read shared state)
+        cross_session_path = os.path.join(workspace_root, "memory", "cross-session-state.md")
+        try:
+            with open(cross_session_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
                 if content:
-                    context_parts.append(f"## Long-Term Memory (recent entries)\n{content}")
-    except FileNotFoundError:
-        pass  # Normal - MEMORY.md may not exist yet
-    except Exception as e:
-        base_logger.error(f"[{BOT_PID}] Error reading MEMORY.md: {e}")
+                    context_parts.append(f"## RECENT CONVERSATIONS (from other channels)\nThis is what you (Pearl) have been discussing with the user in other sessions. Treat this as your own memory.\n\n{content}")
+        except FileNotFoundError:
+            base_logger.warning(f"[{BOT_PID}] Cross-session state not found: {cross_session_path}")
+        except Exception as e:
+            base_logger.error(f"[{BOT_PID}] Error reading cross-session state: {e}")
+
+        # Read recent activity log for cross-session awareness
+        activity_log_path = os.path.join(workspace_root, "memory", "activity-log.md")
+        try:
+            with open(activity_log_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                recent_entries = [line.strip() for line in lines if line.strip() and line.startswith('[')][-10:]
+                if recent_entries:
+                    context_parts.append(
+                        "## Recent Cross-Session Activity\n" +
+                        "You are the same Pearl across all channels (Discord, webchat, PearlOS voice). " +
+                        "Here's what happened in other sessions recently:\n" +
+                        "\n".join(recent_entries)
+                    )
+        except FileNotFoundError:
+            base_logger.warning(f"[{BOT_PID}] Activity log not found: {activity_log_path}")
+        except Exception as e:
+            base_logger.error(f"[{BOT_PID}] Error reading activity log: {e}")
+
+        # Read today's daily memory file for detailed context
+        from datetime import datetime, timezone
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        daily_memory_path = os.path.join(workspace_root, "memory", f"{today_str}.md")
+        try:
+            with open(daily_memory_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content:
+                    if len(content) > 2000:
+                        content = "...\n" + content[-2000:]
+                    context_parts.append(f"## Today's Activity Detail ({today_str})\n{content}")
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            base_logger.error(f"[{BOT_PID}] Error reading daily memory: {e}")
+
+        # Read MEMORY.md for long-term context (trimmed)
+        memory_path = os.path.join(workspace_root, "MEMORY.md")
+        try:
+            with open(memory_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                if lines:
+                    trimmed = lines[-50:]
+                    content = "".join(trimmed).strip()
+                    if content:
+                        context_parts.append(f"## Long-Term Memory (recent entries)\n{content}")
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            base_logger.error(f"[{BOT_PID}] Error reading MEMORY.md: {e}")
+    
+    # ── Notes context injection (Phase 1) ──────────────────────────────
+    # Inject a summary of the user's recent notes so voice Pearl knows
+    # what exists without having to probe blindly with tool calls.
+    include_notes_context = os.getenv("PEARL_VOICE_INCLUDE_NOTES_CONTEXT", "").lower() in (
+        "1", "true", "yes", "on",
+    )
+    if include_notes_context:
+        try:
+            import urllib.request, json as _json
+            session_user = session_user_id or os.getenv("BOT_SESSION_USER_ID", "").strip()
+            if session_user:
+                notes_url = f"http://127.0.0.1:4444/api/notes?user_id={session_user}&limit=5&include_content=false"
+                req = urllib.request.Request(notes_url)
+                notes_timeout = _env_float("PEARL_VOICE_NOTES_CONTEXT_TIMEOUT_SECS", 0.75, minimum=0.1)
+                with urllib.request.urlopen(req, timeout=notes_timeout) as resp:
+                    data = _json.loads(resp.read().decode())
+                    notes_list = data.get("notes", []) if isinstance(data, dict) else []
+                if notes_list:
+                    lines = []
+                    for n in notes_list:
+                        title = (n.get("title") or "Untitled").strip()
+                        updated = (n.get("updated_at") or n.get("created_at") or "")[:10]
+                        lines.append(f"- {title}" + (f" ({updated})" if updated else ""))
+                    context_parts.append(
+                        "## Your User's Recent Notes\n"
+                        "These are the user's most recently modified notes. "
+                        "You can open or read any of them using your notes tools "
+                        "(bot_open_notes, bot_list_notes, bot_read_current_note, etc.). "
+                        "Reference them naturally when relevant.\n\n" +
+                        "\n".join(lines)
+                    )
+                    base_logger.info(f"[{BOT_PID}] [voice] Injected {len(notes_list)} note summaries for user {session_user}")
+                else:
+                    base_logger.info(f"[{BOT_PID}] [voice] No notes found for user {session_user}")
+            else:
+                base_logger.info(f"[{BOT_PID}] [voice] Skipped notes injection — no BOT_SESSION_USER_ID")
+        except Exception as e:
+            base_logger.warning(f"[{BOT_PID}] [voice] Notes context injection failed (non-fatal): {e}")
+    # ── End notes context injection ────────────────────────────────────
     
     # Cross-channel identity clarity (concise version for token efficiency)
     # ISSUE #2 FIX: Inject Discord context from environment when available
@@ -269,7 +586,12 @@ def load_workspace_context() -> str:
     
     return "\n\n".join(context_parts) if context_parts else ""
 
-def _load_oc_session_dynamic_context() -> str:
+def _load_oc_session_dynamic_context(
+    session_user_id: str | None = None,
+    session_user_name: str | None = None,
+    session_user_email: str | None = None,
+    session_tenant_id: str | None = None,
+) -> str:
     """Load dynamic context for OpenClaw session mode.
     
     Reads cross-session state, activity log, and voice-pending-updates
@@ -281,7 +603,27 @@ def _load_oc_session_dynamic_context() -> str:
     """
     workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
     parts = []
-    
+
+    # PearlOS agent guide (PEARL.md) — environment, source rules, architecture
+    pearl_paths = [
+        os.path.join(workspace_root, "PEARL.md"),
+        "/home/deploy/pearlos/PEARL.md",
+        "/workspace/nia-universal/PEARL.md",
+        "/opt/pearlos/PEARL.md",
+    ]
+    for pearl_path in pearl_paths:
+        try:
+            with open(pearl_path, 'r', encoding='utf-8') as f:
+                pearl_content = f.read().strip()
+                if pearl_content:
+                    if len(pearl_content) > 4000:
+                        pearl_content = pearl_content[:4000] + "\n...[truncated]"
+                    parts.append(f"## PearlOS Agent Guide (PEARL.md)\n{pearl_content}")
+                    base_logger.info(f"[{BOT_PID}] [oc-session] Loaded PEARL.md from {pearl_path}")
+                    break
+        except (FileNotFoundError, Exception):
+            continue
+
     # Cross-session state
     cross_session_path = os.path.join(workspace_root, "memory", "cross-session-state.md")
     try:
@@ -325,6 +667,34 @@ def _load_oc_session_dynamic_context() -> str:
     except (FileNotFoundError, Exception):
         pass
     
+    # Per-user memory injection (authenticated sessions only)
+    _oc_tenant_id = (session_tenant_id or os.getenv("BOT_SESSION_TENANT_ID", "")).strip()
+    _oc_user_id = _clean_voice_identity(session_user_id or os.getenv("BOT_SESSION_USER_ID", ""))
+    _oc_user_email = _clean_voice_identity(session_user_email or os.getenv("BOT_SESSION_USER_EMAIL", "")).lower()
+    _oc_user_name = _clean_voice_identity(session_user_name or os.getenv("BOT_SESSION_USER_NAME", ""))
+
+    _oc_profile = _sync_fetch_voice_profile(_oc_user_id, _oc_user_email)
+    _oc_profile_block = _voice_profile_context_block(
+        _oc_profile,
+        session_user_id=_oc_user_id,
+        session_user_email=_oc_user_email,
+        session_user_name=_oc_user_name,
+    )
+    if _oc_profile_block:
+        parts.append(_oc_profile_block)
+
+    _has_per_user_scope = bool(_oc_tenant_id and _oc_user_id and _oc_user_id.lower() != "anonymous")
+    if _has_per_user_scope:
+        try:
+            from pearl.user_memory import scope_from_values, build_memory_block
+            scope = scope_from_values(tenant_id=_oc_tenant_id, user_id=_oc_user_id, user_email=_oc_user_email)
+            if scope:
+                per_user_block = build_memory_block(scope, limit=30, user_name=_voice_profile_preferred_name(_oc_profile) or _oc_user_name)
+                if per_user_block:
+                    parts.append(per_user_block)
+        except Exception:
+            pass
+
     result = "\n\n".join(parts) if parts else ""
     # Hard cap
     if len(result) > 10000:
@@ -375,17 +745,29 @@ async def build_pipeline(
     supportedFeatures: list[str] | None = None,
     sessionOverride: dict[str, Any] | None = None,
     isOnboarding: bool = False,
+    startupContext: dict[str, Any] | None = None,
+    sessionId: str | None = None,
+    sessionUserId: str | None = None,
+    sessionUserName: str | None = None,
+    sessionUserEmail: str | None = None,
+    sessionTenantId: str | None = None,
 ):
     """Build and return (pipeline, task, context_agg, transport, messages, multi_user_aggregator).
 
     Heavy imports are inside so unit tests for parameter validation can run
     without needing the pipecat native / network dependencies unless invoked.
     """
+    session_id_for_pipeline = _clean_voice_identity(sessionId or os.getenv("BOT_SESSION_ID", ""))
+    session_user_id_for_pipeline = _clean_voice_identity(sessionUserId or os.getenv("BOT_SESSION_USER_ID", ""))
+    session_user_name_for_pipeline = _clean_voice_identity(sessionUserName or os.getenv("BOT_SESSION_USER_NAME", ""))
+    session_user_email_for_pipeline = _clean_voice_identity(sessionUserEmail or os.getenv("BOT_SESSION_USER_EMAIL", "")).lower()
+    session_tenant_id_for_pipeline = _clean_voice_identity(sessionTenantId or os.getenv("BOT_SESSION_TENANT_ID", ""))
+
     logger = base_logger.bind(
         roomUrl=room_url,
-        sessionId=os.getenv("BOT_SESSION_ID"),
-        userId=os.getenv("BOT_SESSION_USER_ID"),
-        userName=os.getenv("BOT_SESSION_USER_NAME"),
+        sessionId=session_id_for_pipeline,
+        userId=session_user_id_for_pipeline,
+        userName=session_user_name_for_pipeline,
     )
     from pipecat.audio.vad.silero import SileroVADAnalyzer
 
@@ -428,6 +810,8 @@ async def build_pipeline(
     from providers.kokoro import KokoroTTSService
     from providers.elevenlabs import ElevenLabsTTSService
     from providers.pocket_tts import PocketTTSService
+    from providers.voxtral import VoxtralTTSService
+    from providers.cartesia import CartesiaTTSService
     from utils.clause_text_aggregator import ClauseTextAggregator
 
     try:
@@ -439,6 +823,14 @@ async def build_pipeline(
         from filters.tts_text_filter import MarkdownStripFilter
     except ImportError:
         from bot.filters.tts_text_filter import MarkdownStripFilter
+
+    try:
+        from filters.narration_filter import NarrationStripFilter
+    except ImportError:
+        try:
+            from bot.filters.narration_filter import NarrationStripFilter
+        except ImportError:
+            NarrationStripFilter = None
         
     try:
         from processors.lull import create_lull_processor
@@ -531,6 +923,11 @@ async def build_pipeline(
     # produce distorted output. The MarkdownStripFilter runs before synthesis.
     markdown_filter = MarkdownStripFilter()
     text_filters = [markdown_filter]
+    # Narration scrubber: belt-and-suspenders backup to the prompt rules.
+    # Strips "Let me check...", "I'll look...", etc. before TTS synthesis so
+    # voice never speaks process narration even if the model leaks it.
+    if NarrationStripFilter is not None:
+        text_filters.append(NarrationStripFilter())
     if use_smart_silence:
         text_filters.append(SilenceTextFilter())
 
@@ -610,8 +1007,12 @@ async def build_pipeline(
         
         elif provider == "pocket":
             pocket_url = os.getenv("POCKET_TTS_URL", "http://localhost:8766")
+            # PocketTTS accepts preset names ("azelma", "alba", ...) or URLs via
+            # the voice_url form field. Fall back to v_id (BOT_VOICE_ID / mode
+            # voiceId) when v_params has no explicit voice_url.
+            resolved_voice = (v_params.get("voice_url") if v_params else None) or v_id
             pocket_params = PocketTTSService.InputParams(
-                voice_url=v_params.get("voice_url") if v_params else None,
+                voice_url=resolved_voice,
                 speed=float(os.getenv("POCKET_TTS_SPEED", "1.0")),
             )
             return PocketTTSService(
@@ -622,11 +1023,82 @@ async def build_pipeline(
                 text_aggregator=ClauseTextAggregator(),
             )
 
+        elif provider == "voxtral":
+            from core.config import (
+                VOXTRAL_TTS_BASE_URL,
+                VOXTRAL_TTS_API_KEY,
+                VOXTRAL_TTS_MODEL,
+                VOXTRAL_TTS_VOICE,
+                VOXTRAL_TTS_SPEED,
+                VOXTRAL_TTS_RESPONSE_FORMAT,
+            )
+            # Preflight: if voxtral endpoint isn't healthy (tunnel down, Pod 2 rebooting,
+            # model not loaded), fall back to pocket so the voice session still works.
+            vox_url = VOXTRAL_TTS_BASE_URL()
+            vox_key = VOXTRAL_TTS_API_KEY()
+            healthy = _is_voxtral_healthy(vox_url, vox_key)
+            if not healthy:
+                # Try Cartesia first (supports laughter, better quality), then Pocket as last resort
+                cartesia_result = await create_tts_service("cartesia", v_id, v_params)
+                if cartesia_result is not None:
+                    logger.info(f"[{BOT_PID}] Successfully fell back to Cartesia after Voxtral failure.")
+                    return cartesia_result
+                logger.warning(f"[{BOT_PID}] Cartesia fallback also failed; falling back to PocketTTS as last resort.")
+                return await create_tts_service("pocket", v_id, v_params)
+
+            voxtral_params = VoxtralTTSService.InputParams(
+                voice=v_id if v_id and v_id not in {"azelma"} else VOXTRAL_TTS_VOICE(None),
+                speed=float(get_p("speed", VOXTRAL_TTS_SPEED())),
+                response_format=VOXTRAL_TTS_RESPONSE_FORMAT(),
+            )
+            return VoxtralTTSService(
+                base_url=vox_url,
+                api_key=vox_key,
+                model=VOXTRAL_TTS_MODEL(),
+                sample_rate=24000,
+                params=voxtral_params,
+                text_filters=text_filters,
+                text_aggregator=ClauseTextAggregator(),
+            )
+
+        elif provider == "cartesia":
+            from core.config import (
+                CARTESIA_API_KEY,
+                CARTESIA_TTS_BASE_URL,
+                CARTESIA_TTS_MODEL,
+                CARTESIA_TTS_VERSION,
+                CARTESIA_TTS_VOICE_ID,
+                CARTESIA_TTS_DEFAULT_EMOTION,
+                CARTESIA_TTS_SPEED,
+                CARTESIA_TTS_VOLUME,
+            )
+            cartesia_key = CARTESIA_API_KEY()
+            if not cartesia_key:
+                logger.warning(f"[{BOT_PID}] CARTESIA_API_KEY not found. Falling back to PocketTTS.")
+                return await create_tts_service("pocket", v_id, v_params)
+
+            cartesia_params = CartesiaTTSService.InputParams(
+                voice_id=_cartesia_voice_id(v_id, CARTESIA_TTS_VOICE_ID(None)),
+                emotion=str(get_p("emotion", CARTESIA_TTS_DEFAULT_EMOTION())),
+                speed=float(get_p("speed", CARTESIA_TTS_SPEED())),
+                volume=float(get_p("volume", CARTESIA_TTS_VOLUME())),
+            )
+            return CartesiaTTSService(
+                api_key=cartesia_key,
+                base_url=CARTESIA_TTS_BASE_URL(),
+                model=CARTESIA_TTS_MODEL(),
+                cartesia_version=CARTESIA_TTS_VERSION(),
+                sample_rate=24000,
+                params=cartesia_params,
+                text_filters=text_filters,
+                text_aggregator=ClauseTextAggregator(),
+            )
+
         elif provider == "elevenlabs" or provider == "11labs":
             # ElevenLabs REMOVED from stack — fall back to PocketTTS
             logger.warning(f"[{BOT_PID}] ⚠️  ElevenLabs requested but DISABLED. Falling back to PocketTTS.")
             return await create_tts_service("pocket", v_id, v_params)
-        
+
         return None
 
     services = []
@@ -713,6 +1185,22 @@ async def build_pipeline(
         if svc:
             services.append(svc)
 
+    async def ensure_pocket_fallback(reason: str):
+        if any(isinstance(service, PocketTTSService) for service in services):
+            return
+        fallback = await create_tts_service("pocket", voice_id, {})
+        if fallback:
+            services.append(fallback)
+            logger.info(f"[{BOT_PID}] Added PocketTTS fallback service for {reason}.")
+        else:
+            logger.error(f"[{BOT_PID}] PocketTTS fallback service unavailable for {reason}.")
+
+    if not services:
+        logger.warning(f"[{BOT_PID}] No TTS services created; attempting PocketTTS recovery.")
+        await ensure_pocket_fallback("empty TTS service list")
+    elif any(isinstance(service, CartesiaTTSService) for service in services):
+        await ensure_pocket_fallback("Cartesia failover")
+
     # Update speaker sample rate based on the primary (first) service
     speaker_sample_rate = 16000 # Default
     if services and isinstance(services[0], KokoroTTSService):
@@ -721,6 +1209,10 @@ async def build_pipeline(
         speaker_sample_rate = 24000  # PocketTTS native 24kHz — pipecat SOXR handles transport resampling
     elif services and isinstance(services[0], ElevenLabsTTSService):
         speaker_sample_rate = 16000  # ElevenLabs default
+    elif services and isinstance(services[0], VoxtralTTSService):
+        speaker_sample_rate = 24000  # Voxtral native 24kHz
+    elif services and isinstance(services[0], CartesiaTTSService):
+        speaker_sample_rate = 24000  # Cartesia raw PCM at 24kHz
 
     if not services:
         logger.error(f"[{BOT_PID}] No TTS services available! Check API keys.")
@@ -730,7 +1222,20 @@ async def build_pipeline(
     # Wrap TTS in ServiceSwitcher to allow runtime hot-swapping (e.g. mode changes)
     logger.info(f"[{BOT_PID}] Wrapping TTS service in ServiceSwitcher with {len(services)} services")
     tts = ServiceSwitcher(services=services, strategy_type=ServiceSwitcherStrategyManual)
-    
+
+    # Collect every backing service's text aggregator so the safety processor
+    # can reset all of them on utterance boundaries. This is defense-in-depth
+    # against stale buffered text leaking across utterances and mid-call
+    # provider hot-swaps; pipecat already clears on interruption frames, but
+    # not on BotStoppedSpeakingFrame.
+    _tts_aggregators = []
+    for svc in services:
+        agg = getattr(svc, "_text_aggregator", None)
+        if agg is not None:
+            _tts_aggregators.append(agg)
+    tts_safety = TTSSafetyProcessor(_tts_aggregators, tag=f"sw{len(services)}")
+    logger.info(f"[{BOT_PID}] TTSSafetyProcessor watching {len(_tts_aggregators)} aggregators")
+
     # Attach mode map to TTS instance for config listener to use
     tts.mode_map = mode_map
     logger.info(f"[{BOT_PID}] Mode map: {mode_map}")
@@ -740,6 +1245,7 @@ async def build_pipeline(
     for svc_index, svc in enumerate(services):
         is_eleven = isinstance(svc, ElevenLabsTTSService)
         is_kokoro = isinstance(svc, KokoroTTSService)
+        is_cartesia = isinstance(svc, CartesiaTTSService)
         
         if is_eleven and hasattr(svc, 'set_error_handler'):
             # Define a closure for this specific service instance
@@ -811,26 +1317,54 @@ async def build_pipeline(
             svc.set_error_handler(on_kokoro_failover)
             logger.info(f"[{BOT_PID}] Configured Kokoro failover handler for service index {svc_index}")
 
+        elif is_cartesia and hasattr(svc, 'set_error_handler'):
+            async def on_cartesia_failover(error: Exception, failed_svc=svc):
+                logger.warning(f"[{BOT_PID}] 🚨 Initiating failover from Cartesia service due to error: {error}")
+
+                fallback_index = -1
+                fallback_name = "unknown"
+                for i, s in enumerate(services):
+                    if s is not failed_svc and not isinstance(s, CartesiaTTSService):
+                        fallback_index = i
+                        fallback_name = s.__class__.__name__
+                        break
+
+                if fallback_index >= 0:
+                    logger.info(f"[{BOT_PID}] 🔄 Failing over to service index {fallback_index} ({fallback_name})")
+                    await tts.set_service_index(fallback_index)
+                    if tts.mode_map:
+                        updates = 0
+                        for mode, idx in tts.mode_map.items():
+                            if services[idx] == failed_svc or isinstance(services[idx], CartesiaTTSService):
+                                tts.mode_map[mode] = fallback_index
+                                updates += 1
+                        logger.info(f"[{BOT_PID}] Updated {updates} modes in mode_map to use fallback service")
+                else:
+                    logger.error(f"[{BOT_PID}] ❌ No fallback TTS service available for Cartesia failure.")
+
+            svc.set_error_handler(on_cartesia_failover)
+            logger.info(f"[{BOT_PID}] Configured Cartesia failover handler for service index {svc_index}")
+
     # Register toolbox tools for collaborative features
     logger.info(f'[{BOT_PID}] Composing toolbox registrations...')
     forwarder_ref = {'instance': None}
     canvas_prefetch = CanvasPrefetchProcessor(forwarder_ref=forwarder_ref)
     logger.info(f'[{BOT_PID}] Created CanvasPrefetchProcessor for instant canvas pre-rendering')
+    end_call_intent = EndCallIntentProcessor(forwarder_ref=forwarder_ref, room_url=room_url)
+    logger.info(f'[{BOT_PID}] Created EndCallIntentProcessor for deterministic voice shutdown')
     toolbox_bundle: toolbox.ToolboxBundle | None = None
 
     # Create context lookup callables for HTML tools
     def get_tenant_id_for_html():
-        return get_room_tenant_id(room_url)
+        return session_tenant_id_for_pipeline or get_room_tenant_id(room_url)
     
     def get_user_id_for_html():
         """Get user_id for HTML content creation from first non-bot participant."""
         logger.info(f"[{BOT_PID}] [html_tools] get_user_id_for_html called")
         
-        # Check environment override first (for testing)
-        if hasattr(os, 'environ') and 'BOT_SESSION_USER_ID' in os.environ:
-            env_user_id = os.environ.get('BOT_SESSION_USER_ID')
-            logger.info(f"[{BOT_PID}] [html_tools] Using environment override user_id: {env_user_id}")
-            return env_user_id
+        if session_user_id_for_pipeline:
+            logger.info(f"[{BOT_PID}] [html_tools] Using session user_id snapshot")
+            return session_user_id_for_pipeline
         
         # Get the first non-bot participant and extract their sessionUserId
         try:
@@ -901,6 +1435,8 @@ async def build_pipeline(
             preloaded_prompts=preloaded_prompts,
             get_tenant_id=get_tenant_id_for_html,
             get_user_id=get_user_id_for_html,
+            get_user_email=lambda: session_user_email_for_pipeline or None,
+            get_user_name=lambda: session_user_name_for_pipeline or None,
             supported_features=features_to_use,
         )
         logger.info(
@@ -971,6 +1507,15 @@ async def build_pipeline(
                 "base_url": "https://openrouter.ai/api/v1",
             }
                 
+        elif model_selection == "ollama":
+            ollama_model = os.getenv("OLLAMA_VOICE_MODEL", "gemma3:4b")
+            ollama_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11435/v1")
+            return {
+                "api_key": "ollama",
+                "model": ollama_model,
+                "base_url": ollama_url,
+            }
+
         else:  # default to gpt-4o-mini via OpenRouter
             openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
             if not openrouter_api_key:
@@ -1075,10 +1620,10 @@ async def build_pipeline(
         # Actual inference is handled by AnthropicVoiceProcessor in the pipeline.
         openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
         openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
-        sonnet_model = os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514")
+        # OpenClaw requires model=openclaw (not raw provider/model names)
         llm = _OpenClawLLMService(
             api_key=openclaw_key,
-            model=sonnet_model,
+            model="openclaw",
             base_url=openclaw_url,
         )
         logger.info(f'[{BOT_PID}] ⏭️ Created stub LLM for FlowManager compat (ANTHROPIC_VOICE mode — inference via AnthropicVoiceProcessor)')
@@ -1087,23 +1632,23 @@ async def build_pipeline(
         # Actual inference is handled by OpenClawSessionProcessor in the pipeline.
         openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
         openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
-        sonnet_model = os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514")
+        # OpenClaw requires model=openclaw (not raw provider/model names)
         llm = _OpenClawLLMService(
             api_key=openclaw_key,
-            model=sonnet_model,
+            model="openclaw",
             base_url=openclaw_url,
         )
         logger.info(f'[{BOT_PID}] ⏭️ Created stub LLM for FlowManager compat (OPENCLAW_SESSION mode — inference via OpenClawSessionProcessor)')
     elif use_hybrid and use_openclaw and use_sonnet_primary:
         # SONNET PRIMARY: Use Claude Sonnet via OpenClaw proxy for high-quality responses
-        sonnet_model = os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514")
         openclaw_url = os.getenv("OPENCLAW_API_URL")
         openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
-        logger.info(f'[{BOT_PID}] 🧠 SONNET PRIMARY MODE: LLM = {sonnet_model} via OpenClaw (high quality, ~5-10s latency)')
+        # OpenClaw requires model=openclaw (not raw provider/model names)
+        logger.info(f'[{BOT_PID}] 🧠 SONNET PRIMARY MODE: LLM = openclaw via OpenClaw (high quality, ~5-10s latency)')
         try:
             llm = _OpenClawLLMService(
                 api_key=openclaw_key,
-                model=sonnet_model,
+                model="openclaw",
                 base_url=openclaw_url,
             )
             logger.info(f'[{BOT_PID}] ✅ Sonnet primary LLM initialized via OpenClaw proxy')
@@ -1138,9 +1683,10 @@ async def build_pipeline(
         openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
         logger.info(f'[{BOT_PID}] 🔗 Using OpenClaw backend at {openclaw_url} (non-hybrid — expect higher latency)')
         try:
+            # OpenClaw requires model=openclaw (not raw provider/model names)
             llm = _OpenClawLLMService(
                 api_key=openclaw_key,
-                model=os.getenv("BOT_SONNET_MODEL", "anthropic/claude-sonnet-4-20250514"),
+                model="openclaw",
                 base_url=openclaw_url,
             )
             logger.info(f'[{BOT_PID}] ✅ OpenClaw LLM initialized successfully')
@@ -1204,18 +1750,26 @@ async def build_pipeline(
 
     smart_silence_note = SMART_SILENCE_NOTE if use_smart_silence else ""
     
-    onboarding_note = ""  # Disabled: onboarding is for first-time users only
+    onboarding_note = await build_onboarding_system_note_async("voice") if isOnboarding else ""
     notes_note = NOTES_NOTE if 'notes' in supported_features_list else ""
     
     # Load workspace context (identity + cross-session awareness)
     # Voice can handle decent context — only trim the cross-session extras if over limit
-    workspace_context = load_workspace_context()
+    workspace_context = load_workspace_context(
+        session_user_id=session_user_id_for_pipeline,
+        session_user_name=session_user_name_for_pipeline,
+        session_user_email=session_user_email_for_pipeline,
+        session_tenant_id=session_tenant_id_for_pipeline,
+    )
     if len(workspace_context) > 20000:
         # Over 8K is too much for voice — reload identity files only (no cross-session state)
         logger.warning(f'[{BOT_PID}] Workspace context too long for voice ({len(workspace_context)} chars), loading identity only')
         workspace_root = os.getenv("OPENCLAW_WORKSPACE", "/root/.openclaw/workspace")
         identity_parts = []
-        for filename, label in [("SOUL.md", "Core Identity"), ("IDENTITY.md", "Personal Details"), ("USER.md", "User Context")]:
+        fallback_files = [("SOUL.md", "Core Identity"), ("IDENTITY.md", "Personal Details")]
+        if os.getenv("PEARL_VOICE_INCLUDE_PRIVATE_MEMORY", "").lower() in ("1", "true", "yes", "on"):
+            fallback_files.append(("USER.md", "User Context"))
+        for filename, label in fallback_files:
             try:
                 with open(os.path.join(workspace_root, filename), 'r', encoding='utf-8') as f:
                     content = f.read().strip()
@@ -1226,18 +1780,8 @@ async def build_pipeline(
         workspace_context = "\n\n".join(identity_parts)
     logger.info(f'[{BOT_PID}] Loaded workspace context (len={len(workspace_context)})')
     
-    # Detect and inject QA checklist for voice startup review
-    startup_checklist = detect_startup_checklist(workspace_context)
+    # QA checklist injection disabled — was causing Pearl to read checklists aloud on startup
     checklist_note = ""
-    if startup_checklist:
-        logger.info(f'[{BOT_PID}] QA checklist detected for voice startup ({len(startup_checklist)} chars)')
-        checklist_note = (
-            "\n\n## ⚠️ PRIORITY: Review Checklist With User\n\n"
-            "A QA checklist was prepared for this voice session. After your greeting, "
-            "immediately start reviewing these items with the user. Read each item naturally "
-            "(don't read markdown formatting). Ask if they want to go through them.\n\n"
-            f"{startup_checklist}\n"
-        )
     
     # Build tool awareness note
     tool_awareness_note = ""
@@ -1304,8 +1848,12 @@ async def build_pipeline(
         openclaw_bridge_note = (
             "## OpenClaw Bridge Tools\n\n"
             "You have two OpenClaw bridge tools. Choose carefully:\n\n"
+            "**bot_web_search** (PREFERRED for current facts and lightweight research):\n"
+            "- Use immediately for latest, recent, today, news, new models, current best practices, or quick lookups\n"
+            "- This is the fast path for getting the conversation started\n"
+            "- Do not send simple current-information questions to deep research first\n\n"
             "**bot_think_deeply** (PREFERRED for most OpenClaw tasks):\n"
-            "- Use for Discord/Telegram messaging, web research, anything conversational\n"
+            "- Use for Discord/Telegram messaging, complex reasoning, and deeper follow-up research\n"
             "- Results are spoken aloud via TTS — write clean natural sentences, no formatting\n"
             "- This connects synchronously to your full OpenClaw brain (Claude with all tools)\n\n"
             "**bot_openclaw_task** (RARE — background only):\n"
@@ -1342,6 +1890,14 @@ async def build_pipeline(
     # Voice command interpretation note — critical for STT disambiguation
     voice_command_note = VOICE_COMMAND_NOTE
 
+    # Tone tags are consumed only by providers that implement them.
+    if tts_provider == "cartesia":
+        tone_control_note = CARTESIA_TONE_CONTROL_NOTE
+    elif tts_provider == "voxtral":
+        tone_control_note = TONE_CONTROL_NOTE
+    else:
+        tone_control_note = ""
+
     # Session memory continuity instruction
     session_memory_note = (
         "## Session Memory & Continuity\n\n"
@@ -1353,13 +1909,29 @@ async def build_pipeline(
         "between sessions. You can mention relevant background work you've done."
     )
 
+    # Inject current date/time so Pearl is session-aware without needing a tool call
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    _now_eastern = datetime.now(ZoneInfo("America/New_York"))
+    current_datetime_note = (
+        "## Current Date & Time\n\n"
+        f"Right now it is {_now_eastern.strftime('%A, %B %d, %Y at %I:%M %p %Z')}.\n"
+        "Use this for any time-aware responses. You already know the date and time."
+    )
+
     system_content_parts = [
         workspace_context,  # Identity + cross-session context
         checklist_note,  # QA checklist injection (empty string if none)
+        current_datetime_note,  # Current date/time in US/Eastern
         "",  # blank line separator
         prompt,  # Personality-specific instructions
         "",  # blank line separator
         voice_command_note,  # Voice command interpretation (STT disambiguation)
+        VOICE_INTERACTIVE_TOOL_USE_NOTE,  # conversational tool-use and no repeated filler
+        PERSONAL_SELF_EVOLUTION_NOTE,  # PearlOS personal self-evolution path
+        FAST_WEB_SEARCH_NOTE,  # Fast current-information lookup before deep research
+        QA_RELEASE_GATE_NOTE,  # Build/release workflow gate
+        tone_control_note,  # Voxtral tone-tag instruction (empty for other TTS providers)
         tool_awareness_note,  # Tool capability awareness (skipped in openclaw_session mode)
         openclaw_bridge_note,  # Voice-to-OpenClaw bridge guidance (skipped in openclaw_session mode)
         wonder_canvas_image_note,  # Image proxy hint for Wonder Canvas
@@ -1375,9 +1947,54 @@ async def build_pipeline(
     # Separate personality prompt from conversation messages
     personality_message = {"role": "system", "content": system_content}
 
-    # Start with personality message only
-    # Conversation messages will be managed by the queue
-    messages: list[dict[str, Any]] = [personality_message]
+    startup_context_messages: list[dict[str, Any]] = []
+    web_chat_context = startupContext.get("webChatContext") if isinstance(startupContext, dict) else None
+    if isinstance(web_chat_context, list):
+        recent_turns: list[str] = []
+        for turn in web_chat_context[-12:]:
+            if not isinstance(turn, dict):
+                continue
+            role = turn.get("role")
+            content = turn.get("content")
+            if role not in {"user", "assistant"} or not isinstance(content, str) or not content.strip():
+                continue
+            speaker = "User" if role == "user" else "Pearl"
+            recent_turns.append(f"{speaker}: {content.strip()[:1200]}")
+        if recent_turns:
+            startup_context_messages.append({
+                "role": "system",
+                "content": (
+                    "## Recent Web Chat Context\n"
+                    "The user was just texting with Pearl in the web chat before starting voice. "
+                    "Use this as immediate conversational context and answer follow-ups naturally.\n\n"
+                    + "\n\n".join(recent_turns)
+                ),
+            })
+
+    active_note_context = startupContext.get("activeNoteContext") if isinstance(startupContext, dict) else None
+    if isinstance(active_note_context, dict) and active_note_context.get("noteId"):
+        note_content = active_note_context.get("content")
+        note_preview = note_content.strip()[:5000] if isinstance(note_content, str) else ""
+        startup_context_messages.append({
+            "role": "system",
+            "content": (
+                "## Active Note Context\n"
+                "The user had this note open on screen when the voice session started:\n"
+                f"- Note ID: {active_note_context.get('noteId')}\n"
+                f"- Title: {active_note_context.get('title') or 'Untitled'}\n"
+                f"- Content:\n{note_preview or '(empty or unavailable)'}\n\n"
+                "If the user asks about 'this note' or 'my notes', use this context and the note tools directly."
+            ),
+        })
+    startup_context_system_content = "\n\n".join(
+        message["content"]
+        for message in startup_context_messages
+        if isinstance(message.get("content"), str)
+    )
+
+    # Start with personality and startup handoff context.
+    # Conversation messages will be managed by the queue.
+    messages: list[dict[str, Any]] = [personality_message, *startup_context_messages]
 
     # --- Context creation: branch for Anthropic vs OpenAI ---
     use_native_anthropic = isinstance(llm, AnthropicLLMService) if HAS_ANTHROPIC_SERVICE else False
@@ -1388,7 +2005,10 @@ async def build_pipeline(
         # Tools must be passed to context so they're included in API calls
         context = AnthropicLLMContext(
             messages=[],
-            system=system_content,
+            system=(
+                f"{system_content}\n\n{startup_context_system_content}"
+                if startup_context_system_content else system_content
+            ),
             tools=tools_schema or [],
         )
         context._original_tools = tools_schema
@@ -1431,8 +2051,9 @@ async def build_pipeline(
             DailyParams(
                 audio_in_enabled=True,
                 audio_out_enabled=True,
+                video_in_enabled=BOT_VISION_ENABLED(),
                 camera_out_enabled=False,
-                audio_in_user_tracks=False,
+                audio_in_user_tracks=True,
                 audio_out_sample_rate=speaker_sample_rate,
                 audio_out_10ms_chunks=20,  # 200ms buffer — prevents crackling from underruns
                 # Enable Daily's built-in transcription service
@@ -1441,7 +2062,7 @@ async def build_pipeline(
                     params=VADParams(
                         confidence=0.6,
                         start_secs=0.5,
-                        stop_secs=0.8,  # Reduced from 1.5s — faster end-of-speech detection
+                        stop_secs=0.45,  # Slightly less eager so goodbye/tool speech is not clipped
                         min_volume=0.15,
                     )
                 ),
@@ -1510,12 +2131,14 @@ async def build_pipeline(
         pipeline_processors.append(user_idle)
         logger.info(f"[{BOT_PID}] Added UserIdleProcessor to pipeline")
 
-    # Tool narration: emits filler phrases while tools execute to prevent dead air
+    # Tool narration is off by default; generic latency filler sounds canned.
+    tool_narration_enabled = os.getenv("PEARL_TOOL_NARRATION_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     tool_narration = ToolNarrationProcessor(
-        initial_delay=1.0,   # Reduced from 2.5s — faster filler to avoid dead air
-        repeat_interval=3.0, # Reduced from 4.0s — more frequent updates during long tool runs
+        initial_delay=1.0,
+        repeat_interval=3.0,
+        enabled=tool_narration_enabled,
     )
-    logger.info(f"[{BOT_PID}] Created ToolNarrationProcessor for voice gap filling")
+    logger.info(f"[{BOT_PID}] Created ToolNarrationProcessor enabled={tool_narration_enabled}")
 
     # Wonder Canvas template prompt - used across multiple LLM modes
     _wonder_template_prompt = (
@@ -1542,6 +2165,7 @@ async def build_pipeline(
         pipeline_processors.extend([
             context_agg.user(),
             canvas_prefetch,
+            end_call_intent,
             anthropic_voice_processor,
             tts,
             tts_speaking_monitor,
@@ -1555,21 +2179,21 @@ async def build_pipeline(
 
         # Voice-specific system prompt (same as openclaw_session mode)
         nb_system_prompt = (
-            "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
+            VOICE_PRONUNCIATION_NOTE + "\n\n" +
+            VOICE_TTS_NOTE + "\n\n"
+            + (tone_control_note + "\n\n" if tone_control_note else "")
+            + VOICE_INTERACTIVE_TOOL_USE_NOTE + "\n\n"
+            + "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
             "You are speaking aloud via text-to-speech in a PearlOS voice session.\n"
             "The user is talking to you through their browser with a microphone.\n"
             "Follow these rules strictly:\n"
             "- Keep responses SHORT: 1-3 sentences for conversation, max 5 for complex answers.\n"
             "- NO markdown, NO emoji, NO bullet lists, NO numbered lists, NO hyphens.\n"
             "- Write in plain spoken English, as if talking to a friend.\n"
-            "- CRITICAL: When you need to use tools, START talking immediately but NEVER state specific facts, numbers, or data you don't have yet. Instead, VAMP: share your thoughts, opinions, or context about the topic while data loads. Examples:\n"
-            "  Weather: 'Ooh, Florida weather... you know it's always an adventure out there...' then weave in real numbers once available.\n"
-            "  Person: 'Tim Cook, now there's an interesting one...' then transition to real stats when they arrive.\n"
-            "  News: 'Let me see what's going on... it's been a wild cycle...' then discuss real headlines.\n"
-            "- The KEY RULE: Talk ABOUT the topic (opinions, reactions, curiosity) but NEVER fabricate specific temperatures, prices, dates, stats, or facts. If you don't have the data yet, don't guess. Vamp until it arrives, then weave it in naturally.\n"
-            "- NEVER say 'Still working on that', 'Almost there', 'Bear with me', 'Give me a moment', 'Let me check', or similar robotic filler. Be expressive and natural, not a butler.\n"
-            "- When using tools, narrate briefly: 'Opening your notes' not 'I will now execute bot_open_notes'.\n"
-            "- When a tool changes what's on screen, describe what the user will see.\n"
+            "- When tools are needed, speak only if you have request-specific context, a clarifying question, or the real result. Silence is better than generic progress narration.\n"
+            "- The KEY RULE: Talk ABOUT the topic only when you can do it without fabricating specific temperatures, prices, dates, stats, or facts. If you do not have the data yet, do not guess.\n"
+            "- NEVER say 'on it', 'Still working on that', 'Almost there', 'Bear with me', 'Give me a moment', 'Let me check', or similar robotic filler.\n"
+            "- When a tool changes what's on screen, describe the result after it happens, not the mechanics of calling the tool.\n"
             "- Never read out URLs, code blocks, or technical identifiers.\n"
             "- Use the pearlos skill and pearlos-tool CLI for all PearlOS desktop actions.\n"
             "- You have FULL tool access: notes, YouTube, soundtracks, windows, apps, sprites, Discord messaging, web search, file operations, and more.\n"
@@ -1617,16 +2241,53 @@ async def build_pipeline(
             f'[{BOT_PID}] Passing {_nb_schema_count} tool schemas to NonBlockingToolRouter '
             f'(toolbox_bundle={toolbox_bundle is not None})'
         )
+
+        # Build compact super tool schemas when BOT_VOICE_COMPACT_TOOLS=true
+        _compact_tool_schemas = None
+        if os.getenv("BOT_VOICE_COMPACT_TOOLS", "false").lower() == "true":
+            try:
+                from tools.voice_super_tools import get_super_tool_handlers, SUPER_TOOL_NAMES
+                from tools.discovery import get_discovery
+                discovery = get_discovery()
+                # Discover super tools (they're registered via @bot_tool decorator)
+                all_tools = discovery.discover_tools()
+                super_tools = {k: v for k, v in all_tools.items() if k in SUPER_TOOL_NAMES}
+                if super_tools:
+                    _compact_tool_schemas = discovery.build_tool_schemas(tools=super_tools)
+                    logger.info(
+                        f'[{BOT_PID}] [voice] Tool schemas: {len(_compact_tool_schemas)} compact '
+                        f'super-tools (BOT_VOICE_COMPACT_TOOLS=true)'
+                    )
+                else:
+                    logger.warning(
+                        f'[{BOT_PID}] [voice] BOT_VOICE_COMPACT_TOOLS=true but no super tools '
+                        f'found in discovery (available: {list(all_tools.keys())[:5]}...)'
+                    )
+            except Exception as e:
+                logger.warning(f'[{BOT_PID}] [voice] Failed to build compact tool schemas: {e}')
+
+        # Log two-model pipeline roles at startup
+        _sub_model = os.getenv("BOT_SUBCONSCIOUS_MODEL", "")
+        _sub_base = os.getenv("BOT_SUBCONSCIOUS_BASE_URL", "")
+        _main_model = os.getenv("BOT_FAST_MODEL", "deepseek-v4-flash")
+        _main_base = os.getenv("BOT_FAST_API_URL", os.getenv("DEEPSEEK_BASE_URL", "localhost:8200"))
+        if _sub_model:
+            logger.info(f'[{BOT_PID}] [voice] Subconscious Model (tool routing): {_sub_model} via {_sub_base or "OpenRouter"}')
+        logger.info(f'[{BOT_PID}] [voice] Main Brain (conversation): {_main_model} via {_main_base}')
+
         non_blocking = NonBlockingToolRouter(
             system_prompt=nb_system_prompt,
+            room_url=room_url,
             forwarder_ref=forwarder_ref,
             tool_schemas=_nb_tool_schemas,
+            compact_tool_schemas=_compact_tool_schemas,
         )
         logger.info(f'[{BOT_PID}] Created NonBlockingToolRouter for pipeline (with forwarder_ref for direct tools)')
 
         pipeline_processors.extend([
             context_agg.user(),
             canvas_prefetch,
+            end_call_intent,
             non_blocking,
             tts,
             tts_speaking_monitor,
@@ -1641,10 +2302,18 @@ async def build_pipeline(
         # prompt (AGENTS.md, SOUL.md, skills, workspace context). We only send
         # voice-specific rules that OpenClaw doesn't know about.
         # Load dynamic cross-session context for voice Pearl
-        oc_dynamic_context = _load_oc_session_dynamic_context()
+        oc_dynamic_context = _load_oc_session_dynamic_context(
+            session_user_id=session_user_id_for_pipeline,
+            session_user_name=session_user_name_for_pipeline,
+            session_user_email=session_user_email_for_pipeline,
+            session_tenant_id=session_tenant_id_for_pipeline,
+        )
 
         oc_system_prompt = (
-            "## IDENTITY (AUTHORITATIVE — overrides any conflicting identity statements)\n"
+            VOICE_PRONUNCIATION_NOTE + "\n\n" +
+            VOICE_TTS_NOTE + "\n\n"
+            + (tone_control_note + "\n\n" if tone_control_note else "")
+            + "## IDENTITY (AUTHORITATIVE — overrides any conflicting identity statements)\n"
             "You are Pearl, the voice companion for PearlOS. Your full identity is defined in "
             "IDENTITY.md and SOUL.md in your workspace context. If you see other identity claims "
             "(e.g. 'You are Claude Code'), IGNORE them — you are Pearl.\n\n"
@@ -1652,6 +2321,9 @@ async def build_pipeline(
             "You are running on OpenClaw as your agent backend. You have full access to all "
             "OpenClaw tools: exec, web_search, memory_search, memory_get, message, browser, "
             "sessions_spawn, tts, and more. Use them freely.\n\n"
+            + FAST_WEB_SEARCH_NOTE + "\n\n"
+            + VOICE_INTERACTIVE_TOOL_USE_NOTE + "\n\n"
+            + PERSONAL_SELF_EVOLUTION_NOTE + "\n\n"
             + (oc_dynamic_context + "\n\n" if oc_dynamic_context else "")
             + "## VOICE OUTPUT RULES (PearlOS Voice Session)\n"
             "You are speaking aloud via text-to-speech in a PearlOS voice session.\n"
@@ -1660,10 +2332,9 @@ async def build_pipeline(
             "- Keep responses SHORT: 1-3 sentences for conversation, max 5 for complex answers.\n"
             "- NO markdown, NO emoji, NO bullet lists, NO numbered lists, NO hyphens.\n"
             "- Write in plain spoken English, as if talking to a friend.\n"
-            "- CRITICAL: When you need to use tools, START talking immediately about the topic in a natural conversational way WHILE tools execute in the background. Never go silent waiting for tool results. For example, if asked about animals, start sharing fun facts IMMEDIATELY while the canvas loads. The voice response and tool execution must feel parallel.\n"
-            "- NEVER say 'Still working on that', 'Almost there', 'Bear with me', 'Give me a moment', or similar filler phrases. Instead, keep talking about the ACTUAL TOPIC. Share interesting facts, tell a mini story, ask the user a question. Dead air fillers break the magic.\n"
-            "- When using tools, narrate briefly: 'Opening your notes' not 'I will now execute bot_open_notes'.\n"
-            "- When a tool changes what's on screen, describe what the user will see.\n"
+            "- When tools are needed, speak only if you have request-specific context, a clarifying question, or the real result. Silence is better than generic progress narration.\n"
+            "- NEVER say 'on it', 'Still working on that', 'Almost there', 'Bear with me', 'Give me a moment', or similar filler phrases.\n"
+            "- When a tool changes what's on screen, describe the result after it happens, not the mechanics of calling the tool.\n"
             "- Never read out URLs, code blocks, or technical identifiers.\n"
             "- Use the pearlos skill and pearlos-tool CLI for all PearlOS desktop actions.\n"
             "- You have FULL tool access: notes, YouTube, soundtracks, windows, apps, sprites, Discord messaging, web search, file operations, and more.\n"
@@ -1705,15 +2376,25 @@ async def build_pipeline(
             + _wonder_template_prompt
         )
 
+        tenant_id_for_session = session_tenant_id_for_pipeline or os.getenv("TENANT_ID", "").strip()
+        user_id_for_session = session_user_id_for_pipeline
+        session_id_for_session = session_id_for_pipeline
+        openclaw_session_key = None
+        if tenant_id_for_session and user_id_for_session and user_id_for_session.lower() != "anonymous" and session_id_for_session:
+            openclaw_session_key = f"voice:{tenant_id_for_session}:{user_id_for_session}:{session_id_for_session}"
+
         openclaw_processor = OpenClawSessionProcessor(
             system_prompt=oc_system_prompt,
+            session_key=openclaw_session_key,
         )
         logger.info(f'[{BOT_PID}] Created OpenClawSessionProcessor for pipeline')
 
         pipeline_processors.extend([
             context_agg.user(),  # User responses from Daily transcription
             canvas_prefetch,  # Instant canvas pre-rendering (before LLM)
+            end_call_intent,  # Deterministic hangup/farewell handling
             openclaw_processor,  # OpenClaw streaming completions (replaces llm + tools)
+            tts_safety,  # Reset stale aggregator buffers on utterance boundaries
             tts,  # Text-to-speech
             tts_speaking_monitor,  # Monitor TTS frames and emit speaking events
             transport.output(),  # Transport bot output
@@ -1723,8 +2404,10 @@ async def build_pipeline(
         pipeline_processors.extend([
             context_agg.user(),  # User responses from Daily transcription
             canvas_prefetch,  # Instant canvas pre-rendering (before LLM)
+            end_call_intent,  # Deterministic hangup/farewell handling
             llm,  # LLM processing
             tool_narration,  # Emit narration during tool execution (prevents dead air)
+            tts_safety,  # Reset stale aggregator buffers on utterance boundaries
             tts,  # Text-to-speech
             tts_speaking_monitor,  # Monitor TTS frames and emit speaking events
             transport.output(),  # Transport bot output

@@ -9,11 +9,8 @@ import { Prism } from '@nia/prism'
 import { BlockType_Assistant } from '@nia/prism/core/blocks/assistant.block'
 
 // Check if we should bypass auth for local development
-function shouldBypassAuth(req: NextRequest): boolean {
-	const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true' ||
-		(process.env.NODE_ENV === 'development' &&
-			(req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1'));
-	return disableAuth;
+function shouldBypassAuth(_req: NextRequest): boolean {
+	return process.env.DISABLE_DASHBOARD_AUTH === 'true';
 }
 
 export async function GET(req: Request) {

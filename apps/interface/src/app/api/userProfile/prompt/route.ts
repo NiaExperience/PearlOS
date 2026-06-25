@@ -16,20 +16,42 @@ export async function composeUserPrompt(
   try {
     // Fetch user profile to prioritize first_name
     let profileFirstName = '';
-    let userProfileMetadata: Record<string, unknown> = {};
+    let userProfileContext: Record<string, unknown> = {};
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let sessionHistory: any = [];
     try {
       let res = null;
       res = await UserProfileActions.findByUser(user.id || undefined, user.email || undefined);
-      if (res) {
-        profileFirstName = res.userProfile?.first_name || '';
-        userProfileMetadata = res.userProfile?.metadata as Record<string, unknown>;
-        sessionHistory = res.userProfile?.sessionHistory || [];
+      if (res?.userProfile) {
+        const profileUserId = res.userProfile.userId ? String(res.userProfile.userId) : '';
+        const profileEmail = res.userProfile.email ? String(res.userProfile.email).trim().toLowerCase() : '';
+        const sessionEmail = user.email ? String(user.email).trim().toLowerCase() : '';
+        if (profileUserId && profileUserId !== user.id) {
+          throw new Error('profile_user_mismatch');
+        }
+        if (profileEmail && sessionEmail && profileEmail !== sessionEmail) {
+          throw new Error('profile_email_mismatch');
+        }
+        profileFirstName = res.userProfile.first_name || '';
+        // Merge non-sensitive profile surfaces into the prompt context.
+        // publicPersona is social-shareable, privateMemory.preferences is the free-form
+        // user prefs bag that replaced the old metadata catch-all. We intentionally
+        // skip privateMemory.sensitiveData — the user flagged it as private.
+        const persona = (res.userProfile.publicPersona || {}) as Record<string, unknown>;
+        const preferences = (res.userProfile.privateMemory?.preferences || {}) as Record<string, unknown>;
+        const relationshipContext = res.userProfile.privateMemory?.relationshipContext;
+        userProfileContext = {
+          ...preferences,
+          ...persona,
+          ...(relationshipContext ? { relationshipContext } : {}),
+        };
+        // Legacy sessionHistory is excluded from prompt context until it is
+        // re-keyed and audited by stable user id.
+        sessionHistory = [];
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      log.warn('Failed to load userProfile metadata for API; continuing with defaults', { message: msg });
+      log.warn('Failed to load userProfile for API; continuing with defaults', { message: msg });
     }
 
     // Prioritize profile first_name over session user.name
@@ -48,7 +70,7 @@ export async function composeUserPrompt(
     
     log.info('User name resolution', { userName, userNameSource, assistantName });
 
-    // Convert metadata values to strings for prompt context
+    // Convert profile values to strings for prompt context
     const toStr = (val: unknown): string => {
       if (val === null || val === undefined) return '';
       if (typeof val === 'string') return val;
@@ -61,7 +83,7 @@ export async function composeUserPrompt(
     };
 
     const userProfileForPrompt: Record<string, string> = Object.fromEntries(
-      Object.entries(userProfileMetadata).map(([k, v]) => [k, toStr(v)])
+      Object.entries(userProfileContext).map(([k, v]) => [k, toStr(v)])
     );
 
     // Compose the full user prompt

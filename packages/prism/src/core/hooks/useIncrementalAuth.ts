@@ -128,12 +128,22 @@ export function useIncrementalAuth() {
       let authCompleted = false; // Track if auth has completed to avoid duplicate handling
       
       const handlePopupMessage = (event: MessageEvent) => {
-        // Verify origin for security - but allow same-origin and localhost variations
-        const allowedOrigins = [
-          window.location.origin,
-          'http://localhost:3000',
-          'http://localhost:4000'
-        ];
+        // Verify origin for security using same-origin plus optional configured public origins.
+        const allowedOrigins = [window.location.origin];
+        const configuredOrigins = [
+          process.env.NEXT_PUBLIC_INTERFACE_URL,
+          process.env.NEXT_PUBLIC_DASHBOARD_URL,
+        ]
+          .filter(Boolean)
+          .map((value) => {
+            try {
+              return new URL(value as string).origin;
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean) as string[];
+        allowedOrigins.push(...configuredOrigins);
         
         if (!allowedOrigins.includes(event.origin)) {
           log.warn('Rejected popup message origin', { origin: event.origin, allowedOrigins });

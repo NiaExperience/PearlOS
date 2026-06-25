@@ -1,0 +1,39 @@
+PearlOS QA Screenshot Audit - Tue Apr 28 17:03:09 UTC 2026
+==========================================
+
+PASS: PM2 has 13 processes
+WARN: Potential crash loops or unhealthy processes: pipecat-gateway(52)|pipecat-runner(250)|openclaw-gateway(2027)|interface(126)|dashboard[stopped]
+PASS: PM2 process 'interface' is online
+PASS: PM2 process 'mesh' is online
+PASS: Port 3000 (Interface) responding (HTTP 307)
+PASS: Port 4444 (BotServer) responding (HTTP 404)
+PASS: Deployed BUILD_ID: build-3b596bbf-1777395500420
+Source commit: d3a932b5 (Pearl-Staging-Private-Omega)
+Deploy commit: 3b596bbf
+Deployed BUILD_ID: build-3b596bbf-1777395500420
+WARN: Source (d3a932b5) and deploy (3b596bbf) commits differ -- deploy may be stale
+PASS: Login page returns HTTP 200
+PASS: Login page contains expected element: 'email'
+PASS: Login page contains expected element: 'password'
+PASS: Login page contains expected element: 'Login'
+PASS: CSRF token obtained
+PASS: Auth flow succeeded -- session cookie obtained (HTTP 302)
+Capturing 01-login -> http://localhost:3000/login
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-170309/01-login.png
+Logging in as pearl@niaxp.com...
+  Waiting for login form to hydrate...
+  Could not find email/password fields
+Capturing 02-post-login-dashboard -> http://localhost:3000/ (auth=false)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-170309/02-post-login-dashboard.png
+Capturing 03-settings -> http://localhost:3000/settings (auth=false)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-170309/03-settings.png
+Capturing 04-notes -> http://localhost:3000/notes (auth=false)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-170309/04-notes.png
+Capturing 05-launchpad -> http://localhost:3000/launchpad (auth=false)
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-170309/05-launchpad.png
+
+Results: 5 passed, 1 failed
+FAIL: Screenshot capture had failures (exit code 1)
+
+==========================================
+TOTAL: 12 passed, 1 failed, 2 warnings

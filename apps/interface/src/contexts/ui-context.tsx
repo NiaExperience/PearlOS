@@ -3,6 +3,25 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { getClientLogger } from '@interface/lib/client-logger';
 
+/** Wonder Canvas top-chrome behavior (profile, left nav, Active Jobs). */
+export type WonderChromeMode = "none" | "profileOnly" | "full";
+
+function computeWonderChromeMode(payload: Record<string, unknown> | undefined): WonderChromeMode {
+  if (!payload) return "none";
+  const hasHtml = typeof payload.html === "string" && payload.html.length > 0;
+  const hasHideChrome = payload.hideChrome === true;
+  if (!hasHtml && !hasHideChrome) return "none";
+  const sid = typeof payload.sceneId === "string" ? payload.sceneId : "";
+  const isNewsOrWeather = sid === "news" || sid === "weather";
+  if (hasHideChrome) {
+    return isNewsOrWeather ? "profileOnly" : "full";
+  }
+  if (hasHtml && isNewsOrWeather) {
+    return "profileOnly";
+  }
+  return "none";
+}
+
 export interface UIContextType {
   isBrowserWindowVisible: boolean;
   setIsBrowserWindowVisible: (isVisible: boolean) => void;
@@ -36,6 +55,8 @@ export interface UIContextType {
   // Chat mode state - text-only interaction with Pearl (no voice call, no soundtrack)
   isChatMode: boolean;
   setIsChatMode: (isChatMode: boolean) => void;
+  /** Wonder Canvas: how much global chrome to hide (survives component remounts). */
+  wonderChromeMode: WonderChromeMode;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -64,8 +85,26 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   
-  // Chat mode state
+  // Chat mode state. Start on the home/stage surface; explicit chat/desktop
+  // actions opt into chat mode after the first render.
   const [isChatMode, setIsChatMode] = useState(false);
+
+  const [wonderChromeMode, setWonderChromeMode] = useState<WonderChromeMode>("none");
+
+  // Wonder Canvas chrome: single source of truth so nav does not reset on remount while the canvas stays open.
+  useEffect(() => {
+    const onScene = (e: Event) => {
+      const p = (e as CustomEvent).detail?.payload as Record<string, unknown> | undefined;
+      setWonderChromeMode(computeWonderChromeMode(p));
+    };
+    const onClear = () => setWonderChromeMode("none");
+    window.addEventListener("nia:wonder.scene", onScene);
+    window.addEventListener("nia:wonder.clear", onClear);
+    return () => {
+      window.removeEventListener("nia:wonder.scene", onScene);
+      window.removeEventListener("nia:wonder.clear", onClear);
+    };
+  }, []);
 
   // Bot handoff: Track if avatar was visible before Daily Call started
   const avatarVisibleBeforeDailyCallRef = useRef(false);
@@ -168,7 +207,8 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
       isFullscreen,
       setIsFullscreen,
       isChatMode,
-      setIsChatMode
+      setIsChatMode,
+      wonderChromeMode,
     }}>
       {children}
     </UIContext.Provider>
@@ -181,4 +221,4 @@ export const useUI = () => {
     throw new Error('useUI must be used within a UIProvider');
   }
   return context;
-}; 
+};

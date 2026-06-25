@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 
+import { useResilientSession } from '@interface/hooks/use-resilient-session';
 import { getClientLogger } from '@interface/lib/client-logger';
 
 interface GlobalHtmlGenerationStatusProps {
@@ -29,21 +30,21 @@ const ensureGohufont = () => {
 
 const log = getClientLogger('[html-generation.global-status]');
 
-const fetchActiveJobs = async () => {
+const fetchActiveJobs = async (): Promise<Array<{ callId: string }> | null> => {
   try {
     const res = await fetch('/api/html-generation/status', { method: 'GET' });
-    if (!res.ok) return [] as Array<{ callId: string }>;
+    if (!res.ok) return null;
     const json = await res.json();
     const jobs = json?.data?.activeJobs;
     return Array.isArray(jobs) ? jobs : [];
   } catch (err) {
     log.warn('Failed to recover active generation jobs from server', { err });
-    return [] as Array<{ callId: string }>;
+    return null;
   }
 };
 
 const mergeRecoveredJobs = (jobs: Array<{ callId: string }>) => {
-  const merged = new Set(globalActiveGenerationCalls);
+  const merged = new Set<string>();
   jobs.forEach(job => {
     if (job?.callId) {
       merged.add(job.callId);
@@ -101,35 +102,73 @@ let globalActiveGenerationCalls = new Set<string>();
 const globalStateListeners = new Set<(calls: Set<string>) => void>();
 const STORAGE_KEY = 'nia_active_html_generations';
 
-export const addActiveGenerationCall = (callId: string) => {
-  globalActiveGenerationCalls = new Set([...globalActiveGenerationCalls, callId]);
-  if (typeof window !== 'undefined') {
-    try {
+const persistActiveGenerationCalls = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (globalActiveGenerationCalls.size === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(globalActiveGenerationCalls)));
-    } catch (e) {
-      log.warn('Failed to save generation state to localStorage', { err: e });
+    }
+  } catch (e) {
+    log.warn('Failed to save generation state to localStorage', { err: e });
+  }
+};
+
+const removePendingJobStorage = (callIds: Iterable<string>) => {
+  if (typeof window === 'undefined') return;
+  for (const callId of callIds) {
+    try {
+      localStorage.removeItem(`nia_pending_job_${callId}`);
+    } catch (err) {
+      log.warn('Failed to remove stale pending job from localStorage', { err, callId });
     }
   }
+};
+
+const publishActiveGenerationCalls = () => {
   globalStateListeners.forEach(listener => listener(globalActiveGenerationCalls));
+};
+
+const replaceActiveGenerationCalls = (calls: Set<string>) => {
+  const previous = globalActiveGenerationCalls;
+  const removed = [...previous].filter(callId => !calls.has(callId));
+  globalActiveGenerationCalls = new Set(calls);
+  removePendingJobStorage(removed);
+  persistActiveGenerationCalls();
+  publishActiveGenerationCalls();
+};
+
+const sameCallSet = (left: Set<string>, right: Set<string>) => {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
+};
+
+export const addActiveGenerationCall = (callId: string) => {
+  globalActiveGenerationCalls = new Set([...globalActiveGenerationCalls, callId]);
+  persistActiveGenerationCalls();
+  publishActiveGenerationCalls();
 };
 
 export const removeActiveGenerationCall = (callId: string) => {
   globalActiveGenerationCalls = new Set([...globalActiveGenerationCalls].filter(id => id !== callId));
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(globalActiveGenerationCalls)));
-    } catch (e) {
-      log.warn('Failed to save generation state to localStorage', { err: e });
-    }
-  }
-  globalStateListeners.forEach(listener => listener(globalActiveGenerationCalls));
+  removePendingJobStorage([callId]);
+  persistActiveGenerationCalls();
+  publishActiveGenerationCalls();
 };
 
-export const useGlobalHtmlGenerationState = () => {
+export const useGlobalHtmlGenerationState = (options: { enabled?: boolean } = {}) => {
+  const enabled = options.enabled ?? true;
   const [activeCalls, setActiveCalls] = useState(globalActiveGenerationCalls);
   
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!enabled) {
+      return;
+    }
 
     const hydrateFromLocal = () => {
       try {
@@ -149,12 +188,18 @@ export const useGlobalHtmlGenerationState = () => {
 
     const recoverFromServer = async () => {
       const jobs = await fetchActiveJobs();
-      if (jobs.length === 0) return;
-      const merged = mergeRecoveredJobs(jobs);
-      if (merged.size !== globalActiveGenerationCalls.size) {
-        globalActiveGenerationCalls = merged;
-        setActiveCalls(new Set(merged));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(merged)));
+      if (jobs === null) return;
+      if (jobs.length === 0) {
+        if (globalActiveGenerationCalls.size > 0) {
+          replaceActiveGenerationCalls(new Set());
+          setActiveCalls(new Set());
+        }
+        return;
+      }
+      const recovered = mergeRecoveredJobs(jobs);
+      if (!sameCallSet(recovered, globalActiveGenerationCalls)) {
+        replaceActiveGenerationCalls(recovered);
+        setActiveCalls(new Set(recovered));
       }
     };
 
@@ -167,7 +212,7 @@ export const useGlobalHtmlGenerationState = () => {
     return () => {
       globalStateListeners.delete(listener);
     };
-  }, []);
+  }, [enabled]);
   
   return { activeCalls, addActiveGenerationCall, removeActiveGenerationCall };
 };
@@ -175,7 +220,8 @@ export const useGlobalHtmlGenerationState = () => {
 export const GlobalHtmlGenerationStatus: React.FC<GlobalHtmlGenerationStatusProps> = ({ 
   className = '' 
 }) => {
-  const { activeCalls } = useGlobalHtmlGenerationState();
+  const { status } = useResilientSession();
+  const { activeCalls } = useGlobalHtmlGenerationState({ enabled: status === 'authenticated' });
   
   useEffect(() => {
     ensureGohufont();

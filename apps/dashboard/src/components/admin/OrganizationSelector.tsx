@@ -16,7 +16,7 @@ export const OrganizationSelector: React.FC = () => {
     const run = async () => {
       setLoading(true); setError(undefined);
       try {
-        const res = await fetch(`/api/organizations?tenantId=${selectedTenantId}`);
+        const res = await fetch(`/dashboard/api/organizations?tenantId=${selectedTenantId}`);
         if (!res.ok) throw new Error('Failed to load organizations');
         const data = await res.json();
         if (!cancelled) setOrgs((data.organizations || []).map((o: any) => ({ _id: o._id, name: o.name })));

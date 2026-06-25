@@ -11,6 +11,7 @@ import { LOGIN_FEATURE_KEYS } from '@dashboard/lib/feature-normalization';
 interface UpdatePayload {
   interfaceLogin?: Partial<InterfaceLoginSettings>;
   denyListEmails?: string[];
+  allowListEmails?: string[];
 }
 
 export const dynamic = 'force-dynamic';
@@ -88,10 +89,26 @@ export async function PATCH(req: NextRequest) {
     updates.denyListEmails = denyListEmails;
   }
 
+  // Handle allowListEmails updates
+  if (Object.prototype.hasOwnProperty.call(payload, 'allowListEmails')) {
+    const allowListEmails = payload.allowListEmails;
+    if (!Array.isArray(allowListEmails)) {
+      return NextResponse.json({ error: 'allowListEmails must be an array' }, { status: 400 });
+    }
+    // Validate each email is a string
+    for (const email of allowListEmails) {
+      if (typeof email !== 'string') {
+        return NextResponse.json({ error: 'Each email in allowListEmails must be a string' }, { status: 400 });
+      }
+    }
+    updates.allowListEmails = allowListEmails;
+  }
+
   // Require at least one update
   const hasInterfaceLoginUpdates = updates.interfaceLogin && Object.keys(updates.interfaceLogin).length > 0;
   const hasDenyListUpdates = updates.denyListEmails !== undefined;
-  if (!hasInterfaceLoginUpdates && !hasDenyListUpdates) {
+  const hasAllowListUpdates = updates.allowListEmails !== undefined;
+  if (!hasInterfaceLoginUpdates && !hasDenyListUpdates && !hasAllowListUpdates) {
     return NextResponse.json({ error: 'No recognized updates provided' }, { status: 400 });
   }
 

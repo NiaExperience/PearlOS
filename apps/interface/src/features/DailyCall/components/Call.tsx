@@ -9,11 +9,19 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
 import { useUserProfile } from '@interface/contexts/user-profile-context';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
+import { unlockAudioPlayback } from '@interface/lib/audio/autoplay-unlock';
 import {
   coerceFeatureKeyList,
 } from '@interface/lib/assistant-feature-sync';
 import { getClientLogger } from '@interface/lib/client-logger';
 import { isBotParticipant } from '@interface/lib/daily/participant-manager';
+import {
+  defaultVoiceIdForBotProvider,
+  normalizeVoiceProvider,
+  readLocalPreference,
+  toBotVoiceProvider,
+  VOICE_PROVIDER_KEY,
+} from '@interface/lib/pearlos-user-preferences';
 import { DesktopMode } from '@interface/types/desktop-modes';
 
 import { isDuplicateEvent } from '@interface/lib/event-dedup';
@@ -67,7 +75,7 @@ interface NiaEventEnvelope<P = any> {
 interface CallProps {
   username: string;
   roomUrl: string;
-  onLeave: () => void;
+  onLeave: (reason?: string) => void;
   onProfileGate: (reason: ProfileGateReason) => void;
   assistantName: string;
   session?: {
@@ -93,6 +101,7 @@ interface CallProps {
   modePersonalityVoiceConfig?: Record<string, any>;
   dailyCallPersonalityVoiceConfig?: Record<string, any>;
   sessionOverride?: Record<string, any>;
+  visionMode?: boolean;
 }
 
 function makeDebugTraceId(roomUrl: string): string {
@@ -116,6 +125,11 @@ function getStableAnonymousSessionUserId(): string {
   }
 }
 
+function getParticipantTrack(participant: any, kind: 'audio' | 'video'): MediaStreamTrack | null {
+  const trackInfo = participant?.tracks?.[kind];
+  return trackInfo?.persistentTrack || trackInfo?.track || null;
+}
+
 const Call: React.FC<CallProps> = ({
   username,
   roomUrl,
@@ -135,6 +149,7 @@ const Call: React.FC<CallProps> = ({
   modePersonalityVoiceConfig,
   dailyCallPersonalityVoiceConfig,
   sessionOverride,
+  visionMode = false,
 }) => {
   const log = React.useMemo(() => getClientLogger('[daily_call]'), []);
   const { onboardingComplete } = useUserProfile();
@@ -178,6 +193,10 @@ const Call: React.FC<CallProps> = ({
   const participantIds = useParticipantIds();
   const { screens } = useScreenShare();
   const [localSessionId, setLocalSessionId] = useState<string | null>(null);
+  const botAudioElementRef = useRef<HTMLAudioElement | null>(null);
+  const botAudioTrackIdRef = useRef<string | null>(null);
+  const firstBotAudioPlaybackLoggedRef = useRef(false);
+  const [botAudioAutoplayBlocked, setBotAudioAutoplayBlocked] = useState(false);
 
   // Ensure window close protection is enabled if we mount while already joined
   useEffect(() => {
@@ -236,6 +255,123 @@ const Call: React.FC<CallProps> = ({
       return participantIds;
     }
   }, [daily, participantIds, stealth, localSessionId, persona]);
+
+  const getParticipantForTile = React.useCallback((participantId: string) => {
+    const pmap: any = (daily as any)?.participants?.() || {};
+    const local = pmap?.local;
+    if (local?.session_id === participantId) {
+      return local;
+    }
+    return pmap?.[participantId] || null;
+  }, [daily]);
+
+  const attachBotAudioTrack = useCallback(() => {
+    const audioEl = botAudioElementRef.current;
+    if (!daily || !audioEl) return;
+
+    const pmap: any = (daily as any)?.participants?.() || {};
+    const expectedPersonaName = persona || assistantName || 'Pearl';
+    const remoteParticipants = Object.values(pmap).filter((participant: any) => participant && !participant.local);
+    let botParticipant = remoteParticipants.find((participant: any) =>
+      isBotParticipant(participant, { expectedPersonaName }),
+    ) as any | undefined;
+
+    // Fallback to any remote participant publishing audio. This keeps playback
+    // working if Daily's display name or bot metadata changes.
+    if (!botParticipant) {
+      botParticipant = remoteParticipants.find((participant: any) => !!getParticipantTrack(participant, 'audio')) as any | undefined;
+    }
+
+    const audioTrack = botParticipant ? getParticipantTrack(botParticipant, 'audio') : null;
+    if (!botParticipant || !audioTrack) return;
+
+    const botSessionId = botParticipant.session_id;
+    if (botSessionId) {
+      try {
+        (daily as any).updateParticipant?.(botSessionId, { setAudio: true });
+      } catch (error) {
+        log.warn('[Call.audio] Unable to force bot audio subscription on', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const trackId = audioTrack.id || botSessionId || 'bot-audio';
+    if (botAudioTrackIdRef.current !== trackId || !audioEl.srcObject) {
+      botAudioTrackIdRef.current = trackId;
+      audioEl.srcObject = new MediaStream([audioTrack]);
+      audioEl.muted = false;
+      audioEl.volume = 1;
+      log.info('[Call.audio] Attached bot audio track', {
+        participantId: botSessionId,
+        trackId,
+      });
+    }
+
+    const playPromise = audioEl.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise.then(() => {
+        setBotAudioAutoplayBlocked(false);
+        if (!firstBotAudioPlaybackLoggedRef.current) {
+          firstBotAudioPlaybackLoggedRef.current = true;
+          log.info('[Call.audio] First bot audio playback started', {
+            event: 'daily_call_first_bot_audio_playback',
+          });
+        }
+      }).catch((error) => {
+        setBotAudioAutoplayBlocked(true);
+        log.warn('[Call.audio] Bot audio autoplay blocked; waiting for user gesture', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }, [assistantName, daily, log, persona]);
+
+  useEffect(() => {
+    if (!daily) return;
+
+    const handleParticipantAudioChange = () => {
+      attachBotAudioTrack();
+    };
+
+    (daily as any).on?.('participant-joined', handleParticipantAudioChange);
+    (daily as any).on?.('participant-updated', handleParticipantAudioChange);
+    (daily as any).on?.('track-started', handleParticipantAudioChange);
+
+    const initialAttachTimer = window.setTimeout(handleParticipantAudioChange, 0);
+
+    return () => {
+      window.clearTimeout(initialAttachTimer);
+      (daily as any).off?.('participant-joined', handleParticipantAudioChange);
+      (daily as any).off?.('participant-updated', handleParticipantAudioChange);
+      (daily as any).off?.('track-started', handleParticipantAudioChange);
+    };
+  }, [attachBotAudioTrack, daily]);
+
+  useEffect(() => {
+    if (!botAudioAutoplayBlocked) return;
+
+    const retryPlayback = () => {
+      const audioEl = botAudioElementRef.current;
+      if (!audioEl?.srcObject) return;
+
+      unlockAudioPlayback(audioEl).then((result) => {
+        if (result === 'success') {
+          setBotAudioAutoplayBlocked(false);
+          log.info('[Call.audio] Bot audio playback resumed after user gesture');
+        }
+      });
+    };
+
+    window.addEventListener('pointerdown', retryPlayback);
+    window.addEventListener('keydown', retryPlayback);
+
+    return () => {
+      window.removeEventListener('pointerdown', retryPlayback);
+      window.removeEventListener('keydown', retryPlayback);
+    };
+  }, [botAudioAutoplayBlocked, log]);
+
   // Guard against duplicate join() calls (StrictMode double-mount or fast remounts)
   const joinAttemptedRef = useRef<boolean>(false);
   const triggerDevRoomCleanup = useCallback(() => {
@@ -460,7 +596,7 @@ const Call: React.FC<CallProps> = ({
       /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (
       isMobile &&
-      (callState.joining || (daily && (daily as any)?.meetingState?.() === 'joined'))
+      (callState.joining || (daily && (daily as any)?.meetingState?.() === 'joined-meeting'))
     ) {
       setIsFullscreen(true);
     }
@@ -552,7 +688,7 @@ const Call: React.FC<CallProps> = ({
     // sync local state and skip duplicate join attempt.
     const existingState = (daily as any)?.meetingState?.();
     logConn({ phase: 'join.effect.enter' as any, roomUrl, username, meetingState: existingState });
-    if (daily && existingState === 'joined') {
+    if (daily && existingState === 'joined-meeting') {
       // Reuse already joined session (skip calling join again)
       if (!callState.joining) {
         logConn({ phase: 'init.callobject.reuse', roomUrl, username, meetingState: existingState });
@@ -562,7 +698,7 @@ const Call: React.FC<CallProps> = ({
       return; // IMPORTANT: prevent fall-through to join()
     }
 
-    if (daily && !callState.joining && existingState !== 'joined' && !joinAttemptedRef.current) {
+    if (daily && !callState.joining && existingState !== 'joined-meeting' && !joinAttemptedRef.current) {
       joinAttemptedRef.current = true;
       logConn({ phase: 'join.effect.enter', roomUrl, username });
       // NOTE: Tests expect only (roomUrl, 'joining', username) signature (no participantCount arg)
@@ -575,6 +711,7 @@ const Call: React.FC<CallProps> = ({
         const sname = session?.user?.name && String(session.user.name).trim();
         const semail = session?.user?.email && String(session.user.email).trim();
         const displayName = username?.trim();
+        const resolvedGreetingName = profileFirstName || (sname ? sname.split(/\s+/)[0] : '') || displayName || username;
         const sessionOverrideUserId =
           sessionOverride?.userId && String(sessionOverride.userId).trim();
         const stableAnonymousSessionUserId =
@@ -588,13 +725,7 @@ const Call: React.FC<CallProps> = ({
         if (!stealth) {
           if (effectiveSessionUserId) (joinUserData as any).sessionUserId = effectiveSessionUserId;
           // PRIORITY: Use the user-provided display name first, then profile first_name, then session.user.name
-          if (displayName) {
-            (joinUserData as any).sessionUserName = displayName;
-          } else if (profileFirstName) {
-            (joinUserData as any).sessionUserName = profileFirstName;
-          } else if (sname) {
-            (joinUserData as any).sessionUserName = sname;
-          }
+          if (resolvedGreetingName) (joinUserData as any).sessionUserName = resolvedGreetingName;
           if (semail) (joinUserData as any).sessionUserEmail = semail;
           if (tenantId) (joinUserData as any).tenantId = tenantId;
         }
@@ -617,7 +748,7 @@ const Call: React.FC<CallProps> = ({
           url: roomUrl,
           // For stealth, use coded username prefix that bot can immediately detect
           // Otherwise, prioritize the pre-join display name, then profile first_name, then session.user.name
-          userName: stealth ? 'stealth-user' : displayName || profileFirstName || sname || username,
+          userName: stealth ? 'stealth-user' : resolvedGreetingName,
           userData: stealth ? { stealth: true } : Object.keys(joinUserData).length > 0 ? joinUserData : undefined,
         };
 
@@ -635,6 +766,8 @@ const Call: React.FC<CallProps> = ({
         if (stealth) {
           joinOpts.startAudioOff = true;
           joinOpts.startVideoOff = true;
+        } else {
+          joinOpts.startVideoOff = !visionMode;
         }
 
         // Prefer DailyCall-specific config when sending mode config to bot join
@@ -700,6 +833,18 @@ const Call: React.FC<CallProps> = ({
           log.info('[Call] Onboarding active: skipping mode-specific config to use default personality');
         }
 
+        if (typeof window !== 'undefined') {
+          const storedVoiceProvider = normalizeVoiceProvider(
+            readLocalPreference(VOICE_PROVIDER_KEY, session?.user?.id ?? null),
+          );
+          if (storedVoiceProvider) {
+            initialVoiceProvider = toBotVoiceProvider(storedVoiceProvider);
+            initialVoiceId = defaultVoiceIdForBotProvider(initialVoiceProvider);
+          } else if (initialVoiceProvider) {
+            initialVoiceId = defaultVoiceIdForBotProvider(initialVoiceProvider);
+          }
+        }
+
         // Filter supported features to allowed set
         const allowedSupportedFeatures = [
           'htmlContent',
@@ -710,10 +855,12 @@ const Call: React.FC<CallProps> = ({
           // 'smartSilence',    // DISABLED: spawns unwanted agents during pauses
           // 'lullDetection',   // DISABLED: spawns unwanted agents during pauses
           'openclawBridge',
+          'assistantSelfClose',
           'youtube',
           'soundtrack',
           'summonSpriteTool',
-          'wonderCanvas'];
+          'wonderCanvas',
+          'vision'];
         const filteredSupportedFeatures = (supportedFeatures || []).filter(feature => allowedSupportedFeatures.includes(feature));
 
         // ARCHITECTURAL FIX: Call bot /join FIRST to spawn bot (no participant ID yet)
@@ -736,10 +883,11 @@ const Call: React.FC<CallProps> = ({
           // But NO participantId since we don't know it yet
           ...(!stealth && effectiveSessionUserId ? { sessionUserId: effectiveSessionUserId } : {}),
           ...(!stealth && semail ? { sessionUserEmail: semail } : {}),
-          ...(!stealth && (sname || username) ? { sessionUserName: sname || username } : {}),
+          ...(!stealth && resolvedGreetingName ? { sessionUserName: resolvedGreetingName } : {}),
           supportedFeatures: filteredSupportedFeatures,
           modePersonalityVoiceConfig: botModePersonalityVoiceConfig,
           sessionOverride,
+          visionMode,
           debugTraceId,
         };
 
@@ -758,6 +906,7 @@ const Call: React.FC<CallProps> = ({
             hasVoiceParameters: !!botJoinPayload.voiceParameters,
             supportedFeatures: botJoinPayload.supportedFeatures,
             modeConfigKeys: Object.keys(botModePersonalityVoiceConfig || {}),
+            visionMode: botJoinPayload.visionMode,
             hasDailyCallConfig: !!dailyCallPersonalityVoiceConfig,
             hasModeConfig: !!modePersonalityVoiceConfig,
             botVoiceConfigSource,
@@ -959,6 +1108,15 @@ const Call: React.FC<CallProps> = ({
               } catch (_) {
                 // noop
               }
+            } else if (visionMode) {
+              try {
+                await (daily as any)?.setLocalVideo?.(true);
+                log.info('[Call.vision] Enabled local video for PearlVision');
+              } catch (videoErr) {
+                log.warn('[Call.vision] Failed to enable local video', {
+                  error: String((videoErr as Error)?.message || videoErr),
+                });
+              }
             }
           })
           .catch((error: any) => {
@@ -993,25 +1151,8 @@ const Call: React.FC<CallProps> = ({
     }
 
     return () => {
-      // Always attempt a leave if the meeting state is joining or joined to free the session.
-      if (daily && !callState.leaving) {
-        const state = (daily as any)?.meetingState?.();
-        if (state === 'joined' || state === 'joining') {
-          setCallState(prev => ({ ...prev, leaving: true }));
-          logConn({ phase: 'join.cleanup.leave', roomUrl, username, meetingState: state });
-          emitCallStateChange(roomUrl, 'leaving', username, participantIds.length);
-          try {
-            daily.leave();
-          } catch (err: any) {
-            logConn({
-              phase: 'join.cleanup.leave',
-              roomUrl,
-              username,
-              error: String(err?.message || err),
-            });
-          }
-        }
-      }
+      const state = (daily as any)?.meetingState?.();
+      logConn({ phase: 'join.cleanup.skip_leave' as any, roomUrl, username, meetingState: state });
     };
   }, [
     daily,
@@ -1091,8 +1232,8 @@ const Call: React.FC<CallProps> = ({
         reason: payload.reason,
       });
 
-      // Trigger the leave callback
-      onLeave();
+      // Trigger the same cleanup path as the manual leave button.
+      onLeave('assistant');
     };
 
     window.addEventListener(NIA_EVENT_SESSION_END, handleBotSessionEnd as EventListener);
@@ -1185,15 +1326,14 @@ const Call: React.FC<CallProps> = ({
       'x-user-id': sessionOverride?.userId || session?.user?.id || '',
       'x-user-name': sessionOverride?.userName || session?.user?.name || username || '',
     };
+    const botGatewayApiBase = '/bot-api';
 
     // Sync active note state for late joiners
     const syncActiveNoteState = async () => {
-      const botServerUrl = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:8080';
-      
       try {
         log.info('[notes] Querying active note state as late joiner');
         const response = await fetch(
-          `${botServerUrl}/api/room/active-note?room_url=${encodeURIComponent(roomUrl)}`,
+          `${botGatewayApiBase}/room/active-note?room_url=${encodeURIComponent(roomUrl)}`,
           {
             signal: AbortSignal.timeout(5000), // 5 second timeout
             headers: contextHeaders,
@@ -1236,12 +1376,10 @@ const Call: React.FC<CallProps> = ({
 
     // Sync active applet state for late joiners
     const syncActiveAppletState = async () => {
-      const botServerUrl = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:8080';
-      
       try {
         log.info('[applets] Querying active applet state as late joiner');
         const response = await fetch(
-          `${botServerUrl}/api/room/active-applet?room_url=${encodeURIComponent(roomUrl)}`,
+          `${botGatewayApiBase}/room/active-applet?room_url=${encodeURIComponent(roomUrl)}`,
           {
             signal: AbortSignal.timeout(5000), // 5 second timeout
             headers: contextHeaders,
@@ -1297,11 +1435,10 @@ const Call: React.FC<CallProps> = ({
     const handleNoteCloseRequest = async (event: Event) => {
       const customEvent = event as CustomEvent;
       const { noteId } = customEvent.detail;
-      const botServerUrl = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:8080';
       
       try {
         log.info('[notes] Handling note close request for:', noteId);
-        const response = await fetch(`${botServerUrl}/api/session/${encodeURIComponent(roomUrl)}/context`, {
+        const response = await fetch(`${botGatewayApiBase}/session/${encodeURIComponent(roomUrl)}/context`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1332,11 +1469,10 @@ const Call: React.FC<CallProps> = ({
     const handleSendQueuedNoteNow = async (event: Event) => {
       const customEvent = event as CustomEvent;
       const { noteId, noteTitle } = customEvent.detail;
-      const botServerUrl = process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || 'http://localhost:8080';
       
       try {
         log.info('[notes] Sending note context to bot (immediate):', noteId);
-        const response = await fetch(`${botServerUrl}/api/session/${encodeURIComponent(roomUrl)}/context`, {
+        const response = await fetch(`${botGatewayApiBase}/session/${encodeURIComponent(roomUrl)}/context`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1419,7 +1555,7 @@ const Call: React.FC<CallProps> = ({
     const handleBeforeUnload = () => {
       try {
         const state = (daily as any)?.meetingState?.();
-        if (state === 'joined' || state === 'joining') {
+        if (state === 'joined-meeting' || state === 'joining-meeting') {
           logConn({ phase: 'join.cleanup.leave', roomUrl, username, meetingState: state });
           daily.leave();
         }
@@ -1686,7 +1822,7 @@ const Call: React.FC<CallProps> = ({
   // Derive UI side-effects from certain nia events if needed
   // Dedup: skip if already processed via gateway WebSocket
   if (isDuplicateEvent(env.seq, env.ts, env.event)) return;
-  routeNiaEvent(env);
+  routeNiaEvent(env.event, env.payload || {});
       if (env.event === 'daily.call.state') {
         // Optionally map phase -> joining/leaving flags; keep lightweight for now
         try {
@@ -1830,6 +1966,33 @@ const Call: React.FC<CallProps> = ({
     }
   };
 
+  const renderParticipantTile = (participantId: string, className = "") => {
+    const participant = getParticipantForTile(participantId);
+    const expectedPersonaName = persona || assistantName || 'Pearl';
+    const isLocal = Boolean(participant?.local) || participantId === localSessionId;
+    const isBot = participant
+      ? isBotParticipant(participant as any, { expectedPersonaName })
+      : false;
+    const displayName = isBot
+      ? 'Pearl'
+      : isLocal
+        ? 'You'
+        : (participant?.user_name || participantId);
+
+    return (
+      <Tile
+        participantId={participantId}
+        isBot={isBot}
+        isLocal={isLocal}
+        videoTrack={getParticipantTrack(participant, 'video')}
+        audioTrack={getParticipantTrack(participant, 'audio')}
+        displayName={displayName}
+        className={className}
+        onClick={() => handleTapToSwitch(participantId)}
+      />
+    );
+  };
+
   /**
    * Render grid layout with scrolling support
    */
@@ -1850,19 +2013,10 @@ const Call: React.FC<CallProps> = ({
       >
         {/* Scrollable container for all participants */}
         <div className="participants-container">
-          {visibleParticipantIds.map((id, index) => (
-            <Tile
-              key={id}
-              sessionId={id}
-              layoutMode={layoutMode}
-              onTap={handleTapToSwitch}
-              onAvatarClick={onLeave}
-              tileIndex={index}
-              totalTiles={visibleParticipantIds.length}
-              gridColumns={layout.columns}
-              gridRows={layout.rows}
-              hidePearl={true} // Hide Pearl bot in Daily call to reduce UI clutter
-            />
+          {visibleParticipantIds.map((id) => (
+            <React.Fragment key={id}>
+              {renderParticipantTile(id)}
+            </React.Fragment>
           ))}
         </div>
 
@@ -1889,33 +2043,14 @@ const Call: React.FC<CallProps> = ({
     return (
       <div className="tiles speaker-layout">
         <div className="main-speaker">
-          <Tile
-            sessionId={mainSpeaker}
-            layoutMode="speaker-main"
-            onTap={handleTapToSwitch}
-            onAvatarClick={onLeave}
-            tileIndex={0}
-            totalTiles={visibleParticipantIds.length}
-            gridColumns={1}
-            gridRows={1}
-            hidePearl={true}
-          />
+          {renderParticipantTile(mainSpeaker, "speaker-main-tile")}
         </div>
         {otherParticipants.length > 0 && (
           <div className="speaker-sidebar">
-            {otherParticipants.map((id, index) => (
-              <Tile
-                key={id}
-                sessionId={id}
-                layoutMode="speaker-small"
-                onTap={handleTapToSwitch}
-                onAvatarClick={onLeave}
-                tileIndex={index + 1}
-                totalTiles={visibleParticipantIds.length}
-                gridColumns={1}
-                gridRows={otherParticipants.length}
-                hidePearl={true}
-              />
+            {otherParticipants.map((id) => (
+              <React.Fragment key={id}>
+                {renderParticipantTile(id, "speaker-small-tile")}
+              </React.Fragment>
             ))}
           </div>
         )}
@@ -1933,32 +2068,13 @@ const Call: React.FC<CallProps> = ({
     return (
       <div className="tiles sidebar-layout">
         <div className="sidebar-main">
-          <Tile
-            sessionId={mainSpeaker}
-            layoutMode="sidebar-main"
-            onTap={handleTapToSwitch}
-            onAvatarClick={onLeave}
-            tileIndex={0}
-            totalTiles={visibleParticipantIds.length}
-            gridColumns={1}
-            gridRows={1}
-            hidePearl={true}
-          />
+          {renderParticipantTile(mainSpeaker, "sidebar-main-tile")}
         </div>
         <div className="sidebar-strip">
-          {otherParticipants.map((id, index) => (
-            <Tile
-              key={id}
-              sessionId={id}
-              layoutMode="sidebar-small"
-              onTap={handleTapToSwitch}
-              onAvatarClick={onLeave}
-              tileIndex={index + 1}
-              totalTiles={visibleParticipantIds.length}
-              gridColumns={1}
-              gridRows={otherParticipants.length}
-              hidePearl={true}
-            />
+          {otherParticipants.map((id) => (
+            <React.Fragment key={id}>
+              {renderParticipantTile(id, "sidebar-small-tile")}
+            </React.Fragment>
           ))}
         </div>
       </div>
@@ -2071,7 +2187,7 @@ const Call: React.FC<CallProps> = ({
           )}
           <div style={{ marginTop: '2rem' }}>
             <button
-              onClick={onLeave}
+              onClick={() => onLeave()}
               style={{
                 background: 'var(--primary, #3b82f6)',
                 color: '#fff',
@@ -2096,6 +2212,16 @@ const Call: React.FC<CallProps> = ({
 
   return (
     <div className={`Call ${layoutMode}-mode ${isFullscreen ? 'fullscreen' : ''} prebuilt-style`}>
+      <audio
+        ref={botAudioElementRef}
+        autoPlay
+        playsInline
+        className="daily-call-bot-audio"
+        data-testid="daily-call-bot-audio"
+        aria-hidden="true"
+        style={{ display: 'none' }}
+      />
+
       {/* Top Controls with Participant Count and Screen Share Indicator */}
       <div className={`top-controls ${controlsVisible ? 'visible' : 'hidden'}`}>
         <div className="top-left-controls">

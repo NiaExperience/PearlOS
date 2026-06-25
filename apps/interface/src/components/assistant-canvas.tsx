@@ -16,9 +16,11 @@ import { useUserProfile } from '@interface/contexts/user-profile-context';
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
 import { NIA_EVENT_ONBOARDING_COMPLETE } from '@interface/features/DailyCall/events/niaEventRouter';
 import { isScreenShareSupported, isSecureContext } from '@interface/features/DailyCall/lib/screenShare';
+import { useDailyCallState } from '@interface/features/DailyCall/state/store';
 import { VoiceInputBox } from '@interface/features/VoiceInput';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
 import { CALL_STATUS, useVoiceSession } from '@interface/hooks/useVoiceSession';
+import { unlockAudioPlayback } from '@interface/lib/audio/autoplay-unlock';
 import { getClientLogger } from '@interface/lib/client-logger';
 import type { VoiceParametersInput } from '@interface/lib/voice/kokoro';
 
@@ -32,7 +34,7 @@ interface AssistantWrapperProps {
   personalityId?: string; // OS personality ID for voice-only sessions
   tenantId?: string;
   persona?: string; // Bot display name from Assistant.persona_name (e.g., "Pearl")
-  voiceId?: string; // Preferred TTS voice id (ElevenLabs)
+  voiceId?: string; // Preferred TTS voice id or local preset
   voiceProvider?: string;
   voiceParameters?: VoiceParametersInput;
   allowedPersonalities?: Record<string, PersonalityVoiceConfig>; // Map of composite key (name-provider-voiceId) -> personality config
@@ -57,6 +59,10 @@ function getParticipantsSnapshot(callObject: DailyCall | null): DailyParticipant
     });
     return null;
   }
+}
+
+function coerceDisplayName(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 // Helper: Find composite key by matching personalityId (for migration from old UUID-based keys)
@@ -137,7 +143,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   
   // State for current personality - now stores composite key
   const [currentPersonalityKey, setCurrentPersonalityKey] = useState<string | undefined>(getInitialPersonalityKey);
-
+  
   // Gateway WebSocket is handled globally by GatewaySocketBridge in client-providers.tsx
   // No need for a second connection here.
 
@@ -254,16 +260,27 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       voiceParameters,
     };
   }, [currentMode, modePersonalityVoiceConfig, currentPersonalityKey, allowedPersonalities, personalityId, voiceId, voiceProvider, voiceParameters, persona, assistantName, effectiveIsOnboarding, sessionOverride]);
-  
+
+  const effectivePersonaName = React.useMemo(
+    () => (
+      coerceDisplayName(effectivePersonalityConfig.name) ||
+      coerceDisplayName(persona) ||
+      coerceDisplayName(assistantName) ||
+      'Pearl'
+    ),
+    [effectivePersonalityConfig.name, persona, assistantName]
+  );
+
   useEffect(() => {
-    logger.info('Effective personality config changed', { 
+    logger.info('Effective personality config changed', {
       personalityId: effectivePersonalityConfig.personalityId,
-      isOnboarding: effectivePersonalityConfig.isOnboarding 
+      isOnboarding: effectivePersonalityConfig.isOnboarding,
     });
   }, [effectivePersonalityConfig]);
 
   // Audio element ref for playing bot audio in voice-only sessions
   const audioElementRef = React.useRef<HTMLAudioElement>(null);
+  const firstBotAudioPlaybackLoggedRef = useRef(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [isLocalScreenSharing, setIsLocalScreenSharing] = useState(false);
   const [screenSharePromptVisible, setScreenSharePromptVisible] = useState(false);
@@ -275,7 +292,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   const prevCallStatusRef = useRef<CALL_STATUS | null>(null);
   
   // Use voice session instead of VAPI (pass OS personality for voice-only sessions)
-  const { toggleCall, callStatus, audioLevel, updatePersonality } = useVoiceSession({
+  const { toggleCall, callStatus, unavailableMessage, audioLevel, updatePersonality } = useVoiceSession({
     assistantName,
     clientLanguage,
     userId: session?.user?.id || 'anonymous',
@@ -283,7 +300,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
     userEmail: session?.user?.email || undefined, // User's email for profile loading
     personalityId: effectivePersonalityConfig.personalityId, // Use selected personality
     tenantId,
-    persona, // Bot display name from Assistant.persona_name
+    persona: effectivePersonaName, // Bot display name from active personality config
     voiceId: effectivePersonalityConfig.voiceId,
     voiceProvider: effectivePersonalityConfig.voiceProvider,
     voiceParameters: effectivePersonalityConfig.voiceParameters,
@@ -295,7 +312,19 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   
   // Get Daily call object and speaking status from context to monitor participants and control avatar
   const { getCallObject, isAssistantSpeaking, assistantVolumeLevel } = useVoiceSessionContext();
+  const { joined: isDailyCallActive } = useDailyCallState();
   const [isClient, setIsClient] = useState(false);
+
+  const safelyGetCallObject = useCallback(() => {
+    try {
+      return getCallObject();
+    } catch (error) {
+      logger.error('Daily call object unavailable', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }, [getCallObject]);
 
   useEffect(() => {
     setIsClient(true);
@@ -326,28 +355,22 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   // the site already has user interaction, so autoplay is no longer blocked.
   useEffect(() => {
     if (callStatus !== CALL_STATUS.LOADING) return;
+    firstBotAudioPlaybackLoggedRef.current = false;
     
     // The callStatus just transitioned to LOADING, which means the user
     // clicked to start a session. We're still in the synchronous React
     // commit phase triggered by the click. Pre-warm the audio element now.
-    const audioEl = audioElementRef.current;
-    if (audioEl) {
-      // Create a silent audio context and play it to unlock the element.
-      // An empty MediaStream with no tracks allows .play() to resolve
-      // and marks the element as user-gesture-activated.
-      try {
-        audioEl.srcObject = audioEl.srcObject || new MediaStream();
-        audioEl.play().then(() => {
-          logger.info('Audio element pre-warmed successfully during LOADING');
-          setAutoplayBlocked(false);
-        }).catch(() => {
-          logger.warn('Audio pre-warm failed during LOADING — will retry on user gesture');
-          setAutoplayBlocked(true);
-        });
-      } catch {
-        // Ignore — best effort
+    void unlockAudioPlayback(audioElementRef.current).then((result) => {
+      if (result === 'success') {
+        logger.info('Audio element pre-warmed successfully during LOADING');
+        setAutoplayBlocked(false);
+        return;
       }
-    }
+      if (result === 'blocked') {
+        logger.warn('Audio pre-warm failed during LOADING; will retry on user gesture');
+        setAutoplayBlocked(true);
+      }
+    });
   }, [callStatus]);
   
   // Monitor Daily participants and attach bot audio tracks to audio element.
@@ -360,7 +383,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   useEffect(() => {
     if (callStatus !== CALL_STATUS.ACTIVE && callStatus !== CALL_STATUS.LOADING) return;
     
-    const callObject = getCallObject();
+    const callObject = safelyGetCallObject();
     if (!callObject || !audioElementRef.current) return;
     
     // Handler for participant updates - attach bot audio
@@ -373,7 +396,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       // This ensures we still hear audio even if the bot name doesn't match the expected persona (e.g. "Wiz" vs "Pearl")
       const allParticipants = Object.values(participants);
       let botParticipant = allParticipants.find(
-        (p: any) => !p.local && p.user_name?.toLowerCase().includes(persona?.toLowerCase() || 'pearl')
+        (p: any) => !p.local && p.user_name?.toLowerCase().includes(effectivePersonaName.toLowerCase())
       );
       
       if (!botParticipant) {
@@ -381,6 +404,17 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       }
       
       if (botParticipant && (botParticipant as any).tracks?.audio?.track) {
+        const botSessionId = (botParticipant as any).session_id;
+        if (botSessionId && !isDailyCallActive) {
+          try {
+            callObject.updateParticipant(botSessionId, { setAudio: true });
+          } catch (error) {
+            logger.warn('Unable to force bot audio subscription on', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
         const audioTrack = (botParticipant as any).tracks.audio.track;
         audioElementRef.current.srcObject = new MediaStream([audioTrack]);
         
@@ -389,6 +423,12 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
         if (playPromise && typeof playPromise.then === 'function') {
           playPromise.then(() => {
             setAutoplayBlocked(false);
+            if (!firstBotAudioPlaybackLoggedRef.current) {
+              firstBotAudioPlaybackLoggedRef.current = true;
+              logger.info('First bot audio playback started', {
+                event: 'voice_first_bot_audio_playback',
+              });
+            }
             logger.info('Bot audio playback started successfully');
           }).catch((err) => {
             setAutoplayBlocked(true);
@@ -413,7 +453,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       callObject.off('participant-updated', handleParticipantUpdated);
       callObject.off('track-started', handleParticipantUpdated);
     };
-  }, [callStatus, getCallObject, persona]);
+  }, [callStatus, safelyGetCallObject, effectivePersonaName, isDailyCallActive]);
 
   // Global user-gesture recovery: retry audio playback on any pointer interaction.
   // This mirrors the pattern in Tile.tsx. If autoplay was blocked (e.g., Chrome
@@ -424,7 +464,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
     const handler = () => {
       const audioEl = audioElementRef.current;
       if (audioEl && audioEl.paused) {
-        audioEl.play()
+        unlockAudioPlayback(audioEl)
           .then(() => {
             setAutoplayBlocked(false);
             logger.info('Audio playback resumed after user gesture');
@@ -433,7 +473,13 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       }
     };
     window.addEventListener('pointerdown', handler, { once: true });
-    return () => window.removeEventListener('pointerdown', handler);
+    window.addEventListener('touchend', handler, { once: true });
+    window.addEventListener('keydown', handler, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handler);
+      window.removeEventListener('touchend', handler);
+      window.removeEventListener('keydown', handler);
+    };
   }, [autoplayBlocked]);
 
   useEffect(() => {
@@ -446,7 +492,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
       return;
     }
 
-    const callObject = getCallObject();
+    const callObject = safelyGetCallObject();
     if (!callObject) {
       return;
     }
@@ -488,7 +534,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
         callObject.off(event, handler);
       });
     };
-  }, [callStatus, getCallObject]);
+  }, [callStatus, safelyGetCallObject]);
 
   useEffect(() => {
     if (
@@ -588,6 +634,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            tenantId,
             personalityVoiceConfig: {
               personalityId: config.personalityId,
               name: config.personalityName,
@@ -656,6 +703,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
 
     const configHash = JSON.stringify({
       pid: effectivePersonalityConfig.personalityId,
+      persona: effectivePersonaName,
       vid: effectivePersonalityConfig.voiceId,
       vp: effectivePersonalityConfig.voiceProvider,
       vparam: effectivePersonalityConfig.voiceParameters,
@@ -688,12 +736,12 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
 
     updatePersonality({
       personalityId: effectivePersonalityConfig.personalityId,
-      name: effectivePersonalityConfig.name || '',
+      name: effectivePersonaName,
       voiceId: effectivePersonalityConfig.voiceId,
       voiceProvider: effectivePersonalityConfig.voiceProvider,
       voiceParameters: effectivePersonalityConfig.voiceParameters,
     }, modeToPass);
-  }, [effectivePersonalityConfig, callStatus, updatePersonality, currentMode, effectiveIsOnboarding, sessionOverride]);
+  }, [effectivePersonalityConfig, effectivePersonaName, callStatus, updatePersonality, currentMode, effectiveIsOnboarding, sessionOverride]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -740,7 +788,7 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
   const handleVoiceInput = async ({ text, file: _file }: { text: string; file?: File }) => {
     if (!text.trim()) return;
     try {
-      await fetch('/api/chat', {
+      await fetch('http://localhost:4444/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, assistantName }),
@@ -759,30 +807,53 @@ const AssistantWrapper: React.FC<AssistantWrapperProps> = (props) => {
 
       {/* Vacuum Tube Input — global overlay, opened via VoiceInputTrigger or custom event */}
       <VoiceInputBox onSubmit={handleVoiceInput} />
+
+      {callStatus === CALL_STATUS.UNAVAILABLE && unavailableMessage && (
+        <div
+          role="alert"
+          className="pointer-events-auto fixed left-1/2 z-50 w-[min(92vw,520px)] -translate-x-1/2 rounded-lg border border-white/15 bg-black/80 px-4 py-3 text-center text-sm text-white shadow-2xl backdrop-blur"
+          style={{ bottom: 112 }}
+        >
+          <div className="leading-relaxed">{unavailableMessage}</div>
+          <button
+            type="button"
+            className="mt-3 rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-black"
+            onClick={() => {
+              void toggleCall?.();
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
       
       <div
-        className={`${isChatMode ? 'pointer-events-none' : 'pointer-events-auto'} mt-auto fixed z-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center ${!seatrade && 'p-3'} rounded-t-lg transition-opacity duration-200`}
+        className={`${isChatMode ? 'pointer-events-none' : 'pointer-events-auto'} mt-auto fixed z-10 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center ${!seatrade && 'p-3'} rounded-t-lg assistant-chat-bar`}
         style={{
           transition: 'all 0.3s ease-in-out',
-          bottom: seatrade ? (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? '50%' : 20 : 72,
+          bottom: seatrade ? (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? '50%' : 20 : 16,
           transform: seatrade && (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) && !isBrowserWindowVisible ? 'translateY(50%) translateX(-50%)' : 'translateX(-50%)',
-          opacity: isChatMode ? 0 : 1,
-          visibility: isChatMode ? 'hidden' as const : 'visible' as const,
+          fontSize: 14,
+          // Compact chat bar: smaller avatar, buttons, and font
+          ['--assistant-avatar-size' as string]: '26px',
+          ['--assistant-btn-size' as string]: '32px',
         }}
       >
-        <AssistantButton
-          assistantName={assistantName}
-          audioLevel={audioLevel}
-          callStatus={callStatus}
-          toggleCall={toggleCall}
-          isAssistantSpeaking={isAssistantSpeaking}
-          assistantVolumeLevel={assistantVolumeLevel}
-          supportedFeatures={supportedFeatures}
-          startFullScreen={startFullScreen}
-          allowedPersonalities={allowedPersonalities}
-          currentPersonalityKey={currentPersonalityKey}
-          onPersonalityChange={handlePersonalityChange}
-        ></AssistantButton>
+        {seatrade && (
+          <AssistantButton
+            assistantName={assistantName}
+            audioLevel={audioLevel}
+            callStatus={callStatus}
+            toggleCall={toggleCall}
+            isAssistantSpeaking={isAssistantSpeaking}
+            assistantVolumeLevel={assistantVolumeLevel}
+            supportedFeatures={supportedFeatures}
+            startFullScreen={startFullScreen}
+            allowedPersonalities={allowedPersonalities}
+            currentPersonalityKey={currentPersonalityKey}
+            onPersonalityChange={handlePersonalityChange}
+          ></AssistantButton>
+        )}
       </div>
       {assistantName === 'seatrade-jdx' && (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) &&
         <footer className='pointer-events-auto w-full py-[16px] bottom-0 absolute'>

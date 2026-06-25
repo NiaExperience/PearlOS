@@ -53,6 +53,11 @@ const writeCachedApplets = (key: string, data: CachedApplets['data']) => {
   }
 };
 
+const deleteAppletUrl = (appletId: string, assistantName: string) => {
+  const qp = new URLSearchParams({ assistantName });
+  return `/api/html-generation/${encodeURIComponent(appletId)}?${qp.toString()}`;
+};
+
 const DesktopBackgroundCreative = ({ assistantName: propAssistantName }: DesktopBackgroundCreativeProps) => {
   const logger = getClientLogger('[desktop_background_creative]');
   const { data: session } = useResilientSession();
@@ -354,10 +359,20 @@ const DesktopBackgroundCreative = ({ assistantName: propAssistantName }: Desktop
     if (!appletToDelete) return;
     
     const { id: appletId, title: appletTitle, sourceNoteId } = appletToDelete;
+    const assistantName = resolvedAssistantName;
+
+    if (!assistantName) {
+      toast({
+        title: 'Delete Failed',
+        description: 'Assistant name not found',
+        variant: 'destructive',
+      } as any);
+      return;
+    }
     
     try {
       setDeletingAppletId(appletId);
-      const res = await fetch(`/api/html-generation/${encodeURIComponent(appletId)}`, { method: 'DELETE' });
+      const res = await fetch(deleteAppletUrl(appletId, assistantName), { method: 'DELETE' });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
         throw new Error(json?.message || 'Failed to delete');
@@ -371,7 +386,11 @@ const DesktopBackgroundCreative = ({ assistantName: propAssistantName }: Desktop
       }
       await trackSessionHistory('Deleted HTML applet', refs);
       
-      setApplets(prev => prev.filter(p => p.page_id !== appletId));
+      setApplets(prev => {
+        const next = prev.filter(p => p.page_id !== appletId);
+        writeCachedApplets(cacheKeyForUser(currentUserId, assistantName), next);
+        return next;
+      });
       setAppletsRefreshCounter(c => c + 1);
       window.dispatchEvent(
         new CustomEvent(NIA_EVENT_APPLET_REFRESH, {
@@ -393,7 +412,7 @@ const DesktopBackgroundCreative = ({ assistantName: propAssistantName }: Desktop
     } finally {
       setDeletingAppletId(null);
     }
-  }, [appletToDelete, toast]);
+  }, [appletToDelete, currentUserId, resolvedAssistantName, toast]);
 
   const cancelDelete = useCallback(() => {
     setDeleteModalOpen(false);
@@ -804,5 +823,4 @@ const DesktopBackgroundCreative = ({ assistantName: propAssistantName }: Desktop
 };
 
 export default DesktopBackgroundCreative;
-
 

@@ -9,6 +9,7 @@ import { WINDOW_OPEN_EVENT, type WindowOpenRequest } from '@interface/features/M
 // import TaskbarModelSelector from './taskbar-model-selector';
 import { DesktopMode, type DesktopModeSwitchResponse } from '../types/desktop-modes';
 import { useSpriteDisplayAutoHide } from '@interface/hooks/use-sprite-display-auto-hide';
+import { useUI } from '@interface/contexts/ui-context';
 
 interface Particle {
   id: number;
@@ -42,6 +43,7 @@ const DesktopTaskbar = ({
   onModelChange,
   supportedFeatures
 }: DesktopTaskbarProps) => {
+  const { isBrowserWindowVisible } = useUI();
   // Feature gating (evaluate once per render)
   const desktopApps: FeatureKey[] = ['gmail', 'notes', 'googleDrive', 'miniBrowser', 'terminal', 'dailyCall', 'browserAutomation', 'htmlContent'];
   const desktopAppsEnabled = desktopApps.some((feature) => isFeatureEnabled(feature, supportedFeatures));
@@ -51,7 +53,7 @@ const DesktopTaskbar = ({
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [currentMode, setCurrentMode] = useState<DesktopMode>(isWorkMode ? DesktopMode.WORK : DesktopMode.HOME);
+  const [currentMode, setCurrentMode] = useState<DesktopMode>(isWorkMode ? DesktopMode.DESKTOP : DesktopMode.HOME);
   const [isSocialActive, setIsSocialActive] = useState(false);
 
   const [isSocialAppOpen, setIsSocialAppOpen] = useState(false);
@@ -84,9 +86,9 @@ const DesktopTaskbar = ({
   const { controlsVisible } = useSpriteDisplayAutoHide();
   
   // Derived states for button visibility
-  const isHomeActive = currentMode === DesktopMode.HOME || currentMode === DesktopMode.DEFAULT;
-  const isWorkActive = currentMode === DesktopMode.WORK && !isSocialActive;
-  const isSocialMode = currentMode === DesktopMode.WORK && isSocialActive;
+  const isHomeActive = currentMode === DesktopMode.HOME || currentMode === DesktopMode.HOME;
+  const isWorkActive = currentMode === DesktopMode.DESKTOP && !isSocialActive;
+  const isSocialMode = currentMode === DesktopMode.DESKTOP && isSocialActive;
 
   const isHomeHighlighted = isHomeActive && !isSocialAppOpen;
   const isWorkHighlighted = isWorkActive && !isSocialAppOpen;
@@ -104,7 +106,7 @@ const DesktopTaskbar = ({
         const targetMode = event.detail.payload.targetMode;
         setCurrentMode(targetMode);
         // Reset social flag when switching to non-work modes
-        if (targetMode !== DesktopMode.WORK) {
+        if (targetMode !== DesktopMode.DESKTOP) {
           setIsSocialActive(false);
         }
       }
@@ -115,7 +117,7 @@ const DesktopTaskbar = ({
         const targetMode = event.data.payload.targetMode;
         setCurrentMode(targetMode);
         // Reset social flag when switching to non-work modes
-        if (targetMode !== DesktopMode.WORK) {
+        if (targetMode !== DesktopMode.DESKTOP) {
           setIsSocialActive(false);
         }
       }
@@ -130,13 +132,14 @@ const DesktopTaskbar = ({
     };
   }, []);
 
-  // Update current mode when isWorkMode changes (only for HOME/WORK transitions, not for other modes)
+  // Update current mode when isWorkMode prop changes from the parent
   useEffect(() => {
-    // Only update if we're currently in HOME or WORK mode AND not in social mode
-    if ((currentMode === DesktopMode.HOME || currentMode === DesktopMode.WORK) && !isSocialActive) {
-      setCurrentMode(isWorkMode ? DesktopMode.WORK : DesktopMode.HOME);
+    setCurrentMode(isWorkMode ? DesktopMode.DESKTOP : DesktopMode.HOME);
+    if (!isWorkMode) {
+      setIsSocialActive(false);
     }
-  }, [isWorkMode, currentMode, isSocialActive]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWorkMode]);
 
   useEffect(() => {
     const socialOpenEvents = ['dailyCall.session.start', 'dailyCall.joined'];
@@ -169,7 +172,7 @@ const DesktopTaskbar = ({
         return;
       }
 
-      setCurrentMode(DesktopMode.WORK);
+      setCurrentMode(DesktopMode.DESKTOP);
       setIsSocialActive(true);
       setIsSocialAppOpen(true);
     };
@@ -303,17 +306,17 @@ const DesktopTaskbar = ({
   };
 
   const handleWorkClick = () => {
-    setCurrentMode(DesktopMode.WORK);
+    setCurrentMode(DesktopMode.DESKTOP);
     setIsSocialActive(false);
     // Work may open its own apps but does not force social open/close
     onModeChange(true);
   };
 
   const handleSocialClick = () => {
-    setCurrentMode(DesktopMode.WORK);
+    setCurrentMode(DesktopMode.DESKTOP);
     setIsSocialActive(true);
     setIsSocialAppOpen(true);
-    emitQuickModeSelection('social', DesktopMode.WORK);
+    emitQuickModeSelection('social', DesktopMode.DESKTOP);
   };
 
   // Motion values for drag effects only
@@ -495,7 +498,7 @@ const DesktopTaskbar = ({
   }, [isExpanded, createParticle, isMobile]);
 
   // If none of the toolbar features are enabled, hide the activator/taskbar entirely
-  if (!showAnyToolbarFeature) {
+  if (!showAnyToolbarFeature || isBrowserWindowVisible || isMobile) {
     return null;
   }
 
@@ -605,7 +608,7 @@ const DesktopTaskbar = ({
       {/* Collapsed State - Small Icon */}
       {!isExpanded && (
         <motion.div 
-          className="rounded-xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center shadow-2xl cursor-pointer"
+          className="pearl-desktop-taskbar-collapsed rounded-xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center shadow-2xl cursor-pointer"
           style={{ backgroundColor: '#1e3a8a' }}
           animate={{ backgroundColor: '#1e3a8a' }}
           onClick={(e) => {
@@ -671,7 +674,7 @@ const DesktopTaskbar = ({
       {/* Expanded State - Full Taskbar */}
       {isExpanded && (
         <motion.div 
-          className="bg-blue-800/20 backdrop-blur-lg border border-blue-400/40 rounded-2xl px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-center gap-1 md:gap-2.5 shadow-2xl relative"
+          className="pearl-desktop-taskbar bg-blue-800/20 backdrop-blur-lg border border-blue-400/40 rounded-2xl px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-center gap-1 md:gap-2.5 shadow-2xl relative"
           style={{
             background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.25) 0%, rgba(30, 64, 175, 0.15) 100%)',
             backdropFilter: 'blur(12px) saturate(180%)',
@@ -757,7 +760,7 @@ const DesktopTaskbar = ({
             title={isHomeActive ? "Go to Desktop" : "Go to Home"}
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
+            className="pearl-desktop-taskbar-button flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
             animate={{
               boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
               scale: 1
@@ -845,7 +848,7 @@ const DesktopTaskbar = ({
             title="Work"
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className={`flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm ${
+            className={`pearl-desktop-taskbar-button flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm ${
               isWorkHighlighted
                 ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/50 border-2 border-blue-300/60' 
                 : 'bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20'
@@ -904,7 +907,7 @@ const DesktopTaskbar = ({
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => emitQuickModeSelection('create', DesktopMode.CREATIVE)}
-            className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
+            className="pearl-desktop-taskbar-button flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
             animate={{
               boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
               scale: 1
@@ -950,7 +953,7 @@ const DesktopTaskbar = ({
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => emitQuickModeSelection('quiet', DesktopMode.QUIET)}
-            className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
+            className="pearl-desktop-taskbar-button flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
             animate={{
               boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
               scale: 1
@@ -997,7 +1000,7 @@ const DesktopTaskbar = ({
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={handleSocialClick}
-            className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
+            className="pearl-desktop-taskbar-button flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl transition-all duration-200 backdrop-blur-sm bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20"
             animate={{
               boxShadow: "0 2px 8px rgba(59, 130, 246, 0.2)",
               scale: 1

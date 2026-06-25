@@ -128,6 +128,17 @@ class TestDecoratorDiscoveryIntegration:
         assert found_tools == expected_set, \
             f"Missing: {expected_set - found_tools}, Extra: {found_tools - expected_set}"
 
+    def test_onboarding_tools_present(self):
+        """Verify deterministic onboarding tools are discovered."""
+        discovery = BotToolDiscovery()
+        onboarding_tools = discovery.get_tools_by_feature('onboarding')
+
+        expected_tools = {'bot_onboarding_complete', 'bot_onboarding_progress'}
+        found_tools = set(onboarding_tools.keys())
+
+        assert expected_tools == found_tools, \
+            f"Missing: {expected_tools - found_tools}, Extra: {found_tools - expected_tools}"
+
 class TestToolboxDiscoveryIntegration:
     """Tests validating toolbox integration with discovery system."""
     
@@ -260,3 +271,29 @@ class TestDecoratorSystemPerformance:
         # Schema building should complete in < 1 second
         assert elapsed < 1.0, f"Schema building took {elapsed:.2f}s, expected < 1.0s"
         assert len(schemas) >= 45
+
+
+class TestCompactVoiceToolSchemas:
+    """Tests for compact pearl_* voice super-tool schemas."""
+
+    def test_pearl_system_exposes_sandbox_inventory_query(self):
+        from tools.voice_super_tools import pearl_system
+
+        metadata = pearl_system._tool_metadata
+        properties = metadata["parameters"]["properties"]
+
+        assert "list_sandbox_assets" in properties["action"]["enum"]
+        assert "query" in properties
+        assert "sandbox" in metadata["description"].lower()
+
+    def test_pearl_system_resolver_preserves_sandbox_query(self):
+        from tools.voice_super_tools import resolve_super_tool
+
+        tool_name, args = resolve_super_tool(
+            "pearl_system",
+            "list_sandbox_assets",
+            {"action": "list_sandbox_assets", "query": "Jurassic Park"},
+        )
+
+        assert tool_name == "bot_list_sandbox_assets"
+        assert args["query"] == "Jurassic Park"

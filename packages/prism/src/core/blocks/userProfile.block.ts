@@ -32,18 +32,75 @@ export interface IConversationSummary {
     durationSeconds?: number; // Session length in seconds
 }
 
+export interface ISocialLinks {
+    twitter?: string;
+    bluesky?: string;
+    github?: string;
+    website?: string;
+}
+
+export interface IPublicPersona {
+    displayName?: string;
+    bio?: string;
+    interests?: string[];
+    socialLinks?: ISocialLinks;
+    avatarUrl?: string;
+    location?: string;
+    profession?: string;
+    /** Whether this persona is visible/shared. Defaults to false. */
+    isPublic?: boolean;
+}
+
+export interface IReminder {
+    text: string;
+    createdAt: string; // ISO timestamp
+    dueDate?: string; // ISO timestamp
+}
+
+export interface IPrivateMemory {
+    personalNotes?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    preferences?: Record<string, any>;
+    reminders?: IReminder[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sensitiveData?: Record<string, any>;
+    /** How the user prefers to interact with Pearl. */
+    relationshipContext?: string;
+}
+
 export interface IUserProfile {
     _id?: string;
     first_name: string;
     email: string;
     userId?: string;
     onboardingComplete?: boolean;
+    onboardingState?: IOnboardingState;
     overlayDismissed?: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    metadata?: Record<string, any>;
+    publicPersona?: IPublicPersona;
+    privateMemory?: IPrivateMemory;
     sessionHistory?: ISessionHistoryEntry[];
     personalityVoiceConfig?: IPersonalityVoiceConfig;
     lastConversationSummary?: IConversationSummary;
+    /**
+     * @deprecated Use publicPersona / privateMemory instead. Kept on the type so
+     * legacy records still type-check during read-time migration.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    metadata?: Record<string, any>;
+}
+
+export interface IOnboardingRequiredActions {
+    profileUpdated?: boolean;
+    welcomeNoteCreated?: boolean;
+}
+
+export interface IOnboardingState {
+    currentBeat?: number;
+    completedBeats?: string[];
+    requiredActions?: IOnboardingRequiredActions;
+    source?: 'voice' | 'text' | string;
+    promptFeatureKey?: string;
+    updatedAt?: string;
 }
 
 export const SessionHistoryRefIdSchema = z.object({
@@ -76,14 +133,62 @@ export const ConversationSummarySchema = z.object({
     durationSeconds: z.number().optional()
 });
 
+export const SocialLinksSchema = z.object({
+    twitter: z.string().optional(),
+    bluesky: z.string().optional(),
+    github: z.string().optional(),
+    website: z.string().optional()
+});
+
+export const PublicPersonaSchema = z.object({
+    displayName: z.string().optional(),
+    bio: z.string().optional(),
+    interests: z.array(z.string()).optional(),
+    socialLinks: SocialLinksSchema.optional(),
+    avatarUrl: z.string().optional(),
+    location: z.string().optional(),
+    profession: z.string().optional(),
+    isPublic: z.boolean().optional()
+});
+
+export const ReminderSchema = z.object({
+    text: z.string(),
+    createdAt: z.string(),
+    dueDate: z.string().optional()
+});
+
+export const PrivateMemorySchema = z.object({
+    personalNotes: z.string().optional(),
+    preferences: z.record(z.any()).optional(),
+    reminders: z.array(ReminderSchema).optional(),
+    sensitiveData: z.record(z.any()).optional(),
+    relationshipContext: z.string().optional()
+});
+
+export const OnboardingRequiredActionsSchema = z.object({
+    profileUpdated: z.boolean().optional(),
+    welcomeNoteCreated: z.boolean().optional()
+});
+
+export const OnboardingStateSchema = z.object({
+    currentBeat: z.number().optional(),
+    completedBeats: z.array(z.string()).optional(),
+    requiredActions: OnboardingRequiredActionsSchema.optional(),
+    source: z.string().optional(),
+    promptFeatureKey: z.string().optional(),
+    updatedAt: z.string().optional()
+});
+
 export const PersonalitySchema = z.object({
     _id: z.string().uuid().optional(),
     first_name: z.string(),
     email: z.string(),
     userId: z.string().optional(),
     onboardingComplete: z.boolean().optional(),
+    onboardingState: OnboardingStateSchema.optional(),
     overlayDismissed: z.boolean().optional(),
-    metadata: z.record(z.any()).optional(),
+    publicPersona: PublicPersonaSchema.optional(),
+    privateMemory: PrivateMemorySchema.optional(),
     sessionHistory: z.array(SessionHistoryEntrySchema).optional(),
     personalityVoiceConfig: PersonalityVoiceConfigSchema.optional(),
     lastConversationSummary: ConversationSummarySchema.optional()

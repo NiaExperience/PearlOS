@@ -26,7 +26,7 @@ async def search_wikipedia(query: str, limit: int = 5) -> list[dict]:
         
         # Wikipedia requires a User-Agent header
         headers = {
-            'User-Agent': 'NiaBot/1.0 (https://niaxp.com; dev@niaxp.com) aiohttp/3.0'
+            'User-Agent': 'NiaBot/1.0 (https://niaxp.com; contact@niaxp.com) aiohttp/3.0'
         }
         
         # Try OpenSearch first (fast, good for exact matches)

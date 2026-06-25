@@ -1,6 +1,7 @@
 import { AssistantActions } from '@nia/prism/core/actions';
 import { getUserSharedResources as getUserSharedResourcesFromOrg } from '@nia/prism/core/actions/organization-actions';
 import { getUserById } from '@nia/prism/core/actions/user-actions';
+import { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createNoteAsUser, findNoteById, findNoteByUserAndMode, findNotesByUserAndTitle } from '@interface/features/Notes';
@@ -103,7 +104,7 @@ export async function GET_impl(request: NextRequest) : Promise<NextResponse> {
         // Also fetch shared notes from organizations (only for personal mode)
         if (mode === 'personal') {
             try {
-                const sharedResources = await getUserSharedResourcesFromOrg(session.user.id, tenantId, 'Notes');
+                const sharedResources = await getUserSharedResourcesFromOrg(session.user.id, tenantId, ResourceType.Notes);
                 log.info('Found shared note resources', {
                     count: sharedResources.length,
                     userId: session.user.id,
@@ -114,13 +115,9 @@ export async function GET_impl(request: NextRequest) : Promise<NextResponse> {
                 const sharedNotes = await Promise.all(
                     sharedResources.map(async (resource) => {
                         try {
-                            const note = await findNoteById(resource.resourceId, tenantId!);
+                            const note = await findNoteById(resource.resourceId, tenantId);
                             if (note) {
                                 // Fetch owner's details to display in SharedByBadge
-                                if (!note.userId) {
-                                    return null;
-                                }
-
                                 let ownerDisplayName = note.userId; // fallback to userId
                                 try {
                                     const owner = await getUserById(note.userId);

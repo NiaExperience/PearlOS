@@ -14,7 +14,8 @@ export default function InitializeDesktopMode({ mode }: InitializeDesktopModePro
   useEffect(() => {
     const DEBUG = process.env.NEXT_PUBLIC_DEBUG_DESKTOP_MODE === 'true';
     const normalizeMode = (m: DesktopMode | string | undefined | null): DesktopMode => {
-      const v = (m ?? DesktopMode.HOME).toString().toLowerCase();
+      let v = (m ?? DesktopMode.HOME).toString().toLowerCase();
+      if (v === 'work') v = 'desktop';
       return (Object.values(DesktopMode) as string[]).includes(v)
         ? (v as DesktopMode)
         : DesktopMode.HOME;

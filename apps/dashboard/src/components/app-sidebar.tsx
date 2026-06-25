@@ -26,7 +26,7 @@ import { cn } from '@dashboard/lib/utils';
 const data = {
   user: {
     name: 'Nia',
-    email: 'dev@niaxp.com',
+    email: 'nia@niaxp.com',
     avatar: '/avatars/shadcn.jpg',
   },
   navMain: [
@@ -62,28 +62,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter();
   const { open } = useSidebar();
   
-  // Use useState + useEffect to avoid hydration mismatch
-  // Start with false so server and client initial render match
-  const [isLocalNoAuth, setIsLocalNoAuth] = React.useState(false);
-
-  React.useEffect(() => {
-    // Only check on client side to avoid hydration mismatch
-    // Check hostname and NODE_ENV (both available on client)
-    const checkLocalNoAuth = 
-      process.env.NODE_ENV === 'development' &&
-      typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('runpod.net'));
-    setIsLocalNoAuth(checkLocalNoAuth);
-  }, []);
+  // Must match server DISABLE_DASHBOARD_AUTH (set NEXT_PUBLIC_DISABLE_DASHBOARD_AUTH in dashboard env).
+  const isDashboardAuthDisabled =
+    process.env.NEXT_PUBLIC_DISABLE_DASHBOARD_AUTH === 'true';
 
   // Redirect to login if unauthenticated
   React.useEffect(() => {
-    if (status === 'unauthenticated' && !isLocalNoAuth) {
-      router.push('/login');
+    if (status === 'unauthenticated' && !isDashboardAuthDisabled) {
+      router.push('/dashboard/login');
     }
-  }, [status, router, isLocalNoAuth]);
+  }, [status, router, isDashboardAuthDisabled]);
 
   return (
     <Sidebar collapsible='icon' {...props} className='z-50'>
@@ -100,9 +88,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         {status === 'authenticated' && session?.user ? (
           <NavUser />
-        ) : isLocalNoAuth ? (
+        ) : isDashboardAuthDisabled ? (
           <div className='flex items-center justify-center p-4 text-xs text-muted-foreground'>
-            Local mode (auth disabled)
+            Dashboard auth disabled (env)
           </div>
         ) : (
           <div className='flex items-center justify-center p-4'>

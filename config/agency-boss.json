@@ -1,0 +1,10 @@
+{
+  "boss": "codex",
+  "updatedAt": "2026-06-13T03:45:00Z",
+  "updatedBy": "codex-session",
+  "bossLabel": "Codex",
+  "modelId": "openai/gpt-5.5",
+  "executor": "codex",
+  "fallbackBoss": "claude",
+  "fallbackLabel": "Claude Opus 4.6"
+}

@@ -1,0 +1,795 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:claude:acp:a0840c41-db6d-47ca-9a14-c24963ca0c5c:oneshot:ef2d7822-7e24-4495-a760-97a67b4a85aa",
+  "acp_session_id": "3f1e6640-9cb9-4ed4-b36d-394e626dd362",
+  "agent_command": "npx -y @agentclientprotocol/claude-agent-acp@^0.25.0",
+  "cwd": "/workspace/nia-universal/claude",
+  "name": "agent:claude:acp:a0840c41-db6d-47ca-9a14-c24963ca0c5c",
+  "created_at": "2026-04-22T02:03:33.767Z",
+  "last_used_at": "2026-04-22T02:05:50.159Z",
+  "last_seq": 0,
+  "last_request_id": "b8d65e1f-fce8-4153-af7d-06fe404c5710",
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Aclaude%3Aacp%3Aa0840c41-db6d-47ca-9a14-c24963ca0c5c%3Aoneshot%3Aef2d7822-7e24-4495-a760-97a67b4a85aa.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": true,
+  "closed_at": "2026-04-22T02:05:52.946Z",
+  "pid": 3132280,
+  "agent_started_at": "2026-04-22T02:03:36.273Z",
+  "last_prompt_at": "2026-04-22T02:03:47.283Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "_meta": {
+      "claudeCode": {
+        "promptQueueing": true
+      }
+    },
+    "promptCapabilities": {
+      "image": true,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": true
+    },
+    "loadSession": true,
+    "sessionCapabilities": {
+      "fork": {},
+      "list": {},
+      "resume": {},
+      "close": {}
+    }
+  },
+  "title": null,
+  "messages": [
+    {
+      "User": {
+        "id": "a1d832df-eb71-4a59-b4e5-bb5cc16f34a3",
+        "content": [
+          {
+            "Text": "[Wed 2026-04-22 02:03 UTC] Task: Fix task completion messages to show plain English descriptions\n\nUser wants: Replace cryptic \"Background task done: ACP background task (run 10cb4e1b)\" with meaningful messages like \"Claude finished checking the voice config.\"\n\nINVESTIGATE:\n1. Find where completion messages are generated in the task system\n2. Look for the message template or formatting function\n3. The message should include: agent name + what they did + brief result\n4. Check if the task object has metadata we can use (task.description, task.agent, etc.)\n5. Look at how the \"run ID\" is being formatted vs actual task info\n\nFiles to check:\n- Task completion/notification components\n- Message formatting utilities\n- WebSocket handlers for task updates\n\nCODE CHANGES:\n- Modify the message template to use task.agentName + task.shortDescription\n- Or create a mapping from run IDs to human descriptions\n\nOUTPUT:\n- Current message format location\n- Proposed new message format\n- Code changes needed"
+          }
+        ]
+      }
+    },
+    {
+      "Agent": {
+        "content": [
+          {
+            "Text": "Let me investigate how task completion messages are generated."
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01X9pDpxdZ5LdkFz8CL3vWyy",
+              "name": "Find task completion messages",
+              "raw_input": "{\"description\":\"Find task completion messages\",\"subagent_type\":\"Explore\",\"prompt\":\"Find where task completion/notification messages are generated in this codebase. I'm looking for:\\n\\n1. Messages like \\\"Background task done: ACP background task (run 10cb4e1b)\\\" - search for \\\"Background task done\\\" or similar patterns\\n2. Task notification components or handlers\\n3. Any message formatting for task status updates\\n4. WebSocket or event handlers for task completion\\n\\nSearch thoroughly across the entire /workspace/nia-universal directory. Check for patterns like \\\"task done\\\", \\\"task complete\\\", \\\"background task\\\", \\\"run ID\\\", notification messages.\"}",
+              "input": {
+                "description": "Find task completion messages",
+                "subagent_type": "Explore",
+                "prompt": "Find where task completion/notification messages are generated in this codebase. I'm looking for:\n\n1. Messages like \"Background task done: ACP background task (run 10cb4e1b)\" - search for \"Background task done\" or similar patterns\n2. Task notification components or handlers\n3. Any message formatting for task status updates\n4. WebSocket or event handlers for task completion\n\nSearch thoroughly across the entire /workspace/nia-universal directory. Check for patterns like \"task done\", \"task complete\", \"background task\", \"run ID\", notification messages."
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01GZkRv6JxCQeymwzwZzzmt3",
+              "name": "grep | head -0 \"Background task done\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"Background task done\",\"path\":\"/workspace/nia-universal\",\"head_limit\":0}",
+              "input": {
+                "pattern": "Background task done",
+                "path": "/workspace/nia-universal",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VpcbNSk8nXGFDCQno9Qfnx",
+              "name": "grep | head -0 \"task done|task complete\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"task done|task complete\",\"path\":\"/workspace/nia-universal\",\"head_limit\":0}",
+              "input": {
+                "pattern": "task done|task complete",
+                "path": "/workspace/nia-universal",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Rm4iwa5s35B6vbpghMsfw5",
+              "name": "grep | head -0 \"background task\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"background task\",\"path\":\"/workspace/nia-universal\",\"head_limit\":0}",
+              "input": {
+                "pattern": "background task",
+                "path": "/workspace/nia-universal",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01USVgUbZTQUB3pBMJ7U78F6",
+              "name": "grep -c | head -50 --include=\"*.ts,*.tsx,*.js,*.jsx\" \"notification|toast|message\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"notification|toast|message\",\"path\":\"/workspace/nia-universal\",\"glob\":\"*.ts,*.tsx,*.js,*.jsx\",\"output_mode\":\"count\",\"head_limit\":50}",
+              "input": {
+                "pattern": "notification|toast|message",
+                "path": "/workspace/nia-universal",
+                "glob": "*.ts,*.tsx,*.js,*.jsx",
+                "output_mode": "count",
+                "head_limit": 50
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01RFxzX2XSXurcy2r3RWyt1Y",
+              "name": "grep | head -0 --include=\"*.ts,*.tsx,*.js,*.jsx,*.py\" \"run ID|runId|run_id\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"run ID|runId|run_id\",\"path\":\"/workspace/nia-universal\",\"glob\":\"*.ts,*.tsx,*.js,*.jsx,*.py\",\"head_limit\":0}",
+              "input": {
+                "pattern": "run ID|runId|run_id",
+                "path": "/workspace/nia-universal",
+                "glob": "*.ts,*.tsx,*.js,*.jsx,*.py",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01DawbPkgGw8CtM6fAfQmjAe",
+              "name": "grep -l | head -30 --include=\"*.ts,*.tsx,*.js,*.jsx\" \"WebSocket|websocket|ws:/\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"WebSocket|websocket|ws:/\",\"path\":\"/workspace/nia-universal\",\"glob\":\"*.ts,*.tsx,*.js,*.jsx\",\"output_mode\":\"files_with_matches\",\"head_limit\":30}",
+              "input": {
+                "pattern": "WebSocket|websocket|ws:/",
+                "path": "/workspace/nia-universal",
+                "glob": "*.ts,*.tsx,*.js,*.jsx",
+                "output_mode": "files_with_matches",
+                "head_limit": 30
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01XvSieTPctGjt52zXaRbMa3",
+              "name": "grep | head -0 \"ACP background|acp.*task\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"ACP background|acp.*task\",\"path\":\"/workspace/nia-universal\",\"head_limit\":0}",
+              "input": {
+                "pattern": "ACP background|acp.*task",
+                "path": "/workspace/nia-universal",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_012jmJoihczUxv1YvWEBqaRa",
+              "name": "grep -l | head -0 --include=\"*.ts,*.tsx\" \"onMessage|addEventListener|emit|publish\" /workspace/nia-universal/apps/interface/src/features/OpenClawBridge",
+              "raw_input": "{\"pattern\":\"onMessage|addEventListener|emit|publish\",\"path\":\"/workspace/nia-universal/apps/interface/src/features/OpenClawBridge\",\"glob\":\"*.ts,*.tsx\",\"output_mode\":\"files_with_matches\",\"head_limit\":0}",
+              "input": {
+                "pattern": "onMessage|addEventListener|emit|publish",
+                "path": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge",
+                "glob": "*.ts,*.tsx",
+                "output_mode": "files_with_matches",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01YDa1QoMMJpNcJDF7HqSp24",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VfDYJJDPUY71e7eNZZdrqm",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01BHm5qtqntqaEQ4pMfc22zi",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01RFaeLuGESw8xvJ5mtyzwgZ",
+              "name": "Find `/workspace/nia-universal` `**/OpenClawEventBridge.tsx`",
+              "raw_input": "{\"pattern\":\"**/OpenClawEventBridge.tsx\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/OpenClawEventBridge.tsx",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Y2vL7uR4FhXQLTH3NhJZby",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01FukQapERAKFrCWrGHLufT6",
+              "name": "grep | head -0 --include=\"*.ts,*.tsx\" \"run.*ID|run ID\" /workspace/nia-universal/apps/interface",
+              "raw_input": "{\"pattern\":\"run.*ID|run ID\",\"path\":\"/workspace/nia-universal/apps/interface\",\"glob\":\"*.ts,*.tsx\",\"head_limit\":0}",
+              "input": {
+                "pattern": "run.*ID|run ID",
+                "path": "/workspace/nia-universal/apps/interface",
+                "glob": "*.ts,*.tsx",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01DBsRKbbVAyMMPnmgX8gtRo",
+              "name": "grep -l | head -50 --include=\"*.ts,*.tsx\" \"toast|notification|showNotification\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"toast|notification|showNotification\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"glob\":\"*.ts,*.tsx\",\"output_mode\":\"files_with_matches\",\"head_limit\":50}",
+              "input": {
+                "pattern": "toast|notification|showNotification",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "glob": "*.ts,*.tsx",
+                "output_mode": "files_with_matches",
+                "head_limit": 50
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01LYUU7FdP9E6oSTz6ABGKmm",
+              "name": "Find `/workspace/nia-universal/apps/interface/src` `**/toast*.tsx`",
+              "raw_input": "{\"pattern\":\"**/toast*.tsx\",\"path\":\"/workspace/nia-universal/apps/interface/src\"}",
+              "input": {
+                "pattern": "**/toast*.tsx",
+                "path": "/workspace/nia-universal/apps/interface/src"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_015oJr5QFDWUiw8xpNscUUYj",
+              "name": "Find `/workspace/nia-universal/apps/interface/src` `**/notification*.tsx`",
+              "raw_input": "{\"pattern\":\"**/notification*.tsx\",\"path\":\"/workspace/nia-universal/apps/interface/src\"}",
+              "input": {
+                "pattern": "**/notification*.tsx",
+                "path": "/workspace/nia-universal/apps/interface/src"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01S63qkcCKMRxoUey1zyMx8j",
+              "name": "Read /workspace/nia-universal/apps/interface/src/components/ui/toast.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/components/ui/toast.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/components/ui/toast.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01SCyvjvSQTZJQX12W8F3jtj",
+              "name": "Read /workspace/nia-universal/apps/interface/src/hooks/use-toast.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/hooks/use-toast.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/hooks/use-toast.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VGJkMxCpsSkAa1VYd8bJEK",
+              "name": "grep | head -0 --include=\"*.py,*.ts,*.tsx\" \"ACP.*background|task.*done|task.*complete|Background.*task\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"ACP.*background|task.*done|task.*complete|Background.*task\",\"path\":\"/workspace/nia-universal\",\"glob\":\"*.py,*.ts,*.tsx\",\"head_limit\":0}",
+              "input": {
+                "pattern": "ACP.*background|task.*done|task.*complete|Background.*task",
+                "path": "/workspace/nia-universal",
+                "glob": "*.py,*.ts,*.tsx",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01PesGgBcJVJTp3bCYVy6wuh",
+              "name": "grep | head -50 \"done|complete\" /workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py",
+              "raw_input": "{\"pattern\":\"done|complete\",\"path\":\"/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\",\"output_mode\":\"content\",\"head_limit\":50}",
+              "input": {
+                "pattern": "done|complete",
+                "path": "/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py",
+                "output_mode": "content",
+                "head_limit": 50
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01NiLEenX5q8qKkKV19piS1Q",
+              "name": "Read /workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01PrB5Cf3BuPskdNP6TKGyJs",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VtTNtj4Ux8dW33zvFbcbuZ",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_014ToKjNjVn2GcDGD9uQHNR1",
+              "name": "grep | head -30 \"Background task done|run.*ID|background.*task.*complete\" /workspace/nia-universal/apps/pipecat-daily-bot",
+              "raw_input": "{\"pattern\":\"Background task done|run.*ID|background.*task.*complete\",\"path\":\"/workspace/nia-universal/apps/pipecat-daily-bot\",\"output_mode\":\"content\",\"head_limit\":30}",
+              "input": {
+                "pattern": "Background task done|run.*ID|background.*task.*complete",
+                "path": "/workspace/nia-universal/apps/pipecat-daily-bot",
+                "output_mode": "content",
+                "head_limit": 30
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01FXou5Lv1wKYv5Qd5jLGyfs",
+              "name": "Read /workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_control_tools.py",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_control_tools.py\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_control_tools.py"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_018JQY3nG1DNKxH7DV1UhRVt",
+              "name": "Read /workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py (1 - 250)",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\",\"limit\":250}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py",
+                "limit": 250
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Figo1C76m1pMWugc8n4uqk",
+              "name": "grep -l | head -0 --include=\"*.ts,*.tsx\" \"openclaw_task|_emit_task_event\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"openclaw_task|_emit_task_event\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"glob\":\"*.ts,*.tsx\",\"output_mode\":\"files_with_matches\",\"head_limit\":0}",
+              "input": {
+                "pattern": "openclaw_task|_emit_task_event",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "glob": "*.ts,*.tsx",
+                "output_mode": "files_with_matches",
+                "head_limit": 0
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01SbPsCogPjKixPFfkdw8ak5",
+              "name": "grep | head -30 --include=\"*.ts,*.tsx\" \"openclaw_task|task.*event|task.*notification\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"openclaw_task|task.*event|task.*notification\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"glob\":\"*.ts,*.tsx\",\"output_mode\":\"content\",\"head_limit\":30}",
+              "input": {
+                "pattern": "openclaw_task|task.*event|task.*notification",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "glob": "*.ts,*.tsx",
+                "output_mode": "content",
+                "head_limit": 30
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01LCisN15Uy7oqM3gFZw29TT",
+              "name": "grep -r \"Background task done\\|run.*\\[0-9a-f\\]\\{8\\}\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.py\" --include=\"*.js\" 2>/dev/null | head -20",
+              "raw_input": "{\"command\":\"grep -r \\\"Background task done\\\\|run.*\\\\[0-9a-f\\\\]\\\\{8\\\\}\\\" /workspace/nia-universal --include=\\\"*.ts\\\" --include=\\\"*.tsx\\\" --include=\\\"*.py\\\" --include=\\\"*.js\\\" 2>/dev/null | head -20\"}",
+              "input": {
+                "command": "grep -r \"Background task done\\|run.*\\[0-9a-f\\]\\{8\\}\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.py\" --include=\"*.js\" 2>/dev/null | head -20"
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          }
+        ],
+        "tool_results": {
+          "toolu_01X9pDpxdZ5LdkFz8CL3vWyy": {
+            "tool_use_id": "toolu_01X9pDpxdZ5LdkFz8CL3vWyy",
+            "tool_name": "Find task completion messages",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          },
+          "toolu_01GZkRv6JxCQeymwzwZzzmt3": {
+            "tool_use_id": "toolu_01GZkRv6JxCQeymwzwZzzmt3",
+            "tool_name": "grep | head -0 \"Background task done\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 1 file\n/workspace/nia-universal/memory/communication-style.md"
+            },
+            "output": "Found 1 file\n/workspace/nia-universal/memory/communication-style.md"
+          },
+          "toolu_01VpcbNSk8nXGFDCQno9Qfnx": {
+            "tool_use_id": "toolu_01VpcbNSk8nXGFDCQno9Qfnx",
+            "tool_name": "grep | head -0 \"task done|task complete\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 7 files\n/workspace/nia-universal/memory/communication-style.md\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/non_blocking_router.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts\n/workspace/nia-universal/conductor/workflow.md\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tests/test_participant_shutdown.py"
+            },
+            "output": "Found 7 files\n/workspace/nia-universal/memory/communication-style.md\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/non_blocking_router.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts\n/workspace/nia-universal/conductor/workflow.md\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tests/test_participant_shutdown.py"
+          },
+          "toolu_01Rm4iwa5s35B6vbpghMsfw5": {
+            "tool_use_id": "toolu_01Rm4iwa5s35B6vbpghMsfw5",
+            "tool_name": "grep | head -0 \"background task\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 16 files\n/workspace/nia-universal/memory/communication-style.md\n/workspace/nia-universal/memory/pearlvision-adversarial-backend.md\n/workspace/nia-universal/packages/features/generated/bot-tools-manifest.json\n/workspace/nia-universal/apps/pipecat-daily-bot/ADVERSARIAL_AUDIT_REPORT.md\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/pipeline/builder.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/pipeline/builder.py.backup\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/non_blocking_router.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/vision.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/managers.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_control_tools.py\n/workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts\n/workspace/nia-universal/TASK_CONTROL_IMPLEMENTATION.md\n/workspace/nia-universal/UNIFIED_PEARL_ARCHITECTURE.md\n/workspace/nia-universal/config/redis/redis.development.conf"
+            },
+            "output": "Found 16 files\n/workspace/nia-universal/memory/communication-style.md\n/workspace/nia-universal/memory/pearlvision-adversarial-backend.md\n/workspace/nia-universal/packages/features/generated/bot-tools-manifest.json\n/workspace/nia-universal/apps/pipecat-daily-bot/ADVERSARIAL_AUDIT_REPORT.md\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/pipeline/builder.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/pipeline/builder.py.backup\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/non_blocking_router.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/vision.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/managers.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_control_tools.py\n/workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts\n/workspace/nia-universal/TASK_CONTROL_IMPLEMENTATION.md\n/workspace/nia-universal/UNIFIED_PEARL_ARCHITECTURE.md\n/workspace/nia-universal/config/redis/redis.development.conf"
+          },
+          "toolu_01USVgUbZTQUB3pBMJ7U78F6": {
+            "tool_use_id": "toolu_01USVgUbZTQUB3pBMJ7U78F6",
+            "tool_name": "grep -c | head -50 --include=\"*.ts,*.tsx,*.js,*.jsx\" \"notification|toast|message\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/cypress.config.js:5\n/workspace/nia-universal/archive/conversation-flow-system/conversation-client.ts:2\n/workspace/nia-universal/archive/scripts/bootstrap-prod-db-from-dev.ts:1\n/workspace/nia-universal/archive/scripts/delete-tenant-aws.ts:7\n/workspace/nia-universal/archive/test-oauth/page.tsx:1\n/workspace/nia-universal/archive/scripts/report-sessions.ts:25\n/workspace/nia-universal/archive/scripts/clone-aws-db.ts:3\n/workspace/nia-universal/archive/conversation-flow-system/conversation/route.ts:27\n/workspace/nia-universal/tests/e2e/wonder-canvas-delivery.test.ts:1\n/workspace/nia-universal/cypress/e2e/console-errors.cy.js:1\n/workspace/nia-universal/cypress/e2e/pearlos.cy.js:1\n/workspace/nia-universal/tests/visual-regression/test-harness.ts:4\n/workspace/nia-universal/apps/dashboard/__tests__/admin-personalities-page.test.tsx:3\n/workspace/nia-universal/packages/redis/src/client/connection.ts:2\n/workspace/nia-universal/packages/prism/__tests__/account-actions.test.ts:1\n/workspace/nia-universal/packages/events/src/generated/events.ts:2\n/workspace/nia-universal/packages/redis/src/client/health.ts:1\n/workspace/nia-universal/apps/chorus-tts/docs/asyncapi_html/js/asyncapi-ui.min.js:7\n/workspace/nia-universal/apps/dashboard/__tests__/assistant-header.test.tsx:3\n/workspace/nia-universal/packages/prism/__tests__/anonymous-user-actions.test.ts:9\n/workspace/nia-universal/packages/redis/src/config/channels.ts:4\n/workspace/nia-universal/scripts/globalTeardown.ts:2\n/workspace/nia-universal/scripts/seed-db.ts:4\n/workspace/nia-universal/packages/redis/src/config/schemas.ts:31\n/workspace/nia-universal/scripts/jest-performance-reporter.js:2\n/workspace/nia-universal/scripts/validate-ai-protocol.js:1\n/workspace/nia-universal/packages/features/examples/bot-tools-usage.ts:1\n/workspace/nia-universal/scripts/jest-performance-setup.js:4\n/workspace/nia-universal/packages/prism/__tests__/email-ses.test.ts:3\n/workspace/nia-universal/scripts/validate-env.ts:5\n/workspace/nia-universal/apps/pearlos-mcp-server/server.ts:3\n/workspace/nia-universal/scripts/list-daily-recordings.ts:4\n/workspace/nia-universal/apps/dashboard/__tests__/debug-upload.api.test.ts:3\n/workspace/nia-universal/packages/redis/src/messaging/admin.ts:33\n/workspace/nia-universal/scripts/web-chat-health-check.js:11\n/workspace/nia-universal/packages/redis/src/messaging/chat.ts:42\n/workspace/nia-universal/scripts/pipecat-join.ts:2\n/workspace/nia-universal/packages/redis/src/messaging/events.ts:22\n/workspace/nia-universal/scripts/start-db.ts:1\n/workspace/nia-universal/scripts/pipecat-leave.ts:2\n/workspace/nia-universal/apps/sidescroller/godot-build/index.js:1\n/workspace/nia-universal/packages/prism/__tests__/google-auth-pages.test.tsx:2\n/workspace/nia-universal/packages/redis/src/messaging/heartbeat.ts:32\n/workspace/nia-universal/apps/sidescroller/godot-build/index.audio.worklet.js:3\n/workspace/nia-universal/packages/prism/__tests__/password-flow-persistence.test.ts:1\n/workspace/nia-universal/apps/sidescroller/godot-build/index.audio.position.worklet.js:2\n/workspace/nia-universal/scripts/redis/redis-healthcheck.ts:1\n/workspace/nia-universal/packages/prism/__tests__/password-flow.test.ts:3\n/workspace/nia-universal/packages/redis/src/pubsub/channels.ts:15\n/workspace/nia-universal/apps/dashboard/__tests__/upload-images.api.test.ts:1\n\nFound 347 total occurrences across 50 files. with pagination = limit: 50"
+            },
+            "output": "/workspace/nia-universal/cypress.config.js:5\n/workspace/nia-universal/archive/conversation-flow-system/conversation-client.ts:2\n/workspace/nia-universal/archive/scripts/bootstrap-prod-db-from-dev.ts:1\n/workspace/nia-universal/archive/scripts/delete-tenant-aws.ts:7\n/workspace/nia-universal/archive/test-oauth/page.tsx:1\n/workspace/nia-universal/archive/scripts/report-sessions.ts:25\n/workspace/nia-universal/archive/scripts/clone-aws-db.ts:3\n/workspace/nia-universal/archive/conversation-flow-system/conversation/route.ts:27\n/workspace/nia-universal/tests/e2e/wonder-canvas-delivery.test.ts:1\n/workspace/nia-universal/cypress/e2e/console-errors.cy.js:1\n/workspace/nia-universal/cypress/e2e/pearlos.cy.js:1\n/workspace/nia-universal/tests/visual-regression/test-harness.ts:4\n/workspace/nia-universal/apps/dashboard/__tests__/admin-personalities-page.test.tsx:3\n/workspace/nia-universal/packages/redis/src/client/connection.ts:2\n/workspace/nia-universal/packages/prism/__tests__/account-actions.test.ts:1\n/workspace/nia-universal/packages/events/src/generated/events.ts:2\n/workspace/nia-universal/packages/redis/src/client/health.ts:1\n/workspace/nia-universal/apps/chorus-tts/docs/asyncapi_html/js/asyncapi-ui.min.js:7\n/workspace/nia-universal/apps/dashboard/__tests__/assistant-header.test.tsx:3\n/workspace/nia-universal/packages/prism/__tests__/anonymous-user-actions.test.ts:9\n/workspace/nia-universal/packages/redis/src/config/channels.ts:4\n/workspace/nia-universal/scripts/globalTeardown.ts:2\n/workspace/nia-universal/scripts/seed-db.ts:4\n/workspace/nia-universal/packages/redis/src/config/schemas.ts:31\n/workspace/nia-universal/scripts/jest-performance-reporter.js:2\n/workspace/nia-universal/scripts/validate-ai-protocol.js:1\n/workspace/nia-universal/packages/features/examples/bot-tools-usage.ts:1\n/workspace/nia-universal/scripts/jest-performance-setup.js:4\n/workspace/nia-universal/packages/prism/__tests__/email-ses.test.ts:3\n/workspace/nia-universal/scripts/validate-env.ts:5\n/workspace/nia-universal/apps/pearlos-mcp-server/server.ts:3\n/workspace/nia-universal/scripts/list-daily-recordings.ts:4\n/workspace/nia-universal/apps/dashboard/__tests__/debug-upload.api.test.ts:3\n/workspace/nia-universal/packages/redis/src/messaging/admin.ts:33\n/workspace/nia-universal/scripts/web-chat-health-check.js:11\n/workspace/nia-universal/packages/redis/src/messaging/chat.ts:42\n/workspace/nia-universal/scripts/pipecat-join.ts:2\n/workspace/nia-universal/packages/redis/src/messaging/events.ts:22\n/workspace/nia-universal/scripts/start-db.ts:1\n/workspace/nia-universal/scripts/pipecat-leave.ts:2\n/workspace/nia-universal/apps/sidescroller/godot-build/index.js:1\n/workspace/nia-universal/packages/prism/__tests__/google-auth-pages.test.tsx:2\n/workspace/nia-universal/packages/redis/src/messaging/heartbeat.ts:32\n/workspace/nia-universal/apps/sidescroller/godot-build/index.audio.worklet.js:3\n/workspace/nia-universal/packages/prism/__tests__/password-flow-persistence.test.ts:1\n/workspace/nia-universal/apps/sidescroller/godot-build/index.audio.position.worklet.js:2\n/workspace/nia-universal/scripts/redis/redis-healthcheck.ts:1\n/workspace/nia-universal/packages/prism/__tests__/password-flow.test.ts:3\n/workspace/nia-universal/packages/redis/src/pubsub/channels.ts:15\n/workspace/nia-universal/apps/dashboard/__tests__/upload-images.api.test.ts:1\n\nFound 347 total occurrences across 50 files. with pagination = limit: 50"
+          },
+          "toolu_01RFxzX2XSXurcy2r3RWyt1Y": {
+            "tool_use_id": "toolu_01RFxzX2XSXurcy2r3RWyt1Y",
+            "tool_name": "grep | head -0 --include=\"*.ts,*.tsx,*.js,*.jsx,*.py\" \"run ID|runId|run_id\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01DawbPkgGw8CtM6fAfQmjAe": {
+            "tool_use_id": "toolu_01DawbPkgGw8CtM6fAfQmjAe",
+            "tool_name": "grep -l | head -30 --include=\"*.ts,*.tsx,*.js,*.jsx\" \"WebSocket|websocket|ws:/\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 18 files\n/workspace/nia-universal/tests/visual-regression/test-harness.ts\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/WonderCanvasRenderer.tsx\n/workspace/nia-universal/apps/interface/src/hooks/useGatewayWebSocket.ts\n/workspace/nia-universal/apps/interface/src/lib/daily/event-bridge.ts\n/workspace/nia-universal/apps/interface/src/lib/event-dedup.ts\n/workspace/nia-universal/apps/interface/src/providers/client-providers.tsx\n/workspace/nia-universal/apps/interface/src/components/assistant-canvas.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Call.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/ClientManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/WsEventBridgeManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/hooks/useGatewaySocket.ts\n/workspace/nia-universal/apps/interface/src/features/MiniBrowser/routes/enhanced-proxy/[...url]/route.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/scripts/start-browser-automation.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/service.ts\n/workspace/nia-universal/apps/dashboard/src/app/api/tts/preview/route.ts\n/workspace/nia-universal/apps/sidescroller/godot-build/index.js"
+            },
+            "output": "Found 18 files\n/workspace/nia-universal/tests/visual-regression/test-harness.ts\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/WonderCanvasRenderer.tsx\n/workspace/nia-universal/apps/interface/src/hooks/useGatewayWebSocket.ts\n/workspace/nia-universal/apps/interface/src/lib/daily/event-bridge.ts\n/workspace/nia-universal/apps/interface/src/lib/event-dedup.ts\n/workspace/nia-universal/apps/interface/src/providers/client-providers.tsx\n/workspace/nia-universal/apps/interface/src/components/assistant-canvas.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Call.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/ClientManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/WsEventBridgeManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/hooks/useGatewaySocket.ts\n/workspace/nia-universal/apps/interface/src/features/MiniBrowser/routes/enhanced-proxy/[...url]/route.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/scripts/start-browser-automation.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/service.ts\n/workspace/nia-universal/apps/dashboard/src/app/api/tts/preview/route.ts\n/workspace/nia-universal/apps/sidescroller/godot-build/index.js"
+          },
+          "toolu_01XvSieTPctGjt52zXaRbMa3": {
+            "tool_use_id": "toolu_01XvSieTPctGjt52zXaRbMa3",
+            "tool_name": "grep | head -0 \"ACP background|acp.*task\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 5 files\n/workspace/nia-universal/memory/communication-style.md\n/workspace/nia-universal/state/sessions/agent%3Aclaude%3Aacp%3A21dc18b1-9374-4be0-96ef-a917fa599ec3%3Aoneshot%3Abf1a4c4c-de17-40fb-83bd-b10417d60497.json\n/workspace/nia-universal/apps/interface/.data/task-feedback/feedback.jsonl\n/workspace/nia-universal/state/sessions/agent%3Acodex%3Aacp%3A74721032-1ac9-4b61-a8f8-26d9ce2c76b9%3Aoneshot%3A0ea6793b-21f0-4ebb-8d47-b4c452aac362.json\n/workspace/nia-universal/state/sessions/agent%3Acodex%3Aacp%3A23d718c3-e2c6-41aa-8012-75d6b5998bfc%3Aoneshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json"
+            },
+            "output": "Found 5 files\n/workspace/nia-universal/memory/communication-style.md\n/workspace/nia-universal/state/sessions/agent%3Aclaude%3Aacp%3A21dc18b1-9374-4be0-96ef-a917fa599ec3%3Aoneshot%3Abf1a4c4c-de17-40fb-83bd-b10417d60497.json\n/workspace/nia-universal/apps/interface/.data/task-feedback/feedback.jsonl\n/workspace/nia-universal/state/sessions/agent%3Acodex%3Aacp%3A74721032-1ac9-4b61-a8f8-26d9ce2c76b9%3Aoneshot%3A0ea6793b-21f0-4ebb-8d47-b4c452aac362.json\n/workspace/nia-universal/state/sessions/agent%3Acodex%3Aacp%3A23d718c3-e2c6-41aa-8012-75d6b5998bfc%3Aoneshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json"
+          },
+          "toolu_012jmJoihczUxv1YvWEBqaRa": {
+            "tool_use_id": "toolu_012jmJoihczUxv1YvWEBqaRa",
+            "tool_name": "grep -l | head -0 --include=\"*.ts,*.tsx\" \"onMessage|addEventListener|emit|publish\" /workspace/nia-universal/apps/interface/src/features/OpenClawBridge",
+            "is_error": false,
+            "content": {
+              "Text": "Found 2 files\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawResponse.tsx"
+            },
+            "output": "Found 2 files\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawResponse.tsx"
+          },
+          "toolu_01YDa1QoMMJpNcJDF7HqSp24": {
+            "tool_use_id": "toolu_01YDa1QoMMJpNcJDF7HqSp24",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t/**\n2\t * Custom event names for OpenClaw Bridge integration.\n3\t * These events are dispatched on the window/document for cross-feature communication.\n4\t */\n5\t\n6\texport const OPENCLAW_BRIDGE_EVENTS = {\n7\t  /** Fired when a task is submitted to OpenClaw */\n8\t  TASK_SUBMITTED: 'openclaw:task:submitted',\n9\t  /** Fired when streaming chunks arrive */\n10\t  STREAM_CHUNK: 'openclaw:stream:chunk',\n11\t  /** Fired when a task completes */\n12\t  TASK_COMPLETED: 'openclaw:task:completed',\n13\t  /** Fired on task failure */\n14\t  TASK_FAILED: 'openclaw:task:failed',\n15\t  /** Fired to request the avatar state change (working/idle/success/error) */\n16\t  AVATAR_STATE: 'openclaw:avatar:state',\n17\t} as const;\n18\t"
+            },
+            "output": "1\t/**\n2\t * Custom event names for OpenClaw Bridge integration.\n3\t * These events are dispatched on the window/document for cross-feature communication.\n4\t */\n5\t\n6\texport const OPENCLAW_BRIDGE_EVENTS = {\n7\t  /** Fired when a task is submitted to OpenClaw */\n8\t  TASK_SUBMITTED: 'openclaw:task:submitted',\n9\t  /** Fired when streaming chunks arrive */\n10\t  STREAM_CHUNK: 'openclaw:stream:chunk',\n11\t  /** Fired when a task completes */\n12\t  TASK_COMPLETED: 'openclaw:task:completed',\n13\t  /** Fired on task failure */\n14\t  TASK_FAILED: 'openclaw:task:failed',\n15\t  /** Fired to request the avatar state change (working/idle/success/error) */\n16\t  AVATAR_STATE: 'openclaw:avatar:state',\n17\t} as const;\n18\t"
+          },
+          "toolu_01VfDYJJDPUY71e7eNZZdrqm": {
+            "tool_use_id": "toolu_01VfDYJJDPUY71e7eNZZdrqm",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t/**\n2\t * WebSocket Event Bridge\n3\t *\n4\t * Connects to the bot gateway's `/ws/events` endpoint and feeds incoming\n5\t * nia.event envelopes into the same niaEventRouter used by the Daily.co\n6\t * app-message bridge.  This allows PearlOS UI tools (notes, YouTube,\n7\t * windows, etc.) to work even when there is no active Daily.co room.\n8\t *\n9\t * Usage:\n10\t *   import { startWsEventBridge, stopWsEventBridge } from './wsEventBridge';\n11\t *   startWsEventBridge('ws://localhost:4444/ws/events');\n12\t *   // later:\n13\t *   stopWsEventBridge();\n14\t */\n15\t\n16\timport { getClientLogger } from '@interface/lib/client-logger';\n17\timport { isDuplicateEvent } from '@interface/lib/event-dedup';\n18\t\n19\timport type { AppMessageEnvelope } from './appMessageBridge';\n20\timport { routeNiaEvent } from './niaEventRouter';\n21\t\n22\tconst log = getClientLogger('[ws_event_bridge]');\n23\t\n24\tlet _ws: WebSocket | null = null;\n25\tlet _url: string | null = null;\n26\tlet _sessionId: string | null = null;\n27\tlet _reconnectTimer: ReturnType<typeof setTimeout> | null = null;\n28\tlet _stopped = false;\n29\t\n30\tconst RECONNECT_INTERVAL_MS = 3000;\n31\tconst MAX_RECONNECT_INTERVAL_MS = 30000;\n32\tlet _reconnectDelay = RECONNECT_INTERVAL_MS;\n33\t\n34\tfunction isNiaEnvelope(obj: unknown): obj is AppMessageEnvelope {\n35\t  return (\n36\t    !!obj &&\n37\t    typeof obj === 'object' &&\n38\t    (obj as Record<string, unknown>).kind === 'nia.event' &&\n39\t    typeof (obj as Record<string, unknown>).event === 'string'\n40\t  );\n41\t}\n42\t\n43\tfunction connect(url: string) {\n44\t  if (_stopped) return;\n45\t\n46\t  try {\n47\t    const ws = new WebSocket(url);\n48\t\n49\t    ws.onopen = () => {\n50\t      log.info('Connected to bot gateway WebSocket', { url, sessionId: _sessionId });\n51\t      _reconnectDelay = RECONNECT_INTERVAL_MS; // reset backoff\n52\t      // Send session scoping message if a session ID is set\n53\t      if (_sessionId) {\n54\t        try {\n55\t          ws.send(JSON.stringify({ session_id: _sessionId }));\n56\t          log.info('Sent session_id to gateway WebSocket', { sessionId: _sessionId });\n57\t        } catch (err) {\n58\t          log.warn('Failed to send session_id', { error: String(err) });\n59\t        }\n60\t      }\n61\t    };\n62\t\n63\t    ws.onmessage = (ev: MessageEvent) => {\n64\t      try {\n65\t        const data = JSON.parse(ev.data);\n66\t\n67\t        // Handle keepalive pings from server\n68\t        if (data.type === 'ping') {\n69\t          try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* noop */ }\n70\t          return;\n71\t        }\n72\t\n73\t        // Filter by sessionUserId if targeted\n74\t        if (data.targetSessionUserId) {\n75\t          const currentSessionUserId = sessionStorage.getItem('sessionUserId');\n76\t          if (currentSessionUserId !== data.targetSessionUserId) {\n77\t            return; // not for this user\n78\t          }\n79\t        }\n80\t\n81\t        if (isNiaEnvelope(data)) {\n82\t          if (!isDuplicateEvent(data.seq, data.ts, data.event)) {\n83\t            routeNiaEvent(data);\n84\t          }\n85\t        }\n86\t        // Also handle nia.tool_invoke envelopes (pass through to router as-is)\n87\t        if (data.kind === 'nia.tool_invoke') {\n88\t          // Tool invocations are handled by the bot process; we just\n89\t          // observe them for debugging. No routing needed on the frontend.\n90\t          log.debug('Received tool_invoke via WS', { tool: data.tool_name });\n91\t        }\n92\t      } catch {\n93\t        // Ignore malformed messages\n94\t      }\n95\t    };\n96\t\n97\t    ws.onclose = () => {\n98\t      log.info('WebSocket disconnected, scheduling reconnect', {\n99\t        delay: _reconnectDelay,\n100\t      });\n101\t      _ws = null;\n102\t      scheduleReconnect(url);\n103\t    };\n104\t\n105\t    ws.onerror = (err) => {\n106\t      log.warn('WebSocket error', { error: String(err) });\n107\t      // onclose will fire after onerror\n108\t    };\n109\t\n110\t    _ws = ws;\n111\t  } catch (err) {\n112\t    log.warn('Failed to create WebSocket', { error: String(err) });\n113\t    scheduleReconnect(url);\n114..."
+            },
+            "output": "1\t/**\n2\t * WebSocket Event Bridge\n3\t *\n4\t * Connects to the bot gateway's `/ws/events` endpoint and feeds incoming\n5\t * nia.event envelopes into the same niaEventRouter used by the Daily.co\n6\t * app-message bridge.  This allows PearlOS UI tools (notes, YouTube,\n7\t * windows, etc.) to work even when there is no active Daily.co room.\n8\t *\n9\t * Usage:\n10\t *   import { startWsEventBridge, stopWsEventBridge } from './wsEventBridge';\n11\t *   startWsEventBridge('ws://localhost:4444/ws/events');\n12\t *   // later:\n13\t *   stopWsEventBridge();\n14\t */\n15\t\n16\timport { getClientLogger } from '@interface/lib/client-logger';\n17\timport { isDuplicateEvent } from '@interface/lib/event-dedup';\n18\t\n19\timport type { AppMessageEnvelope } from './appMessageBridge';\n20\timport { routeNiaEvent } from './niaEventRouter';\n21\t\n22\tconst log = getClientLogger('[ws_event_bridge]');\n23\t\n24\tlet _ws: WebSocket | null = null;\n25\tlet _url: string | null = null;\n26\tlet _sessionId: string | null = null;\n27\tlet _reconnectTimer: ReturnType<typeof setTimeout> | null = null;\n28\tlet _stopped = false;\n29\t\n30\tconst RECONNECT_INTERVAL_MS = 3000;\n31\tconst MAX_RECONNECT_INTERVAL_MS = 30000;\n32\tlet _reconnectDelay = RECONNECT_INTERVAL_MS;\n33\t\n34\tfunction isNiaEnvelope(obj: unknown): obj is AppMessageEnvelope {\n35\t  return (\n36\t    !!obj &&\n37\t    typeof obj === 'object' &&\n38\t    (obj as Record<string, unknown>).kind === 'nia.event' &&\n39\t    typeof (obj as Record<string, unknown>).event === 'string'\n40\t  );\n41\t}\n42\t\n43\tfunction connect(url: string) {\n44\t  if (_stopped) return;\n45\t\n46\t  try {\n47\t    const ws = new WebSocket(url);\n48\t\n49\t    ws.onopen = () => {\n50\t      log.info('Connected to bot gateway WebSocket', { url, sessionId: _sessionId });\n51\t      _reconnectDelay = RECONNECT_INTERVAL_MS; // reset backoff\n52\t      // Send session scoping message if a session ID is set\n53\t      if (_sessionId) {\n54\t        try {\n55\t          ws.send(JSON.stringify({ session_id: _sessionId }));\n56\t          log.info('Sent session_id to gateway WebSocket', { sessionId: _sessionId });\n57\t        } catch (err) {\n58\t          log.warn('Failed to send session_id', { error: String(err) });\n59\t        }\n60\t      }\n61\t    };\n62\t\n63\t    ws.onmessage = (ev: MessageEvent) => {\n64\t      try {\n65\t        const data = JSON.parse(ev.data);\n66\t\n67\t        // Handle keepalive pings from server\n68\t        if (data.type === 'ping') {\n69\t          try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* noop */ }\n70\t          return;\n71\t        }\n72\t\n73\t        // Filter by sessionUserId if targeted\n74\t        if (data.targetSessionUserId) {\n75\t          const currentSessionUserId = sessionStorage.getItem('sessionUserId');\n76\t          if (currentSessionUserId !== data.targetSessionUserId) {\n77\t            return; // not for this user\n78\t          }\n79\t        }\n80\t\n81\t        if (isNiaEnvelope(data)) {\n82\t          if (!isDuplicateEvent(data.seq, data.ts, data.event)) {\n83\t            routeNiaEvent(data);\n84\t          }\n85\t        }\n86\t        // Also handle nia.tool_invoke envelopes (pass through to router as-is)\n87\t        if (data.kind === 'nia.tool_invoke') {\n88\t          // Tool invocations are handled by the bot process; we just\n89\t          // observe them for debugging. No routing needed on the frontend.\n90\t          log.debug('Received tool_invoke via WS', { tool: data.tool_name });\n91\t        }\n92\t      } catch {\n93\t        // Ignore malformed messages\n94\t      }\n95\t    };\n96\t\n97\t    ws.onclose = () => {\n98\t      log.info('WebSocket disconnected, scheduling reconnect', {\n99\t        delay: _reconnectDelay,\n100\t      });\n101\t      _ws = null;\n102\t      scheduleReconnect(url);\n103\t    };\n104\t\n105\t    ws.onerror = (err) => {\n106\t      log.warn('WebSocket error', { error: String(err) });\n107\t      // onclose will fire after onerror\n108\t    };\n109\t\n110\t    _ws = ws;\n111\t  } catch (err) {\n112\t    log.warn('Failed to create WebSocket', { error: String(err) });\n113\t    scheduleReconnect(url);\n114..."
+          },
+          "toolu_01BHm5qtqntqaEQ4pMfc22zi": {
+            "tool_use_id": "toolu_01BHm5qtqntqaEQ4pMfc22zi",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { EventEnum } from '@nia/events';\n2\timport posthog from 'posthog-js';\n3\t\n4\timport type { AppMessageEnvelope } from './appMessageBridge';\n5\t\n6\ttype AnyPayload = Record<string, unknown> | null | undefined;\n7\t\n8\ttype MinimalEnvelope<TPayload> = Pick<AppMessageEnvelope<TPayload>, 'v' | 'kind' | 'seq' | 'ts' | 'payload'> & {\n9\t  event: string;\n10\t};\n11\t\n12\texport interface NiaEventDetail<TPayload = AnyPayload> {\n13\t  event: EventEnum | string;\n14\t  envelope: MinimalEnvelope<TPayload>;\n15\t  payload: TPayload;\n16\t}\n17\t\n18\texport const NIA_EVENT_ALL = 'nia.event.all';\n19\texport const NIA_EVENT_OPENCLAW_TASK = 'nia.event.openclawTask';\n20\texport const NIA_EVENT_BOT_SPEAKING_STARTED = 'nia.event.botSpeakingStarted';\n21\texport const NIA_EVENT_BOT_SPEAKING_STOPPED = 'nia.event.botSpeakingStopped';\n22\texport const NIA_EVENT_CONVERSATION_WRAPUP = 'nia.event.conversationWrapup';\n23\texport const NIA_EVENT_SESSION_END = 'nia.event.sessionEnd';\n24\texport const NIA_EVENT_WINDOW_MINIMIZE = 'nia.event.windowMinimize';\n25\texport const NIA_EVENT_WINDOW_MAXIMIZE = 'nia.event.windowMaximize';\n26\texport const NIA_EVENT_WINDOW_RESTORE = 'nia.event.windowRestore';\n27\texport const NIA_EVENT_WINDOW_SNAP_LEFT = 'nia.event.windowSnapLeft';\n28\texport const NIA_EVENT_WINDOW_SNAP_RIGHT = 'nia.event.windowSnapRight';\n29\texport const NIA_EVENT_WINDOW_RESET = 'nia.event.windowReset';\n30\texport const NIA_EVENT_NOTE_OPEN = 'nia.event.noteOpen';\n31\texport const NIA_EVENT_NOTE_CLOSE = 'nia.event.noteClose';\n32\texport const NIA_EVENT_NOTE_UPDATED = 'nia.event.noteUpdated';\n33\texport const NIA_EVENT_NOTE_SAVED = 'nia.event.noteSaved';\n34\texport const NIA_EVENT_NOTE_DOWNLOAD = 'nia.event.noteDownload';\n35\texport const NIA_EVENT_NOTE_DELETED = 'nia.event.noteDeleted';\n36\texport const NIA_EVENT_NOTE_SCROLL = 'nia.event.noteScroll';\n37\texport const NIA_EVENT_NOTE_HIGHLIGHT = 'nia.event.noteHighlight';\n38\texport const NIA_EVENT_NOTE_NAVIGATE_HEADING = 'nia.event.noteNavigateHeading';\n39\texport const NIA_EVENT_NOTE_MODE_SWITCH = 'nia.event.noteModeSwitch';\n40\texport const NIA_EVENT_NOTES_REFRESH = 'nia.event.notesRefresh';\n41\texport const NIA_EVENT_NOTES_LIST = 'nia.event.notesList';\n42\texport const NIA_EVENT_APPLET_REFRESH = 'nia.event.appletRefresh';\n43\texport const NIA_EVENT_APP_OPEN = 'nia.event.appOpen';\n44\texport const NIA_EVENT_APPS_CLOSE = 'nia.event.appsClose';\n45\texport const NIA_EVENT_BROWSER_OPEN = 'nia.event.browserOpen';\n46\texport const NIA_EVENT_BROWSER_CLOSE = 'nia.event.browserClose';\n47\texport const NIA_EVENT_VIEW_CLOSE = 'nia.event.viewClose';\n48\texport const NIA_EVENT_DESKTOP_MODE_SWITCH = 'nia.event.desktopModeSwitch';\n49\texport const NIA_EVENT_LAYOUT_MODE_SWITCH = 'nia.event.layoutModeSwitch';\n50\texport const NIA_EVENT_YOUTUBE_SEARCH = 'nia.event.youtubeSearch';\n51\texport const NIA_EVENT_YOUTUBE_PLAY = 'nia.event.youtubePlay';\n52\texport const NIA_EVENT_YOUTUBE_PAUSE = 'nia.event.youtubePause';\n53\texport const NIA_EVENT_YOUTUBE_NEXT = 'nia.event.youtubeNext';\n54\texport const NIA_EVENT_CALL_START = 'nia.event.callStart';\n55\texport const NIA_EVENT_HTML_CREATED = 'nia.event.htmlCreated';\n56\texport const NIA_EVENT_HTML_UPDATED = 'nia.event.htmlUpdated';\n57\texport const NIA_EVENT_HTML_LOADED = 'nia.event.htmlLoaded';\n58\texport const NIA_EVENT_HTML_GENERATION_REQUESTED = 'nia.event.htmlGenerationRequested';\n59\texport const NIA_EVENT_HTML_MODIFICATION_REQUESTED = 'nia.event.htmlModificationRequested';\n60\texport const NIA_EVENT_HTML_ROLLBACK_REQUESTED = 'nia.event.htmlRollbackRequested';\n61\texport const NIA_EVENT_APPLET_OPEN = 'nia.event.appletOpen';\n62\texport const NIA_EVENT_APPLET_CLOSE = 'nia.event.appletClose';\n63\texport const NIA_EVENT_APPLET_UPDATED = 'nia.event.appletUpdated';\n64\texport const NIA_EVENT_APPLET_SHARE_OPEN = 'nia.event.appletShareOpen';\n65\texport const NIA_EVENT_ONBOARDING_COMPLETE = 'nia.event.onboardingComplete';\n66\texport const NIA_EVENT_SPRITE_OPEN = 'nia.event.spriteOpen';\n67\texport const NIA_EVENT_EXPERIENCE_RENDER = 'nia:ex..."
+            },
+            "output": "1\timport { EventEnum } from '@nia/events';\n2\timport posthog from 'posthog-js';\n3\t\n4\timport type { AppMessageEnvelope } from './appMessageBridge';\n5\t\n6\ttype AnyPayload = Record<string, unknown> | null | undefined;\n7\t\n8\ttype MinimalEnvelope<TPayload> = Pick<AppMessageEnvelope<TPayload>, 'v' | 'kind' | 'seq' | 'ts' | 'payload'> & {\n9\t  event: string;\n10\t};\n11\t\n12\texport interface NiaEventDetail<TPayload = AnyPayload> {\n13\t  event: EventEnum | string;\n14\t  envelope: MinimalEnvelope<TPayload>;\n15\t  payload: TPayload;\n16\t}\n17\t\n18\texport const NIA_EVENT_ALL = 'nia.event.all';\n19\texport const NIA_EVENT_OPENCLAW_TASK = 'nia.event.openclawTask';\n20\texport const NIA_EVENT_BOT_SPEAKING_STARTED = 'nia.event.botSpeakingStarted';\n21\texport const NIA_EVENT_BOT_SPEAKING_STOPPED = 'nia.event.botSpeakingStopped';\n22\texport const NIA_EVENT_CONVERSATION_WRAPUP = 'nia.event.conversationWrapup';\n23\texport const NIA_EVENT_SESSION_END = 'nia.event.sessionEnd';\n24\texport const NIA_EVENT_WINDOW_MINIMIZE = 'nia.event.windowMinimize';\n25\texport const NIA_EVENT_WINDOW_MAXIMIZE = 'nia.event.windowMaximize';\n26\texport const NIA_EVENT_WINDOW_RESTORE = 'nia.event.windowRestore';\n27\texport const NIA_EVENT_WINDOW_SNAP_LEFT = 'nia.event.windowSnapLeft';\n28\texport const NIA_EVENT_WINDOW_SNAP_RIGHT = 'nia.event.windowSnapRight';\n29\texport const NIA_EVENT_WINDOW_RESET = 'nia.event.windowReset';\n30\texport const NIA_EVENT_NOTE_OPEN = 'nia.event.noteOpen';\n31\texport const NIA_EVENT_NOTE_CLOSE = 'nia.event.noteClose';\n32\texport const NIA_EVENT_NOTE_UPDATED = 'nia.event.noteUpdated';\n33\texport const NIA_EVENT_NOTE_SAVED = 'nia.event.noteSaved';\n34\texport const NIA_EVENT_NOTE_DOWNLOAD = 'nia.event.noteDownload';\n35\texport const NIA_EVENT_NOTE_DELETED = 'nia.event.noteDeleted';\n36\texport const NIA_EVENT_NOTE_SCROLL = 'nia.event.noteScroll';\n37\texport const NIA_EVENT_NOTE_HIGHLIGHT = 'nia.event.noteHighlight';\n38\texport const NIA_EVENT_NOTE_NAVIGATE_HEADING = 'nia.event.noteNavigateHeading';\n39\texport const NIA_EVENT_NOTE_MODE_SWITCH = 'nia.event.noteModeSwitch';\n40\texport const NIA_EVENT_NOTES_REFRESH = 'nia.event.notesRefresh';\n41\texport const NIA_EVENT_NOTES_LIST = 'nia.event.notesList';\n42\texport const NIA_EVENT_APPLET_REFRESH = 'nia.event.appletRefresh';\n43\texport const NIA_EVENT_APP_OPEN = 'nia.event.appOpen';\n44\texport const NIA_EVENT_APPS_CLOSE = 'nia.event.appsClose';\n45\texport const NIA_EVENT_BROWSER_OPEN = 'nia.event.browserOpen';\n46\texport const NIA_EVENT_BROWSER_CLOSE = 'nia.event.browserClose';\n47\texport const NIA_EVENT_VIEW_CLOSE = 'nia.event.viewClose';\n48\texport const NIA_EVENT_DESKTOP_MODE_SWITCH = 'nia.event.desktopModeSwitch';\n49\texport const NIA_EVENT_LAYOUT_MODE_SWITCH = 'nia.event.layoutModeSwitch';\n50\texport const NIA_EVENT_YOUTUBE_SEARCH = 'nia.event.youtubeSearch';\n51\texport const NIA_EVENT_YOUTUBE_PLAY = 'nia.event.youtubePlay';\n52\texport const NIA_EVENT_YOUTUBE_PAUSE = 'nia.event.youtubePause';\n53\texport const NIA_EVENT_YOUTUBE_NEXT = 'nia.event.youtubeNext';\n54\texport const NIA_EVENT_CALL_START = 'nia.event.callStart';\n55\texport const NIA_EVENT_HTML_CREATED = 'nia.event.htmlCreated';\n56\texport const NIA_EVENT_HTML_UPDATED = 'nia.event.htmlUpdated';\n57\texport const NIA_EVENT_HTML_LOADED = 'nia.event.htmlLoaded';\n58\texport const NIA_EVENT_HTML_GENERATION_REQUESTED = 'nia.event.htmlGenerationRequested';\n59\texport const NIA_EVENT_HTML_MODIFICATION_REQUESTED = 'nia.event.htmlModificationRequested';\n60\texport const NIA_EVENT_HTML_ROLLBACK_REQUESTED = 'nia.event.htmlRollbackRequested';\n61\texport const NIA_EVENT_APPLET_OPEN = 'nia.event.appletOpen';\n62\texport const NIA_EVENT_APPLET_CLOSE = 'nia.event.appletClose';\n63\texport const NIA_EVENT_APPLET_UPDATED = 'nia.event.appletUpdated';\n64\texport const NIA_EVENT_APPLET_SHARE_OPEN = 'nia.event.appletShareOpen';\n65\texport const NIA_EVENT_ONBOARDING_COMPLETE = 'nia.event.onboardingComplete';\n66\texport const NIA_EVENT_SPRITE_OPEN = 'nia.event.spriteOpen';\n67\texport const NIA_EVENT_EXPERIENCE_RENDER = 'nia:ex..."
+          },
+          "toolu_01RFaeLuGESw8xvJ5mtyzwgZ": {
+            "tool_use_id": "toolu_01RFaeLuGESw8xvJ5mtyzwgZ",
+            "tool_name": "Find `/workspace/nia-universal` `**/OpenClawEventBridge.tsx`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx"
+          },
+          "toolu_01Y2vL7uR4FhXQLTH3NhJZby": {
+            "tool_use_id": "toolu_01Y2vL7uR4FhXQLTH3NhJZby",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\t/**\n4\t * OpenClawEventBridge\n5\t *\n6\t * Listens for nia.event envelopes carrying `openclaw.task.trigger` and\n7\t * dispatches the task through the bridge client. This wires the pipecat\n8\t * bot's tool call into the client-side streaming pipeline.\n9\t *\n10\t * Mount this component once (e.g. in the desktop layout) — it renders nothing.\n11\t */\n12\t\n13\timport { useEffect } from 'react';\n14\t\n15\timport { NIA_EVENT_OPENCLAW_TASK } from '@interface/features/DailyCall/events/niaEventRouter';\n16\t\n17\timport { triggerOpenClawTask } from '../triggerOpenClawTask';\n18\timport { OPENCLAW_BRIDGE_EVENTS } from '../events';\n19\t\n20\texport function OpenClawEventBridge() {\n21\t  useEffect(() => {\n22\t    function handleOpenClawTask(e: Event) {\n23\t      const detail = (e as CustomEvent).detail;\n24\t      const prompt: string | undefined =\n25\t        detail?.payload?.prompt ?? detail?.payload?.task ?? detail?.prompt ?? detail?.task;\n26\t\n27\t      if (!prompt) return;\n28\t\n29\t      const assistantId: string | undefined =\n30\t        detail?.payload?.assistantId ?? detail?.assistantId;\n31\t      const conversationId: string | undefined =\n32\t        detail?.payload?.conversationId ?? detail?.conversationId;\n33\t\n34\t      // Fire-and-forget: stream the task and dispatch completion/failure events\n35\t      triggerOpenClawTask({ prompt, assistantId, conversationId }).then(\n36\t        (result) => {\n37\t          if (result.success) {\n38\t            window.dispatchEvent(\n39\t              new CustomEvent(OPENCLAW_BRIDGE_EVENTS.TASK_COMPLETED, {\n40\t                detail: { response: result.response },\n41\t              })\n42\t            );\n43\t          } else {\n44\t            window.dispatchEvent(\n45\t              new CustomEvent(OPENCLAW_BRIDGE_EVENTS.TASK_FAILED, {\n46\t                detail: { error: result.error },\n47\t              })\n48\t            );\n49\t          }\n50\t        },\n51\t        (err) => {\n52\t          window.dispatchEvent(\n53\t            new CustomEvent(OPENCLAW_BRIDGE_EVENTS.TASK_FAILED, {\n54\t              detail: { error: String(err) },\n55\t            })\n56\t          );\n57\t        }\n58\t      );\n59\t    }\n60\t\n61\t    window.addEventListener(NIA_EVENT_OPENCLAW_TASK, handleOpenClawTask);\n62\t    return () =>\n63\t      window.removeEventListener(NIA_EVENT_OPENCLAW_TASK, handleOpenClawTask);\n64\t  }, []);\n65\t\n66\t  return null;\n67\t}\n68\t"
+            },
+            "output": "1\t'use client';\n2\t\n3\t/**\n4\t * OpenClawEventBridge\n5\t *\n6\t * Listens for nia.event envelopes carrying `openclaw.task.trigger` and\n7\t * dispatches the task through the bridge client. This wires the pipecat\n8\t * bot's tool call into the client-side streaming pipeline.\n9\t *\n10\t * Mount this component once (e.g. in the desktop layout) — it renders nothing.\n11\t */\n12\t\n13\timport { useEffect } from 'react';\n14\t\n15\timport { NIA_EVENT_OPENCLAW_TASK } from '@interface/features/DailyCall/events/niaEventRouter';\n16\t\n17\timport { triggerOpenClawTask } from '../triggerOpenClawTask';\n18\timport { OPENCLAW_BRIDGE_EVENTS } from '../events';\n19\t\n20\texport function OpenClawEventBridge() {\n21\t  useEffect(() => {\n22\t    function handleOpenClawTask(e: Event) {\n23\t      const detail = (e as CustomEvent).detail;\n24\t      const prompt: string | undefined =\n25\t        detail?.payload?.prompt ?? detail?.payload?.task ?? detail?.prompt ?? detail?.task;\n26\t\n27\t      if (!prompt) return;\n28\t\n29\t      const assistantId: string | undefined =\n30\t        detail?.payload?.assistantId ?? detail?.assistantId;\n31\t      const conversationId: string | undefined =\n32\t        detail?.payload?.conversationId ?? detail?.conversationId;\n33\t\n34\t      // Fire-and-forget: stream the task and dispatch completion/failure events\n35\t      triggerOpenClawTask({ prompt, assistantId, conversationId }).then(\n36\t        (result) => {\n37\t          if (result.success) {\n38\t            window.dispatchEvent(\n39\t              new CustomEvent(OPENCLAW_BRIDGE_EVENTS.TASK_COMPLETED, {\n40\t                detail: { response: result.response },\n41\t              })\n42\t            );\n43\t          } else {\n44\t            window.dispatchEvent(\n45\t              new CustomEvent(OPENCLAW_BRIDGE_EVENTS.TASK_FAILED, {\n46\t                detail: { error: result.error },\n47\t              })\n48\t            );\n49\t          }\n50\t        },\n51\t        (err) => {\n52\t          window.dispatchEvent(\n53\t            new CustomEvent(OPENCLAW_BRIDGE_EVENTS.TASK_FAILED, {\n54\t              detail: { error: String(err) },\n55\t            })\n56\t          );\n57\t        }\n58\t      );\n59\t    }\n60\t\n61\t    window.addEventListener(NIA_EVENT_OPENCLAW_TASK, handleOpenClawTask);\n62\t    return () =>\n63\t      window.removeEventListener(NIA_EVENT_OPENCLAW_TASK, handleOpenClawTask);\n64\t  }, []);\n65\t\n66\t  return null;\n67\t}\n68\t"
+          },
+          "toolu_01FukQapERAKFrCWrGHLufT6": {
+            "tool_use_id": "toolu_01FukQapERAKFrCWrGHLufT6",
+            "tool_name": "grep | head -0 --include=\"*.ts,*.tsx\" \"run.*ID|run ID\" /workspace/nia-universal/apps/interface",
+            "is_error": false,
+            "content": {
+              "Text": "Found 1 file\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts"
+            },
+            "output": "Found 1 file\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts"
+          },
+          "toolu_01DBsRKbbVAyMMPnmgX8gtRo": {
+            "tool_use_id": "toolu_01DBsRKbbVAyMMPnmgX8gtRo",
+            "tool_name": "grep -l | head -50 --include=\"*.ts,*.tsx\" \"toast|notification|showNotification\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "Found 29 files\n/workspace/nia-universal/apps/interface/src/features/ChatMode/components/ChatMode.tsx\n/workspace/nia-universal/apps/interface/src/components/settings-panels/SettingsPanels.tsx\n/workspace/nia-universal/apps/interface/src/hooks/useVoiceSession.ts\n/workspace/nia-universal/apps/interface/src/app/layout.tsx\n/workspace/nia-universal/apps/interface/src/components/browser-window.tsx\n/workspace/nia-universal/apps/interface/src/components/desktop-background-work.tsx\n/workspace/nia-universal/apps/interface/src/components/FileDropZone.tsx\n/workspace/nia-universal/apps/interface/src/components/summon-sprite/SummonSpritePrompt.tsx\n/workspace/nia-universal/apps/interface/src/components/ui/toast.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Call.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Chat.tsx\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/components/HtmlContentViewer.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/__tests__/notes-view.test.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/components/notes-view-next.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/components/VoiceNotes.tsx\n/workspace/nia-universal/apps/interface/src/hooks/use-toast.ts\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/__tests__/applet-api.test.ts\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/actions/enhanced-applet-actions.ts\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/components/HtmlGenerationViewer.tsx\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/types/html-generation-types.ts\n/workspace/nia-universal/apps/interface/src/features/Notes/components/NoteShareControls.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/components/NoteSharingModal.tsx\n/workspace/nia-universal/apps/interface/src/components/desktop-background-creative.tsx\n/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/__tests__/realbrowser-ui-polish.test.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/DailyPrebuiltStyle.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/ParticipantsPanel.tsx\n/workspace/nia-universal/apps/interface/src/components/sleep-screen.tsx\n/workspace/nia-universal/apps/interface/src/components/ui/toaster.tsx"
+            },
+            "output": "Found 29 files\n/workspace/nia-universal/apps/interface/src/features/ChatMode/components/ChatMode.tsx\n/workspace/nia-universal/apps/interface/src/components/settings-panels/SettingsPanels.tsx\n/workspace/nia-universal/apps/interface/src/hooks/useVoiceSession.ts\n/workspace/nia-universal/apps/interface/src/app/layout.tsx\n/workspace/nia-universal/apps/interface/src/components/browser-window.tsx\n/workspace/nia-universal/apps/interface/src/components/desktop-background-work.tsx\n/workspace/nia-universal/apps/interface/src/components/FileDropZone.tsx\n/workspace/nia-universal/apps/interface/src/components/summon-sprite/SummonSpritePrompt.tsx\n/workspace/nia-universal/apps/interface/src/components/ui/toast.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Call.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Chat.tsx\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/components/HtmlContentViewer.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/__tests__/notes-view.test.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/components/notes-view-next.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/components/VoiceNotes.tsx\n/workspace/nia-universal/apps/interface/src/hooks/use-toast.ts\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/__tests__/applet-api.test.ts\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/actions/enhanced-applet-actions.ts\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/components/HtmlGenerationViewer.tsx\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/types/html-generation-types.ts\n/workspace/nia-universal/apps/interface/src/features/Notes/components/NoteShareControls.tsx\n/workspace/nia-universal/apps/interface/src/features/Notes/components/NoteSharingModal.tsx\n/workspace/nia-universal/apps/interface/src/components/desktop-background-creative.tsx\n/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/__tests__/realbrowser-ui-polish.test.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/DailyPrebuiltStyle.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/ParticipantsPanel.tsx\n/workspace/nia-universal/apps/interface/src/components/sleep-screen.tsx\n/workspace/nia-universal/apps/interface/src/components/ui/toaster.tsx"
+          },
+          "toolu_01LYUU7FdP9E6oSTz6ABGKmm": {
+            "tool_use_id": "toolu_01LYUU7FdP9E6oSTz6ABGKmm",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src` `**/toast*.tsx`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/components/ui/toaster.tsx\n/workspace/nia-universal/apps/interface/src/components/ui/toast.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/components/ui/toaster.tsx\n/workspace/nia-universal/apps/interface/src/components/ui/toast.tsx"
+          },
+          "toolu_015oJr5QFDWUiw8xpNscUUYj": {
+            "tool_use_id": "toolu_015oJr5QFDWUiw8xpNscUUYj",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src` `**/notification*.tsx`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01S63qkcCKMRxoUey1zyMx8j": {
+            "tool_use_id": "toolu_01S63qkcCKMRxoUey1zyMx8j",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/components/ui/toast.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t\"use client\"\n2\t\n3\timport * as React from \"react\"\n4\timport * as ToastPrimitives from \"@radix-ui/react-toast\"\n5\timport { cva, type VariantProps } from \"class-variance-authority\"\n6\timport { X } from \"lucide-react\"\n7\t\n8\timport { cn } from \"@interface/lib/utils\"\n9\t\n10\tconst ToastProvider = ToastPrimitives.Provider\n11\t\n12\tconst ToastViewport = React.forwardRef<\n13\t  React.ElementRef<typeof ToastPrimitives.Viewport>,\n14\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>\n15\t>(({ className, ...props }, ref) => (\n16\t  <ToastPrimitives.Viewport\n17\t    ref={ref}\n18\t    className={cn(\n19\t      \"fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]\",\n20\t      className\n21\t    )}\n22\t    {...props}\n23\t  />\n24\t))\n25\tToastViewport.displayName = ToastPrimitives.Viewport.displayName\n26\t\n27\tconst toastVariants = cva(\n28\t  \"group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full\",\n29\t  {\n30\t    variants: {\n31\t      variant: {\n32\t        default: \"border bg-background text-foreground\",\n33\t        destructive:\n34\t          \"destructive group border-destructive bg-destructive text-destructive-foreground\",\n35\t      },\n36\t    },\n37\t    defaultVariants: {\n38\t      variant: \"default\",\n39\t    },\n40\t  }\n41\t)\n42\t\n43\tconst Toast = React.forwardRef<\n44\t  React.ElementRef<typeof ToastPrimitives.Root>,\n45\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &\n46\t    VariantProps<typeof toastVariants>\n47\t>(({ className, variant, ...props }, ref) => {\n48\t  return (\n49\t    <ToastPrimitives.Root\n50\t      ref={ref}\n51\t      className={cn(toastVariants({ variant }), className)}\n52\t      {...props}\n53\t    />\n54\t  )\n55\t})\n56\tToast.displayName = ToastPrimitives.Root.displayName\n57\t\n58\tconst ToastAction = React.forwardRef<\n59\t  React.ElementRef<typeof ToastPrimitives.Action>,\n60\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>\n61\t>(({ className, ...props }, ref) => (\n62\t  <ToastPrimitives.Action\n63\t    ref={ref}\n64\t    className={cn(\n65\t      \"inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive\",\n66\t      className\n67\t    )}\n68\t    {...props}\n69\t  />\n70\t))\n71\tToastAction.displayName = ToastPrimitives.Action.displayName\n72\t\n73\tconst ToastClose = React.forwardRef<\n74\t  React.ElementRef<typeof ToastPrimitives.Close>,\n75\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>\n76\t>(({ className, ...props }, ref) => (\n77\t  <ToastPrimitives.Close\n78\t    ref={ref}\n79\t    className={cn(\n80\t      \"absolute right-1 top-1 rounded-md p-2 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600 min-w-[32px] min-h-[32px] flex items-center justify-center\",\n81\t      className\n82\t    )}\n83\t    toast-close=\"\"\n84\t    {...props}\n85\t  >\n..."
+            },
+            "output": "1\t\"use client\"\n2\t\n3\timport * as React from \"react\"\n4\timport * as ToastPrimitives from \"@radix-ui/react-toast\"\n5\timport { cva, type VariantProps } from \"class-variance-authority\"\n6\timport { X } from \"lucide-react\"\n7\t\n8\timport { cn } from \"@interface/lib/utils\"\n9\t\n10\tconst ToastProvider = ToastPrimitives.Provider\n11\t\n12\tconst ToastViewport = React.forwardRef<\n13\t  React.ElementRef<typeof ToastPrimitives.Viewport>,\n14\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>\n15\t>(({ className, ...props }, ref) => (\n16\t  <ToastPrimitives.Viewport\n17\t    ref={ref}\n18\t    className={cn(\n19\t      \"fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]\",\n20\t      className\n21\t    )}\n22\t    {...props}\n23\t  />\n24\t))\n25\tToastViewport.displayName = ToastPrimitives.Viewport.displayName\n26\t\n27\tconst toastVariants = cva(\n28\t  \"group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full\",\n29\t  {\n30\t    variants: {\n31\t      variant: {\n32\t        default: \"border bg-background text-foreground\",\n33\t        destructive:\n34\t          \"destructive group border-destructive bg-destructive text-destructive-foreground\",\n35\t      },\n36\t    },\n37\t    defaultVariants: {\n38\t      variant: \"default\",\n39\t    },\n40\t  }\n41\t)\n42\t\n43\tconst Toast = React.forwardRef<\n44\t  React.ElementRef<typeof ToastPrimitives.Root>,\n45\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &\n46\t    VariantProps<typeof toastVariants>\n47\t>(({ className, variant, ...props }, ref) => {\n48\t  return (\n49\t    <ToastPrimitives.Root\n50\t      ref={ref}\n51\t      className={cn(toastVariants({ variant }), className)}\n52\t      {...props}\n53\t    />\n54\t  )\n55\t})\n56\tToast.displayName = ToastPrimitives.Root.displayName\n57\t\n58\tconst ToastAction = React.forwardRef<\n59\t  React.ElementRef<typeof ToastPrimitives.Action>,\n60\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>\n61\t>(({ className, ...props }, ref) => (\n62\t  <ToastPrimitives.Action\n63\t    ref={ref}\n64\t    className={cn(\n65\t      \"inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive\",\n66\t      className\n67\t    )}\n68\t    {...props}\n69\t  />\n70\t))\n71\tToastAction.displayName = ToastPrimitives.Action.displayName\n72\t\n73\tconst ToastClose = React.forwardRef<\n74\t  React.ElementRef<typeof ToastPrimitives.Close>,\n75\t  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>\n76\t>(({ className, ...props }, ref) => (\n77\t  <ToastPrimitives.Close\n78\t    ref={ref}\n79\t    className={cn(\n80\t      \"absolute right-1 top-1 rounded-md p-2 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600 min-w-[32px] min-h-[32px] flex items-center justify-center\",\n81\t      className\n82\t    )}\n83\t    toast-close=\"\"\n84\t    {...props}\n85\t  >\n..."
+          },
+          "toolu_01SCyvjvSQTZJQX12W8F3jtj": {
+            "tool_use_id": "toolu_01SCyvjvSQTZJQX12W8F3jtj",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/hooks/use-toast.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\t// Inspired by react-hot-toast library\n4\timport * as React from 'react';\n5\t\n6\timport type { ToastActionElement, ToastProps } from '@interface/components/ui/toast';\n7\t\n8\tconst TOAST_LIMIT = 1;\n9\t// Keep the removal window small so auto-close toasts disappear promptly after their duration.\n10\tconst TOAST_REMOVE_DELAY = 1000;\n11\t\n12\ttype ToasterToast = ToastProps & {\n13\t  id: string;\n14\t  title?: React.ReactNode;\n15\t  description?: React.ReactNode;\n16\t  action?: ToastActionElement;\n17\t};\n18\t\n19\tconst actionTypes = {\n20\t  ADD_TOAST: 'ADD_TOAST',\n21\t  UPDATE_TOAST: 'UPDATE_TOAST',\n22\t  DISMISS_TOAST: 'DISMISS_TOAST',\n23\t  REMOVE_TOAST: 'REMOVE_TOAST',\n24\t} as const;\n25\t\n26\tlet count = 0;\n27\t\n28\tfunction genId() {\n29\t  count = (count + 1) % Number.MAX_SAFE_INTEGER;\n30\t  return count.toString();\n31\t}\n32\t\n33\ttype ActionType = typeof actionTypes;\n34\t\n35\ttype Action =\n36\t  | {\n37\t      type: ActionType['ADD_TOAST'];\n38\t      toast: ToasterToast;\n39\t    }\n40\t  | {\n41\t      type: ActionType['UPDATE_TOAST'];\n42\t      toast: Partial<ToasterToast>;\n43\t    }\n44\t  | {\n45\t      type: ActionType['DISMISS_TOAST'];\n46\t      toastId?: ToasterToast['id'];\n47\t    }\n48\t  | {\n49\t      type: ActionType['REMOVE_TOAST'];\n50\t      toastId?: ToasterToast['id'];\n51\t    };\n52\t\n53\tinterface State {\n54\t  toasts: ToasterToast[];\n55\t}\n56\t\n57\tconst toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();\n58\t\n59\tconst addToRemoveQueue = (toastId: string) => {\n60\t  if (toastTimeouts.has(toastId)) {\n61\t    return;\n62\t  }\n63\t\n64\t  const timeout = setTimeout(() => {\n65\t    toastTimeouts.delete(toastId);\n66\t    dispatch({\n67\t      type: 'REMOVE_TOAST',\n68\t      toastId: toastId,\n69\t    });\n70\t  }, TOAST_REMOVE_DELAY);\n71\t\n72\t  toastTimeouts.set(toastId, timeout);\n73\t};\n74\t\n75\texport const reducer = (state: State, action: Action): State => {\n76\t  switch (action.type) {\n77\t    case 'ADD_TOAST':\n78\t      return {\n79\t        ...state,\n80\t        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),\n81\t      };\n82\t\n83\t    case 'UPDATE_TOAST':\n84\t      return {\n85\t        ...state,\n86\t        toasts: state.toasts.map(t => (t.id === action.toast.id ? { ...t, ...action.toast } : t)),\n87\t      };\n88\t\n89\t    case 'DISMISS_TOAST': {\n90\t      const { toastId } = action;\n91\t\n92\t      // ! Side effects ! - This could be extracted into a dismissToast() action,\n93\t      // but I'll keep it here for simplicity\n94\t      if (toastId) {\n95\t        addToRemoveQueue(toastId);\n96\t      } else {\n97\t        state.toasts.forEach(toast => {\n98\t          addToRemoveQueue(toast.id);\n99\t        });\n100\t      }\n101\t\n102\t      return {\n103\t        ...state,\n104\t        toasts: state.toasts.map(t =>\n105\t          t.id === toastId || toastId === undefined\n106\t            ? {\n107\t                ...t,\n108\t                open: false,\n109\t              }\n110\t            : t\n111\t        ),\n112\t      };\n113\t    }\n114\t    case 'REMOVE_TOAST':\n115\t      if (action.toastId === undefined) {\n116\t        return {\n117\t          ...state,\n118\t          toasts: [],\n119\t        };\n120\t      }\n121\t      return {\n122\t        ...state,\n123\t        toasts: state.toasts.filter(t => t.id !== action.toastId),\n124\t      };\n125\t  }\n126\t};\n127\t\n128\tconst listeners: Array<(state: State) => void> = [];\n129\t\n130\tlet memoryState: State = { toasts: [] };\n131\t\n132\tfunction dispatch(action: Action) {\n133\t  memoryState = reducer(memoryState, action);\n134\t  listeners.forEach(listener => {\n135\t    listener(memoryState);\n136\t  });\n137\t}\n138\t\n139\ttype Toast = Omit<ToasterToast, 'id'>;\n140\t\n141\tfunction toast({ duration = 4000, ...props }: Toast) {\n142\t  const id = genId();\n143\t\n144\t  const update = (props: ToasterToast) =>\n145\t    dispatch({\n146\t      type: 'UPDATE_TOAST',\n147\t      toast: { ...props, id },\n148\t    });\n149\t  const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id });\n150\t\n151\t  dispatch({\n152\t    type: 'ADD_TOAST',\n153\t    toast: {\n154\t      ...props,\n155\t      id,\n156..."
+            },
+            "output": "1\t'use client';\n2\t\n3\t// Inspired by react-hot-toast library\n4\timport * as React from 'react';\n5\t\n6\timport type { ToastActionElement, ToastProps } from '@interface/components/ui/toast';\n7\t\n8\tconst TOAST_LIMIT = 1;\n9\t// Keep the removal window small so auto-close toasts disappear promptly after their duration.\n10\tconst TOAST_REMOVE_DELAY = 1000;\n11\t\n12\ttype ToasterToast = ToastProps & {\n13\t  id: string;\n14\t  title?: React.ReactNode;\n15\t  description?: React.ReactNode;\n16\t  action?: ToastActionElement;\n17\t};\n18\t\n19\tconst actionTypes = {\n20\t  ADD_TOAST: 'ADD_TOAST',\n21\t  UPDATE_TOAST: 'UPDATE_TOAST',\n22\t  DISMISS_TOAST: 'DISMISS_TOAST',\n23\t  REMOVE_TOAST: 'REMOVE_TOAST',\n24\t} as const;\n25\t\n26\tlet count = 0;\n27\t\n28\tfunction genId() {\n29\t  count = (count + 1) % Number.MAX_SAFE_INTEGER;\n30\t  return count.toString();\n31\t}\n32\t\n33\ttype ActionType = typeof actionTypes;\n34\t\n35\ttype Action =\n36\t  | {\n37\t      type: ActionType['ADD_TOAST'];\n38\t      toast: ToasterToast;\n39\t    }\n40\t  | {\n41\t      type: ActionType['UPDATE_TOAST'];\n42\t      toast: Partial<ToasterToast>;\n43\t    }\n44\t  | {\n45\t      type: ActionType['DISMISS_TOAST'];\n46\t      toastId?: ToasterToast['id'];\n47\t    }\n48\t  | {\n49\t      type: ActionType['REMOVE_TOAST'];\n50\t      toastId?: ToasterToast['id'];\n51\t    };\n52\t\n53\tinterface State {\n54\t  toasts: ToasterToast[];\n55\t}\n56\t\n57\tconst toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();\n58\t\n59\tconst addToRemoveQueue = (toastId: string) => {\n60\t  if (toastTimeouts.has(toastId)) {\n61\t    return;\n62\t  }\n63\t\n64\t  const timeout = setTimeout(() => {\n65\t    toastTimeouts.delete(toastId);\n66\t    dispatch({\n67\t      type: 'REMOVE_TOAST',\n68\t      toastId: toastId,\n69\t    });\n70\t  }, TOAST_REMOVE_DELAY);\n71\t\n72\t  toastTimeouts.set(toastId, timeout);\n73\t};\n74\t\n75\texport const reducer = (state: State, action: Action): State => {\n76\t  switch (action.type) {\n77\t    case 'ADD_TOAST':\n78\t      return {\n79\t        ...state,\n80\t        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),\n81\t      };\n82\t\n83\t    case 'UPDATE_TOAST':\n84\t      return {\n85\t        ...state,\n86\t        toasts: state.toasts.map(t => (t.id === action.toast.id ? { ...t, ...action.toast } : t)),\n87\t      };\n88\t\n89\t    case 'DISMISS_TOAST': {\n90\t      const { toastId } = action;\n91\t\n92\t      // ! Side effects ! - This could be extracted into a dismissToast() action,\n93\t      // but I'll keep it here for simplicity\n94\t      if (toastId) {\n95\t        addToRemoveQueue(toastId);\n96\t      } else {\n97\t        state.toasts.forEach(toast => {\n98\t          addToRemoveQueue(toast.id);\n99\t        });\n100\t      }\n101\t\n102\t      return {\n103\t        ...state,\n104\t        toasts: state.toasts.map(t =>\n105\t          t.id === toastId || toastId === undefined\n106\t            ? {\n107\t                ...t,\n108\t                open: false,\n109\t              }\n110\t            : t\n111\t        ),\n112\t      };\n113\t    }\n114\t    case 'REMOVE_TOAST':\n115\t      if (action.toastId === undefined) {\n116\t        return {\n117\t          ...state,\n118\t          toasts: [],\n119\t        };\n120\t      }\n121\t      return {\n122\t        ...state,\n123\t        toasts: state.toasts.filter(t => t.id !== action.toastId),\n124\t      };\n125\t  }\n126\t};\n127\t\n128\tconst listeners: Array<(state: State) => void> = [];\n129\t\n130\tlet memoryState: State = { toasts: [] };\n131\t\n132\tfunction dispatch(action: Action) {\n133\t  memoryState = reducer(memoryState, action);\n134\t  listeners.forEach(listener => {\n135\t    listener(memoryState);\n136\t  });\n137\t}\n138\t\n139\ttype Toast = Omit<ToasterToast, 'id'>;\n140\t\n141\tfunction toast({ duration = 4000, ...props }: Toast) {\n142\t  const id = genId();\n143\t\n144\t  const update = (props: ToasterToast) =>\n145\t    dispatch({\n146\t      type: 'UPDATE_TOAST',\n147\t      toast: { ...props, id },\n148\t    });\n149\t  const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id });\n150\t\n151\t  dispatch({\n152\t    type: 'ADD_TOAST',\n153\t    toast: {\n154\t      ...props,\n155\t      id,\n156..."
+          },
+          "toolu_01VGJkMxCpsSkAa1VYd8bJEK": {
+            "tool_use_id": "toolu_01VGJkMxCpsSkAa1VYd8bJEK",
+            "tool_name": "grep | head -0 --include=\"*.py,*.ts,*.tsx\" \"ACP.*background|task.*done|task.*complete|Background.*task\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 29 files\n/workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/CanvasTaskProgress.tsx\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/monitoring/events.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/non_blocking_router.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/tool_narration.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/vision.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/runner_main.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/services/app_message_forwarder.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/events.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/lifecycle.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/managers.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/orchestrator.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_feedback_tools.py\n/workspace/nia-universal/apps/interface/src/components/settings-panels/ModelSettingsPanel.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useActiveJobs.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tests/test_participant_shutdown.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/flows/admin.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/flows/handlers.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/flows/pacing.py\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/lib/demo-content-types.ts\n/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts"
+            },
+            "output": "Found 29 files\n/workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/CanvasTaskProgress.tsx\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/monitoring/events.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/non_blocking_router.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/tool_narration.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/processors/vision.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/runner_main.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/services/app_message_forwarder.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/events.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/lifecycle.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/managers.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/session/orchestrator.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_feedback_tools.py\n/workspace/nia-universal/apps/interface/src/components/settings-panels/ModelSettingsPanel.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useActiveJobs.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\n/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/events.ts\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/tests/test_participant_shutdown.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/flows/admin.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/flows/handlers.py\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/flows/pacing.py\n/workspace/nia-universal/apps/interface/src/features/HtmlGeneration/lib/demo-content-types.ts\n/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts"
+          },
+          "toolu_01PesGgBcJVJTp3bCYVy6wuh": {
+            "tool_use_id": "toolu_01PesGgBcJVJTp3bCYVy6wuh",
+            "tool_name": "grep | head -50 \"done|complete\" /workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py",
+            "is_error": false,
+            "content": {
+              "Text": "1332:            \"task_done\": runner_session.task.done(),\n1357:            if target_session and not target_session.task.done():\n1467:            # If pending and recent (< 30s), wait for it to complete instead of returning immediately\n1472:                # Release lock and wait for pending request to complete\n1490:                            # First request completed successfully\n1492:                                f\"[gateway] Direct mode: Pending request completed after {waited:.1f}s\"\n1501:                                \"detail\": \"Bot launch completed by concurrent request\"\n1525:                            \"detail\": \"Bot launch completed by concurrent request\",\n1604:                f\"room_url={existing_session.room_url}, task_done={existing_session.task.done()}, \"\n1607:            if not existing_session.task.done():\n2077:                                    f\"room_url={existing_session.room_url}, task_done={existing_session.task.done()}\"\n2079:                                if not existing_session.task.done():\n2127:                            f\"task_done={existing_session.task.done()}, terminating\"\n2129:                        if not existing_session.task.done():\n3005:                            logger.info(f\"[tools] OpenClaw background task completed: {session_key}\")\n3071:    # │ Daily session was active broke Wonder Canvas completely because     │"
+            },
+            "output": "1332:            \"task_done\": runner_session.task.done(),\n1357:            if target_session and not target_session.task.done():\n1467:            # If pending and recent (< 30s), wait for it to complete instead of returning immediately\n1472:                # Release lock and wait for pending request to complete\n1490:                            # First request completed successfully\n1492:                                f\"[gateway] Direct mode: Pending request completed after {waited:.1f}s\"\n1501:                                \"detail\": \"Bot launch completed by concurrent request\"\n1525:                            \"detail\": \"Bot launch completed by concurrent request\",\n1604:                f\"room_url={existing_session.room_url}, task_done={existing_session.task.done()}, \"\n1607:            if not existing_session.task.done():\n2077:                                    f\"room_url={existing_session.room_url}, task_done={existing_session.task.done()}\"\n2079:                                if not existing_session.task.done():\n2127:                            f\"task_done={existing_session.task.done()}, terminating\"\n2129:                        if not existing_session.task.done():\n3005:                            logger.info(f\"[tools] OpenClaw background task completed: {session_key}\")\n3071:    # │ Daily session was active broke Wonder Canvas completely because     │"
+          },
+          "toolu_01NiLEenX5q8qKkKV19piS1Q": {
+            "tool_use_id": "toolu_01NiLEenX5q8qKkKV19piS1Q",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextResponse } from 'next/server';\n2\timport { promises as fs } from 'fs';\n3\t\n4\tconst TASKS_FILE = '/tmp/pearlos-tasks.json';\n5\t\n6\t/** How long (ms) to keep approved/complete tasks before auto-removing them */\n7\tconst AUTO_CLEAR_DELAY_MS = 2 * 60 * 1000; // 2 minutes after approval\n8\t\n9\texport type TaskStatus = 'pending' | 'running' | 'complete' | 'failed';\n10\texport type TaskApprovalStatus = 'pending' | 'approved' | 'rework';\n11\t\n12\texport interface TaskRecord {\n13\t  taskId: string;\n14\t  title: string;\n15\t  description?: string;\n16\t  status: TaskStatus;\n17\t  screenshotUrl?: string | null;\n18\t  approvalStatus: TaskApprovalStatus;\n19\t  createdAt: string;\n20\t  updatedAt: string;\n21\t}\n22\t\n23\t/** Remove tasks that are complete+approved (or complete+rework with feedback submitted) past the grace period */\n24\tfunction autoCleanTasks(tasks: TaskRecord[]): TaskRecord[] {\n25\t  const now = Date.now();\n26\t  return tasks.filter((t) => {\n27\t    // Only auto-clear complete tasks that have been approved\n28\t    if (t.status === 'complete' && t.approvalStatus === 'approved') {\n29\t      const updatedMs = new Date(t.updatedAt).getTime();\n30\t      return now - updatedMs < AUTO_CLEAR_DELAY_MS;\n31\t    }\n32\t    return true;\n33\t  });\n34\t}\n35\t\n36\tasync function readTasks(): Promise<TaskRecord[]> {\n37\t  try {\n38\t    await fs.access(TASKS_FILE);\n39\t    const raw = await fs.readFile(TASKS_FILE, 'utf-8');\n40\t    const parsed = JSON.parse(raw);\n41\t    const tasks: TaskRecord[] = Array.isArray(parsed.tasks) ? parsed.tasks : [];\n42\t    // Auto-clean on every read\n43\t    const cleaned = autoCleanTasks(tasks);\n44\t    if (cleaned.length !== tasks.length) {\n45\t      await writeTasks(cleaned);\n46\t    }\n47\t    return cleaned;\n48\t  } catch {\n49\t    return [];\n50\t  }\n51\t}\n52\t\n53\tasync function writeTasks(tasks: TaskRecord[]) {\n54\t  await fs.writeFile(TASKS_FILE, JSON.stringify({ tasks }, null, 2), 'utf-8');\n55\t}\n56\t\n57\texport async function GET() {\n58\t  try {\n59\t    const tasks = await readTasks();\n60\t    return NextResponse.json({ tasks });\n61\t  } catch {\n62\t    return NextResponse.json({ error: 'Failed to read tasks' }, { status: 500 });\n63\t  }\n64\t}\n65\t\n66\texport async function POST(req: Request) {\n67\t  try {\n68\t    const body = await req.json();\n69\t    const { action, taskId } = body;\n70\t    if (!action || !taskId) return NextResponse.json({ error: 'Missing action or taskId' }, { status: 400 });\n71\t\n72\t    const tasks = await readTasks();\n73\t    const now = new Date().toISOString();\n74\t    const idx = tasks.findIndex(t => t.taskId === taskId);\n75\t\n76\t    if (action === 'update') {\n77\t      const { title, description, status, screenshotUrl } = body;\n78\t      if (idx === -1) {\n79\t        tasks.unshift({ taskId, title: title || taskId, description: description || '', status: status || 'pending', screenshotUrl: screenshotUrl || null, approvalStatus: 'pending', createdAt: now, updatedAt: now });\n80\t      } else {\n81\t        tasks[idx] = { ...tasks[idx], title: title || tasks[idx].title, description: description !== undefined ? description : tasks[idx].description, status: status || tasks[idx].status, screenshotUrl: screenshotUrl !== undefined ? screenshotUrl : tasks[idx].screenshotUrl, updatedAt: now };\n82\t      }\n83\t    } else if (action === 'approve' || action === 'reject') {\n84\t      if (idx === -1) return NextResponse.json({ error: 'Task not found' }, { status: 404 });\n85\t      tasks[idx] = { ...tasks[idx], approvalStatus: action === 'approve' ? 'approved' : 'rework', updatedAt: now };\n86\t    }\n87\t\n88\t    await writeTasks(tasks);\n89\t    return NextResponse.json({ ok: true, tasks });\n90\t  } catch {\n91\t    return NextResponse.json({ error: 'Failed' }, { status: 500 });\n92\t  }\n93\t}\n94\t"
+            },
+            "output": "1\timport { NextResponse } from 'next/server';\n2\timport { promises as fs } from 'fs';\n3\t\n4\tconst TASKS_FILE = '/tmp/pearlos-tasks.json';\n5\t\n6\t/** How long (ms) to keep approved/complete tasks before auto-removing them */\n7\tconst AUTO_CLEAR_DELAY_MS = 2 * 60 * 1000; // 2 minutes after approval\n8\t\n9\texport type TaskStatus = 'pending' | 'running' | 'complete' | 'failed';\n10\texport type TaskApprovalStatus = 'pending' | 'approved' | 'rework';\n11\t\n12\texport interface TaskRecord {\n13\t  taskId: string;\n14\t  title: string;\n15\t  description?: string;\n16\t  status: TaskStatus;\n17\t  screenshotUrl?: string | null;\n18\t  approvalStatus: TaskApprovalStatus;\n19\t  createdAt: string;\n20\t  updatedAt: string;\n21\t}\n22\t\n23\t/** Remove tasks that are complete+approved (or complete+rework with feedback submitted) past the grace period */\n24\tfunction autoCleanTasks(tasks: TaskRecord[]): TaskRecord[] {\n25\t  const now = Date.now();\n26\t  return tasks.filter((t) => {\n27\t    // Only auto-clear complete tasks that have been approved\n28\t    if (t.status === 'complete' && t.approvalStatus === 'approved') {\n29\t      const updatedMs = new Date(t.updatedAt).getTime();\n30\t      return now - updatedMs < AUTO_CLEAR_DELAY_MS;\n31\t    }\n32\t    return true;\n33\t  });\n34\t}\n35\t\n36\tasync function readTasks(): Promise<TaskRecord[]> {\n37\t  try {\n38\t    await fs.access(TASKS_FILE);\n39\t    const raw = await fs.readFile(TASKS_FILE, 'utf-8');\n40\t    const parsed = JSON.parse(raw);\n41\t    const tasks: TaskRecord[] = Array.isArray(parsed.tasks) ? parsed.tasks : [];\n42\t    // Auto-clean on every read\n43\t    const cleaned = autoCleanTasks(tasks);\n44\t    if (cleaned.length !== tasks.length) {\n45\t      await writeTasks(cleaned);\n46\t    }\n47\t    return cleaned;\n48\t  } catch {\n49\t    return [];\n50\t  }\n51\t}\n52\t\n53\tasync function writeTasks(tasks: TaskRecord[]) {\n54\t  await fs.writeFile(TASKS_FILE, JSON.stringify({ tasks }, null, 2), 'utf-8');\n55\t}\n56\t\n57\texport async function GET() {\n58\t  try {\n59\t    const tasks = await readTasks();\n60\t    return NextResponse.json({ tasks });\n61\t  } catch {\n62\t    return NextResponse.json({ error: 'Failed to read tasks' }, { status: 500 });\n63\t  }\n64\t}\n65\t\n66\texport async function POST(req: Request) {\n67\t  try {\n68\t    const body = await req.json();\n69\t    const { action, taskId } = body;\n70\t    if (!action || !taskId) return NextResponse.json({ error: 'Missing action or taskId' }, { status: 400 });\n71\t\n72\t    const tasks = await readTasks();\n73\t    const now = new Date().toISOString();\n74\t    const idx = tasks.findIndex(t => t.taskId === taskId);\n75\t\n76\t    if (action === 'update') {\n77\t      const { title, description, status, screenshotUrl } = body;\n78\t      if (idx === -1) {\n79\t        tasks.unshift({ taskId, title: title || taskId, description: description || '', status: status || 'pending', screenshotUrl: screenshotUrl || null, approvalStatus: 'pending', createdAt: now, updatedAt: now });\n80\t      } else {\n81\t        tasks[idx] = { ...tasks[idx], title: title || tasks[idx].title, description: description !== undefined ? description : tasks[idx].description, status: status || tasks[idx].status, screenshotUrl: screenshotUrl !== undefined ? screenshotUrl : tasks[idx].screenshotUrl, updatedAt: now };\n82\t      }\n83\t    } else if (action === 'approve' || action === 'reject') {\n84\t      if (idx === -1) return NextResponse.json({ error: 'Task not found' }, { status: 404 });\n85\t      tasks[idx] = { ...tasks[idx], approvalStatus: action === 'approve' ? 'approved' : 'rework', updatedAt: now };\n86\t    }\n87\t\n88\t    await writeTasks(tasks);\n89\t    return NextResponse.json({ ok: true, tasks });\n90\t  } catch {\n91\t    return NextResponse.json({ error: 'Failed' }, { status: 500 });\n92\t  }\n93\t}\n94\t"
+          },
+          "toolu_01PrB5Cf3BuPskdNP6TKGyJs": {
+            "tool_use_id": "toolu_01PrB5Cf3BuPskdNP6TKGyJs",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+          },
+          "toolu_01VtTNtj4Ux8dW33zvFbcbuZ": {
+            "tool_use_id": "toolu_01VtTNtj4Ux8dW33zvFbcbuZ",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t\"use client\";\n2\t\n3\timport { useState, useEffect } from \"react\";\n4\timport type { Task, TaskStatus } from \"../types\";\n5\timport { formatDuration, formatTokens } from \"../types\";\n6\t\n7\t// ── Status icon mapping ──\n8\tconst STATUS_ICONS: Record<TaskStatus, string> = {\n9\t  running: \"⚙️\",\n10\t  done: \"✅\",\n11\t  failed: \"❌\",\n12\t};\n13\t\n14\tinterface TaskCardProps {\n15\t  task: Task;\n16\t  expanded: boolean;\n17\t  onToggleExpanded: () => void;\n18\t  onDismiss: () => void;\n19\t}\n20\t\n21\texport function TaskCard({ task, expanded, onToggleExpanded, onDismiss }: TaskCardProps) {\n22\t  // Live duration ticker for running tasks\n23\t  const [, setTick] = useState(0);\n24\t  useEffect(() => {\n25\t    if (task.status !== \"running\") return;\n26\t    const id = setInterval(() => setTick((t) => t + 1), 1000);\n27\t    return () => clearInterval(id);\n28\t  }, [task.status]);\n29\t\n30\t  const showDismiss = task.requiresAcknowledgment && (task.status === \"done\" || task.status === \"failed\");\n31\t\n32\t  return (\n33\t    <div style={styles.card}>\n34\t      {/* ── Header row: icon + name + info button ── */}\n35\t      <div style={styles.header}>\n36\t        <span style={styles.statusIcon}>{STATUS_ICONS[task.status]}</span>\n37\t        <span style={styles.taskName}>{task.name}</span>\n38\t        <button\n39\t          onClick={onToggleExpanded}\n40\t          style={styles.infoButton}\n41\t          title={expanded ? \"Hide details\" : \"Show details\"}\n42\t          aria-label=\"Toggle task details\"\n43\t        >\n44\t          ℹ️\n45\t        </button>\n46\t      </div>\n47\t\n48\t      {/* ── Description ── */}\n49\t      {task.description && (\n50\t        <div style={styles.description}>{task.description}</div>\n51\t      )}\n52\t\n53\t      {/* ── Expandable details panel ── */}\n54\t      {expanded && (\n55\t        <div style={styles.details}>\n56\t          {task.model && <DetailRow label=\"Agents\" value={task.model} />}\n57\t          <DetailRow label=\"Started\" value={new Date(task.startedAt).toLocaleTimeString()} />\n58\t          <DetailRow label=\"Duration\" value={formatDuration(task.startedAt)} />\n59\t          {task.source && <DetailRow label=\"Source\" value={task.source} />}\n60\t          {task.tokens != null && <DetailRow label=\"Tokens\" value={formatTokens(task.tokens)} />}\n61\t          <DetailRow label=\"Status\" value={task.status === \"running\" ? \"Running...\" : task.status === \"done\" ? \"Complete\" : \"Failed\"} />\n62\t          {task.sessionId && <DetailRow label=\"Session\" value={task.sessionId} />}\n63\t          {task.meta &&\n64\t            Object.entries(task.meta).map(([k, v]) => (\n65\t              <DetailRow key={k} label={k} value={v} />\n66\t            ))}\n67\t        </div>\n68\t      )}\n69\t\n70\t      {/* ── Dismiss actions (only for tasks requiring acknowledgment) ── */}\n71\t      {showDismiss && (\n72\t        <div style={styles.actions}>\n73\t          <button onClick={onDismiss} style={styles.dismissButton}>\n74\t            ✓ Dismiss\n75\t          </button>\n76\t        </div>\n77\t      )}\n78\t    </div>\n79\t  );\n80\t}\n81\t\n82\tfunction DetailRow({ label, value }: { label: string; value: string }) {\n83\t  return (\n84\t    <div style={styles.detailRow}>\n85\t      <span style={styles.detailLabel}>{label}:</span>\n86\t      <span style={styles.detailValue}>{value}</span>\n87\t    </div>\n88\t  );\n89\t}\n90\t\n91\t// ── Inline styles (dark theme, matching recovery page aesthetic) ──\n92\tconst styles: Record<string, React.CSSProperties> = {\n93\t  card: {\n94\t    background: \"#141414\",\n95\t    border: \"1px solid #2a2a2a\",\n96\t    borderRadius: 8,\n97\t    overflow: \"hidden\",\n98\t    marginBottom: 8,\n99\t    transition: \"all 0.2s ease\",\n100\t  },\n101\t  header: {\n102\t    display: \"flex\",\n103\t    alignItems: \"center\",\n104\t    padding: \"10px 12px\",\n105\t    gap: 8,\n106\t    cursor: \"default\",\n107\t  },\n108\t  statusIcon: {\n109\t    fontSize: \"1rem\",\n110\t    flexShrink: 0,\n111\t  },\n112\t  taskName: {\n113\t    flex: 1,\n114\t    fontSize: \"0.9rem\",\n115\t    fontWeight: 500,\n116\t    color: \"#e0e0e0\",\n117\t    overflow: \"hidden\",\n118\t    textOverflow: \"ellipsis\",\n119\t    wh..."
+            },
+            "output": "1\t\"use client\";\n2\t\n3\timport { useState, useEffect } from \"react\";\n4\timport type { Task, TaskStatus } from \"../types\";\n5\timport { formatDuration, formatTokens } from \"../types\";\n6\t\n7\t// ── Status icon mapping ──\n8\tconst STATUS_ICONS: Record<TaskStatus, string> = {\n9\t  running: \"⚙️\",\n10\t  done: \"✅\",\n11\t  failed: \"❌\",\n12\t};\n13\t\n14\tinterface TaskCardProps {\n15\t  task: Task;\n16\t  expanded: boolean;\n17\t  onToggleExpanded: () => void;\n18\t  onDismiss: () => void;\n19\t}\n20\t\n21\texport function TaskCard({ task, expanded, onToggleExpanded, onDismiss }: TaskCardProps) {\n22\t  // Live duration ticker for running tasks\n23\t  const [, setTick] = useState(0);\n24\t  useEffect(() => {\n25\t    if (task.status !== \"running\") return;\n26\t    const id = setInterval(() => setTick((t) => t + 1), 1000);\n27\t    return () => clearInterval(id);\n28\t  }, [task.status]);\n29\t\n30\t  const showDismiss = task.requiresAcknowledgment && (task.status === \"done\" || task.status === \"failed\");\n31\t\n32\t  return (\n33\t    <div style={styles.card}>\n34\t      {/* ── Header row: icon + name + info button ── */}\n35\t      <div style={styles.header}>\n36\t        <span style={styles.statusIcon}>{STATUS_ICONS[task.status]}</span>\n37\t        <span style={styles.taskName}>{task.name}</span>\n38\t        <button\n39\t          onClick={onToggleExpanded}\n40\t          style={styles.infoButton}\n41\t          title={expanded ? \"Hide details\" : \"Show details\"}\n42\t          aria-label=\"Toggle task details\"\n43\t        >\n44\t          ℹ️\n45\t        </button>\n46\t      </div>\n47\t\n48\t      {/* ── Description ── */}\n49\t      {task.description && (\n50\t        <div style={styles.description}>{task.description}</div>\n51\t      )}\n52\t\n53\t      {/* ── Expandable details panel ── */}\n54\t      {expanded && (\n55\t        <div style={styles.details}>\n56\t          {task.model && <DetailRow label=\"Agents\" value={task.model} />}\n57\t          <DetailRow label=\"Started\" value={new Date(task.startedAt).toLocaleTimeString()} />\n58\t          <DetailRow label=\"Duration\" value={formatDuration(task.startedAt)} />\n59\t          {task.source && <DetailRow label=\"Source\" value={task.source} />}\n60\t          {task.tokens != null && <DetailRow label=\"Tokens\" value={formatTokens(task.tokens)} />}\n61\t          <DetailRow label=\"Status\" value={task.status === \"running\" ? \"Running...\" : task.status === \"done\" ? \"Complete\" : \"Failed\"} />\n62\t          {task.sessionId && <DetailRow label=\"Session\" value={task.sessionId} />}\n63\t          {task.meta &&\n64\t            Object.entries(task.meta).map(([k, v]) => (\n65\t              <DetailRow key={k} label={k} value={v} />\n66\t            ))}\n67\t        </div>\n68\t      )}\n69\t\n70\t      {/* ── Dismiss actions (only for tasks requiring acknowledgment) ── */}\n71\t      {showDismiss && (\n72\t        <div style={styles.actions}>\n73\t          <button onClick={onDismiss} style={styles.dismissButton}>\n74\t            ✓ Dismiss\n75\t          </button>\n76\t        </div>\n77\t      )}\n78\t    </div>\n79\t  );\n80\t}\n81\t\n82\tfunction DetailRow({ label, value }: { label: string; value: string }) {\n83\t  return (\n84\t    <div style={styles.detailRow}>\n85\t      <span style={styles.detailLabel}>{label}:</span>\n86\t      <span style={styles.detailValue}>{value}</span>\n87\t    </div>\n88\t  );\n89\t}\n90\t\n91\t// ── Inline styles (dark theme, matching recovery page aesthetic) ──\n92\tconst styles: Record<string, React.CSSProperties> = {\n93\t  card: {\n94\t    background: \"#141414\",\n95\t    border: \"1px solid #2a2a2a\",\n96\t    borderRadius: 8,\n97\t    overflow: \"hidden\",\n98\t    marginBottom: 8,\n99\t    transition: \"all 0.2s ease\",\n100\t  },\n101\t  header: {\n102\t    display: \"flex\",\n103\t    alignItems: \"center\",\n104\t    padding: \"10px 12px\",\n105\t    gap: 8,\n106\t    cursor: \"default\",\n107\t  },\n108\t  statusIcon: {\n109\t    fontSize: \"1rem\",\n110\t    flexShrink: 0,\n111\t  },\n112\t  taskName: {\n113\t    flex: 1,\n114\t    fontSize: \"0.9rem\",\n115\t    fontWeight: 500,\n116\t    color: \"#e0e0e0\",\n117\t    overflow: \"hidden\",\n118\t    textOverflow: \"ellipsis\",\n119\t    wh..."
+          },
+          "toolu_014ToKjNjVn2GcDGD9uQHNR1": {
+            "tool_use_id": "toolu_014ToKjNjVn2GcDGD9uQHNR1",
+            "tool_name": "grep | head -30 \"Background task done|run.*ID|background.*task.*complete\" /workspace/nia-universal/apps/pipecat-daily-bot",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:29:{\"ts\":\"2026-04-15T07:41:15.797478+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/pearl-default\",\"sessionId\":\"c48c534824844c7f8d2ff585824f8a63\",\"debugTraceId\":\"gateway:c48c5348\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:30:{\"ts\":\"2026-04-15T07:41:15.797514+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/pearl-default\",\"sessionId\":\"c48c534824844c7f8d2ff585824f8a63\",\"debugTraceId\":\"gateway:c48c5348\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:227:{\"ts\":\"2026-04-15T07:45:34.614435+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776239133691:ficm2m\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:228:{\"ts\":\"2026-04-15T07:45:34.614533+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776239133691:ficm2m\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:612:{\"ts\":\"2026-04-15T08:51:07.467038+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/sUdXUVtuT0HFbSQRvdsE\",\"sessionId\":\"29089c2d5bf7480692d15737f1ff8409\",\"debugTraceId\":\"gateway:29089c2d\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:613:{\"ts\":\"2026-04-15T08:51:07.467103+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/sUdXUVtuT0HFbSQRvdsE\",\"sessionId\":\"29089c2d5bf7480692d15737f1ff8409\",\"debugTraceId\":\"gateway:29089c2d\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:758:{\"ts\":\"2026-04-15T08:52:58.032712+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776243176644:yezs6f\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:759:{\"ts\":\"2026-04-15T08:52:58.032785+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776243176644:yezs6f\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot.py:78:    tenantId = getattr(runner_args, \"tenantId\", None) or body.get(\"tenantId\") or os.getenv(\"BOT_TENANT_ID\")\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot.py:79:    voiceId = getattr(runner_args, \"voice\", None) or getattr(runner_args, \"voiceId\", None) or body.get(\"voice\") or body.get(\"voiceId\") or os.getenv(\"BOT_VOICE_ID\")\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py:251:    runpod_pod_id = os.getenv('RUNPOD_POD_ID', '')\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py:3005:                            logger.info(f\"[tools] OpenClaw background task completed: {session_key}\")\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/runne..."
+            },
+            "output": "/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:29:{\"ts\":\"2026-04-15T07:41:15.797478+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/pearl-default\",\"sessionId\":\"c48c534824844c7f8d2ff585824f8a63\",\"debugTraceId\":\"gateway:c48c5348\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:30:{\"ts\":\"2026-04-15T07:41:15.797514+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/pearl-default\",\"sessionId\":\"c48c534824844c7f8d2ff585824f8a63\",\"debugTraceId\":\"gateway:c48c5348\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:227:{\"ts\":\"2026-04-15T07:45:34.614435+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776239133691:ficm2m\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:228:{\"ts\":\"2026-04-15T07:45:34.614533+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776239133691:ficm2m\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:612:{\"ts\":\"2026-04-15T08:51:07.467038+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/sUdXUVtuT0HFbSQRvdsE\",\"sessionId\":\"29089c2d5bf7480692d15737f1ff8409\",\"debugTraceId\":\"gateway:29089c2d\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:613:{\"ts\":\"2026-04-15T08:51:07.467103+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/sUdXUVtuT0HFbSQRvdsE\",\"sessionId\":\"29089c2d5bf7480692d15737f1ff8409\",\"debugTraceId\":\"gateway:29089c2d\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:758:{\"ts\":\"2026-04-15T08:52:58.032712+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord guild ID: 1471441655126167553\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776243176644:yezs6f\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/gateway.log:759:{\"ts\":\"2026-04-15T08:52:58.032785+00:00\",\"level\":\"INFO\",\"message\":\"[pipecat] [runner] Set Discord channel ID: 1471441655650324533\",\"roomUrl\":\"https://pearlos.daily.co/voice-00000000-0000-0000-0003-000000000020\",\"sessionId\":\"20ceead4-690a-4c7a-a890-f32c76e608a2\",\"userId\":\"00000000-0000-0000-0003-000000000020\",\"userName\":\"Blair Erickson\",\"debugTraceId\":\"voice:1776243176644:yezs6f\",\"tag\":\"[pipecat]\"}\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot.py:78:    tenantId = getattr(runner_args, \"tenantId\", None) or body.get(\"tenantId\") or os.getenv(\"BOT_TENANT_ID\")\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot.py:79:    voiceId = getattr(runner_args, \"voice\", None) or getattr(runner_args, \"voiceId\", None) or body.get(\"voice\") or body.get(\"voiceId\") or os.getenv(\"BOT_VOICE_ID\")\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py:251:    runpod_pod_id = os.getenv('RUNPOD_POD_ID', '')\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/bot_gateway.py:3005:                            logger.info(f\"[tools] OpenClaw background task completed: {session_key}\")\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/runne..."
+          },
+          "toolu_01FXou5Lv1wKYv5Qd5jLGyfs": {
+            "tool_use_id": "toolu_01FXou5Lv1wKYv5Qd5jLGyfs",
+            "tool_name": "Read /workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/task_control_tools.py",
+            "is_error": false,
+            "content": {
+              "Text": "1\t\"\"\"\n2\tTask control tools for managing OpenClaw sub-agents and background tasks.\n3\tAllows users to stop/pause/kill running agents via voice or UI.\n4\t\"\"\"\n5\timport os\n6\timport logging\n7\timport aiohttp\n8\tfrom typing import Literal\n9\t\n10\tfrom tools.decorators import bot_tool\n11\t\n12\tlogger = logging.getLogger(__name__)\n13\t\n14\tOPENCLAW_BASE_URL = os.getenv(\"OPENCLAW_BASE_URL\", \"http://localhost:18789\")\n15\tOPENCLAW_API_KEY = os.getenv(\"OPENCLAW_API_KEY\")\n16\t\n17\t@bot_tool(\n18\t    name=\"bot_stop_task\",\n19\t    description=\"Stop or cancel a running background task or sub-agent. Use when user says 'stop that', 'cancel the task', 'kill it', etc.\",\n20\t    feature_flag=\"openclawBridge\"\n21\t)\n22\tasync def bot_stop_task(\n23\t    task_label: str,\n24\t    action: Literal[\"stop\", \"cancel\", \"kill\"] = \"stop\"\n25\t) -> dict:\n26\t    \"\"\"\n27\t    Stop a running OpenClaw sub-agent or background task.\n28\t    \n29\t    Args:\n30\t        task_label: Label/name of the task to stop (e.g., \"Call Button Fix\")\n31\t        action: Action to take - \"stop\" (graceful), \"cancel\", or \"kill\" (force)\n32\t    \n33\t    Returns:\n34\t        Status of the stop operation\n35\t    \"\"\"\n36\t    try:\n37\t        # Get list of active sessions\n38\t        headers = {}\n39\t        if OPENCLAW_API_KEY:\n40\t            headers[\"Authorization\"] = f\"Bearer {OPENCLAW_API_KEY}\"\n41\t        \n42\t        async with aiohttp.ClientSession() as session:\n43\t            # List sessions to find matching label\n44\t            async with session.get(\n45\t                f\"{OPENCLAW_BASE_URL}/api/sessions\",\n46\t                headers=headers,\n47\t                timeout=aiohttp.ClientTimeout(total=10)\n48\t            ) as resp:\n49\t                if resp.status != 200:\n50\t                    return {\n51\t                        \"status\": \"error\",\n52\t                        \"message\": f\"Failed to list sessions: {resp.status}\"\n53\t                    }\n54\t                \n55\t                data = await resp.json()\n56\t                sessions = data.get(\"sessions\", [])\n57\t                \n58\t                # Find session with matching label\n59\t                target_session = None\n60\t                for s in sessions:\n61\t                    session_label = s.get(\"label\", \"\")\n62\t                    session_key = s.get(\"key\", \"\")\n63\t                    # Match by label or key containing the task_label\n64\t                    if (task_label.lower() in session_label.lower() or \n65\t                        task_label.lower() in session_key.lower()):\n66\t                        target_session = s\n67\t                        break\n68\t                \n69\t                if not target_session:\n70\t                    return {\n71\t                        \"status\": \"not_found\",\n72\t                        \"message\": f\"No active task found matching '{task_label}'\"\n73\t                    }\n74\t                \n75\t                session_key = target_session[\"key\"]\n76\t                \n77\t                # Send abort/stop signal\n78\t                # OpenClaw doesn't have a direct \"kill session\" API yet,\n79\t                # but we can send a stop message to the session\n80\t                async with session.post(\n81\t                    f\"{OPENCLAW_BASE_URL}/v1/chat/completions\",\n82\t                    headers={**headers, \"Content-Type\": \"application/json\"},\n83\t                    json={\n84\t                        \"model\": \"default\",\n85\t                        \"messages\": [\n86\t                            {\n87\t                                \"role\": \"system\",\n88\t                                \"content\": f\"User requested to {action} this task. Stop all work immediately and report status.\"\n89\t                            }\n90\t                        ],\n91\t                        \"stream\": False,\n92\t                        \"x-openclaw-session-key\": session_key\n93\t                    },\n94\t                    timeout=aiohttp.ClientTimeout(total=15)\n95\t                ) as stop_resp:\n96\t                    if stop_resp.status == 200:\n97\t               ..."
+            },
+            "output": "1\t\"\"\"\n2\tTask control tools for managing OpenClaw sub-agents and background tasks.\n3\tAllows users to stop/pause/kill running agents via voice or UI.\n4\t\"\"\"\n5\timport os\n6\timport logging\n7\timport aiohttp\n8\tfrom typing import Literal\n9\t\n10\tfrom tools.decorators import bot_tool\n11\t\n12\tlogger = logging.getLogger(__name__)\n13\t\n14\tOPENCLAW_BASE_URL = os.getenv(\"OPENCLAW_BASE_URL\", \"http://localhost:18789\")\n15\tOPENCLAW_API_KEY = os.getenv(\"OPENCLAW_API_KEY\")\n16\t\n17\t@bot_tool(\n18\t    name=\"bot_stop_task\",\n19\t    description=\"Stop or cancel a running background task or sub-agent. Use when user says 'stop that', 'cancel the task', 'kill it', etc.\",\n20\t    feature_flag=\"openclawBridge\"\n21\t)\n22\tasync def bot_stop_task(\n23\t    task_label: str,\n24\t    action: Literal[\"stop\", \"cancel\", \"kill\"] = \"stop\"\n25\t) -> dict:\n26\t    \"\"\"\n27\t    Stop a running OpenClaw sub-agent or background task.\n28\t    \n29\t    Args:\n30\t        task_label: Label/name of the task to stop (e.g., \"Call Button Fix\")\n31\t        action: Action to take - \"stop\" (graceful), \"cancel\", or \"kill\" (force)\n32\t    \n33\t    Returns:\n34\t        Status of the stop operation\n35\t    \"\"\"\n36\t    try:\n37\t        # Get list of active sessions\n38\t        headers = {}\n39\t        if OPENCLAW_API_KEY:\n40\t            headers[\"Authorization\"] = f\"Bearer {OPENCLAW_API_KEY}\"\n41\t        \n42\t        async with aiohttp.ClientSession() as session:\n43\t            # List sessions to find matching label\n44\t            async with session.get(\n45\t                f\"{OPENCLAW_BASE_URL}/api/sessions\",\n46\t                headers=headers,\n47\t                timeout=aiohttp.ClientTimeout(total=10)\n48\t            ) as resp:\n49\t                if resp.status != 200:\n50\t                    return {\n51\t                        \"status\": \"error\",\n52\t                        \"message\": f\"Failed to list sessions: {resp.status}\"\n53\t                    }\n54\t                \n55\t                data = await resp.json()\n56\t                sessions = data.get(\"sessions\", [])\n57\t                \n58\t                # Find session with matching label\n59\t                target_session = None\n60\t                for s in sessions:\n61\t                    session_label = s.get(\"label\", \"\")\n62\t                    session_key = s.get(\"key\", \"\")\n63\t                    # Match by label or key containing the task_label\n64\t                    if (task_label.lower() in session_label.lower() or \n65\t                        task_label.lower() in session_key.lower()):\n66\t                        target_session = s\n67\t                        break\n68\t                \n69\t                if not target_session:\n70\t                    return {\n71\t                        \"status\": \"not_found\",\n72\t                        \"message\": f\"No active task found matching '{task_label}'\"\n73\t                    }\n74\t                \n75\t                session_key = target_session[\"key\"]\n76\t                \n77\t                # Send abort/stop signal\n78\t                # OpenClaw doesn't have a direct \"kill session\" API yet,\n79\t                # but we can send a stop message to the session\n80\t                async with session.post(\n81\t                    f\"{OPENCLAW_BASE_URL}/v1/chat/completions\",\n82\t                    headers={**headers, \"Content-Type\": \"application/json\"},\n83\t                    json={\n84\t                        \"model\": \"default\",\n85\t                        \"messages\": [\n86\t                            {\n87\t                                \"role\": \"system\",\n88\t                                \"content\": f\"User requested to {action} this task. Stop all work immediately and report status.\"\n89\t                            }\n90\t                        ],\n91\t                        \"stream\": False,\n92\t                        \"x-openclaw-session-key\": session_key\n93\t                    },\n94\t                    timeout=aiohttp.ClientTimeout(total=15)\n95\t                ) as stop_resp:\n96\t                    if stop_resp.status == 200:\n97\t               ..."
+          },
+          "toolu_018JQY3nG1DNKxH7DV1UhRVt": {
+            "tool_use_id": "toolu_018JQY3nG1DNKxH7DV1UhRVt",
+            "tool_name": "Read /workspace/nia-universal/apps/pipecat-daily-bot/bot/tools/openclaw_tools.py (1 - 250)",
+            "is_error": false,
+            "content": {
+              "Text": "1\t\"\"\"OpenClaw Bridge Tools.\n2\t\n3\tProvides two tools for LLM → OpenClaw Gateway communication:\n4\t  - bot_openclaw_task: fire-and-forget background tasks (direct HTTP)\n5\t  - bot_think_deeply: synchronous deep reasoning (direct HTTP)\n6\t\n7\tNOTE (2026-02-16): In ``openclaw_session`` mode (BOT_LLM_MODE=openclaw_session),\n8\tthese tools are **unused** — OpenClaw handles all inference and tool execution\n9\tserver-side via OpenClawSessionProcessor.  They remain here because they ARE\n10\tstill used in the non-openclaw LLM modes (hybrid, sonnet_primary, direct OpenAI).\n11\tDo not delete.\n12\t\"\"\"\n13\t\n14\tfrom __future__ import annotations\n15\t\n16\timport uuid\n17\t\n18\tfrom pipecat.frames.frames import FunctionCallResultProperties\n19\tfrom pipecat.services.llm_service import FunctionCallParams\n20\t\n21\tfrom tools.decorators import bot_tool\n22\tfrom tools.logging_utils import bind_tool_logger\n23\timport asyncio\n24\timport json\n25\timport os\n26\timport aiohttp\n27\t\n28\t\n29\t\n30\t\n31\t@bot_tool(\n32\t    name=\"bot_openclaw_task\",\n33\t    description=(\n34\t        \"Background OpenClaw task. Results show in UI, NOT spoken back. \"\n35\t        \"For results you need to speak, use bot_think_deeply instead.\"\n36\t    ),\n37\t    feature_flag=\"openclawBridge\",\n38\t    parameters={\n39\t        \"type\": \"object\",\n40\t        \"properties\": {\n41\t            \"task\": {\n42\t                \"type\": \"string\",\n43\t                \"description\": \"A clear description of the task to delegate to OpenClaw.\"\n44\t            },\n45\t            \"urgency\": {\n46\t                \"type\": \"string\",\n47\t                \"enum\": [\"low\", \"normal\", \"high\"],\n48\t                \"description\": \"Task urgency level. Defaults to 'normal'.\",\n49\t                \"default\": \"normal\"\n50\t            }\n51\t        },\n52\t        \"required\": [\"task\"]\n53\t    }\n54\t)\n55\tasync def bot_openclaw_task(params: FunctionCallParams):\n56\t    \"\"\"Fire-and-forget background task via direct HTTP to OpenClaw Gateway.\"\"\"\n57\t    arguments = params.arguments or {}\n58\t    task = arguments.get(\"task\", \"\").strip()\n59\t    urgency = arguments.get(\"urgency\", \"normal\")\n60\t    log = bind_tool_logger(params, tag=\"[openclaw_tools]\").bind(task=task[:80])\n61\t\n62\t    if not task:\n63\t        await params.result_callback(\n64\t            {\"success\": False, \"error\": \"task_required\", \"user_message\": \"I need a task description.\"},\n65\t            properties=FunctionCallResultProperties(run_llm=True),\n66\t        )\n67\t        return\n68\t\n69\t    # --- Dedup check: prevent duplicate fire-and-forget tasks ---\n70\t    import time as _time\n71\t    _clean_dedup_cache()\n72\t    dedup_key_task = _normalize_for_dedup(task)\n73\t    if dedup_key_task in _think_deeply_cache:\n74\t        cached_ts, cached_result = _think_deeply_cache[dedup_key_task]\n75\t        age = _time.time() - cached_ts\n76\t        log.info(f\"Dedup hit for task — skipping duplicate (age={age:.1f}s)\")\n77\t        await params.result_callback(\n78\t            cached_result,\n79\t            properties=FunctionCallResultProperties(run_llm=True),\n80\t        )\n81\t        return\n82\t\n83\t    session_key = f\"oclaw-{uuid.uuid4().hex[:12]}\"\n84\t\n85\t    openclaw_url = os.getenv(\"OPENCLAW_API_URL\", \"http://localhost:18789/v1\")\n86\t    openclaw_key = os.getenv(\"OPENCLAW_API_KEY\", \"openclaw-local\")\n87\t\n88\t    log.info(\"Sending openclaw task via direct HTTP (fire-and-forget)\")\n89\t\n90\t    payload = {\n91\t        \"model\": os.getenv(\"BOT_ESCALATION_MODEL\", \"anthropic/claude-opus-4.6\"),\n92\t        \"messages\": [\n93\t            {\n94\t                \"role\": \"system\",\n95\t                \"content\": (\n96\t                    \"You are a sub-agent spawned by Voice Pearl to handle a background task. \"\n97\t                    \"Complete it thoroughly. Results will appear in the PearlOS interface. \"\n98\t                    \"Write in clean natural language — no markdown formatting, no bullet lists.\\n\\n\"\n99\t                    \"CROSS-SESSION AWARENESS:\\n\"\n100\t                    \"You have access to sessions_history. ALWAYS check recent conversation history from ot..."
+            },
+            "output": "1\t\"\"\"OpenClaw Bridge Tools.\n2\t\n3\tProvides two tools for LLM → OpenClaw Gateway communication:\n4\t  - bot_openclaw_task: fire-and-forget background tasks (direct HTTP)\n5\t  - bot_think_deeply: synchronous deep reasoning (direct HTTP)\n6\t\n7\tNOTE (2026-02-16): In ``openclaw_session`` mode (BOT_LLM_MODE=openclaw_session),\n8\tthese tools are **unused** — OpenClaw handles all inference and tool execution\n9\tserver-side via OpenClawSessionProcessor.  They remain here because they ARE\n10\tstill used in the non-openclaw LLM modes (hybrid, sonnet_primary, direct OpenAI).\n11\tDo not delete.\n12\t\"\"\"\n13\t\n14\tfrom __future__ import annotations\n15\t\n16\timport uuid\n17\t\n18\tfrom pipecat.frames.frames import FunctionCallResultProperties\n19\tfrom pipecat.services.llm_service import FunctionCallParams\n20\t\n21\tfrom tools.decorators import bot_tool\n22\tfrom tools.logging_utils import bind_tool_logger\n23\timport asyncio\n24\timport json\n25\timport os\n26\timport aiohttp\n27\t\n28\t\n29\t\n30\t\n31\t@bot_tool(\n32\t    name=\"bot_openclaw_task\",\n33\t    description=(\n34\t        \"Background OpenClaw task. Results show in UI, NOT spoken back. \"\n35\t        \"For results you need to speak, use bot_think_deeply instead.\"\n36\t    ),\n37\t    feature_flag=\"openclawBridge\",\n38\t    parameters={\n39\t        \"type\": \"object\",\n40\t        \"properties\": {\n41\t            \"task\": {\n42\t                \"type\": \"string\",\n43\t                \"description\": \"A clear description of the task to delegate to OpenClaw.\"\n44\t            },\n45\t            \"urgency\": {\n46\t                \"type\": \"string\",\n47\t                \"enum\": [\"low\", \"normal\", \"high\"],\n48\t                \"description\": \"Task urgency level. Defaults to 'normal'.\",\n49\t                \"default\": \"normal\"\n50\t            }\n51\t        },\n52\t        \"required\": [\"task\"]\n53\t    }\n54\t)\n55\tasync def bot_openclaw_task(params: FunctionCallParams):\n56\t    \"\"\"Fire-and-forget background task via direct HTTP to OpenClaw Gateway.\"\"\"\n57\t    arguments = params.arguments or {}\n58\t    task = arguments.get(\"task\", \"\").strip()\n59\t    urgency = arguments.get(\"urgency\", \"normal\")\n60\t    log = bind_tool_logger(params, tag=\"[openclaw_tools]\").bind(task=task[:80])\n61\t\n62\t    if not task:\n63\t        await params.result_callback(\n64\t            {\"success\": False, \"error\": \"task_required\", \"user_message\": \"I need a task description.\"},\n65\t            properties=FunctionCallResultProperties(run_llm=True),\n66\t        )\n67\t        return\n68\t\n69\t    # --- Dedup check: prevent duplicate fire-and-forget tasks ---\n70\t    import time as _time\n71\t    _clean_dedup_cache()\n72\t    dedup_key_task = _normalize_for_dedup(task)\n73\t    if dedup_key_task in _think_deeply_cache:\n74\t        cached_ts, cached_result = _think_deeply_cache[dedup_key_task]\n75\t        age = _time.time() - cached_ts\n76\t        log.info(f\"Dedup hit for task — skipping duplicate (age={age:.1f}s)\")\n77\t        await params.result_callback(\n78\t            cached_result,\n79\t            properties=FunctionCallResultProperties(run_llm=True),\n80\t        )\n81\t        return\n82\t\n83\t    session_key = f\"oclaw-{uuid.uuid4().hex[:12]}\"\n84\t\n85\t    openclaw_url = os.getenv(\"OPENCLAW_API_URL\", \"http://localhost:18789/v1\")\n86\t    openclaw_key = os.getenv(\"OPENCLAW_API_KEY\", \"openclaw-local\")\n87\t\n88\t    log.info(\"Sending openclaw task via direct HTTP (fire-and-forget)\")\n89\t\n90\t    payload = {\n91\t        \"model\": os.getenv(\"BOT_ESCALATION_MODEL\", \"anthropic/claude-opus-4.6\"),\n92\t        \"messages\": [\n93\t            {\n94\t                \"role\": \"system\",\n95\t                \"content\": (\n96\t                    \"You are a sub-agent spawned by Voice Pearl to handle a background task. \"\n97\t                    \"Complete it thoroughly. Results will appear in the PearlOS interface. \"\n98\t                    \"Write in clean natural language — no markdown formatting, no bullet lists.\\n\\n\"\n99\t                    \"CROSS-SESSION AWARENESS:\\n\"\n100\t                    \"You have access to sessions_history. ALWAYS check recent conversation history from ot..."
+          },
+          "toolu_01Figo1C76m1pMWugc8n4uqk": {
+            "tool_use_id": "toolu_01Figo1C76m1pMWugc8n4uqk",
+            "tool_name": "grep -l | head -0 --include=\"*.ts,*.tsx\" \"openclaw_task|_emit_task_event\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01SbPsCogPjKixPFfkdw8ak5": {
+            "tool_use_id": "toolu_01SbPsCogPjKixPFfkdw8ak5",
+            "tool_name": "grep | head -30 --include=\"*.ts,*.tsx\" \"openclaw_task|task.*event|task.*notification\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx:34:      // Fire-and-forget: stream the task and dispatch completion/failure events\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useActiveJobs.ts:29:  // Dismissed task IDs (to prevent re-showing completed sub-agents)"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/features/OpenClawBridge/components/OpenClawEventBridge.tsx:34:      // Fire-and-forget: stream the task and dispatch completion/failure events\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useActiveJobs.ts:29:  // Dismissed task IDs (to prevent re-showing completed sub-agents)"
+          },
+          "toolu_01LCisN15Uy7oqM3gFZw29TT": {
+            "tool_use_id": "toolu_01LCisN15Uy7oqM3gFZw29TT",
+            "tool_name": "grep -r \"Background task done\\|run.*\\[0-9a-f\\]\\{8\\}\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.py\" --include=\"*.js\" 2>/dev/null | head -20",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          }
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-04-22T02:04:44.912Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {
+    "available_commands": [
+      "update-config",
+      "debug",
+      "simplify",
+      "batch",
+      "loop",
+      "schedule",
+      "claude-api",
+      "compact",
+      "context",
+      "heapdump",
+      "init",
+      "review",
+      "security-review",
+      "extra-usage",
+      "insights"
+    ]
+  }
+}

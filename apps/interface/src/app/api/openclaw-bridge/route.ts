@@ -1,8 +1,6 @@
 /**
- * @deprecated This route is unused — all chat goes through /api/chat.
- * Kept temporarily for reference. Safe to delete after 2026-04-01.
- *
  * OpenClaw Bridge API Route
+ * SECURITY: Proxies OpenClaw requests server-side so the API key is never exposed to the browser.
  *
  * POST /api/openclaw-bridge
  *   Body: { prompt, assistantId, conversationId?, workspacePath? }

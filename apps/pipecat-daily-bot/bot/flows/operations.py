@@ -6,7 +6,8 @@ from .messages import (
     _build_role_messages,
     _build_participant_context_message,
     _build_participant_summary_message,
-    _build_greeting_policy_message
+    _build_greeting_policy_message,
+    _has_greeted_participants,
 )
 from .utils import _reapply_flow_node_if_active
 from .types import WRAPUP_NODE_NAME
@@ -36,6 +37,8 @@ def refresh_conversation_role_messages(flow_manager: Optional[FlowManager]) -> N
     conversation_key = flow_state.get("next_node_after_boot", "conversation")
     conversation_node = nodes.get(conversation_key)
     if isinstance(conversation_node, dict):
+        greeted_any = _has_greeted_participants(flow_state)
+        node_changed = False
         role_messages = _build_role_messages(
             personality_dict,
             participant_context,
@@ -44,20 +47,6 @@ def refresh_conversation_role_messages(flow_manager: Optional[FlowManager]) -> N
         )
         # Pre-greeting, include opening prompt in role_messages; after greeting, omit to avoid repeats
         try:
-            greeted_any = False
-            rooms = flow_state.get("greeting_rooms")
-            if isinstance(rooms, dict):
-                for state in rooms.values():
-                    if isinstance(state, dict):
-                        greeted = state.get("greeted_ids", set())
-                        if isinstance(greeted, (set, list, tuple)) and len(greeted) > 0:
-                            greeted_any = True
-                            break
-            if not greeted_any:
-                greeted_ids = flow_state.get("greeted_ids")
-                if isinstance(greeted_ids, (set, list, tuple)) and len(greeted_ids) > 0:
-                    greeted_any = True
-
             if not greeted_any and isinstance(opening_prompt_value, str):
                 trimmed_opening = opening_prompt_value.strip()
                 if trimmed_opening:
@@ -66,8 +55,27 @@ def refresh_conversation_role_messages(flow_manager: Optional[FlowManager]) -> N
             if isinstance(opening_prompt_value, str) and opening_prompt_value.strip():
                 role_messages.append({"role": "system", "content": opening_prompt_value.strip()})
 
+        if greeted_any and isinstance(opening_prompt_value, str):
+            trimmed_opening = opening_prompt_value.strip()
+            task_messages = conversation_node.get("task_messages")
+            if trimmed_opening and isinstance(task_messages, list):
+                filtered_messages = [
+                    message
+                    for message in task_messages
+                    if not (
+                        isinstance(message, dict)
+                        and message.get("role") == "system"
+                        and message.get("content") == trimmed_opening
+                    )
+                ]
+                if filtered_messages != task_messages:
+                    conversation_node["task_messages"] = filtered_messages
+                    node_changed = True
+
         if conversation_node.get("role_messages") != role_messages:
             conversation_node["role_messages"] = role_messages
+            node_changed = True
+        if node_changed:
             _reapply_flow_node_if_active(flow_manager, conversation_node)
 
     boot_node = nodes.get("boot")

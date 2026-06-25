@@ -66,7 +66,7 @@ export async function findByName(userId: string, name: string): Promise<ISprite 
     where: {
       type: { eq: BlockType_Sprite },
       indexer: { path: 'parent_id', equals: userId },
-      and: [{ indexer: { path: 'name', equals: name } }]
+      AND: [{ indexer: { path: 'name', equals: name } }]
     },
     limit: 1,
   } as PrismContentQuery);
@@ -81,15 +81,19 @@ import { getTokensRedeemedByUser } from './resourceShareToken-actions';
 /**
  * List all Sprites for a user
  */
-export async function listByUser(userId: string, limit = 50, offset = 0): Promise<PrismContentResult> {
+export async function listByUser(userId: string, limit = 50, offset = 0, tenantId?: string): Promise<PrismContentResult> {
   const prism = await Prism.getInstance();
+  const where: Record<string, any> = {
+    type: { eq: BlockType_Sprite },
+    indexer: { path: 'parent_id', equals: userId }
+  };
+  if (tenantId) {
+    where.AND = [{ indexer: { path: 'tenantId', equals: tenantId } }];
+  }
   const op = async () => await prism.query({
     contentType: BlockType_Sprite,
     tenantId: 'any',
-    where: {
-      type: { eq: BlockType_Sprite },
-      indexer: { path: 'parent_id', equals: userId }
-    },
+    where,
     limit,
     offset,
     orderBy: { updatedAt: 'desc' },
@@ -101,7 +105,7 @@ export async function listByUser(userId: string, limit = 50, offset = 0): Promis
 /**
  * Get Sprites shared with a user via ResourceShareToken
  */
-export async function getSpritesSharedWithUser(userId: string): Promise<ISprite[]> {
+export async function getSpritesSharedWithUser(userId: string, tenantId?: string): Promise<ISprite[]> {
   try {
     const tokens = await getTokensRedeemedByUser(userId, ResourceType.Sprite);
     const resourceIds = tokens.map(t => t.resourceId);
@@ -122,7 +126,7 @@ export async function getSpritesSharedWithUser(userId: string): Promise<ISprite[
     const sprites: ISprite[] = [];
     await Promise.all(uniqueIds.map(async (id) => {
         const sprite = await findById(id);
-        if (sprite) {
+        if (sprite && (!tenantId || sprite.tenantId === tenantId)) {
             sprites.push(sprite);
         }
     }));

@@ -40,8 +40,12 @@ class MultiUserContextAggregator(LLMUserContextAggregator):
 
     def set_participant_name(self, participant_id: str, username: str):
         """Set the username for a participant ID."""
+        previous = self._participant_names.get(participant_id)
         self._participant_names[participant_id] = username
-        logger.info(f"[{BOT_PID}] Mapped participant {participant_id} to username: {username}")
+        if previous != username:
+            logger.info(f"[{BOT_PID}] Mapped participant {participant_id} to username: {username}")
+        else:
+            logger.debug(f"[{BOT_PID}] Participant {participant_id} already mapped to username: {username}")
 
     def get_participant_name(self, participant_id: str) -> str:
         """Get the username for a participant ID, fallback to ID if not found."""
@@ -135,7 +139,7 @@ class MultiUserContextAggregator(LLMUserContextAggregator):
         if participant_id:
             # Use the mapped username if available, otherwise use the ID
             display_name = self.get_participant_name(participant_id)
-            logger.info(f"[{BOT_PID}] Mapped participant {participant_id} to username: {display_name}")
+            logger.debug(f"[{BOT_PID}] Using participant {participant_id} username: {display_name}")
             # Only add user prefix in multi-user rooms (>1 human participant)
             # In single-user voice sessions, the prefix confuses OpenClaw's session API
             human_participants = {pid for pid in self._participant_names if pid != BOT_PID}

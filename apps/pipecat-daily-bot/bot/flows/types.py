@@ -5,8 +5,12 @@ from typing import Dict, Optional, Any
 from pipecat_flows.types import NodeConfig
 
 DEFAULT_SUMMARY_PROMPT = (
-    "Summarize the conversation briefly, focusing on key points and participant names. "
-    "Keep it under 100 words so we preserve token budget."
+    "Summarize the conversation briefly, focusing on key points. "
+    "Keep it under 100 words so we preserve token budget. "
+    "CRITICAL: Use ONLY the names present in the conversation. "
+    "NEVER fabricate, guess, or change any person's name. "
+    "The AI assistant is named Pearl — do not rename her to Paul, Paula, or anything else. "
+    "If you are unsure of a name, refer to 'the user' instead of guessing."
 )
 
 WRAPUP_NODE_NAME = "wrapup"

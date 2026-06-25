@@ -45,6 +45,11 @@ class MarkdownStripFilter(BaseTextFilter):
         (re.compile(r"<[^>]+>"), ""),
         # Horizontal rules
         (re.compile(r"^[-*_]{3,}\s*$", re.MULTILINE), ""),
+        # Standalone hyphens between spaces (e.g. "five - minute") — TTS
+        # engines often pronounce these as "negative" or "minus". Replace
+        # with a comma so the listener hears a natural pause. Hyphenated
+        # compounds like "five-minute" stay intact.
+        (re.compile(r" - "), ", "),
         # Multiple newlines → single space
         (re.compile(r"\n{2,}"), " "),
         # Remaining newlines → space

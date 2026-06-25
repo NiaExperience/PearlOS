@@ -6,7 +6,6 @@ import { TenantActions } from '@nia/prism/core/actions';
 import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
 import { SidebarProvider } from '../../../components/ui/sidebar';
 import { AssistantActions } from '@nia/prism/core/actions';
-import { headers } from 'next/headers';
 import { Prism } from '@nia/prism';
 import { BlockType_Assistant } from '@nia/prism/core/blocks/assistant.block';
 import { BlockType_Tenant } from '@nia/prism/core/blocks/tenant.block';
@@ -19,15 +18,7 @@ export default async function AssistantsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const headersList = await headers();
-  const host = headersList.get('host') || headersList.get('x-forwarded-host') || '';
-  const disableAuth =
-    process.env.DISABLE_DASHBOARD_AUTH === 'true' ||
-    (process.env.NODE_ENV === 'development' &&
-      (host.includes('localhost') ||
-        host.includes('127.0.0.1') ||
-        host.includes('runpod.net') ||
-        process.env.NEXTAUTH_URL?.includes('localhost')));
+  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
 
   const session = disableAuth ? null : await getSessionSafely(undefined, dashboardAuthOptions);
   const userId = disableAuth ? null : session?.user?.id;

@@ -52,43 +52,34 @@ export const SpriteGallery: React.FC<SpriteGalleryProps> = ({ sprites, onSelect 
         </div>
       </div>
 
-      {/* Carousel container */}
-      <div className="relative group">
-        {/* Left arrow */}
-        {canScrollLeft && (
+      {/* Carousel: side buttons avoid overlaying sprites (prevents hover / opacity flicker) */}
+      <div className="flex items-stretch gap-1 px-2">
+        {canScrollLeft ? (
           <button
+            type="button"
             onClick={() => scroll(-1)}
-            className="absolute left-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center
-              bg-gradient-to-r from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
+            className="flex w-9 shrink-0 items-center justify-center self-stretch rounded-lg text-lg text-white/45 transition-colors"
             aria-label="Scroll left"
           >
-            <span className="text-white/60 text-lg">‹</span>
+            ‹
           </button>
-        )}
+        ) : null}
 
-        {/* Right arrow */}
-        {canScrollRight && (
-          <button
-            onClick={() => scroll(1)}
-            className="absolute right-0 top-0 bottom-0 z-10 w-10 flex items-center justify-center
-              bg-gradient-to-l from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Scroll right"
-          >
-            <span className="text-white/60 text-lg">›</span>
-          </button>
-        )}
-
-        {/* Scrollable row */}
         <div
           ref={scrollRef}
-          className="flex gap-2 overflow-x-auto px-3 pb-3 snap-x snap-mandatory"
-          style={{
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            WebkitOverflowScrolling: 'touch',
-          }}
+          className="sprite-gallery-scroll flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-3 snap-x snap-mandatory"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <style>{`div::-webkit-scrollbar { display: none; }`}</style>
+          <style>{`
+            .sprite-gallery-scroll {
+              -webkit-overflow-scrolling: touch;
+              scrollbar-width: none;
+              -ms-overflow-style: none;
+            }
+            .sprite-gallery-scroll::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
           {sprites.map((sprite) => (
             <PedestalCard
               key={sprite.id}
@@ -98,6 +89,17 @@ export const SpriteGallery: React.FC<SpriteGalleryProps> = ({ sprites, onSelect 
             />
           ))}
         </div>
+
+        {canScrollRight ? (
+          <button
+            type="button"
+            onClick={() => scroll(1)}
+            className="flex w-9 shrink-0 items-center justify-center self-stretch rounded-lg text-lg text-white/45 transition-colors"
+            aria-label="Scroll right"
+          >
+            ›
+          </button>
+        ) : null}
       </div>
 
       {/* Enlarged overlay */}
