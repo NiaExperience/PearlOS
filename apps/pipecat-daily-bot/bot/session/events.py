@@ -10,6 +10,7 @@ from core.config import BOT_PID
 from session.participant_data import (
     derive_name_and_context_enhanced,
     extract_user_metadata,
+    is_bot_participant,
     is_stealth_participant,
 )
 from session.participants import ParticipantManager
@@ -124,6 +125,11 @@ class SessionEventHandlers:
         """
         log = logger.bind(tag="[events]", botPid=BOT_PID)
         log.info(f"[{BOT_PID}] [events] Bot joined room")
+        try:
+            from eventbus import emit_call_state
+            emit_call_state(self.room_url, "joined")
+        except Exception:
+            log.debug(f"[{BOT_PID}] [events] Failed to emit joined call state", exc_info=True)
 
         # Register this bot as the authoritative session for the room.
         # Any older bot still alive in the same room will detect it has been
@@ -156,10 +162,10 @@ class SessionEventHandlers:
                     # Filter out bot participants (usually named "Pearl" or similar)
                     for pid, pdata in participants.items():
                         pinfo = pdata.get('info', {}) if isinstance(pdata, dict) else {}
-                        is_local = (pdata.get('local', False) if isinstance(pdata, dict) else False) or pid == 'local'
+                        is_local = is_bot_participant(pdata, pid)
                         user_name = pinfo.get('userName', '')
-                        # Skip local (bot) participant
                         if is_local:
+                            log.info(f"[{BOT_PID}] [events] Ignoring assistant participant during existing-count scan: {user_name} ({pid})")
                             continue
                         existing_count += 1
                         log.info(f"[{BOT_PID}] [events] Found existing participant: {user_name} ({pid})")
@@ -183,11 +189,11 @@ class SessionEventHandlers:
                     participants = transport.participants()
                     if participants:
                         for pid, pdata in participants.items():
-                            is_local = (pdata.get('local', False) if isinstance(pdata, dict) else False) or pid == 'local'
-                            if is_local:
-                                continue
                             pinfo = pdata.get('info', {}) if isinstance(pdata, dict) else {}
                             user_name = pinfo.get('userName', 'Guest')
+                            if is_bot_participant(pdata, pid):
+                                log.info(f"[{BOT_PID}] [events] Skipping assistant participant during existing greeting: {user_name} ({pid})")
+                                continue
                             log.info(f"[{BOT_PID}] [events] Triggering greeting flow for existing participant {pid} ({user_name})")
                             # Track this participant so on_first_participant_joined skips the duplicate
                             self._greeted_in_on_joined.add(pid)
@@ -210,6 +216,9 @@ class SessionEventHandlers:
         multi_user_aggregator = getattr(self.context_agg, "_multi_user_agg", None)
         name = participant.get('info', {}).get('userName', 'Guest')
         pid = participant.get('id')
+        if is_bot_participant(participant, pid):
+            logger.info(f"[{BOT_PID}] [events] Ignoring assistant first_participant_joined pid={pid} name={name}")
+            return
         
         # Deduplicate: if on_joined already greeted this participant, skip
         if pid and pid in self._greeted_in_on_joined:
@@ -300,11 +309,18 @@ class SessionEventHandlers:
     async def on_participant_joined(self, transport, participant):
         multi_user_aggregator = getattr(self.context_agg, "_multi_user_agg", None)
         pid = participant.get('id') if isinstance(participant, dict) else None
-        is_local = bool(participant.get('local')) if isinstance(participant, dict) else False
+        is_local = is_bot_participant(participant, pid)
         
         # Deduplicate: if on_joined already processed this participant, skip event emission
         # (but still do identity resolution and participant tracking)
         _already_greeted_in_joined = pid and pid in self._greeted_in_on_joined
+
+        if is_local:
+            logger.info(f"[{BOT_PID}] Participant joined: {pid} name=assistant local=True")
+            if pid and not self.managers.participant_manager.local_bot_id:
+                self.managers.participant_manager.local_bot_id = pid
+                logger.info(f"[{BOT_PID}] [participants] detected local bot id={self.managers.participant_manager.local_bot_id}")
+            return
         
         # Resolve identity using IdentityManager
         try:
@@ -401,11 +417,6 @@ class SessionEventHandlers:
             pass
         logger.info(f"[{BOT_PID}] Participant joined: {pid} name={pname} local={is_local}")
         if not pid:
-            return
-        if is_local:
-            if not self.managers.participant_manager.local_bot_id:
-                self.managers.participant_manager.local_bot_id = pid
-                logger.info(f"[{BOT_PID}] [participants] detected local bot id={self.managers.participant_manager.local_bot_id}")
             return
         was_empty = self.managers.participant_manager.human_count() == 0
         
@@ -538,7 +549,7 @@ class SessionEventHandlers:
                             # (This would notify the frontend to clear UI indicators)
                         
                         # Start the delayed closure task
-                        asyncio.create_task(delayed_note_closure())
+                        self.managers.track_task(asyncio.create_task(delayed_note_closure()))
                         
             except Exception as e:
                 logger.error(f"[{BOT_PID}] [notes] Error in note closure logic: {e}")

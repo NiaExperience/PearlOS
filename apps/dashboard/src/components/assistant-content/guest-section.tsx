@@ -77,7 +77,7 @@ export default function GuestSection({
     const fetchGuests = async () => {
       setIsLoading(true);
       try {
-        const guests = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
+        const guests = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
         setGuests(guests as IGuest[]);
       } catch (error) {
         console.error("Error fetching guests:", error);
@@ -186,7 +186,7 @@ export default function GuestSection({
   const handleFormSubmit = async (data: GuestFormData) => {
     try {
       if (editingGuest) {
-        const result = await fetch(`/api/contentDetail/${editingGuest._id}`, {
+        const result = await fetch(`/dashboard/api/contentDetail/${editingGuest._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -194,7 +194,7 @@ export default function GuestSection({
           body: JSON.stringify(data),
         }).then(res => res.json());
         if (result.success) {
-          const updatedGuests = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
+          const updatedGuests = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
           setGuests(updatedGuests as IGuest[]);
           setShowGuestModal(false);
           toast({
@@ -209,7 +209,7 @@ export default function GuestSection({
           });
         }
       } else {
-        const result = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=guest`, {
+        const result = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=guest`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -217,7 +217,7 @@ export default function GuestSection({
           body: JSON.stringify(data),
         }).then(res => res.json());
         if (result.success) {
-          const updatedGuests = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
+          const updatedGuests = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
           setGuests(updatedGuests as IGuest[]);
           setShowGuestModal(false);
           toast({
@@ -244,11 +244,11 @@ export default function GuestSection({
 
   const handleDeleteGuest = async (guestId: string) => {
     try {
-      const result = await fetch(`/api/contentDetail/${guestId}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/${guestId}`, {
         method: 'DELETE',
       }).then(res => res.json());
       if (result.success) {
-        const updatedGuests = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
+        const updatedGuests = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=guest`).then(res => res.json());
         setGuests(updatedGuests as IGuest[]);
         setGuestToDelete(null);
         toast({

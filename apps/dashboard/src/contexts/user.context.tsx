@@ -36,7 +36,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
   // NOTE: Corrected path: existing API route is /api/users/me (plural)
-  const response = await fetch('/api/users/me');
+  const response = await fetch('/dashboard/api/users/me');
       if (response.ok) {
         const data = await response.json();
         setUser(data.user ?? null);

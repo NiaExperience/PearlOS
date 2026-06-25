@@ -12,10 +12,13 @@
  */
 
 import type { IOrganization } from '@nia/prism/core/blocks/organization.block';
+import type { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import type { IUser } from '@nia/prism/core/blocks/user.block';
 import type { IUserOrganizationRole } from '@nia/prism/core/blocks/userOrganizationRole.block';
 import { OrganizationRole } from '@nia/prism/core/blocks/userOrganizationRole.block';
 import type { IUserTenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
+
+type ShareableResourceType = ResourceType | 'Notes' | 'HtmlGeneration' | 'Apps' | 'DailyCallRoom' | 'Sprite';
 
 /**
  * Create or find existing sharing organization for a resource.
@@ -24,7 +27,7 @@ import type { IUserTenantRole } from '@nia/prism/core/blocks/userTenantRole.bloc
  */
 export async function createSharingOrganization(
   resourceId: string,
-  contentType: 'Notes' | 'HtmlGeneration',
+  contentType: ShareableResourceType,
   resourceTitle: string,
   tenantId: string,
   _userId: string
@@ -78,10 +81,10 @@ export async function getResourceSharingOrganization(
 export async function getUserSharedResources(
   userId: string,
   tenantId: string,
-  contentType?: 'Notes' | 'HtmlGeneration'
+  contentType?: ShareableResourceType
 ): Promise<Array<{
   resourceId: string;
-  contentType: 'Notes' | 'HtmlGeneration';
+  contentType: ShareableResourceType;
   organization: IOrganization;
   role: OrganizationRole;
   memberCount: number;
@@ -141,7 +144,7 @@ export async function getOrganizationMembers(
  */
 export async function shareResourceWithUser(
   resourceId: string,
-  contentType: 'Notes' | 'HtmlGeneration',
+  contentType: ShareableResourceType,
   email: string,
   role: 'read-only' | 'read-write',
   tenantId: string,

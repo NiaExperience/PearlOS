@@ -10,7 +10,6 @@ import CreateAssistantModal from '@dashboard/components/create-assistant-modal';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { TenantActions } from '@nia/prism/core/actions';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import { Prism } from '@nia/prism';
 import { BlockType_Assistant } from '@nia/prism/core/blocks/assistant.block';
 
@@ -18,27 +17,19 @@ import { BlockType_Assistant } from '@nia/prism/core/blocks/assistant.block';
 export const dynamic = 'force-dynamic';
 
 const AssistantsPage = async () => {
-  const headersList = await headers();
-  const host = headersList.get('host') || headersList.get('x-forwarded-host') || '';
-  const disableAuth =
-    process.env.DISABLE_DASHBOARD_AUTH === 'true' ||
-    (process.env.NODE_ENV === 'development' &&
-      (host.includes('localhost') ||
-        host.includes('127.0.0.1') ||
-        host.includes('runpod.net') ||
-        process.env.NEXTAUTH_URL?.includes('localhost')));
+  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
 
   // Additional check for the assistants page
   const session = disableAuth ? null : await getSessionSafely(undefined, dashboardAuthOptions);
   const userId = disableAuth ? 'local-dev-admin' : session?.user?.id;
 
   if (!userId) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Deny access to anonymous users
   if (!disableAuth && session?.user?.is_anonymous) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Check if user has admin access to any tenant
@@ -46,7 +37,7 @@ const AssistantsPage = async () => {
   const hasAdminAccess = tenantRoles?.some((role: any) => (role.role === 'admin' || role.role === 'owner')) || false;
 
   if (!hasAdminAccess) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Get assistants from ALL tenants the user has access to

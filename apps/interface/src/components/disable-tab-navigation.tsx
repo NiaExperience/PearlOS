@@ -11,6 +11,13 @@ export function DisableTabNavigation() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent Tab and Shift+Tab from working
       if (e.key === 'Tab') {
+        const target = e.target;
+        if (
+          target instanceof Element &&
+          target.closest('[data-pearl-terminal="true"], [data-pearl-terminal-input="true"]')
+        ) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
       }
@@ -26,4 +33,3 @@ export function DisableTabNavigation() {
 
   return null; // This component doesn't render anything
 }
-

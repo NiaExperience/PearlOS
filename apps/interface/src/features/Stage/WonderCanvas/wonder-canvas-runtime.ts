@@ -5,7 +5,7 @@ export const WONDER_RUNTIME_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <meta name="referrer" content="no-referrer"/>
 <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob: https: http:; media-src * data: blob:; connect-src * data: blob:; font-src * data:;"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -634,6 +634,7 @@ window.WonderIcons={get:function(n,c){_loadWonderIcons();return window.WonderIco
       case 'wonder.clear':clearAll(e.data);break;
       case 'wonder.animate':animateElement(e.data);break;
       case 'wonder.avatarState':setAvatarState(e.data.state);break;
+      case 'wonder.theme':applyTheme(e.data);break;
       case 'wonder.orientation':parentOrientationSet=true;applyOrientation(e.data.portrait,e.data.isMobile);break;
     }
   });
@@ -670,6 +671,21 @@ window.WonderIcons={get:function(n,c){_loadWonderIcons();return window.WonderIco
 
   function setAvatarState(state){
     document.body.dataset.avatarState=state||'idle';
+  }
+
+  function applyTheme(payload){
+    try{
+      if(payload.theme)document.documentElement.setAttribute('data-pearl-theme',String(payload.theme));
+      var vars=payload.vars||{};
+      Object.keys(vars).forEach(function(name){
+        var value=vars[name];
+        if(typeof value==='string'&&value.trim()){
+          document.documentElement.style.setProperty(name,value);
+        }
+      });
+    }catch(e){
+      console.warn('[wonder-runtime] theme apply failed',e);
+    }
   }
 
   // Signal ready — retry until parent acknowledges (fixes race condition

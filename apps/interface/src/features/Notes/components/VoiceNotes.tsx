@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import { useSession } from 'next-auth/react';
 import { Mic, MicOff, Plus, Search, Archive, Pin, Trash2, Download, Edit3, Save, X } from 'lucide-react';
 import { useToast } from '@interface/hooks/use-toast';
@@ -494,9 +495,11 @@ export default function VoiceNotes({ assistantName, onClose, supportedFeatures, 
                       <div 
                         className="content-text"
                         dangerouslySetInnerHTML={{
-                          __html: /^<!doctype\s+html|<(?:div|section|article|style|table)\b/i.test(currentNote.content.trim())
-                            ? currentNote.content
-                            : currentNote.content.replace(/\n/g, '<br />')
+                          __html: DOMPurify.sanitize(
+                            /^<!doctype\s+html|<(?:div|section|article|style|table)\b/i.test(currentNote.content.trim())
+                              ? currentNote.content
+                              : currentNote.content.replace(/\n/g, '<br />')
+                          )
                         }}
                       />
                     ) : (

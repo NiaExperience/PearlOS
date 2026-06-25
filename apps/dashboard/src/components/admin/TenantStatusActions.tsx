@@ -28,7 +28,7 @@ export const TenantStatusActions: React.FC<TenantStatusActionsProps> = ({ tenant
     try {
       // Optimistic apply
       onOptimisticUpdate?.({ action, tenantId, phase: 'apply' });
-      const res = await fetch(`/api/tenants/${tenantId}/${action}`, { method: 'POST' });
+      const res = await fetch(`/dashboard/api/tenants/${tenantId}/${action}`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || `Failed to ${action} tenant`);

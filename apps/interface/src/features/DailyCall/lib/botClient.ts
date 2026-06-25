@@ -30,6 +30,7 @@ interface BotJoinOptions {
   supportedFeatures?: string[] | null; // Feature flags to enable specific bot capabilities
   modePersonalityVoiceConfig?: Record<string, any>; // Map of mode -> config for hot-switching
   sessionOverride?: Record<string, any>;
+  visionMode?: boolean;
   token?: string;
   debugTraceId?: string;
 }
@@ -75,6 +76,7 @@ export async function joinRoom(room_url: string, joinOptions: BotJoinOptions = {
     const supportedFeatures = joinOptions.supportedFeatures;
     const modePersonalityVoiceConfig = joinOptions.modePersonalityVoiceConfig;
     const sessionOverride = joinOptions.sessionOverride;
+    const visionMode = joinOptions.visionMode === true;
     const normalizedVoiceParameters = normalizeVoiceParameters(
       voiceProvider,
       voice,
@@ -91,6 +93,7 @@ export async function joinRoom(room_url: string, joinOptions: BotJoinOptions = {
       hasVoiceParameters: !!normalizedVoiceParameters,
       supportedFeatures,
       modeConfigKeys: Object.keys(modePersonalityVoiceConfig || {}),
+      visionMode,
       sessionId,
       sessionUserId,
       sessionUserEmail: sessionUserEmail ? 'present' : 'absent',
@@ -122,6 +125,7 @@ export async function joinRoom(room_url: string, joinOptions: BotJoinOptions = {
         ...(supportedFeatures ? { supportedFeatures } : {}),
         ...(modePersonalityVoiceConfig ? { modePersonalityVoiceConfig } : {}),
         ...(sessionOverride ? { sessionOverride } : {}),
+        ...(visionMode ? { visionMode: true } : {}),
         ...(token ? { token } : {}),
         ...(debugTraceId ? { debugTraceId } : {}),
       })

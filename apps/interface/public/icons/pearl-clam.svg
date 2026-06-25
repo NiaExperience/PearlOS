@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <!-- Isometric clam shell with pearl inside — pixel art style -->
+
+  <!-- Shadow -->
+  <ellipse cx="34" cy="56" rx="18" ry="5" fill="#1a1a2e" opacity="0.35"/>
+
+  <!-- Bottom shell (darker) -->
+  <path fill="#b0845c" d="M14 42 Q16 54 32 54 Q48 54 50 42 Q48 34 32 32 Q16 34 14 42 Z"/>
+  <!-- Bottom shell ridge lines -->
+  <path fill="none" stroke="#8a6340" stroke-width="1" opacity="0.6" d="M20 42 Q32 50 44 42"/>
+  <path fill="none" stroke="#8a6340" stroke-width="1" opacity="0.4" d="M18 46 Q32 52 46 46"/>
+
+  <!-- Top shell (domed, lighter) -->
+  <path fill="#e8c9a0" d="M12 38 Q14 18 32 10 Q50 18 52 38 Q48 32 32 30 Q16 32 12 38 Z"/>
+  <!-- Top shell ridges -->
+  <path fill="none" stroke="#c49a6c" stroke-width="1.2" opacity="0.7" d="M20 32 Q32 22 44 32"/>
+  <path fill="none" stroke="#c49a6c" stroke-width="1" opacity="0.55" d="M17 29 Q32 17 47 29"/>
+  <path fill="none" stroke="#c49a6c" stroke-width="0.8" opacity="0.4" d="M15 26 Q32 14 49 26"/>
+
+  <!-- Shell outline -->
+  <path fill="none" stroke="#8a6340" stroke-width="1.5" d="M12 38 Q14 18 32 10 Q50 18 52 38 Q48 34 32 32 Q16 34 12 38 Z"/>
+
+  <!-- Hinge point -->
+  <circle cx="32" cy="38" r="3" fill="#6b4c30"/>
+  <circle cx="32" cy="38" r="1.5" fill="#8a6340"/>
+
+  <!-- Pearl inside (luminous) -->
+  <circle cx="32" cy="36" r="7" fill="#fffaf0"/>
+  <circle cx="32" cy="36" r="7" fill="none" stroke="#e8c9a0" stroke-width="0.5"/>
+
+  <!-- Pearl iridescent shimmer -->
+  <ellipse cx="29" cy="33" rx="3" ry="2.5" fill="#ffffff" opacity="0.9" transform="rotate(-15 29 33)"/>
+  <ellipse cx="35" cy="38" rx="2" ry="1.5" fill="#ffe0e0" opacity="0.5" transform="rotate(-15 35 38)"/>
+
+  <!-- Sparkle dots around the shell -->
+  <rect x="18" y="20" width="3" height="3" fill="#ffd700" opacity="0.85"/>
+  <rect x="43" y="18" width="2" height="2" fill="#ffd700" opacity="0.75"/>
+  <rect x="46" y="28" width="2" height="2" fill="#ffd700" opacity="0.65"/>
+  <rect x="38" y="44" width="3" height="3" fill="#ffd700" opacity="0.6"/>
+  <rect x="22" y="46" width="2" height="2" fill="#ffd700" opacity="0.55"/>
+  <rect x="16" y="28" width="2" height="2" fill="#ffd700" opacity="0.7"/>
+</svg>

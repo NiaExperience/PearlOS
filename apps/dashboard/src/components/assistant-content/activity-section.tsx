@@ -98,7 +98,7 @@ export default function ActivitySection({
     const fetchActivities = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/contentList/activity/${selectedAssistant._id}`);
+        const response = await fetch(`/dashboard/api/contentList/activity/${selectedAssistant._id}`);
         if (response.ok) {
           const result = await response.json();
           if (result?.success && result.data) {
@@ -229,7 +229,7 @@ export default function ActivitySection({
 
   const handleEditActivity = async (data: ActivityFormData) => {
     try {
-      const response = await fetch(`/api/contentDetail/activity/${editingActivity?._id}`, {
+      const response = await fetch(`/dashboard/api/contentDetail/activity/${editingActivity?._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +238,7 @@ export default function ActivitySection({
       });
       const result = await response.json();
       if (result?.success) {
-        const updatedActivities = await fetch(`/api/contentList/activity/${selectedAssistant._id}`);
+        const updatedActivities = await fetch(`/dashboard/api/contentList/activity/${selectedAssistant._id}`);
         if (updatedActivities?.ok) {
           const updatedResult = await updatedActivities.json();
           if (updatedResult?.success && updatedResult?.data) {
@@ -265,12 +265,12 @@ export default function ActivitySection({
 
   const handleDeleteActivity = async (activityId: string) => {
     try {
-      const response = await fetch(`/api/contentDetail/activity/${activityId}`, {
+      const response = await fetch(`/dashboard/api/contentDetail/activity/${activityId}`, {
         method: 'DELETE',
       });
       const result = await response.json();
       if (result?.success) {
-        const updatedActivities = await fetch(`/api/contentList/activity/${selectedAssistant._id}`);
+        const updatedActivities = await fetch(`/dashboard/api/contentList/activity/${selectedAssistant._id}`);
         if (updatedActivities?.ok) {
           const updatedResult = await updatedActivities.json();
           if (updatedResult?.success && updatedResult?.data) {
@@ -467,7 +467,7 @@ export default function ActivitySection({
                             if (editingActivity) {
                               await handleEditActivity(data);
                             } else {
-                              const response = await fetch(`/api/contentList/activity/${selectedAssistant._id}`, {
+                              const response = await fetch(`/dashboard/api/contentList/activity/${selectedAssistant._id}`, {
                                 method: 'POST',
                                 headers: {
                                   'Content-Type': 'application/json',
@@ -476,7 +476,7 @@ export default function ActivitySection({
                               });
                               const result = await response.json();
                               if (result?.success) {
-                                const updatedActivities = await fetch(`/api/contentList/activity/${selectedAssistant._id}`);
+                                const updatedActivities = await fetch(`/dashboard/api/contentList/activity/${selectedAssistant._id}`);
                                 if (
                                   updatedActivities?.ok
                                 ) {

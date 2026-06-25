@@ -53,16 +53,17 @@ const CHANNELS = [
 // Available model tiers - maps to agents in OpenClaw config
 const MODEL_TIERS = [
   { id: 'haiku', name: 'Haiku', icon: '⚡', description: 'Fast & efficient (Claude Haiku 4.5)', color: 'text-green-400' },
-  { id: 'sonnet', name: 'Sonnet', icon: '⚖️', description: 'Balanced performance (Claude Sonnet 4.5)', color: 'text-blue-400' },
-  { id: 'opus', name: 'Opus', icon: '🚀', description: 'Maximum capability (Claude Opus 4.6)', color: 'text-purple-400' },
+  { id: 'sonnet', name: 'Sonnet', icon: '⚖️', description: 'Balanced performance (Claude Sonnet 4.6)', color: 'text-blue-400' },
+  { id: 'opus', name: 'Opus', icon: '🚀', description: 'Maximum capability (Claude Opus 4.8)', color: 'text-purple-400' },
 ] as const;
 
 // Primary model options
 const PRIMARY_MODELS = [
-  { value: 'anthropic/claude-opus-4-6', label: 'Claude Opus 4.6', tier: 'Premium' },
-  { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5', tier: 'Balanced' },
+  { value: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8', tier: 'Premium' },
+  { value: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', tier: 'Balanced' },
   { value: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5', tier: 'Fast' },
   { value: 'anthropic/claude-opus-4-5', label: 'Claude Opus 4.5', tier: 'Premium' },
+  { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5', tier: 'Balanced' },
   { value: 'anthropic/claude-sonnet-4-0', label: 'Claude Sonnet 4.0', tier: 'Balanced' },
 ] as const;
 

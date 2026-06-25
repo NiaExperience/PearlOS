@@ -11,10 +11,16 @@
   padding-bottom: max(0px, env(safe-area-inset-bottom));
   padding-left: max(0px, env(safe-area-inset-left));
   padding-right: max(0px, env(safe-area-inset-right));
-  
-  /* Use dynamic viewport height for proper mobile sizing */
-  min-height: 100dvh;
-  max-height: 100dvh;
+
+  /* svh (small viewport height) is stable: it doesn't shrink when the soft
+     keyboard opens, so the notes editor + input bar stay at full height instead
+     of being compressed into ~30% of the screen while typing. dvh would react
+     to the keyboard and crush the layout. border-box keeps the safe-area
+     padding inside the 100svh frame so the bottom of the layout never falls
+     below the visible viewport (was clipping Connection/Audio rows on iOS). */
+  box-sizing: border-box;
+  min-height: 100svh;
+  max-height: 100svh;
 }
 
 /* Define Gohufont (NerdFont patched version) */

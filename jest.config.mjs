@@ -19,7 +19,7 @@ if (result.parsed) {
 
 /** @type {import('jest').Config} */
 const config = {
-  setupFilesAfterEnv: ['<rootDir>/tests/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   globalSetup: '<rootDir>/scripts/globalSetup.ts',
   globalTeardown: '<rootDir>/scripts/globalTeardown.ts',
   testEnvironment: 'node',

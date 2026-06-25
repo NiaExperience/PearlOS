@@ -1,10 +1,8 @@
 import { listByUser, getSpritesSharedWithUser } from '@nia/prism/core/actions/sprite-actions';
 import { getLogger } from '@nia/prism/core/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
-
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('api:summon-ai-sprite:list');
 
@@ -16,15 +14,20 @@ const log = getLogger('api:summon-ai-sprite:list');
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(interfaceAuthOptions);
-    // In test/dev mode, fall back to anonymous user
-    const userId = session?.user?.id || 'anonymous';
+    const requestedTenantId =
+      request.nextUrl.searchParams.get('tenantId') ||
+      request.nextUrl.searchParams.get('tenant_id') ||
+      undefined;
+    const actorResult = await resolveInterfaceActorContext({ requestedTenantId });
+    if (!actorResult.ok) return actorResult.response;
+
+    const { userId, tenantId } = actorResult.actor;
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '20', 10);
     
-    log.info('Listing sprites', { userId, limit });
+    log.info('Listing sprites', { userId, tenantId, limit });
     
-    const result = await listByUser(userId, limit);
-    const sharedSprites = await getSpritesSharedWithUser(userId);
+    const result = await listByUser(userId, limit, 0, tenantId);
+    const sharedSprites = await getSpritesSharedWithUser(userId, tenantId);
     
     // Combine own sprites and shared sprites
     // We deduplicate by ID just in case (e.g. user shared with themselves for testing)
@@ -68,11 +71,11 @@ export async function GET(request: NextRequest) {
       updatedAt: sprite.updatedAt,
     }));
 
-    log.info('Listed sprites', { userId, count: sprites.length });
+    log.info('Listed sprites', { userId, tenantId, count: sprites.length });
 
     return NextResponse.json({
       sprites,
-      total: result.total,
+      total: allItems.length,
     });
   } catch (error) {
     log.error('Failed to list sprites', { error });

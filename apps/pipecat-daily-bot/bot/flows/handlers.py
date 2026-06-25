@@ -259,9 +259,10 @@ class FlowEventHandler:
                 
                 try:
                     st = self._get_greeting_state()
-                    greeted_ids = st.get('greeted_ids', set()) if isinstance(st, dict) else set()
+                    greeted_ids = st.get('greeted_user_ids', set()) if isinstance(st, dict) else set()
+                    greeting_started = bool(st.get('greeting_speech_started')) if isinstance(st, dict) else False
                     stime = payload.get('start_time', None)
-                    if isinstance(stime, (int, float)) and float(stime) == 0.0 and greeted_ids:
+                    if isinstance(stime, (int, float)) and float(stime) == 0.0 and (greeted_ids or greeting_started):
                         return
                 except Exception:
                     pass

@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${HOME:?PearlOS terminal HOME is required}"
+cd "$HOME"
+
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_DATA_HOME="$HOME/.local/share"
+export CODEX_HOME="$HOME/.codex"
+
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$CODEX_HOME" "$HOME/.pearlos-terminal/audit"
+printf '{"tool":"codex","cwd":"%s","ts":"%s"}\n' "$PWD" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$HOME/.pearlos-terminal/audit/cli-launches.jsonl"
+
+ensure_codex_ready_config() {
+  local config_file="$CODEX_HOME/config.toml"
+  local tmp_file
+
+  if [ ! -s "$config_file" ]; then
+    printf '[updates]\ndisabled = true\n' > "$config_file"
+    return
+  fi
+
+  tmp_file="$(mktemp "$CODEX_HOME/config.toml.XXXXXX")"
+  awk '
+    BEGIN {
+      in_updates = 0
+      saw_updates = 0
+      saw_disabled = 0
+    }
+    /^[[:space:]]*\[/ {
+      if (in_updates && !saw_disabled) {
+        print "disabled = true"
+        saw_disabled = 1
+      }
+      in_updates = ($0 ~ /^[[:space:]]*\[updates\][[:space:]]*$/)
+      if (in_updates) saw_updates = 1
+    }
+    /^[[:space:]]*updates\.disabled[[:space:]]*=/ {
+      print "updates.disabled = true"
+      saw_disabled = 1
+      next
+    }
+    in_updates && /^[[:space:]]*disabled[[:space:]]*=/ {
+      print "disabled = true"
+      saw_disabled = 1
+      next
+    }
+    { print }
+    END {
+      if (in_updates && !saw_disabled) {
+        print "disabled = true"
+        saw_disabled = 1
+      }
+      if (!saw_updates && !saw_disabled) {
+        print ""
+        print "[updates]"
+        print "disabled = true"
+      }
+    }
+  ' "$config_file" > "$tmp_file"
+  mv "$tmp_file" "$config_file"
+}
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "Codex CLI is not installed in this terminal image." >&2
+  exit 127
+fi
+
+ensure_codex_ready_config
+
+CODEX_SANDBOX_ARGS=(--sandbox workspace-write --ask-for-approval on-request)
+if [ "${PEARLOS_TERMINAL_SANDBOX:-}" = "1" ]; then
+  # PearlOS already wrapped this shell in an account-local bubblewrap sandbox.
+  # Avoid a nested Codex sandbox, which fails on hosts with limited userns.
+  CODEX_SANDBOX_ARGS=(--sandbox danger-full-access --ask-for-approval never)
+fi
+
+case "${1:-}" in
+  -h|--help|-V|--version|version)
+    exec codex "$@"
+    ;;
+esac
+
+if ! codex login status >/dev/null 2>&1; then
+  cat <<'EOF'
+Codex is available in this PearlOS sandbox, but this sandbox does not have a
+Codex login yet.
+
+Use one of these account-local options:
+  codex login --device-auth
+  printenv CODEX_API_KEY | codex login --with-api-key
+
+PearlOS keeps Codex state under this sandbox's .codex folder. Shared server
+credentials are not copied into user sandboxes.
+EOF
+fi
+
+if [ "$#" -eq 0 ]; then
+  exec codex "${CODEX_SANDBOX_ARGS[@]}" --no-alt-screen
+fi
+
+exec codex "${CODEX_SANDBOX_ARGS[@]}" "$@"

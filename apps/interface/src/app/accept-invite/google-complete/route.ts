@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const token = url.searchParams.get('token') || '';
   const assistant = url.searchParams.get('assistant') || '';
-  const origin = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXTAUTH_INTERFACE_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_API_URL || url.origin;
+  const origin = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXTAUTH_INTERFACE_URL || process.env.NEXTAUTH_URL || url.origin;
   const target = assistant ? `${origin}/${assistant}` : `${origin}/`;
 
   if (!token) {

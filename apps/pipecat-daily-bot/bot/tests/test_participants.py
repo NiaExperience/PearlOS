@@ -11,6 +11,7 @@ from session.participant_data import (
     extract_user_metadata,
     first_token,
     is_stealth_participant,
+    preferred_name_from_context,
     STEALTH_SESSION_USER_ID,
 )
 
@@ -315,6 +316,54 @@ async def test_derive_name_and_context_enhanced_with_profile_data():
         assert ctx["has_user_profile"] is True
         assert ctx["user_profile"] == mock_profile
         assert "session_metadata" in ctx
+
+
+@pytest.mark.asyncio
+async def test_derive_name_and_context_enhanced_prefers_profile_over_stale_session_name():
+    """Loaded UserProfile should override stale Daily/session display names."""
+    participant = {
+        "id": "p1",
+        "user_name": "Stephanie",
+        "userData": {
+            "sessionUserId": "user-blair",
+            "sessionUserName": "Stephanie",
+            "sessionUserEmail": "blair@example.com",
+        },
+    }
+
+    mock_profile = {
+        "userId": "user-blair",
+        "first_name": "Blair",
+        "email": "blair@example.com",
+        "publicPersona": {
+            "displayName": "Blair Erickson",
+            "bio": "Builder.",
+        },
+        "privateMemory": {
+            "relationshipContext": "Prefers direct, candid replies.",
+            "preferences": {"tone": "direct"},
+            "sensitiveData": "must not enter participant context",
+        },
+        "sessionHistory": [{"transcript": "heavy and private"}],
+    }
+
+    with patch("services.user_profile.get_profile_service") as mock_get_service:
+        mock_service = AsyncMock()
+        mock_service.reload_user_profile.return_value = mock_profile
+        mock_get_service.return_value = mock_service
+
+        name, ctx = await derive_name_and_context_enhanced("p1", participant)
+
+    assert name == "Blair"
+    assert ctx is not None
+    assert ctx["session_metadata"]["session_user_name"] == "Stephanie"
+    assert ctx["user_profile"]["first_name"] == "Blair"
+    assert ctx["user_profile"]["publicPersona"]["displayName"] == "Blair Erickson"
+    assert ctx["user_profile"]["privateMemory"]["relationshipContext"] == "Prefers direct, candid replies."
+    assert ctx["user_profile"]["privateMemory"]["preferences"] == {"tone": "direct"}
+    assert "sensitiveData" not in ctx["user_profile"]["privateMemory"]
+    assert "sessionHistory" not in ctx["user_profile"]
+    assert preferred_name_from_context("Stephanie", ctx) == "Blair"
 
 
 @pytest.mark.asyncio

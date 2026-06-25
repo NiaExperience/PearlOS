@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oil Shock: Iran Conflict Impact Series</title>
+  <style>
+    :root {
+      --bg: #080b10;
+      --panel: rgba(12, 18, 25, 0.84);
+      --panel-strong: rgba(18, 26, 35, 0.94);
+      --ink: #f4f0e8;
+      --muted: #a8b2bd;
+      --line: rgba(255, 255, 255, 0.16);
+      --amber: #ffb347;
+      --red: #ff4d4d;
+      --teal: #58d5c9;
+      --blue: #6da8ff;
+      --green: #8bd17c;
+      --violet: #b88cff;
+      --shadow: rgba(0, 0, 0, 0.45);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255, 179, 71, 0.14), transparent 26rem),
+        radial-gradient(circle at 82% 72%, rgba(88, 213, 201, 0.12), transparent 30rem),
+        linear-gradient(145deg, #05070a 0%, #0b1017 48%, #111417 100%);
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) 1fr;
+      min-height: 100vh;
+      isolation: isolate;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 46px 46px;
+    }
+
+    .stage[data-tone="shock"] {
+      background-color: rgba(61, 15, 18, 0.4);
+    }
+
+    .stage[data-tone="trade"] {
+      background-color: rgba(13, 36, 42, 0.36);
+    }
+
+    .stage[data-tone="watch"] {
+      background-color: rgba(35, 31, 20, 0.32);
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background: conic-gradient(from 100deg, rgba(109, 168, 255, 0.08), rgba(255, 179, 71, 0.12), rgba(255, 77, 77, 0.1), rgba(88, 213, 201, 0.08), rgba(109, 168, 255, 0.08));
+      animation: drift 18s linear infinite;
+      opacity: 0.55;
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(8, 11, 16, 0.72), transparent 28%, rgba(8, 11, 16, 0.34));
+      pointer-events: none;
+    }
+
+    @keyframes drift {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .scanline {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+      mix-blend-mode: screen;
+      opacity: 0.16;
+      animation: scan 5.8s ease-in-out infinite;
+    }
+
+    @keyframes scan {
+      0% {
+        transform: translateY(-100%);
+      }
+
+      56%,
+      100% {
+        transform: translateY(100%);
+      }
+    }
+
+    .particle-field {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .particle-field i {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255, 179, 71, 0.72);
+      box-shadow: 0 0 18px rgba(255, 179, 71, 0.55);
+      opacity: calc(0.18 + var(--risk) * 0.72);
+      animation: spark 4.8s ease-in-out infinite;
+    }
+
+    .particle-field i:nth-child(1) { left: 32%; top: 28%; animation-delay: 0.1s; }
+    .particle-field i:nth-child(2) { left: 71%; top: 35%; animation-delay: 0.7s; }
+    .particle-field i:nth-child(3) { left: 55%; top: 61%; animation-delay: 1.2s; }
+    .particle-field i:nth-child(4) { left: 84%; top: 53%; animation-delay: 1.8s; }
+    .particle-field i:nth-child(5) { left: 43%; top: 79%; animation-delay: 2.4s; }
+    .particle-field i:nth-child(6) { left: 64%; top: 18%; animation-delay: 3s; }
+
+    @keyframes spark {
+      50% {
+        transform: translate3d(16px, -18px, 0) scale(1.8);
+        filter: brightness(1.6);
+      }
+    }
+
+    .map {
+      position: absolute;
+      inset: 6vh 4vw;
+      z-index: 1;
+      filter: drop-shadow(0 22px 30px var(--shadow));
+    }
+
+    .coast {
+      position: absolute;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(145deg, rgba(33, 47, 51, 0.86), rgba(26, 33, 33, 0.88));
+      clip-path: polygon(8% 12%, 45% 3%, 79% 20%, 92% 49%, 81% 74%, 50% 93%, 14% 80%, 2% 45%);
+    }
+
+    .coast.iran {
+      width: 43%;
+      height: 40%;
+      right: 8%;
+      top: 13%;
+    }
+
+    .coast.gulf {
+      width: 46%;
+      height: 38%;
+      left: 8%;
+      bottom: 13%;
+      transform: rotate(8deg);
+      background: linear-gradient(145deg, rgba(43, 45, 38, 0.88), rgba(31, 37, 35, 0.9));
+    }
+
+    .water {
+      position: absolute;
+      width: 54%;
+      height: 28%;
+      left: 27%;
+      top: 44%;
+      border: 1px solid rgba(88, 213, 201, 0.18);
+      border-radius: 999px 40% 999px 48%;
+      background: linear-gradient(90deg, rgba(49, 132, 156, 0.45), rgba(20, 55, 78, 0.52));
+      transform: rotate(-12deg);
+      box-shadow: inset 0 0 40px rgba(88, 213, 201, 0.18);
+    }
+
+    .strait {
+      position: absolute;
+      width: 18%;
+      height: 11%;
+      right: 28%;
+      top: 44%;
+      border: 2px solid rgba(255, 179, 71, 0.74);
+      border-radius: 50%;
+      transform: rotate(-18deg);
+      box-shadow: 0 0 28px rgba(255, 179, 71, 0.5);
+    }
+
+    .route {
+      position: absolute;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, var(--teal), var(--amber), transparent);
+      opacity: 0.9;
+      animation: pulseRoute 2.2s ease-in-out infinite;
+    }
+
+    .route.one {
+      width: 60%;
+      left: 18%;
+      top: 54%;
+      transform: rotate(-11deg);
+    }
+
+    .route.two {
+      width: 42%;
+      left: 39%;
+      top: 47%;
+      transform: rotate(8deg);
+      animation-delay: 0.7s;
+    }
+
+    @keyframes pulseRoute {
+      50% {
+        filter: brightness(1.6);
+        box-shadow: 0 0 24px rgba(255, 179, 71, 0.55);
+      }
+    }
+
+    .marker {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 0 8px rgba(255, 179, 71, 0.16), 0 0 26px rgba(255, 179, 71, 0.8);
+    }
+
+    .marker::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 20px;
+      top: -7px;
+      white-space: nowrap;
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-shadow: 0 2px 8px #000;
+    }
+
+    .marker.hormuz {
+      right: 35%;
+      top: 47%;
+    }
+
+    .marker.exports {
+      left: 24%;
+      bottom: 28%;
+      background: var(--teal);
+      box-shadow: 0 0 0 8px rgba(88, 213, 201, 0.16), 0 0 26px rgba(88, 213, 201, 0.8);
+    }
+
+    .price-ribbon {
+      position: absolute;
+      right: clamp(18px, 4vw, 56px);
+      bottom: clamp(22px, 5vh, 56px);
+      z-index: 3;
+      width: min(430px, calc(100% - 40px));
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 24px 60px var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .ticker {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .ticker span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ticker strong {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 1;
+    }
+
+    .pressure {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar {
+      height: 9px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .bar i {
+      display: block;
+      width: var(--w);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+      transition: width 0.45s ease;
+    }
+
+    .sidebar {
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 24px;
+      border-right: 1px solid var(--line);
+      background: rgba(7, 10, 14, 0.88);
+      box-shadow: 16px 0 60px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(20px);
+    }
+
+    .kicker {
+      color: var(--amber);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 12px 0 10px;
+      font-size: clamp(2.2rem, 7vw, 4.6rem);
+      line-height: 0.94;
+      letter-spacing: 0;
+    }
+
+    .lede {
+      margin: 0 0 22px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 1rem;
+    }
+
+    .chapter-card {
+      display: grid;
+      gap: 14px;
+      min-height: 250px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-strong);
+    }
+
+    .chapter-index {
+      color: var(--teal);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(1.35rem, 4vw, 2rem);
+      line-height: 1.05;
+    }
+
+    .chapter-copy {
+      margin: 0;
+      color: #d5d9dd;
+      line-height: 1.55;
+    }
+
+    .signals {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .signal {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .signal b {
+      font-size: 0.86rem;
+    }
+
+    .signal span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .episode-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 16px 0 0;
+    }
+
+    .episode-meta div {
+      min-width: 0;
+      padding: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .episode-meta span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .episode-meta b {
+      display: block;
+      overflow: hidden;
+      margin-top: 4px;
+      font-size: 0.84rem;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: rgba(255, 179, 71, 0.16);
+      color: var(--amber);
+      font-weight: 900;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      gap: 10px;
+      align-items: center;
+      margin-top: auto;
+    }
+
+    .nav-btn,
+    .play-btn {
+      display: grid;
+      place-items: center;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .play-btn {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+    }
+
+    .nav-btn:hover,
+    .play-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 179, 71, 0.58);
+      background: rgba(255, 179, 71, 0.12);
+    }
+
+    .dots {
+      display: flex;
+      gap: 8px;
+      margin: 18px 0 20px;
+    }
+
+    .dot {
+      flex: 1;
+      height: 5px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+    }
+
+    .dot.active {
+      background: var(--amber);
+      box-shadow: 0 0 18px rgba(255, 179, 71, 0.55);
+    }
+
+    .scenario {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .scenario label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--amber);
+    }
+
+    .scenario-output {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .mini {
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .mini span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .mini b {
+      display: block;
+      margin-top: 4px;
+      font-size: 1rem;
+    }
+
+    .scene-title {
+      position: absolute;
+      top: clamp(18px, 5vh, 52px);
+      left: clamp(18px, 5vw, 70px);
+      z-index: 3;
+      max-width: 560px;
+      text-shadow: 0 8px 24px #000;
+    }
+
+    .scene-title span {
+      color: var(--teal);
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .scene-title h3 {
+      margin: 8px 0 0;
+      font-size: clamp(2rem, 5vw, 5rem);
+      line-height: 0.95;
+    }
+
+    .event-stack {
+      position: absolute;
+      right: clamp(18px, 4vw, 56px);
+      top: clamp(92px, 18vh, 170px);
+      z-index: 3;
+      display: grid;
+      gap: 10px;
+      width: min(360px, calc(100% - 40px));
+    }
+
+    .event-card {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(7, 10, 14, 0.72);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+      backdrop-filter: blur(14px);
+      transform: translateX(calc((1 - var(--risk)) * 16px));
+    }
+
+    .event-card i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 16px rgba(255, 179, 71, 0.65);
+    }
+
+    .event-card b {
+      overflow: hidden;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .event-card span {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .shockwave {
+      position: absolute;
+      z-index: 2;
+      width: 18vw;
+      min-width: 150px;
+      aspect-ratio: 1;
+      right: 27%;
+      top: 37%;
+      border: 2px solid rgba(255, 77, 77, 0.5);
+      border-radius: 50%;
+      animation: shock 2.4s ease-out infinite;
+      opacity: calc(0.35 + var(--risk) * 0.5);
+    }
+
+    @keyframes shock {
+      to {
+        transform: scale(2.4);
+        opacity: 0;
+      }
+    }
+
+    .ship {
+      position: absolute;
+      z-index: 2;
+      left: 18%;
+      top: 52%;
+      width: 50px;
+      height: 16px;
+      border-radius: 4px 14px 14px 4px;
+      background: #f0efe8;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+      animation: sail calc(9s - var(--risk) * 4s) linear infinite;
+    }
+
+    .ship::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: -8px;
+      width: 18px;
+      height: 8px;
+      border-radius: 2px 2px 0 0;
+      background: var(--red);
+    }
+
+    .chapter-rail {
+      position: absolute;
+      left: clamp(18px, 5vw, 70px);
+      right: clamp(18px, 4vw, 56px);
+      bottom: clamp(22px, 5vh, 56px);
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      max-width: 720px;
+    }
+
+    .rail-item {
+      height: 44px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: var(--muted);
+      background: rgba(7, 10, 14, 0.64);
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+    }
+
+    .rail-item.active {
+      border-color: rgba(255, 179, 71, 0.68);
+      color: var(--ink);
+      background: rgba(255, 179, 71, 0.14);
+      box-shadow: 0 0 24px rgba(255, 179, 71, 0.18);
+    }
+
+    .rail-item span {
+      display: block;
+      overflow: hidden;
+      padding: 0 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    @keyframes sail {
+      to {
+        transform: translateX(44vw) translateY(-8vh) rotate(-8deg);
+      }
+    }
+
+    @media (max-width: 860px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        min-height: auto;
+        padding: 18px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .stage {
+        min-height: 58vh;
+      }
+
+      .map {
+        inset: 4vh 2vw;
+      }
+
+      .price-ribbon {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        margin: 44vh 16px 18px;
+        width: auto;
+      }
+
+      .event-stack {
+        top: auto;
+        right: 16px;
+        left: 16px;
+        bottom: 108px;
+        width: auto;
+      }
+
+      .event-card:nth-child(n+3) {
+        display: none;
+      }
+
+      .chapter-rail {
+        left: 16px;
+        right: 16px;
+        bottom: 18px;
+      }
+
+      .rail-item {
+        height: 38px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" style="--risk: 0.62">
+    <aside class="sidebar" aria-label="Story controls">
+      <div class="kicker">Thrilling Info Series</div>
+      <h1>Oil Shock</h1>
+      <p class="lede">A fast-moving visual briefing on how an Iran escalation can ripple through crude prices, shipping risk, insurance costs, and Gulf export confidence.</p>
+
+      <section class="chapter-card" aria-live="polite">
+        <div class="chapter-index" id="chapterIndex">Chapter 01</div>
+        <h2 id="chapterTitle">The Strait Becomes the Story</h2>
+        <p class="chapter-copy" id="chapterCopy">Markets do not wait for barrels to disappear. They price the chance that tanker traffic through Hormuz slows, gets rerouted, or becomes expensive to insure.</p>
+        <div class="episode-meta" aria-label="Episode telemetry">
+          <div><span>Trigger</span><b id="triggerMeta">Hormuz</b></div>
+          <div><span>Market</span><b id="marketMeta">Risk bid</b></div>
+          <div><span>Watch</span><b id="watchMeta">Tankers</b></div>
+        </div>
+      </section>
+
+      <div class="dots" id="dots" aria-label="Chapter selector"></div>
+
+      <div class="signals" aria-label="Price channels">
+        <div class="signal">
+          <div class="icon">S</div>
+          <div><b>Supply interruption</b><br><span>Lost Iranian or nearby Gulf barrels</span></div>
+          <span id="supplyValue">High</span>
+        </div>
+        <div class="signal">
+          <div class="icon">T</div>
+          <div><b>Tanker risk</b><br><span>Slower shipping and insurance premiums</span></div>
+          <span id="tankerValue">Severe</span>
+        </div>
+        <div class="signal">
+          <div class="icon">P</div>
+          <div><b>Price reflex</b><br><span>Risk premium before confirmed losses</span></div>
+          <span id="premiumValue">Rising</span>
+        </div>
+      </div>
+
+      <div class="scenario">
+        <label for="riskSlider">Escalation intensity</label>
+        <input id="riskSlider" type="range" min="0" max="100" value="62">
+        <div class="scenario-output">
+          <div class="mini"><span>Risk</span><b id="riskOut">62%</b></div>
+          <div class="mini"><span>Premium</span><b id="premiumOut">+9%</b></div>
+          <div class="mini"><span>Flow</span><b id="flowOut">Tight</b></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="nav-btn" id="prevBtn" aria-label="Previous chapter">‹</button>
+        <button class="play-btn" id="playBtn" aria-label="Play or pause story">▶ Play</button>
+        <button class="nav-btn" id="nextBtn" aria-label="Next chapter">›</button>
+      </div>
+    </aside>
+
+    <section class="stage" aria-label="Animated Gulf oil route visualization">
+      <div class="scanline"></div>
+      <div class="particle-field" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div class="scene-title">
+        <span id="sceneKicker">Hormuz Watch</span>
+        <h3 id="sceneHeadline">Risk moves faster than ships.</h3>
+      </div>
+      <div class="event-stack" aria-label="Market events">
+        <div class="event-card"><i></i><b id="eventOne">War-risk premiums widen</b><span>Now</span></div>
+        <div class="event-card"><i></i><b id="eventTwo">Tankers slow at chokepoint</b><span>Next</span></div>
+        <div class="event-card"><i></i><b id="eventThree">Buyers chase replacement barrels</b><span>Then</span></div>
+      </div>
+      <div class="map">
+        <div class="coast iran"></div>
+        <div class="coast gulf"></div>
+        <div class="water"></div>
+        <div class="strait"></div>
+        <div class="route one"></div>
+        <div class="route two"></div>
+        <div class="marker hormuz" data-label="Strait of Hormuz"></div>
+        <div class="marker exports" data-label="Gulf export lanes"></div>
+      </div>
+      <div class="shockwave"></div>
+      <div class="ship"></div>
+      <div class="price-ribbon">
+        <div class="ticker">
+          <div>
+            <span>Market pressure</span>
+            <strong id="pressureScore">74</strong>
+          </div>
+          <div>
+            <span>Mode</span>
+            <strong id="modeScore">Alert</strong>
+          </div>
+        </div>
+        <div class="pressure">
+          <div class="bar" aria-label="Supply pressure"><i id="supplyBar" style="--w: 68%"></i></div>
+          <div class="bar" aria-label="Shipping pressure"><i id="shippingBar" style="--w: 82%"></i></div>
+          <div class="bar" aria-label="Insurance pressure"><i id="insuranceBar" style="--w: 75%"></i></div>
+        </div>
+      </div>
+      <div class="chapter-rail" id="chapterRail" aria-label="Scene rail"></div>
+    </section>
+  </main>
+
+  <script>
+    const chapters = [
+      {
+        kicker: "Hormuz Watch",
+        headline: "Risk moves faster than ships.",
+        title: "The Strait Becomes the Story",
+        copy: "Markets do not wait for barrels to disappear. They price the chance that tanker traffic through Hormuz slows, gets rerouted, or becomes expensive to insure.",
+        values: ["High", "Severe", "Rising"],
+        meta: ["Hormuz", "Risk bid", "Tankers"],
+        events: ["War-risk premiums widen", "Tankers slow at chokepoint", "Buyers chase replacement barrels"],
+        tone: "watch",
+        base: 62
+      },
+      {
+        kicker: "Supply Shock",
+        headline: "Lost barrels are only the first hit.",
+        title: "Supply Gets Repriced",
+        copy: "An escalation can threaten Iranian exports and make nearby Gulf infrastructure feel less reliable. The price impact grows when buyers doubt replacement barrels will arrive smoothly.",
+        values: ["Severe", "High", "Jumping"],
+        meta: ["Exports", "Supply gap", "Loadings"],
+        events: ["Iranian barrels look exposed", "Gulf capacity gets repriced", "Refiners lift bids early"],
+        tone: "shock",
+        base: 74
+      },
+      {
+        kicker: "Shipping Drag",
+        headline: "Every delay becomes a premium.",
+        title: "Insurance Turns Into Fuel",
+        copy: "Even without a full closure, tanker war-risk premiums, inspections, rerouting, and slower loading schedules can add friction that crude traders convert into higher bids.",
+        values: ["Medium", "Severe", "Hot"],
+        meta: ["Insurance", "Freight drag", "Premiums"],
+        events: ["Underwriters widen cover", "Voyage times stretch", "Spot cargoes turn expensive"],
+        tone: "trade",
+        base: 82
+      },
+      {
+        kicker: "Second Wave",
+        headline: "Retaliation widens the map.",
+        title: "Retaliatory Risk Spreads",
+        copy: "The larger danger is a chain reaction: strikes, counterstrikes, or proxy action that pulls more Gulf exports into the danger zone and keeps volatility elevated.",
+        values: ["High", "Severe", "Volatile"],
+        meta: ["Retaliation", "Volatility", "Off-ramps"],
+        events: ["Counterstrikes widen targets", "Export terminals harden security", "Volatility feeds on uncertainty"],
+        tone: "shock",
+        base: 88
+      },
+      {
+        kicker: "Market Signal",
+        headline: "Watch flows, not headlines alone.",
+        title: "What To Track Next",
+        copy: "The strongest signals are physical: tanker traffic, insurance rates, export loadings, refinery buying behavior, strategic reserve comments, and signs of diplomatic off-ramps.",
+        values: ["Variable", "Watch", "Reactive"],
+        meta: ["Signals", "Positioning", "Diplomacy"],
+        events: ["AIS traffic confirms flow", "Insurance quotes cool or spike", "Diplomacy changes the premium"],
+        tone: "watch",
+        base: 55
+      }
+    ];
+
+    const app = document.querySelector(".app");
+    const chapterIndex = document.getElementById("chapterIndex");
+    const chapterTitle = document.getElementById("chapterTitle");
+    const chapterCopy = document.getElementById("chapterCopy");
+    const sceneKicker = document.getElementById("sceneKicker");
+    const sceneHeadline = document.getElementById("sceneHeadline");
+    const supplyValue = document.getElementById("supplyValue");
+    const tankerValue = document.getElementById("tankerValue");
+    const premiumValue = document.getElementById("premiumValue");
+    const triggerMeta = document.getElementById("triggerMeta");
+    const marketMeta = document.getElementById("marketMeta");
+    const watchMeta = document.getElementById("watchMeta");
+    const eventOne = document.getElementById("eventOne");
+    const eventTwo = document.getElementById("eventTwo");
+    const eventThree = document.getElementById("eventThree");
+    const riskSlider = document.getElementById("riskSlider");
+    const riskOut = document.getElementById("riskOut");
+    const premiumOut = document.getElementById("premiumOut");
+    const flowOut = document.getElementById("flowOut");
+    const pressureScore = document.getElementById("pressureScore");
+    const modeScore = document.getElementById("modeScore");
+    const supplyBar = document.getElementById("supplyBar");
+    const shippingBar = document.getElementById("shippingBar");
+    const insuranceBar = document.getElementById("insuranceBar");
+    const dots = document.getElementById("dots");
+    const stage = document.querySelector(".stage");
+    const chapterRail = document.getElementById("chapterRail");
+    const playBtn = document.getElementById("playBtn");
+    let current = 0;
+    let playing = false;
+    let timer = null;
+
+    chapters.forEach((_, index) => {
+      const dot = document.createElement("button");
+      dot.className = "dot";
+      dot.type = "button";
+      dot.setAttribute("aria-label", `Go to chapter ${index + 1}`);
+      dot.addEventListener("click", () => setChapter(index, true));
+      dots.appendChild(dot);
+
+      const railItem = document.createElement("button");
+      railItem.className = "rail-item";
+      railItem.type = "button";
+      railItem.innerHTML = `<span>${String(index + 1).padStart(2, "0")} ${chapters[index].kicker}</span>`;
+      railItem.setAttribute("aria-label", `Open ${chapters[index].title}`);
+      railItem.addEventListener("click", () => setChapter(index, true));
+      chapterRail.appendChild(railItem);
+    });
+
+    function riskLabel(value) {
+      if (value < 35) return "Open";
+      if (value < 58) return "Tense";
+      if (value < 78) return "Tight";
+      return "Disrupted";
+    }
+
+    function updateRisk(value) {
+      const risk = Number(value);
+      app.style.setProperty("--risk", risk / 100);
+      riskOut.textContent = `${risk}%`;
+      premiumOut.textContent = `+${Math.round(3 + risk * 0.1)}%`;
+      flowOut.textContent = riskLabel(risk);
+      pressureScore.textContent = Math.round(risk * 0.82 + 23);
+      modeScore.textContent = risk > 78 ? "Shock" : risk > 55 ? "Alert" : "Watch";
+      supplyBar.style.setProperty("--w", `${Math.min(100, risk + 6)}%`);
+      shippingBar.style.setProperty("--w", `${Math.min(100, risk + 18)}%`);
+      insuranceBar.style.setProperty("--w", `${Math.min(100, risk + 13)}%`);
+    }
+
+    function setChapter(index, userDriven = false) {
+      current = (index + chapters.length) % chapters.length;
+      const chapter = chapters[current];
+      chapterIndex.textContent = `Chapter ${String(current + 1).padStart(2, "0")}`;
+      chapterTitle.textContent = chapter.title;
+      chapterCopy.textContent = chapter.copy;
+      sceneKicker.textContent = chapter.kicker;
+      sceneHeadline.textContent = chapter.headline;
+      supplyValue.textContent = chapter.values[0];
+      tankerValue.textContent = chapter.values[1];
+      premiumValue.textContent = chapter.values[2];
+      triggerMeta.textContent = chapter.meta[0];
+      marketMeta.textContent = chapter.meta[1];
+      watchMeta.textContent = chapter.meta[2];
+      eventOne.textContent = chapter.events[0];
+      eventTwo.textContent = chapter.events[1];
+      eventThree.textContent = chapter.events[2];
+      stage.dataset.tone = chapter.tone;
+      riskSlider.value = chapter.base;
+      updateRisk(chapter.base);
+      [...dots.children].forEach((dot, dotIndex) => {
+        dot.classList.toggle("active", dotIndex === current);
+      });
+      [...chapterRail.children].forEach((railItem, railIndex) => {
+        railItem.classList.toggle("active", railIndex === current);
+      });
+      if (userDriven && playing) togglePlay(false);
+    }
+
+    function togglePlay(force) {
+      playing = typeof force === "boolean" ? force : !playing;
+      playBtn.textContent = playing ? "Ⅱ Pause" : "▶ Play";
+      clearInterval(timer);
+      if (playing) {
+        timer = setInterval(() => setChapter(current + 1), 5200);
+      }
+    }
+
+    document.getElementById("prevBtn").addEventListener("click", () => setChapter(current - 1, true));
+    document.getElementById("nextBtn").addEventListener("click", () => setChapter(current + 1, true));
+    playBtn.addEventListener("click", () => togglePlay());
+    riskSlider.addEventListener("input", (event) => updateRisk(event.target.value));
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") setChapter(current + 1, true);
+      if (event.key === "ArrowLeft") setChapter(current - 1, true);
+      if (event.key === " ") {
+        event.preventDefault();
+        togglePlay();
+      }
+    });
+
+    setChapter(0);
+  </script>
+</body>
+</html>

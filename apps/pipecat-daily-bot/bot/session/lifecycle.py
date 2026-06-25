@@ -16,10 +16,17 @@ from session.participants import ParticipantManager
 from session.participant_data import extract_user_metadata
 from actions import profile_actions
 
-async def generate_conversation_summary(messages: list[dict[str, Any]]) -> str | None:
+async def generate_conversation_summary(
+    messages: list[dict[str, Any]],
+    participant_names: list[str] | None = None,
+    participant_identities: dict[str, str] | None = None,
+) -> str | None:
     """Generate a concise summary of conversation messages using Groq (Llama) or fallback.
     
-    ISSUE #3 FIX: Added better error handling and auth fallback to prevent 401 errors.
+    CRITICAL: participant_names and participant_identities are used to prevent the LLM
+    from fabricating names. Without them, the summarizer hallucinates identities (e.g.
+    calling Himanshu "Blair", calling Pearl "Paul") which then poison the next session's
+    context via lastConversationSummary.
     """
     try:
         from openai import AsyncOpenAI
@@ -59,10 +66,30 @@ async def generate_conversation_summary(messages: list[dict[str, Any]]) -> str |
                 logger.warning(f"[{BOT_PID}] No GROQ_API_KEY or OPENROUTER_API_KEY set, skipping summary generation")
                 return None
         
+        # Build identity-aware system prompt to prevent name hallucination
+        identity_lines = ["Summarize the following conversation concisely."]
+        if participant_identities:
+            id_parts = []
+            for uid, display_name in participant_identities.items():
+                id_parts.append(f"{display_name} (id: {uid})")
+            identity_lines.append(
+                f"IDENTITY (use ONLY these names — NEVER fabricate, guess, or change any name): "
+                + ", ".join(id_parts) + "."
+            )
+        elif participant_names:
+            identity_lines.append(
+                f"IDENTITY (use ONLY these names — NEVER fabricate, guess, or change any name): "
+                + ", ".join(participant_names) + "."
+            )
+        identity_lines.append(
+            "The AI assistant is named Pearl. Do NOT change the assistant's name to Paul, Paula, or anything else. "
+            "Do NOT change any user's name. If you are unsure of a name, refer to 'the user' instead of guessing."
+        )
+
         response = await client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "Summarize the following conversation concisely."},
+                {"role": "system", "content": " ".join(identity_lines)},
                 {"role": "user", "content": json.dumps(conversation_messages)}
             ],
             timeout=30.0  # Add timeout to prevent hanging
@@ -176,6 +203,8 @@ class SessionLifecycle:
             await client.set(key, BOT_PID, ex=300)  # 5-min TTL as safety net
             self.log.info(f"[{BOT_PID}] [lifecycle] Registered as authoritative bot for room")
             await client.aclose()
+            # Clear any stale superseded flag — this bot is now authoritative
+            self._superseded = False
         except Exception as e:
             self.log.warning(f"[{BOT_PID}] [lifecycle] Failed to register authoritative bot: {e}")
 
@@ -184,9 +213,11 @@ class SessionLifecycle:
 
         Returns ``True`` if Redis is unavailable (fail-open) so that single-bot
         deployments are unaffected.
+
+        NOTE: We intentionally do NOT short-circuit on ``self._superseded`` here.
+        The competing bot may have died and its Redis key may have expired; a live
+        Redis check lets us recover from that situation and reset the flag.
         """
-        if self._superseded:
-            return False
         if not self.room_url:
             return True
         use_redis = os.getenv("USE_REDIS", "true").lower() == "true"
@@ -203,12 +234,15 @@ class SessionLifecycle:
             key = f"room_authoritative_bot:{self.room_url}"
             current = await client.get(key)
             await client.aclose()
-            if current and current != BOT_PID:
+            if current and str(current).strip() != str(BOT_PID):
                 self.log.info(
                     f"[{BOT_PID}] [lifecycle] Superseded by bot {current} — suppressing events"
                 )
                 self._superseded = True
                 return False
+            # Key is absent (expired) or matches our own PID — we are authoritative.
+            # Reset the flag in case a previous competitor's key has since expired.
+            self._superseded = False
             return True
         except Exception as e:
             self.log.warning(f"[{BOT_PID}] [lifecycle] Auth check failed (fail-open): {e}")
@@ -315,8 +349,31 @@ class SessionLifecycle:
                         
                         logger.info(f"[{BOT_PID}] Generating conversation summary ({len(messages)} messages)...")
                         
+                        # Collect participant identities before generating summary
+                        participant_names: list[str] = []
+                        participant_identities: dict[str, str] = {}
+                        try:
+                            from core.transport import get_participants_from_transport
+                            pdata = get_participants_from_transport(transport)
+                            if isinstance(pdata, dict):
+                                for pid, pinfo in pdata.items():
+                                    meta = extract_user_metadata(pinfo)
+                                    if meta:
+                                        uid = meta.get("sessionUserId", "")
+                                        name = meta.get("sessionUserName", "") or pinfo.get("info", {}).get("userName", "")
+                                        if name:
+                                            participant_names.append(name)
+                                            if uid:
+                                                participant_identities[uid] = name
+                        except Exception:
+                            pass
+
                         # Generate summary using LLM (once for all participants)
-                        summary_text = await generate_conversation_summary(messages)
+                        summary_text = await generate_conversation_summary(
+                            messages,
+                            participant_names=participant_names or None,
+                            participant_identities=participant_identities or None,
+                        )
                         
                         if summary_text:
                             # Extract session info
@@ -334,7 +391,6 @@ class SessionLifecycle:
                                 if not isinstance(participants_data, dict):
                                     participants_data = {}
                                 
-                                participant_count = len(participants_data)
                                 user_ids_to_update = []
                                 
                                 # Extract sessionUserId from each participant's userData
@@ -362,6 +418,8 @@ class SessionLifecycle:
                                         logger.info(
                                             f"[{BOT_PID}] No participants with userData found, using fallback user: {fallback_user_id}"
                                         )
+
+                                participant_count = max(len(participants_data), len(user_ids_to_update), 1)
                                 
                                 # Save summary to each participant's UserProfile
                                 if user_ids_to_update:

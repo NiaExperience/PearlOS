@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@nia/prism": ["./packages/prism/src"],
+      "@nia/prism/*": ["./packages/prism/src/*"],
+      "@nia/voice-provider": ["./packages/voice-provider/src"],
+      "@nia/voice-provider/*": ["./packages/voice-provider/src/*"]
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+} 

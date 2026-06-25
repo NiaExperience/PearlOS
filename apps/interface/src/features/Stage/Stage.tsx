@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { getClientLogger } from '@interface/lib/client-logger';
 import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
+import { useUI } from '@interface/contexts/ui-context';
+import { DesktopMode, type DesktopModeSwitchResponse } from '@interface/types/desktop-modes';
 import ExperienceRenderer, { type ExperienceContent } from './ExperienceRenderer';
 import WonderCanvasRenderer from './WonderCanvas/WonderCanvasRenderer';
 import CanvasTaskProgress from './WonderCanvas/CanvasTaskProgress';
@@ -14,6 +16,34 @@ import CanvasTaskProgress from './WonderCanvas/CanvasTaskProgress';
 import './stage.css';
 
 const logger = getClientLogger('[stage]');
+
+interface HomeGesturePoint {
+  x: number;
+  y: number;
+  time: number;
+  pointerType: string;
+}
+
+function isInteractiveHomeGestureTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      [
+        'button',
+        'a',
+        'input',
+        'textarea',
+        'select',
+        'iframe',
+        '[contenteditable="true"]',
+        '[role="button"]',
+        '.pearl-nav-button',
+        '.pearl-app-window-divider',
+        '.wonder-canvas--active',
+      ].join(',')
+    )
+  );
+}
 
 /**
  * The Stage — PearlOS's single-screen experience surface.
@@ -29,8 +59,11 @@ const logger = getClientLogger('[stage]');
  *   3 — Input bar (rendered by parent)
  */
 export default function Stage() {
-  const { currentMode } = useDesktopMode();
+  const { currentMode, setMode } = useDesktopMode();
+  const { setIsChatMode } = useUI();
   const [experience, setExperience] = useState<ExperienceContent | null>(null);
+  const homeGestureStartRef = useRef<HomeGesturePoint | null>(null);
+  const lastHomeTapRef = useRef<HomeGesturePoint | null>(null);
 
   // Log mode changes for debugging desktop mode switching
   useEffect(() => {
@@ -79,8 +112,103 @@ export default function Stage() {
     setExperience(null);
   }, []);
 
+  const showDesktopIconsFromHome = useCallback(
+    (switchReason: string) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      const switchResponse: DesktopModeSwitchResponse = {
+        success: true,
+        mode: DesktopMode.DESKTOP,
+        message: 'Switching to desktop mode',
+        userRequest: null,
+        timestamp: new Date().toISOString(),
+        action: 'SWITCH_DESKTOP_MODE',
+        payload: {
+          targetMode: DesktopMode.DESKTOP,
+          previousMode: currentMode,
+          switchReason,
+        },
+      };
+
+      window.dispatchEvent(new CustomEvent<DesktopModeSwitchResponse>('desktopModeSwitch', {
+        detail: switchResponse,
+      }));
+      setMode(DesktopMode.DESKTOP);
+      setIsChatMode(true);
+    },
+    [currentMode, setIsChatMode, setMode]
+  );
+
+  const handleHomePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      if (isInteractiveHomeGestureTarget(event.target)) return;
+      homeGestureStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        time: Date.now(),
+        pointerType: event.pointerType,
+      };
+    },
+    [currentMode]
+  );
+
+  const handleHomePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      if (isInteractiveHomeGestureTarget(event.target)) return;
+      const start = homeGestureStartRef.current;
+      homeGestureStartRef.current = null;
+      if (!start || start.pointerType !== event.pointerType) return;
+
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const elapsed = Date.now() - start.time;
+      const swipeThreshold = Math.max(60, Math.min(window.innerWidth * 0.12, 120));
+      const startedAtSystemBackEdge = start.x < 24;
+
+      if (!startedAtSystemBackEdge && dx <= -swipeThreshold && absDy <= 70 && absDx > absDy * 1.4) {
+        showDesktopIconsFromHome('home_swipe_left_icons');
+        return;
+      }
+
+      const isTap = absDx <= 18 && absDy <= 18 && elapsed <= 280;
+      if (!isTap) return;
+      const now = Date.now();
+      const lastTap = lastHomeTapRef.current;
+      lastHomeTapRef.current = { x: event.clientX, y: event.clientY, time: now, pointerType: event.pointerType };
+      if (!lastTap || now - lastTap.time > 320) return;
+      const tapDx = Math.abs(event.clientX - lastTap.x);
+      const tapDy = Math.abs(event.clientY - lastTap.y);
+      if (tapDx <= 24 && tapDy <= 24) {
+        lastHomeTapRef.current = null;
+        showDesktopIconsFromHome('home_double_tap_icons');
+      }
+    },
+    [currentMode, showDesktopIconsFromHome]
+  );
+
+  const handleHomeDoubleClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (currentMode !== DesktopMode.HOME) return;
+      if (isInteractiveHomeGestureTarget(event.target)) return;
+      showDesktopIconsFromHome('home_double_click_icons');
+    },
+    [currentMode, showDesktopIconsFromHome]
+  );
+
   return (
-    <div className={`stage stage--${currentMode}`} data-testid="pearl-stage" data-desktop-mode={currentMode}>
+    <div
+      className={`stage stage--${currentMode}`}
+      data-testid="pearl-stage"
+      data-desktop-mode={currentMode}
+      onPointerDown={handleHomePointerDown}
+      onPointerUp={handleHomePointerUp}
+      onDoubleClick={handleHomeDoubleClick}
+    >
       {/* Wonder Canvas layer — behind experience and Pearl avatar */}
       <WonderCanvasRenderer />
 

@@ -9,9 +9,11 @@ export enum ResourceShareRole {
 
 export enum ResourceType {
   HtmlGeneration = 'HtmlGeneration',
+  Apps = 'Apps',
   Notes = 'Notes',
   DailyCallRoom = 'DailyCallRoom',
-  Sprite = 'Sprite'
+  Sprite = 'Sprite',
+  Task = 'Task'
 }
 
 export interface IResourceShareToken {

@@ -11,11 +11,13 @@ import {
   NIA_EVENT_WINDOW_RESTORE,
   NIA_EVENT_WINDOW_SNAP_LEFT,
   NIA_EVENT_WINDOW_SNAP_RIGHT,
+  NIA_EVENT_WONDER_SCENE,
   NIA_EVENT_APPLET_REFRESH,
   NIA_EVENT_NOTES_REFRESH,
   routeNiaEvent,
   type NiaEventDetail,
 } from '../niaEventRouter';
+import { NIA_EVENT_INTERFACE_CUSTOMIZE } from '@interface/lib/interface-customization';
 
 describe('routeNiaEvent', () => {
   const baseEnvelope = {
@@ -101,6 +103,24 @@ describe('routeNiaEvent', () => {
     window.removeEventListener(NIA_EVENT_ALL, aggregateListener as EventListener);
   });
 
+  it('routes interface.customize events to the customization channel', () => {
+    const listener = jest.fn();
+    const aggregateListener = jest.fn();
+
+    window.addEventListener(NIA_EVENT_INTERFACE_CUSTOMIZE, listener as EventListener);
+    window.addEventListener(NIA_EVENT_ALL, aggregateListener as EventListener);
+
+    routeNiaEvent({ ...baseEnvelope, event: 'interface.customize', payload: { theme: 'glass' } });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(aggregateListener).toHaveBeenCalledTimes(1);
+    const detail = (listener.mock.calls[0][0] as CustomEvent<NiaEventDetail>).detail;
+    expect(detail.payload).toEqual({ theme: 'glass' });
+
+    window.removeEventListener(NIA_EVENT_INTERFACE_CUSTOMIZE, listener as EventListener);
+    window.removeEventListener(NIA_EVENT_ALL, aggregateListener as EventListener);
+  });
+
   const windowEventCases = [
     { enumValue: EventEnum.WINDOW_MINIMIZE, customName: NIA_EVENT_WINDOW_MINIMIZE },
     { enumValue: EventEnum.WINDOW_MAXIMIZE, customName: NIA_EVENT_WINDOW_MAXIMIZE },
@@ -127,5 +147,30 @@ describe('routeNiaEvent', () => {
 
     window.removeEventListener(customName, windowListener as EventListener);
     window.removeEventListener(NIA_EVENT_ALL, aggregateListener as EventListener);
+  });
+
+  it('shows a Wonder Canvas fallback when an offloaded html_url cannot be fetched', async () => {
+    const wonderListener = jest.fn();
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as jest.Mock;
+
+    window.addEventListener(NIA_EVENT_WONDER_SCENE, wonderListener as EventListener);
+
+    routeNiaEvent({
+      ...baseEnvelope,
+      event: 'wonder.scene',
+      payload: { html_url: '/canvas/missing.html' },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(wonderListener).toHaveBeenCalledTimes(1);
+    const detail = (wonderListener.mock.calls[0][0] as CustomEvent<NiaEventDetail>).detail;
+    expect(detail.payload.html).toContain('Canvas unavailable');
+    expect(detail.payload.html_url).toBeUndefined();
+
+    window.removeEventListener(NIA_EVENT_WONDER_SCENE, wonderListener as EventListener);
+    global.fetch = originalFetch;
   });
 });

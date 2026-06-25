@@ -1,0 +1,30 @@
+PearlOS QA Screenshot Audit - Tue Apr 28 17:09:18 UTC 2026
+==========================================
+
+PASS: PM2 has 13 processes
+WARN: Potential crash loops or unhealthy processes: pipecat-gateway(52)|pipecat-runner(250)|openclaw-gateway(2027)|interface(126)|dashboard[stopped]
+PASS: PM2 process 'interface' is online
+PASS: PM2 process 'mesh' is online
+PASS: Port 3000 (Interface) responding (HTTP 307)
+PASS: Port 4444 (BotServer) responding (HTTP 404)
+PASS: Deployed BUILD_ID: build-3b596bbf-1777395500420
+Source commit: d3a932b5 (Pearl-Staging-Private-Omega)
+Deploy commit: 3b596bbf
+Deployed BUILD_ID: build-3b596bbf-1777395500420
+WARN: Source (d3a932b5) and deploy (3b596bbf) commits differ -- deploy may be stale
+PASS: Login page returns HTTP 200
+PASS: Login page contains expected element: 'email'
+PASS: Login page contains expected element: 'password'
+PASS: Login page contains expected element: 'Login'
+PASS: CSRF token obtained
+PASS: Auth flow succeeded -- session cookie obtained (HTTP 302)
+Capturing 01-login -> http://localhost:3000/login
+  OK (HTTP 200) -> /workspace/nia-universal/qa/screenshots/audit-20260428-170918/01-login.png
+Injecting session cookie: __Secure-interface-auth.session-token
+Browser error: browserContext.addCookies: Protocol error (Storage.setCookies): Invalid cookie fields
+
+Results: 1 passed, 1 failed
+FAIL: Screenshot capture had failures (exit code 1)
+
+==========================================
+TOTAL: 12 passed, 1 failed, 2 warnings

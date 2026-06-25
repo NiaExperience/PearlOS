@@ -25,7 +25,7 @@ export function ToolsHeader({ selectedTool }: { selectedTool: ITool }) {
 
   const handleDeleteTool = async () => {
     try {
-      const response = await fetch('/api/tools/delete', {
+      const response = await fetch('/dashboard/api/tools/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ toolId: selectedTool._id }),

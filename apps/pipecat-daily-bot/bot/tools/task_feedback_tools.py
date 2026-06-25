@@ -31,12 +31,14 @@ from tools.logging_utils import bind_tool_logger
 
 _OPENCLAW_URL = lambda: os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
 _OPENCLAW_KEY = lambda: os.getenv("OPENCLAW_API_KEY", "openclaw-local")
+_TASKS_API = lambda: os.getenv("PEARL_TASKS_API", os.getenv("BOT_GATEWAY_URL", "http://localhost:4444").rstrip("/") + "/api/tasks")
+_TASKS_SECRET = lambda: os.getenv("BOT_CONTROL_SHARED_SECRET", "") or os.getenv("PEARL_TASKS_BOT_SECRET", "")
 
 
 async def _openclaw_task(prompt: str, log, timeout: int = 60) -> str | None:
     """Fire a synchronous sub-agent call to OpenClaw and return the text result."""
     payload = {
-        "model": os.getenv("BOT_ESCALATION_MODEL", "anthropic/claude-opus-4-6"),
+        "model": "openclaw",
         "messages": [
             {
                 "role": "system",
@@ -68,6 +70,48 @@ async def _openclaw_task(prompt: str, log, timeout: int = 60) -> str | None:
                     return None
     except Exception as e:
         log.exception(f"OpenClaw feedback error: {e}")
+        return None
+
+
+async def _list_recent_queue_tasks(limit: int, log) -> str | None:
+    headers = {"Accept": "application/json"}
+    secret = _TASKS_SECRET()
+    if secret:
+        headers["X-Bot-Secret"] = secret
+        headers["Authorization"] = f"Bearer {secret}"
+    base = _TASKS_API().rstrip("/")
+    try:
+        async with aiohttp.ClientSession(headers=headers) as session:
+            tasks: list[dict] = []
+            for status in ("completed", "failed", "in_progress", "pending"):
+                async with session.get(
+                    base,
+                    params={"status": status, "limit": max(limit, 5)},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        log.error("Task queue lookup failed", status=resp.status)
+                        return None
+                    data = await resp.json()
+                    tasks.extend(data.get("tasks") or [])
+        tasks.sort(key=lambda t: t.get("completed_at") or t.get("timestamp_updated") or t.get("timestamp_created") or "", reverse=True)
+        tasks = tasks[:limit]
+        if not tasks:
+            return "I do not see any recent queued tasks yet."
+        parts: list[str] = []
+        for task in tasks:
+            title = str(task.get("title") or "Untitled task")
+            status = str(task.get("status") or "unknown").replace("_", " ")
+            result = str(task.get("result") or "").strip()
+            if len(result) > 180:
+                result = result[:177].rstrip() + "..."
+            if result and status in ("completed", "failed"):
+                parts.append(f"{title} is {status}: {result}")
+            else:
+                parts.append(f"{title} is {status}.")
+        return " ".join(parts)
+    except Exception as e:
+        log.exception(f"Task queue lookup error: {e}")
         return None
 
 
@@ -247,7 +291,7 @@ async def bot_task_feedback(params: FunctionCallParams):
 )
 async def bot_list_recent_tasks(params: FunctionCallParams):
     """List recent tasks and their feedback status via OpenClaw."""
-    from pipecat.frames.frames import LLMMessagesFrame
+    from tools.openclaw_tools import _queue_llm_messages
 
     arguments = params.arguments or {}
     limit = arguments.get("limit", 5)
@@ -259,37 +303,42 @@ async def bot_list_recent_tasks(params: FunctionCallParams):
     await params.result_callback(
         {
             "success": True,
-            "user_message": "Let me check the recent tasks...",
+            "user_message": "Checking recent tasks.",
             "_async_pending": True,
         },
         properties=FunctionCallResultProperties(run_llm=True),
     )
 
-    llm = params.llm
-    llm_context = params.context
+    room_url = getattr(params, "room_url", None)
 
     async def _fetch_tasks():
-        prompt = (
-            f"Read memory/task-feedback.md and memory/activity-log.md. "
-            f"List the {limit} most recent tasks/sub-agent completions with their feedback status. "
-            f"For each task, indicate: task name, when it ran, and whether it has feedback (positive/negative/none). "
-            f"Format as a natural spoken summary — no markdown, no bullet lists. "
-            f"Example: 'The voice latency analysis from this morning has no feedback yet. "
-            f"The Pearl avatar fix was marked as correct. The Discord bot restart had negative feedback "
-            f"about timeout issues.' If no tasks or feedback found, say so naturally."
-        )
-        result = await _openclaw_task(prompt, log, timeout=30)
-        answer = result or "I couldn't retrieve the task list right now."
+        answer = await _list_recent_queue_tasks(int(limit or 5), log)
+        if not answer:
+            prompt = (
+                f"Read memory/task-feedback.md and memory/activity-log.md. "
+                f"List the {limit} most recent tasks/sub-agent completions with their feedback status. "
+                f"For each task, indicate: task name, when it ran, and whether it has feedback "
+                f"(positive/negative/none). Format as a natural spoken summary — no markdown, "
+                f"no bullet lists. If no tasks or feedback found, say so naturally."
+            )
+            result = await _openclaw_task(prompt, log, timeout=30)
+            answer = result or "I couldn't retrieve the task list right now."
 
         try:
-            llm_context.add_message({
-                "role": "user",
-                "content": (
-                    f"[TASK FEEDBACK RESULTS — speak this naturally to the user]: {answer}"
-                ),
-            })
-            await llm.push_frame(LLMMessagesFrame(llm_context.get_messages()))
-            log.info("Injected task list into pipeline")
+            ok = await _queue_llm_messages(
+                room_url,
+                [{
+                    "role": "user",
+                    "content": (
+                        f"[TASK FEEDBACK RESULTS — speak this naturally to the user]: {answer}"
+                    ),
+                }],
+                run_after=True,
+            )
+            if ok:
+                log.info("Injected task list into pipeline")
+            else:
+                log.error("Failed to inject task list: no flow_manager/task for room")
         except Exception as e:
             log.error(f"Failed to inject task list: {e}")
 

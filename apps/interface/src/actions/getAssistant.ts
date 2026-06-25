@@ -54,6 +54,10 @@ export const getAssistantConfig = async (
   if (!supportedFeatures.includes('openclawBridge')) {
     supportedFeatures.push('openclawBridge' as FeatureKey);
   }
+  // Hardwire assistant self-close so bot_end_call can actually close voice sessions.
+  if (!supportedFeatures.includes('assistantSelfClose' as FeatureKey)) {
+    supportedFeatures.push('assistantSelfClose' as FeatureKey);
+  }
   // Hardwire wonderCanvas feature flag
   if (!supportedFeatures.includes('wonderCanvas' as FeatureKey)) {
     supportedFeatures.push('wonderCanvas' as FeatureKey);
@@ -71,7 +75,7 @@ export const getAssistantConfig = async (
     supportedFeatures.push('avatar' as FeatureKey);
   }
   // Hardwire desktop app icons so they always appear (especially in chat/touch mode)
-  for (const feat of ['notes', 'htmlContent', 'miniBrowser', 'youtube', 'dailyCall'] as FeatureKey[]) {
+  for (const feat of ['notes', 'htmlContent', 'miniBrowser', 'youtube', 'dailyCall', 'vision'] as FeatureKey[]) {
     if (!supportedFeatures.includes(feat)) {
       supportedFeatures.push(feat);
     }

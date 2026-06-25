@@ -172,6 +172,16 @@ export async function PUT_impl(request: NextRequest, { params }: { params: { id:
         if (note.tenantId && note.tenantId !== tenantId) {
             return NextResponse.json({ error: 'Forbidden tenant mismatch' }, { status: 403 });
         }
+        // Enforce per-user ownership: only the note's owner can mutate it.
+        // Work notes (tenant-shared) are still scoped to the tenant check above.
+        if (note.mode !== 'work' && note.userId && note.userId !== session.user.id) {
+            log.warn('PUT note forbidden: user does not own note', {
+                noteId: id,
+                noteOwner: note.userId,
+                requestingUser: session.user.id,
+            });
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const updateData = {
             ...note,
             title,
@@ -224,16 +234,34 @@ export async function PATCH_impl(request: NextRequest, { params }: { params: { i
     }
 
     try {
+        // Fetch first to enforce ownership before partial update
+        const existing = await findNoteById(id, tenantId);
+        if (!existing) {
+            log.info('Note not found during PATCH', { noteId: id, tenantId });
+            return NextResponse.json({ error: 'Note not found' }, { status: 404 });
+        }
+        if (existing.tenantId && existing.tenantId !== tenantId) {
+            return NextResponse.json({ error: 'Forbidden tenant mismatch' }, { status: 403 });
+        }
+        if (existing.mode !== 'work' && existing.userId && existing.userId !== session.user.id) {
+            log.warn('PATCH note forbidden: user does not own note', {
+                noteId: id,
+                noteOwner: existing.userId,
+                requestingUser: session.user.id,
+            });
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         // PATCH performs partial update - only send fields that are provided
         const updateData: Record<string, unknown> = {
             userId: session.user.id,
             tenantId,
         };
-        
+
         if (title !== undefined) updateData.title = title;
         if (content !== undefined) updateData.content = content;
         if (isPinned !== undefined) updateData.isPinned = isPinned;
-        
+
         const updatedNote = await updateNote(id, updateData, tenantId);
         log.info('Note updated via PATCH', { noteId: id, tenantId, updateData });
         // Return the updated note object so the frontend can update state directly
@@ -286,6 +314,15 @@ export async function DELETE_impl(request: NextRequest, { params }: { params: { 
         // Enforce tenant ownership: note.tenantId must match resolved tenantId
         if (note.tenantId && note.tenantId !== tenantId) {
             return NextResponse.json({ error: 'Forbidden tenant mismatch' }, { status: 403 });
+        }
+        // Enforce per-user ownership: only the owner can delete a personal note.
+        if (note.mode !== 'work' && note.userId && note.userId !== session.user.id) {
+            log.warn('DELETE note forbidden: user does not own note', {
+                noteId: id,
+                noteOwner: note.userId,
+                requestingUser: session.user.id,
+            });
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
         const success = await deleteNote(id, tenantId);
         if (!success) {

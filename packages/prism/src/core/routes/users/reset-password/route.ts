@@ -8,6 +8,21 @@ import { getLogger } from '../../../logger';
 
 const log = getLogger('prism:routes:users:reset-password');
 
+function resolveAppBaseUrl(req: NextRequest): string {
+  const configured =
+    process.env.APP_BASE_URL ||
+    process.env.NEXTAUTH_INTERFACE_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_INTERFACE_URL;
+  if (configured) return configured.replace(/\/$/, '');
+
+  const reqOrigin = req.nextUrl?.origin || '';
+  if (reqOrigin) return reqOrigin.replace(/\/$/, '');
+
+  if (process.env.NODE_ENV !== 'production') return 'http://localhost:3000';
+  throw new Error('Missing APP_BASE_URL (or interface URL) for password reset link generation');
+}
+
 /**
  * POST /api/users/reset-password
  * Body: { userId?: string } (optional - default current user) - placeholder flow
@@ -32,7 +47,7 @@ export async function POST_impl(req: NextRequest, authOptions: NextAuthOptions):
   // @ts-ignore dynamic
   const uid: string = (user.id || user._id || '').toString();
   const token = await issueResetToken(uid, email);
-    const resetLink = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(token)}`;
+    const resetLink = `${resolveAppBaseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`;
     const { messageId, previewUrl } = await sendEmail({
       to: email,
       subject: 'Reset your Nia password',

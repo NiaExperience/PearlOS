@@ -5,7 +5,7 @@ import { fuzzySearch } from './fuzzy-search';
 const log = getClientLogger('Notes');
 
 // ─── Dual-source notes: filesystem + database ──────────────────────────────
-// File notes: .md files in /workspace/user/Documents/ via /api/notes/files
+// File notes: .md files in /workspace/user/<tenant>/<user>/Documents/ via /api/notes/files
 // DB notes: stored in the database via /api/notes?agent=<name>
 // Both sources are merged and deduplicated by title.
 
@@ -22,11 +22,14 @@ export interface Note {
     isPinned?: boolean;
     filePath?: string;
     fileName?: string;
+    userId: string;  // Added for multitenancy
+    tenantId: string;  // Added for multitenancy
     sharedVia?: {
         organization?: any;
         role?: string;
     };
     _source?: 'file' | 'db';
+    isDiary?: boolean;
 }
 
 export interface FindNoteResult {
@@ -52,9 +55,19 @@ export type OnNoteBatchCallback = (batch: NoteBatch) => void;
 
 // ─── Helpers: fetch from each source and merge ──────────────────────────────
 
-async function fetchFileNotes(): Promise<Note[]> {
+function fileApiUrl(assistantName: string, extra?: Record<string, string>): string {
+    const params = new URLSearchParams();
+    if (assistantName) params.set('agent', assistantName);
+    for (const [key, value] of Object.entries(extra ?? {})) {
+        params.set(key, value);
+    }
+    const query = params.toString();
+    return query ? `${FILE_API}?${query}` : FILE_API;
+}
+
+async function fetchFileNotes(assistantName: string): Promise<Note[]> {
     try {
-        const res = await fetch(FILE_API);
+        const res = await fetch(fileApiUrl(assistantName));
         if (!res.ok) return [];
         return await res.json();
     } catch (e) {
@@ -141,7 +154,7 @@ function mergeNotes(fileNotes: Note[], dbNotes: Note[]): Note[] {
 
 export async function fetchNotes(_mode: 'personal' | 'work' | undefined, assistantName: string) {
     const [fileNotes, dbNotes] = await Promise.all([
-        fetchFileNotes(),
+        fetchFileNotes(assistantName),
         fetchDbNotes(assistantName),
     ]);
     return mergeNotes(fileNotes, dbNotes);
@@ -161,7 +174,7 @@ export function fetchNotesIncremental(
 
     const promise = (async () => {
         const [fileNotes, dbNotes] = await Promise.all([
-            fetchFileNotes(),
+            fetchFileNotes(assistantName),
             fetchDbNotes(assistantName),
         ]);
         const notes = mergeNotes(fileNotes, dbNotes);
@@ -188,7 +201,7 @@ export async function fetchNotesIncrementalJSON(
     _mode: 'personal' | 'work' | 'all' = 'all'
 ): Promise<{ batches: NoteBatch[]; items: Note[] }> {
     const [fileNotes, dbNotes] = await Promise.all([
-        fetchFileNotes(),
+        fetchFileNotes(assistantName),
         fetchDbNotes(assistantName),
     ]);
     const items = mergeNotes(fileNotes, dbNotes);
@@ -200,12 +213,12 @@ export async function fetchNotesIncrementalJSON(
 
 export async function createNote(
     note: { title: string; content: string; mode: 'personal' | 'work' },
-    _assistantName: string
+    assistantName: string
 ) {
-    const res = await fetch(FILE_API, {
+    const res = await fetch(fileApiUrl(assistantName), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: note.title, content: note.content }),
+        body: JSON.stringify({ title: note.title, content: note.content, mode: note.mode }),
     });
     if (!res.ok) throw new Error('Failed to create note');
     return res.json();
@@ -214,9 +227,9 @@ export async function createNote(
 export async function updateNote(
     id: string,
     note: { title: string; content: string; isPinned?: boolean },
-    _assistantName: string
+    assistantName: string
 ) {
-    const res = await fetch(FILE_API, {
+    const res = await fetch(fileApiUrl(assistantName), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, title: note.title, content: note.content }),
@@ -225,8 +238,8 @@ export async function updateNote(
     return res.json();
 }
 
-export async function deleteNote(id: string, _assistantName: string) {
-    const res = await fetch(FILE_API, {
+export async function deleteNote(id: string, assistantName: string) {
+    const res = await fetch(fileApiUrl(assistantName), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
@@ -241,7 +254,7 @@ export async function deleteNote(id: string, _assistantName: string) {
  */
 export async function findNoteWithFuzzySearch(
     params: { id?: string; title?: string },
-    _assistantName: string
+    assistantName: string
 ): Promise<FindNoteResult> {
     const { id, title } = params;
 
@@ -249,7 +262,7 @@ export async function findNoteWithFuzzySearch(
         // Strategy 1: Search by ID (filename)
         if (id) {
             try {
-                const res = await fetch(`${FILE_API}?id=${encodeURIComponent(id)}`);
+                const res = await fetch(fileApiUrl(assistantName, { id }));
                 if (res.ok) {
                     const note = await res.json();
                     return { found: true, note, searchPerformed: false };
@@ -262,8 +275,8 @@ export async function findNoteWithFuzzySearch(
         // Strategy 2+3: Title search with fuzzy fallback
         if (title) {
             const [fileNotes, dbNotes] = await Promise.all([
-                fetchFileNotes(),
-                fetchDbNotes(_assistantName),
+                fetchFileNotes(assistantName),
+                fetchDbNotes(assistantName),
             ]);
             const allNotes = mergeNotes(fileNotes, dbNotes);
             if (allNotes.length > 0) {

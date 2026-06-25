@@ -1,0 +1,111 @@
+{
+  "version": "0.1",
+  "enabled": true,
+  "boss": "codex",
+  "mission": "Professional coding agency swarm: maximize verified useful software work per dollar and minute.",
+  "paths": {
+    "runsDir": "/workspace/nia-universal/.agency/runs",
+    "rostersDir": "/workspace/nia-universal/.agency/rosters",
+    "reportsDir": "/workspace/user/Documents/Agency"
+  },
+  "limits": {
+    "maxActiveSwarms": 2,
+    "defaultAgentsPerSwarm": 5,
+    "hardAgentsPerSwarm": 20,
+    "dailyBudgetUsd": 25,
+    "singleSwarmBudgetUsd": 5,
+    "defaultTimeoutSeconds": 1200,
+    "hardTimeoutSeconds": 3600,
+    "maxRetries": 2
+  },
+  "modelSelection": {
+    "provider": "openrouter",
+    "coreModel": {
+      "id": "deepseek/deepseek-v4-flash",
+      "role": "default_pearl_free_tier",
+      "reason": "Current reliable, highly efficient Pearl model suitable for affordable/free-tier operation."
+    },
+    "modelRadar": {
+      "enabled": true,
+      "cadence": "hourly",
+      "priority": "highest",
+      "reportPath": "/workspace/user/Documents/Agency/model-radar.md",
+      "watchFamilies": [
+        "deepseek",
+        "moonshotai",
+        "z-ai",
+        "qwen",
+        "openai",
+        "anthropic",
+        "google",
+        "x-ai",
+        "meta-llama",
+        "mistralai"
+      ],
+      "frontierNamePatterns": [
+        "v4",
+        "v5",
+        "gpt-5",
+        "glm-5",
+        "kimi-k2.7",
+        "deepseek-v4",
+        "qwen3.7",
+        "qwen3-coder-plus",
+        "gemini-3.5",
+        "grok-4"
+      ]
+    },
+    "refreshCadence": {
+      "metadata": "hourly",
+      "smokeBenchmarks": "daily",
+      "deepBenchmarks": "weekly"
+    },
+    "scoreWeights": {
+      "quality": 0.55,
+      "cost": 0.2,
+      "latency": 0.15,
+      "reliability": 0.1
+    },
+    "preferredFamilies": [
+      "openai",
+      "anthropic",
+      "moonshotai",
+      "deepseek",
+      "z-ai",
+      "qwen",
+      "google",
+      "x-ai",
+      "meta-llama",
+      "mistralai"
+    ],
+    "denylist": []
+  },
+  "profiles": {
+    "solo": {
+      "maxAgents": 1,
+      "roles": ["director"]
+    },
+    "coding_standard": {
+      "maxAgents": 5,
+      "roles": ["director", "architect", "implementer", "reviewer", "qa"]
+    },
+    "coding_high_risk": {
+      "maxAgents": 8,
+      "roles": ["director", "historian", "architect", "implementer", "reviewer", "adversary", "security", "qa"]
+    },
+    "research_debate": {
+      "maxAgents": 5,
+      "roles": ["director", "researcher", "adversary", "synthesizer", "source_checker"]
+    }
+  },
+  "rolePreferences": {
+    "director": ["deepseek/deepseek-v4-flash", "openai/gpt-5.5", "moonshotai/kimi-k2.7-code", "z-ai/glm-5.1"],
+    "architect": ["deepseek/deepseek-v4-pro", "z-ai/glm-5.1", "openai/gpt-5.5", "qwen/qwen3.7-max"],
+    "implementer": ["openai/gpt-5.5", "qwen/qwen3-coder-plus", "qwen/qwen3.7-max", "moonshotai/kimi-k2.7-code", "deepseek/deepseek-v4-pro"],
+    "reviewer": ["z-ai/glm-5.1", "deepseek/deepseek-v4-pro", "google/gemini-3.5-flash"],
+    "qa": ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro", "qwen/qwen3.7-max", "qwen/qwen3-coder-plus", "z-ai/glm-5.1"],
+    "adversary": ["x-ai/grok-4", "z-ai/glm-5.1", "google/gemini-3.5-flash"],
+    "historian": ["moonshotai/kimi-k2.7-code", "openai/gpt-5.5", "google/gemini-3.5-flash"],
+    "synthesizer": ["deepseek/deepseek-v4-flash", "openai/gpt-5.5", "moonshotai/kimi-k2.7-code", "z-ai/glm-5.1"]
+  }
+}

@@ -143,7 +143,7 @@ export default function EditableImageTable({
   const onSubmit = async (values: z.infer<typeof urlFormSchema>) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/contentList', {
+      const response = await fetch('/dashboard/api/contentList', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +193,7 @@ export default function EditableImageTable({
 
   const handleDeleteImage = async (url: ImageUrl) => {
     try {
-      const response = await fetch(`/api/contentDetail/${url.photoId}`, {
+      const response = await fetch(`/dashboard/api/contentDetail/${url.photoId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -223,7 +223,7 @@ export default function EditableImageTable({
     }
 
     try {
-      const response = await fetch(`/api/contentDetail/${editingImage.photoId}`, {
+      const response = await fetch(`/dashboard/api/contentDetail/${editingImage.photoId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

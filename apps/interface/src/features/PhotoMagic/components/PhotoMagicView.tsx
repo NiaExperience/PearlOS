@@ -36,17 +36,41 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
   const [maskBlob, setMaskBlob] = useState<Blob | null>(null);
   const [showMultiImages, setShowMultiImages] = useState(false);
   const [additionalFiles, setAdditionalFiles] = useState<Array<{ file: File; preview: string }>>([]);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** Gallery card that matches the image currently loaded as the active file (for focus ring) */
+  const [gallerySelectedFilename, setGallerySelectedFilename] = useState<string | null>(null);
+  const promptInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback((file: File) => {
+    setGallerySelectedFilename(null);
     setSelectedFile(file);
     setFilePreview(URL.createObjectURL(file));
     setInpaintMode(false);
     setMaskBlob(null);
   }, []);
 
+  const handleGallerySelect = useCallback(
+    async (url: string, filename: string) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const file = new File([blob], filename, { type: blob.type || 'image/png' });
+        if (filePreview) URL.revokeObjectURL(filePreview);
+        setSelectedFile(file);
+        setFilePreview(URL.createObjectURL(file));
+        setInpaintMode(false);
+        setMaskBlob(null);
+        setGallerySelectedFilename(filename);
+      } catch {
+        /* silent */
+      }
+    },
+    [filePreview],
+  );
+
   const handleClearFile = useCallback(() => {
     if (filePreview) URL.revokeObjectURL(filePreview);
+    setGallerySelectedFilename(null);
     setSelectedFile(null);
     setFilePreview(null);
     setInpaintMode(false);
@@ -97,8 +121,8 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
     setMaskBlob(null);
   }, [promptText, selectedFile, maskBlob, additionalFiles, generate, inpaint, handleClearFile]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();
     }
@@ -112,6 +136,15 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
     setShowMultiImages(false);
     setMaskBlob(null);
   }, [reset, handleClearFile]);
+
+  const galleryStrip = (
+    <div className="pm-gallery-shell">
+      <PhotoGallery
+        onSelectImage={handleGallerySelect}
+        selectedFilename={gallerySelectedFilename}
+      />
+    </div>
+  );
 
   // ─── Inpaint canvas overlay ───
 
@@ -144,19 +177,21 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
 
   if (state === 'result' && result) {
     return (
-      <div className="photo-magic">
+      <div className="photo-magic photo-magic--shell">
         <ImageResult result={result} onEditAgain={editAgain} onReset={handleReset} />
+        {galleryStrip}
       </div>
     );
   }
 
   if (state === 'error') {
     return (
-      <div className="photo-magic">
+      <div className="photo-magic photo-magic--shell">
         <div className="pm-error">
           <div className="pm-error__msg">{error || 'Something went wrong'}</div>
           <button className="pm-action-btn" onClick={handleReset}>Try again</button>
         </div>
+        {galleryStrip}
       </div>
     );
   }
@@ -164,8 +199,8 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
   // ─── Landing / idle ───
 
   return (
-    <div className="photo-magic">
-      <div className="pm-landing">
+    <div className="photo-magic photo-magic--shell">
+      <div className="pm-landing pm-landing--main">
         <div className="pm-landing__tagline">
           Describe what you see, or drop a photo to <em>transform</em> it.
         </div>
@@ -266,7 +301,6 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
               const input = document.createElement('input');
               input.type = 'file';
               input.accept = 'image/png,image/jpeg,image/webp,image/gif';
-              input.capture = 'environment';
               input.onchange = (e) => {
                 const f = (e.target as HTMLInputElement).files?.[0];
                 if (f) handleFile(f);
@@ -279,14 +313,16 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
             ◉
           </button>
 
-          <textarea
-            ref={textareaRef}
+          <input
+            ref={promptInputRef}
+            type="text"
             className="pm-prompt-input"
             placeholder={maskBlob ? 'Describe what to change in painted area…' : 'Describe your vision…'}
             value={promptText}
             onChange={(e) => setPromptText(e.target.value)}
             onKeyDown={handleKeyDown}
-            rows={1}
+            enterKeyHint="send"
+            autoComplete="off"
           />
 
           <button
@@ -299,9 +335,10 @@ export default function PhotoMagicView({ initialPrompt }: PhotoMagicViewProps) {
             →
           </button>
         </div>
-
-        <PhotoGallery />
       </div>
+
+      {/* Full-width strip (sprite-style): avoids flex min-width issues on mobile */}
+      {galleryStrip}
     </div>
   );
 }

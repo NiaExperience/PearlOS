@@ -1,0 +1,300 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:codex:acp:0e4114e4-3780-4dde-8979-b7a837da3cc0:oneshot:e00e2dda-6217-4f46-9065-6d36d67e2221",
+  "acp_session_id": "019daf76-924a-7401-9f02-8e79efa982fe",
+  "agent_command": "npx @zed-industries/codex-acp@^0.11.1",
+  "cwd": "/workspace/nia-universal",
+  "name": "agent:codex:acp:0e4114e4-3780-4dde-8979-b7a837da3cc0",
+  "created_at": "2026-04-21T09:54:32.207Z",
+  "last_used_at": "2026-04-21T09:54:51.302Z",
+  "last_seq": 0,
+  "last_request_id": "0008891c-045b-4417-a030-e71cde0bcdf3",
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Acodex%3Aacp%3A0e4114e4-3780-4dde-8979-b7a837da3cc0%3Aoneshot%3Ae00e2dda-6217-4f46-9065-6d36d67e2221.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": true,
+  "closed_at": "2026-04-21T09:54:51.453Z",
+  "pid": 2797145,
+  "agent_started_at": "2026-04-21T09:54:32.304Z",
+  "last_prompt_at": "2026-04-21T09:54:36.757Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "loadSession": true,
+    "promptCapabilities": {
+      "image": true,
+      "audio": false,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": false
+    },
+    "sessionCapabilities": {
+      "list": {},
+      "close": {}
+    },
+    "auth": {
+      "logout": {}
+    }
+  },
+  "title": null,
+  "messages": [
+    {
+      "User": {
+        "id": "8eb95f15-3f4b-4a85-bbfd-1415103cc229",
+        "content": [
+          {
+            "Text": "[Tue 2026-04-21 09:54 UTC] ## Task: Update PearlOS Stack Configuration\n\nThe PearlOS stack is switching from Anthropic Claude API to a hybrid setup:\n- **Discord/Default model:** Kimi K2.5 via OpenRouter (openrouter/moonshotai/kimi-k2.5)\n- **Agency/Heavy lifting:** Claude CLI via OpenClaw ACP harness (claude-cli/claude-opus-4-6)\n\n### Current Issues to Fix:\n1. **pearl-worker** is crash-looping (37 restarts) - missing `/opt/pearlos/scripts/pearl-worker.py`\n   - PM2 config has wrong script path\n   - Running from `/workspace/runpod-slim` but looking for script at `/opt/pearlos/`\n\n2. **health-monitor** is stopped - investigate and restart if needed\n\n3. **Model configuration:**\n   - Update any hardcoded Anthropic API calls to use the new routing\n   - Ensure OpenRouter config is correct for Kimi\n   - Verify Claude CLI harness path/config\n\n### Files to Check:\n- `/workspace/nia-universal/` - main staging repo\n- PM2 configs for pearl-worker and health-monitor\n- Any .env files with model endpoints\n- OpenClaw gateway config\n\n### Deliverables:\n1. Fix pearl-worker path/config and get it running\n2. Restart health-monitor if needed\n3. Document any config changes made\n4. Verify all PM2 services are stable (no crash loops)\n\nRun `pm2 status` when done and report back."
+          }
+        ]
+      }
+    },
+    {
+      "Agent": {
+        "content": [
+          {
+            "Thinking": {
+              "text": "**Starting repo inspection**\n\nPreparing to review the repository structure and configuration to understand code changes and necessary commands, noting sandbox restrictions may limit process status checks.",
+              "signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "call_ncaQJ5SK3JK5zIw0Xnlii6eT",
+              "name": "List /workspace/nia-universal",
+              "raw_input": "{\"call_id\":\"call_ncaQJ5SK3JK5zIw0Xnlii6eT\",\"process_id\":\"55338\",\"turn_id\":\"019daf76-9255-73d0-bb3c-2648baf32f12\",\"command\":[\"/bin/bash\",\"-lc\",\"ls\"],\"cwd\":\"/workspace/nia-universal\",\"parsed_cmd\":[{\"type\":\"list_files\",\"cmd\":\"ls\",\"path\":null}],\"source\":\"unified_exec_startup\"}",
+              "input": {
+                "call_id": "call_ncaQJ5SK3JK5zIw0Xnlii6eT",
+                "process_id": "55338",
+                "turn_id": "019daf76-9255-73d0-bb3c-2648baf32f12",
+                "command": [
+                  "/bin/bash",
+                  "-lc",
+                  "ls"
+                ],
+                "cwd": "/workspace/nia-universal",
+                "parsed_cmd": [
+                  {
+                    "type": "list_files",
+                    "cmd": "ls",
+                    "path": null
+                  }
+                ],
+                "source": "unified_exec_startup"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "Thinking": {
+              "text": "**Noticing command failure due to sandbox**\n\nThe command failed because of sandbox restrictions, indicating a rerun is needed with escalation enabled.",
+              "signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "call_G05JBUQbaYBgOmzNbMdsOkZ1",
+              "name": "List /workspace/nia-universal",
+              "raw_input": "{\"call_id\":\"call_G05JBUQbaYBgOmzNbMdsOkZ1\",\"process_id\":\"55510\",\"turn_id\":\"019daf76-9255-73d0-bb3c-2648baf32f12\",\"command\":[\"/bin/bash\",\"-lc\",\"ls\"],\"cwd\":\"/workspace/nia-universal\",\"parsed_cmd\":[{\"type\":\"list_files\",\"cmd\":\"ls\",\"path\":null}],\"source\":\"unified_exec_startup\"}",
+              "input": {
+                "call_id": "call_G05JBUQbaYBgOmzNbMdsOkZ1",
+                "process_id": "55510",
+                "turn_id": "019daf76-9255-73d0-bb3c-2648baf32f12",
+                "command": [
+                  "/bin/bash",
+                  "-lc",
+                  "ls"
+                ],
+                "cwd": "/workspace/nia-universal",
+                "parsed_cmd": [
+                  {
+                    "type": "list_files",
+                    "cmd": "ls",
+                    "path": null
+                  }
+                ],
+                "source": "unified_exec_startup"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "Thinking": {
+              "text": "**Planning escalated command usage**\n\nI'll read ARCHITECTURE.md first using escalated commands and set up a prefix rule to consistently escalate necessary commands like ripgrep for smooth access.",
+              "signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "call_PkQzjviddArJySuObtnV7vDf",
+              "name": "Read ARCHITECTURE.md",
+              "raw_input": "{\"call_id\":\"call_PkQzjviddArJySuObtnV7vDf\",\"process_id\":\"61376\",\"turn_id\":\"019daf76-9255-73d0-bb3c-2648baf32f12\",\"command\":[\"/bin/bash\",\"-lc\",\"sed -n '1,200p' ARCHITECTURE.md\"],\"cwd\":\"/workspace/nia-universal\",\"parsed_cmd\":[{\"type\":\"read\",\"cmd\":\"sed -n '1,200p' ARCHITECTURE.md\",\"name\":\"ARCHITECTURE.md\",\"path\":\"ARCHITECTURE.md\"}],\"source\":\"unified_exec_startup\"}",
+              "input": {
+                "call_id": "call_PkQzjviddArJySuObtnV7vDf",
+                "process_id": "61376",
+                "turn_id": "019daf76-9255-73d0-bb3c-2648baf32f12",
+                "command": [
+                  "/bin/bash",
+                  "-lc",
+                  "sed -n '1,200p' ARCHITECTURE.md"
+                ],
+                "cwd": "/workspace/nia-universal",
+                "parsed_cmd": [
+                  {
+                    "type": "read",
+                    "cmd": "sed -n '1,200p' ARCHITECTURE.md",
+                    "name": "ARCHITECTURE.md",
+                    "path": "ARCHITECTURE.md"
+                  }
+                ],
+                "source": "unified_exec_startup"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "Thinking": {
+              "text": "**Checking pm2 status**\n\nPlanning to run the pm2 status command using exec, likely requiring escalated permissions.",
+              "signature": null
+            }
+          }
+        ],
+        "tool_results": {
+          "call_ncaQJ5SK3JK5zIw0Xnlii6eT": {
+            "tool_use_id": "call_ncaQJ5SK3JK5zIw0Xnlii6eT",
+            "tool_name": "List /workspace/nia-universal",
+            "is_error": true,
+            "content": {
+              "Text": "{\"call_id\":\"call_ncaQJ5SK3JK5zIw0Xnlii6eT\",\"process_id\":\"55338\",\"turn_id\":\"019daf76-9255-73d0-bb3c-2648baf32f12\",\"command\":[\"/bin/bash\",\"-lc\",\"ls\"],\"cwd\":\"/workspace/nia-universal\",\"parsed_cmd\":[{\"type\":\"list_files\",\"cmd\":\"ls\",\"path\":null}],\"source\":\"unified_exec_startup\",\"stdout\":\"bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\\n\",\"stderr\":\"\",\"aggregated_output\":\"bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\\n\",\"exit_code\":1,\"duration\":{\"secs\":0,\"nanos\":5650},\"formatted_output\":\"bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\\n\",\"status\":\"failed\"}"
+            },
+            "output": {
+              "call_id": "call_ncaQJ5SK3JK5zIw0Xnlii6eT",
+              "process_id": "55338",
+              "turn_id": "019daf76-9255-73d0-bb3c-2648baf32f12",
+              "command": [
+                "/bin/bash",
+                "-lc",
+                "ls"
+              ],
+              "cwd": "/workspace/nia-universal",
+              "parsed_cmd": [
+                {
+                  "type": "list_files",
+                  "cmd": "ls",
+                  "path": null
+                }
+              ],
+              "source": "unified_exec_startup",
+              "stdout": "bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\n",
+              "stderr": "",
+              "aggregated_output": "bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\n",
+              "exit_code": 1,
+              "duration": {
+                "secs": 0,
+                "nanos": 5650
+              },
+              "formatted_output": "bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\n",
+              "status": "failed"
+            }
+          },
+          "call_G05JBUQbaYBgOmzNbMdsOkZ1": {
+            "tool_use_id": "call_G05JBUQbaYBgOmzNbMdsOkZ1",
+            "tool_name": "List /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "{\"call_id\":\"call_G05JBUQbaYBgOmzNbMdsOkZ1\",\"process_id\":\"55510\",\"turn_id\":\"019daf76-9255-73d0-bb3c-2648baf32f12\",\"command\":[\"/bin/bash\",\"-lc\",\"ls\"],\"cwd\":\"/workspace/nia-universal\",\"parsed_cmd\":[{\"type\":\"list_files\",\"cmd\":\"ls\",\"path\":null}],\"source\":\"unified_exec_startup\",\"stdout\":\"AGENTS.md\\nARCHITECTURE.md\\nAVATAR_ANIMATION_FIX_PLAN.md\\nAVATAR_GIF_STATE_MACHINE_FIX.md\\nAVATAR_REGRESSION_TIMELINE.md\\nAVATAR_STATE_MACHINE_ANALYSIS.md\\nBACKUPS.md\\nBUILD_MANIFEST_OMEGA.md\\nCALL_BUTTON_FIX.md\\nCHANGELOG.md\\nCLAUDE.md\\nCLOUDFLARE_TUNNEL_SETUP.md\\nCODEBASE_EXPLANATION.md\\nCODE_OF_CONDUCT.md\\nCONTRIBUTING.md\\nDESKTOP_MODE_SWITCH_IMPLEMENTATION.md\\nDEVELOPER_GUIDE.md\\nDUPLICATION_FIX_PLAN.md\\nDUPLICATION_GATEWAY_HANDOFF.md\\nDUPLICATION_INVESTIGATION_REPORT.md\\nDocker dependencies.md\\nDockerfile.pearlos\\nExpected Payload.txt\\nGEMINI.md\\nHEARTBEAT.md\\nIDENTITY.md\\nIDENTITY_BASE.md\\nIMPLEMENTATION_PLAN.md\\nLICENSE\\nLINUX_SETUP.md\\nMACOS_SETUP.md\\nMEMORY_SYSTEM_DESIGN.md\\nNEXT_STEPS.md\\nOMEGA_QA_REPORT.md\\nOPEN_SOURCE_ANALYSIS.md\\nPEARLOS_OMEGA_CONFIG.md\\nPEARLOS_OPENCLAW_SETUP.md\\nPLAN.md\\nPRODUCTIONIZATION_PLAN_2025-12-18.md\\nPULL_REQUEST_TEMPLATE.md\\nQA_REPORT_2026-02-28.md\\nREADME.md\\nREADME.project.md\\nREADME.testing.md\\nREADME_SETUP.md\\nSECURITY.md\\nSETTINGS_CHECKPOINT_2026-02-22.md\\nSETTINGS_FIX_2026-02-25.md\\nSETUP_CHOCO_EDGE_CASES.md\\nSETUP_FROM_SCRATCH.md\\nSETUP_INSTRUCTIONS.md\\nSIMPLE_SETUP.md\\nSOUL.md\\nSOUNDTRACK_IOS_FIX.md\\nTASK_CONTROL_IMPLEMENTATION.md\\nTESTING_PLAN.md\\nTOOLS.md\\nUNIFIED_PEARL_ARCHITECTURE.md\\nUNIFIED_PEARL_STATUS.md\\nUSER.md\\nVAPI_REMOVAL_MIGRATION_SUMMARY.md\\nVERSION_SNAPSHOT_2026-02-28.md\\nVOICE-FIX-APPLIED.md\\nVOICE_CONFIGS.md\\nVOICE_CONFIG_AUDIT.md\\nVOICE_OPENCLAW_INTEGRATION.md\\nVOICE_SETUP.md\\nWINDOWS_SETUP.md\\napps\\narchive\\nbabel.config.js\\nbackups\\ncloudflared-config.yml\\ncodex\\nconductor\\nconfig\\ncoverage\\ncypress\\ncypress.config.js\\ndashboard_login.html\\ndev-stop.sh\\ndev-terminals.sh\\ndist\\ndocs\\nexports\\ninterface_login.html\\ninterface_login_current.html\\njest.config.mjs\\njest.performance.config.mjs\\njest.setup.frontend.ts\\njest.setup.ts\\nlint.sh\\nmemory\\nnew-setup.ps1\\nnew-setup.sh\\nnia-universal.code-workspace\\nnode_modules\\npackage-lock.json\\npackage.json\\npackages\\npearlos-guide.md\\npytest.ini\\nreadme_setup_all.md\\nrestart-pod.sh\\nruff.toml\\nscripts\\nsetup.ps1\\nsetup.sh\\nshared\\nstate\\ntemplates\\ntest-guest-upload.json\\ntest-metadata-deletion.md\\ntest-results\\ntest.sh\\ntests\\ntmp\\ntools\\ntsconfig-paths.json\\ntsconfig.json\\nturbo.json\\nvoice-presets.json\\n\",\"stderr\":\"\",\"aggregated_output\":\"AGENTS.md\\nARCHITECTURE.md\\nAVATAR_ANIMATION_FIX_PLAN.md\\nAVATAR_GIF_STATE_MACHINE_FIX.md\\nAVATAR_REGRESSION_TIMELINE.md\\nAVATAR_STATE_MACHINE_ANALYSIS.md\\nBACKUPS.md\\nBUILD_MANIFEST_OMEGA.md\\nCALL_BUTTON_FIX.md\\nCHANGELOG.md\\nCLAUDE.md\\nCLOUDFLARE_TUNNEL_SETUP.md\\nCODEBASE_EXPLANATION.md\\nCODE_OF_CONDUCT.md\\nCONTRIBUTING.md\\nDESKTOP_MODE_SWITCH_IMPLEMENTATION.md\\nDEVELOPER_GUIDE.md\\nDUPLICATION_FIX_PLAN.md\\nDUPLICATION_GATEWAY_HANDOFF.md\\nDUPLICATION_INVESTIGATION_REPORT.md\\nDocker dependencies.md\\nDockerfile.pearlos\\nExpected Payload.txt\\nGEMINI.md\\nHEARTBEAT.md\\nIDENTITY.md\\nIDENTITY_BASE.md\\nIMPLEMENTATION_PLAN.md\\nLICENSE\\nLINUX_SETUP.md\\nMACOS_SETUP.md\\nMEMORY_SYSTEM_DESIGN.md\\nNEXT_STEPS.md\\nOMEGA_QA_REPORT.md\\nOPEN_SOURCE_ANALYSIS.md\\nPEARLOS_OMEGA_CONFIG.md\\nPEARLOS_OPENCLAW_SETUP.md\\nPLAN.md\\nPRODUCTIONIZATION_PLAN_2025-12-18.md\\nPULL_REQUEST_TEMPLATE.md\\nQA_REPORT_2026-02-28.md\\nREADME.md\\nREADME.project.md\\nREADME.testing.md\\nREADME_SETUP.md\\nSECURITY.md\\nSETTINGS_CHECKPOINT_2026-02-22.md\\nSETTINGS_FIX_2026-02-25.md\\nSETUP_CHOCO_EDGE_CASES.md\\nSETUP_FROM_SCRATCH.md\\nSETUP_INSTRUCTIONS.md\\nSIMPLE_SETUP.md\\nSOUL.md\\nSOUNDTRACK_IOS_FIX.md\\nTASK_CONTROL_IMPLEMENTATION.md\\nTESTING_PLAN.md\\nTOOLS.md\\nUNIFIED_PEARL_ARCHITECTURE.md\\nUNIFIED_PEARL_STATUS.md\\nUSER.md\\nVAPI_REMOVAL_MIGRATION_SUMMARY.md\\nVERSION_SNAPSHOT_2026-02-28.md\\nVOICE-FIX-APPLIED.md\\nVOICE_CONFIGS.md\\nVOICE_CONFIG_AUDIT.md\\nVOIC..."
+            },
+            "output": {
+              "call_id": "call_G05JBUQbaYBgOmzNbMdsOkZ1",
+              "process_id": "55510",
+              "turn_id": "019daf76-9255-73d0-bb3c-2648baf32f12",
+              "command": [
+                "/bin/bash",
+                "-lc",
+                "ls"
+              ],
+              "cwd": "/workspace/nia-universal",
+              "parsed_cmd": [
+                {
+                  "type": "list_files",
+                  "cmd": "ls",
+                  "path": null
+                }
+              ],
+              "source": "unified_exec_startup",
+              "stdout": "AGENTS.md\nARCHITECTURE.md\nAVATAR_ANIMATION_FIX_PLAN.md\nAVATAR_GIF_STATE_MACHINE_FIX.md\nAVATAR_REGRESSION_TIMELINE.md\nAVATAR_STATE_MACHINE_ANALYSIS.md\nBACKUPS.md\nBUILD_MANIFEST_OMEGA.md\nCALL_BUTTON_FIX.md\nCHANGELOG.md\nCLAUDE.md\nCLOUDFLARE_TUNNEL_SETUP.md\nCODEBASE_EXPLANATION.md\nCODE_OF_CONDUCT.md\nCONTRIBUTING.md\nDESKTOP_MODE_SWITCH_IMPLEMENTATION.md\nDEVELOPER_GUIDE.md\nDUPLICATION_FIX_PLAN.md\nDUPLICATION_GATEWAY_HANDOFF.md\nDUPLICATION_INVESTIGATION_REPORT.md\nDocker dependencies.md\nDockerfile.pearlos\nExpected Payload.txt\nGEMINI.md\nHEARTBEAT.md\nIDENTITY.md\nIDENTITY_BASE.md\nIMPLEMENTATION_PLAN.md\nLICENSE\nLINUX_SETUP.md\nMACOS_SETUP.md\nMEMORY_SYSTEM_DESIGN.md\nNEXT_STEPS.md\nOMEGA_QA_REPORT.md\nOPEN_SOURCE_ANALYSIS.md\nPEARLOS_OMEGA_CONFIG.md\nPEARLOS_OPENCLAW_SETUP.md\nPLAN.md\nPRODUCTIONIZATION_PLAN_2025-12-18.md\nPULL_REQUEST_TEMPLATE.md\nQA_REPORT_2026-02-28.md\nREADME.md\nREADME.project.md\nREADME.testing.md\nREADME_SETUP.md\nSECURITY.md\nSETTINGS_CHECKPOINT_2026-02-22.md\nSETTINGS_FIX_2026-02-25.md\nSETUP_CHOCO_EDGE_CASES.md\nSETUP_FROM_SCRATCH.md\nSETUP_INSTRUCTIONS.md\nSIMPLE_SETUP.md\nSOUL.md\nSOUNDTRACK_IOS_FIX.md\nTASK_CONTROL_IMPLEMENTATION.md\nTESTING_PLAN.md\nTOOLS.md\nUNIFIED_PEARL_ARCHITECTURE.md\nUNIFIED_PEARL_STATUS.md\nUSER.md\nVAPI_REMOVAL_MIGRATION_SUMMARY.md\nVERSION_SNAPSHOT_2026-02-28.md\nVOICE-FIX-APPLIED.md\nVOICE_CONFIGS.md\nVOICE_CONFIG_AUDIT.md\nVOICE_OPENCLAW_INTEGRATION.md\nVOICE_SETUP.md\nWINDOWS_SETUP.md\napps\narchive\nbabel.config.js\nbackups\ncloudflared-config.yml\ncodex\nconductor\nconfig\ncoverage\ncypress\ncypress.config.js\ndashboard_login.html\ndev-stop.sh\ndev-terminals.sh\ndist\ndocs\nexports\ninterface_login.html\ninterface_login_current.html\njest.config.mjs\njest.performance.config.mjs\njest.setup.frontend.ts\njest.setup.ts\nlint.sh\nmemory\nnew-setup.ps1\nnew-setup.sh\nnia-universal.code-workspace\nnode_modules\npackage-lock.json\npackage.json\npackages\npearlos-guide.md\npytest.ini\nreadme_setup_all.md\nrestart-pod.sh\nruff.toml\nscripts\nsetup.ps1\nsetup.sh\nshared\nstate\ntemplates\ntest-guest-upload.json\ntest-metadata-deletion.md\ntest-results\ntest.sh\ntests\ntmp\ntools\ntsconfig-paths.json\ntsconfig.json\nturbo.json\nvoice-presets.json\n",
+              "stderr": "",
+              "aggregated_output": "AGENTS.md\nARCHITECTURE.md\nAVATAR_ANIMATION_FIX_PLAN.md\nAVATAR_GIF_STATE_MACHINE_FIX.md\nAVATAR_REGRESSION_TIMELINE.md\nAVATAR_STATE_MACHINE_ANALYSIS.md\nBACKUPS.md\nBUILD_MANIFEST_OMEGA.md\nCALL_BUTTON_FIX.md\nCHANGELOG.md\nCLAUDE.md\nCLOUDFLARE_TUNNEL_SETUP.md\nCODEBASE_EXPLANATION.md\nCODE_OF_CONDUCT.md\nCONTRIBUTING.md\nDESKTOP_MODE_SWITCH_IMPLEMENTATION.md\nDEVELOPER_GUIDE.md\nDUPLICATION_FIX_PLAN.md\nDUPLICATION_GATEWAY_HANDOFF.md\nDUPLICATION_INVESTIGATION_REPORT.md\nDocker dependencies.md\nDockerfile.pearlos\nExpected Payload.txt\nGEMINI.md\nHEARTBEAT.md\nIDENTITY.md\nIDENTITY_BASE.md\nIMPLEMENTATION_PLAN.md\nLICENSE\nLINUX_SETUP.md\nMACOS_SETUP.md\nMEMORY_SYSTEM_DESIGN.md\nNEXT_STEPS.md\nOMEGA_QA_REPORT.md\nOPEN_SOURCE_ANALYSIS.md\nPEARLOS_OMEGA_CONFIG.md\nPEARLOS_OPENCLAW_SETUP.md\nPLAN.md\nPRODUCTIONIZATION_PLAN_2025-12-18.md\nPULL_REQUEST_TEMPLATE.md\nQA_REPORT_2026-02-28.md\nREADME.md\nREADME.project.md\nREADME.testing.md\nREADME_SETUP.md\nSECURITY.md\nSETTINGS_CHECKPOINT_2026-02-22.md\nSETTINGS_FIX_2026-02-25.md\nSETUP_CHOCO_EDGE_CASES.md\nSETUP_FROM_SCRATCH.md\nSETUP_INSTRUCTIONS.md\nSIMPLE_SETUP.md\nSOUL.md\nSOUNDTRACK_IOS_FIX.md\nTASK_CONTROL_IMPLEMENTATION.md\nTESTING_PLAN.md\nTOOLS.md\nUNIFIED_PEARL_ARCHITECTURE.md\nUNIFIED_PEARL_STATUS.md\nUSER.md\nVAPI_REMOVAL_MIGRATION_SUMMARY.md\nVERSION_SNAPSHOT_2026-02-28.md\nVOICE-FIX-APPLIED.md\nVOICE_CONFIGS.md\nVOICE_CONFIG_AUDIT.md\nVOICE_OPENCLAW_INTEGRATION.md\nVOICE_SETUP.md\nWINDOWS_SETUP.md\napps\narchive\nbabel.config.js\nbackups\ncloudflared-config.yml\ncodex\nconductor\nconfig\ncoverage\ncypress\ncypress.config.js\ndashboard_login.html\ndev-stop.sh\ndev-terminals.sh\ndist\ndocs\nexports\ninterface_login.html\ninterface_login_current.html\njest.config.mjs\njest.performance.config.mjs\njest.setup.frontend.ts\njest.setup.ts\nlint.sh\nmemory\nnew-setup.ps1\nnew-setup.sh\nnia-universal.code-workspace\nnode_modules\npackage-lock.json\npackage.json\npackages\npearlos-guide.md\npytest.ini\nreadme_setup_all.md\nrestart-pod.sh\nruff.toml\nscripts\nsetup.ps1\nsetup.sh\nshared\nstate\ntemplates\ntest-guest-upload.json\ntest-metadata-deletion.md\ntest-results\ntest.sh\ntests\ntmp\ntools\ntsconfig-paths.json\ntsconfig.json\nturbo.json\nvoice-presets.json\n",
+              "exit_code": 0,
+              "duration": {
+                "secs": 0,
+                "nanos": 4020
+              },
+              "formatted_output": "AGENTS.md\nARCHITECTURE.md\nAVATAR_ANIMATION_FIX_PLAN.md\nAVATAR_GIF_STATE_MACHINE_FIX.md\nAVATAR_REGRESSION_TIMELINE.md\nAVATAR_STATE_MACHINE_ANALYSIS.md\nBACKUPS.md\nBUILD_MANIFEST_OMEGA.md\nCALL_BUTTON_FIX.md\nCHANGELOG.md\nCLAUDE.md\nCLOUDFLARE_TUNNEL_SETUP.md\nCODEBASE_EXPLANATION.md\nCODE_OF_CONDUCT.md\nCONTRIBUTING.md\nDESKTOP_MODE_SWITCH_IMPLEMENTATION.md\nDEVELOPER_GUIDE.md\nDUPLICATION_FIX_PLAN.md\nDUPLICATION_GATEWAY_HANDOFF.md\nDUPLICATION_INVESTIGATION_REPORT.md\nDocker dependencies.md\nDockerfile.pearlos\nExpected Payload.txt\nGEMINI.md\nHEARTBEAT.md\nIDENTITY.md\nIDENTITY_BASE.md\nIMPLEMENTATION_PLAN.md\nLICENSE\nLINUX_SETUP.md\nMACOS_SETUP.md\nMEMORY_SYSTEM_DESIGN.md\nNEXT_STEPS.md\nOMEGA_QA_REPORT.md\nOPEN_SOURCE_ANALYSIS.md\nPEARLOS_OMEGA_CONFIG.md\nPEARLOS_OPENCLAW_SETUP.md\nPLAN.md\nPRODUCTIONIZATION_PLAN_2025-12-18.md\nPULL_REQUEST_TEMPLATE.md\nQA_REPORT_2026-02-28.md\nREADME.md\nREADME.project.md\nREADME.testing.md\nREADME_SETUP.md\nSECURITY.md\nSETTINGS_CHECKPOINT_2026-02-22.md\nSETTINGS_FIX_2026-02-25.md\nSETUP_CHOCO_EDGE_CASES.md\nSETUP_FROM_SCRATCH.md\nSETUP_INSTRUCTIONS.md\nSIMPLE_SETUP.md\nSOUL.md\nSOUNDTRACK_IOS_FIX.md\nTASK_CONTROL_IMPLEMENTATION.md\nTESTING_PLAN.md\nTOOLS.md\nUNIFIED_PEARL_ARCHITECTURE.md\nUNIFIED_PEARL_STATUS.md\nUSER.md\nVAPI_REMOVAL_MIGRATION_SUMMARY.md\nVERSION_SNAPSHOT_2026-02-28.md\nVOICE-FIX-APPLIED.md\nVOICE_CONFIGS.md\nVOICE_CONFIG_AUDIT.md\nVOICE_OPENCLAW_INTEGRATION.md\nVOICE_SETUP.md\nWINDOWS_SETUP.md\napps\narchive\nbabel.config.js\nbackups\ncloudflared-config.yml\ncodex\nconductor\nconfig\ncoverage\ncypress\ncypress.config.js\ndashboard_login.html\ndev-stop.sh\ndev-terminals.sh\ndist\ndocs\nexports\ninterface_login.html\ninterface_login_current.html\njest.config.mjs\njest.performance.config.mjs\njest.setup.frontend.ts\njest.setup.ts\nlint.sh\nmemory\nnew-setup.ps1\nnew-setup.sh\nnia-universal.code-workspace\nnode_modules\npackage-lock.json\npackage.json\npackages\npearlos-guide.md\npytest.ini\nreadme_setup_all.md\nrestart-pod.sh\nruff.toml\nscripts\nsetup.ps1\nsetup.sh\nshared\nstate\ntemplates\ntest-guest-upload.json\ntest-metadata-deletion.md\ntest-results\ntest.sh\ntests\ntmp\ntools\ntsconfig-paths.json\ntsconfig.json\nturbo.json\nvoice-presets.json\n",
+              "status": "completed"
+            }
+          },
+          "call_PkQzjviddArJySuObtnV7vDf": {
+            "tool_use_id": "call_PkQzjviddArJySuObtnV7vDf",
+            "tool_name": "Read ARCHITECTURE.md",
+            "is_error": false,
+            "content": {
+              "Text": "{\"call_id\":\"call_PkQzjviddArJySuObtnV7vDf\",\"process_id\":\"61376\",\"turn_id\":\"019daf76-9255-73d0-bb3c-2648baf32f12\",\"command\":[\"/bin/bash\",\"-lc\",\"sed -n '1,200p' ARCHITECTURE.md\"],\"cwd\":\"/workspace/nia-universal\",\"parsed_cmd\":[{\"type\":\"read\",\"cmd\":\"sed -n '1,200p' ARCHITECTURE.md\",\"name\":\"ARCHITECTURE.md\",\"path\":\"ARCHITECTURE.md\"}],\"source\":\"unified_exec_startup\",\"stdout\":\"# PearlOS Architecture\\n\\n## System Overview\\n\\nPearlOS is an AI native personal operating system: a voice first, agentic desktop environment where an AI companion (Pearl) has full awareness and control of the user's visual and audio experience.\\n\\nThe system is a monorepo with several interconnected services that together deliver a complete AI desktop.\\n\\n```\\n┌─────────────────────────────────────────────────────┐\\n│                    User (Browser)                     │\\n│                                                       │\\n│  ┌─────────────┐  ┌──────────┐  ┌────────────────┐  │\\n│  │  Desktop UI  │  │  Voice   │  │ Wonder Canvas  │  │\\n│  │  (Next.js)   │  │ (WebRTC) │  │  (Rich Views)  │  │\\n│  └──────┬───────┘  └────┬─────┘  └───────┬────────┘  │\\n└─────────┼───────────────┼────────────────┼────────────┘\\n          │               │                │\\n     Port 3000       Daily.co         Event Bus\\n          │               │                │\\n┌─────────▼───────────────▼────────────────▼────────────┐\\n│                   Backend Services                     │\\n│                                                        │\\n│  ┌──────────────┐  ┌────────────┐  ┌──────────────┐  │\\n│  │  Bot Gateway  │  │    Mesh    │  │  PocketTTS   │  │\\n│  │  (Pipecat)    │  │  (GraphQL) │  │  (Azelma)    │  │\\n│  │  :4444        │  │  :2000     │  │  :8766       │  │\\n│  └──────────────┘  └────────────┘  └──────────────┘  │\\n└───────────────────────────────────────────────────────┘\\n```\\n\\n## Port Map\\n\\n| Port | Service | Description |\\n|------|---------|-------------|\\n| 3000 | Next.js | Frontend desktop environment |\\n| 4444 | Bot Gateway | Voice pipeline orchestration (Pipecat + Daily.co) |\\n| 2000 | Mesh | GraphQL API for data, state, and inter-service communication |\\n| 8766 | PocketTTS | Text to speech engine (voice: Azelma) |\\n\\n## Monorepo Structure\\n\\n```\\nPearlOS/\\n├── apps/\\n│   ├── interface/          # Next.js frontend (the desktop)\\n│   ├── pipecat-daily-bot/  # Voice pipeline (Pipecat + bot logic)\\n│   ├── mesh/               # GraphQL API layer\\n│   └── dashboard/          # Admin dashboard\\n├── packages/               # Shared libraries and utilities\\n├── docs/                   # Documentation\\n└── .github/                # CI, issue templates, workflows\\n```\\n\\n## Voice Pipeline\\n\\nThe voice system is a core differentiator. Here is the full path from user speech to AI response:\\n\\n```\\nUser speaks\\n    │\\n    ▼\\nDaily.co WebRTC (browser to server)\\n    │\\n    ▼\\nDeepgram STT (speech to text)\\n    │\\n    ▼\\nPipecat Orchestration (bot gateway :4444)\\n    │\\n    ▼\\nLLM (Anthropic Claude / configurable)\\n    │\\n    ▼\\nPocketTTS :8766 (text to speech, voice: Azelma)\\n    │\\n    ▼\\nDaily.co WebRTC (server to browser)\\n    │\\n    ▼\\nUser hears Pearl respond\\n```\\n\\n**Key components:**\\n- **Deepgram** provides real time speech to text with low latency\\n- **Pipecat** orchestrates the full pipeline: VAD, STT, LLM, TTS, transport\\n- **PocketTTS** generates speech output using the Azelma voice model\\n- **Daily.co** handles WebRTC transport for both input and output audio\\n\\n## Desktop Environment\\n\\nThe frontend (`apps/interface`) implements a windowed desktop with:\\n\\n- **Window Manager:** Draggable, resizable windows with z-index management\\n- **Built in Apps:** Notes, YouTube, Calculator, Browser\\n- **Wonder Canvas:** Rich visual content renderer for AI generated displays\\n- **Sprite System:** Animated overlays with bot framework for interactive elements\\n- **Soundtrack:** Ambient music system with persistent playback across desktop modes\\n- **Desktop Mo..."
+            },
+            "output": {
+              "call_id": "call_PkQzjviddArJySuObtnV7vDf",
+              "process_id": "61376",
+              "turn_id": "019daf76-9255-73d0-bb3c-2648baf32f12",
+              "command": [
+                "/bin/bash",
+                "-lc",
+                "sed -n '1,200p' ARCHITECTURE.md"
+              ],
+              "cwd": "/workspace/nia-universal",
+              "parsed_cmd": [
+                {
+                  "type": "read",
+                  "cmd": "sed -n '1,200p' ARCHITECTURE.md",
+                  "name": "ARCHITECTURE.md",
+                  "path": "ARCHITECTURE.md"
+                }
+              ],
+              "source": "unified_exec_startup",
+              "stdout": "# PearlOS Architecture\n\n## System Overview\n\nPearlOS is an AI native personal operating system: a voice first, agentic desktop environment where an AI companion (Pearl) has full awareness and control of the user's visual and audio experience.\n\nThe system is a monorepo with several interconnected services that together deliver a complete AI desktop.\n\n```\n┌─────────────────────────────────────────────────────┐\n│                    User (Browser)                     │\n│                                                       │\n│  ┌─────────────┐  ┌──────────┐  ┌────────────────┐  │\n│  │  Desktop UI  │  │  Voice   │  │ Wonder Canvas  │  │\n│  │  (Next.js)   │  │ (WebRTC) │  │  (Rich Views)  │  │\n│  └──────┬───────┘  └────┬─────┘  └───────┬────────┘  │\n└─────────┼───────────────┼────────────────┼────────────┘\n          │               │                │\n     Port 3000       Daily.co         Event Bus\n          │               │                │\n┌─────────▼───────────────▼────────────────▼────────────┐\n│                   Backend Services                     │\n│                                                        │\n│  ┌──────────────┐  ┌────────────┐  ┌──────────────┐  │\n│  │  Bot Gateway  │  │    Mesh    │  │  PocketTTS   │  │\n│  │  (Pipecat)    │  │  (GraphQL) │  │  (Azelma)    │  │\n│  │  :4444        │  │  :2000     │  │  :8766       │  │\n│  └──────────────┘  └────────────┘  └──────────────┘  │\n└───────────────────────────────────────────────────────┘\n```\n\n## Port Map\n\n| Port | Service | Description |\n|------|---------|-------------|\n| 3000 | Next.js | Frontend desktop environment |\n| 4444 | Bot Gateway | Voice pipeline orchestration (Pipecat + Daily.co) |\n| 2000 | Mesh | GraphQL API for data, state, and inter-service communication |\n| 8766 | PocketTTS | Text to speech engine (voice: Azelma) |\n\n## Monorepo Structure\n\n```\nPearlOS/\n├── apps/\n│   ├── interface/          # Next.js frontend (the desktop)\n│   ├── pipecat-daily-bot/  # Voice pipeline (Pipecat + bot logic)\n│   ├── mesh/               # GraphQL API layer\n│   └── dashboard/          # Admin dashboard\n├── packages/               # Shared libraries and utilities\n├── docs/                   # Documentation\n└── .github/                # CI, issue templates, workflows\n```\n\n## Voice Pipeline\n\nThe voice system is a core differentiator. Here is the full path from user speech to AI response:\n\n```\nUser speaks\n    │\n    ▼\nDaily.co WebRTC (browser to server)\n    │\n    ▼\nDeepgram STT (speech to text)\n    │\n    ▼\nPipecat Orchestration (bot gateway :4444)\n    │\n    ▼\nLLM (Anthropic Claude / configurable)\n    │\n    ▼\nPocketTTS :8766 (text to speech, voice: Azelma)\n    │\n    ▼\nDaily.co WebRTC (server to browser)\n    │\n    ▼\nUser hears Pearl respond\n```\n\n**Key components:**\n- **Deepgram** provides real time speech to text with low latency\n- **Pipecat** orchestrates the full pipeline: VAD, STT, LLM, TTS, transport\n- **PocketTTS** generates speech output using the Azelma voice model\n- **Daily.co** handles WebRTC transport for both input and output audio\n\n## Desktop Environment\n\nThe frontend (`apps/interface`) implements a windowed desktop with:\n\n- **Window Manager:** Draggable, resizable windows with z-index management\n- **Built in Apps:** Notes, YouTube, Calculator, Browser\n- **Wonder Canvas:** Rich visual content renderer for AI generated displays\n- **Sprite System:** Animated overlays with bot framework for interactive elements\n- **Soundtrack:** Ambient music system with persistent playback across desktop modes\n- **Desktop Modes:** HOME and WORK modes with different layouts and behaviors\n\n### Window Types\n\nEach app runs in a managed window with standard controls (close, minimize, resize). Windows are registered through a central window manager that handles focus, positioning, and lifecycle.\n\n## Event System\n\nPearlOS uses a layered event architecture for communication between the voice pipeline, backend services, and frontend:\n\n```\nBot Gateway (tool call)\n    │\n    ▼\nDaily.co app-message\n    │\n    ▼\nAppMessageForwarder (frontend)\n    │\n    ▼\nniaEventRouter (dispatcher)\n    │\n    ▼\nReact CustomEvents (component handlers)\n```\n\n**Flow:** When the AI decides to perform an action (open a note, play music, show a canvas), the bot gateway sends it as a Daily app-message. The frontend's `AppMessageForwarder` picks it up, routes it through `niaEventRouter`, and dispatches the appropriate CustomEvent for React components to handle.\n\n## Bot Tools\n\nPearl has access to 71+ tools organized into categories:\n\n| Category | Count | Examples |\n|----------|-------|---------|\n| View / App Management | 19 | Open/close/focus windows, switch desktop modes |\n| Notes CRUD | 13 | Create, read, update, delete, search notes |\n| HTML / Applet Creation | 6 | Generate and display interactive HTML content |\n| YouTube | 4 | Search, play, pause, queue management |\n| Window Management | 6 | Resize, move, arrange, snap windows |\n| Sharing | 5 | Screenshot, export, share content |\n| Soundtrack | 5 | Play, pause, skip, volume, queue |\n| Profile | 2 | User preferences and settings |\n| Misc | 6 | Calculator, timer, system info |\n\n### Tool Registration\n\nTools are registered using the `@bot_tool` decorator and discovered automatically by `BotToolDiscovery`:\n\n```python\n@bot_tool(\n    name=\"create_note\",\n    description=\"Create a new note with the given title and content\",\n    parameters={...}\n)\nasync def create_note(self, title: str, content: str):\n    ...\n```\n\n## Feature Flags\n\nPearlOS uses a feature flag system (`@nia/features`) to progressively enable capabilities:\n\n- Flags are defined in the `supportedFeatures` list\n- Each feature can be toggled independently\n- The bot gateway checks flags before exposing tools\n- Example: `openclawBridge` gates the OpenClaw integration tools\n\n## Data Layer\n\n**Mesh** (`:2000`) provides a GraphQL API for:\n\n- Notes storage and retrieval\n- User preferences\n- Session state\n- Inter-service data sharing\n\nComponents query Mesh directly for data operations, keeping the frontend decoupled from specific storage backends.\n\n## Key Design Decisions\n\n1. **Voice first:** Every feature should work via voice. Visual UI is complementary, not primary.\n2. **Mobile first layouts:** All UI uses vertical stacking (`flex-direction: column`), `clamp()` for responsive sizing. No side by side layouts that break on small screens.\n3. **Event driven updates:** The frontend reacts to events rather than polling. This keeps the UI responsive during voice interactions.\n4. **Tool based AI:** Pearl interacts with the system through explicit, typed tools rather than free form code execution. This provides safety and auditability.\n5. **Monorepo:** All services live together for easy cross-cutting changes and shared types.\n",
+              "stderr": "",
+              "aggregated_output": "# PearlOS Architecture\n\n## System Overview\n\nPearlOS is an AI native personal operating system: a voice first, agentic desktop environment where an AI companion (Pearl) has full awareness and control of the user's visual and audio experience.\n\nThe system is a monorepo with several interconnected services that together deliver a complete AI desktop.\n\n```\n┌─────────────────────────────────────────────────────┐\n│                    User (Browser)                     │\n│                                                       │\n│  ┌─────────────┐  ┌──────────┐  ┌────────────────┐  │\n│  │  Desktop UI  │  │  Voice   │  │ Wonder Canvas  │  │\n│  │  (Next.js)   │  │ (WebRTC) │  │  (Rich Views)  │  │\n│  └──────┬───────┘  └────┬─────┘  └───────┬────────┘  │\n└─────────┼───────────────┼────────────────┼────────────┘\n          │               │                │\n     Port 3000       Daily.co         Event Bus\n          │               │                │\n┌─────────▼───────────────▼────────────────▼────────────┐\n│                   Backend Services                     │\n│                                                        │\n│  ┌──────────────┐  ┌────────────┐  ┌──────────────┐  │\n│  │  Bot Gateway  │  │    Mesh    │  │  PocketTTS   │  │\n│  │  (Pipecat)    │  │  (GraphQL) │  │  (Azelma)    │  │\n│  │  :4444        │  │  :2000     │  │  :8766       │  │\n│  └──────────────┘  └────────────┘  └──────────────┘  │\n└───────────────────────────────────────────────────────┘\n```\n\n## Port Map\n\n| Port | Service | Description |\n|------|---------|-------------|\n| 3000 | Next.js | Frontend desktop environment |\n| 4444 | Bot Gateway | Voice pipeline orchestration (Pipecat + Daily.co) |\n| 2000 | Mesh | GraphQL API for data, state, and inter-service communication |\n| 8766 | PocketTTS | Text to speech engine (voice: Azelma) |\n\n## Monorepo Structure\n\n```\nPearlOS/\n├── apps/\n│   ├── interface/          # Next.js frontend (the desktop)\n│   ├── pipecat-daily-bot/  # Voice pipeline (Pipecat + bot logic)\n│   ├── mesh/               # GraphQL API layer\n│   └── dashboard/          # Admin dashboard\n├── packages/               # Shared libraries and utilities\n├── docs/                   # Documentation\n└── .github/                # CI, issue templates, workflows\n```\n\n## Voice Pipeline\n\nThe voice system is a core differentiator. Here is the full path from user speech to AI response:\n\n```\nUser speaks\n    │\n    ▼\nDaily.co WebRTC (browser to server)\n    │\n    ▼\nDeepgram STT (speech to text)\n    │\n    ▼\nPipecat Orchestration (bot gateway :4444)\n    │\n    ▼\nLLM (Anthropic Claude / configurable)\n    │\n    ▼\nPocketTTS :8766 (text to speech, voice: Azelma)\n    │\n    ▼\nDaily.co WebRTC (server to browser)\n    │\n    ▼\nUser hears Pearl respond\n```\n\n**Key components:**\n- **Deepgram** provides real time speech to text with low latency\n- **Pipecat** orchestrates the full pipeline: VAD, STT, LLM, TTS, transport\n- **PocketTTS** generates speech output using the Azelma voice model\n- **Daily.co** handles WebRTC transport for both input and output audio\n\n## Desktop Environment\n\nThe frontend (`apps/interface`) implements a windowed desktop with:\n\n- **Window Manager:** Draggable, resizable windows with z-index management\n- **Built in Apps:** Notes, YouTube, Calculator, Browser\n- **Wonder Canvas:** Rich visual content renderer for AI generated displays\n- **Sprite System:** Animated overlays with bot framework for interactive elements\n- **Soundtrack:** Ambient music system with persistent playback across desktop modes\n- **Desktop Modes:** HOME and WORK modes with different layouts and behaviors\n\n### Window Types\n\nEach app runs in a managed window with standard controls (close, minimize, resize). Windows are registered through a central window manager that handles focus, positioning, and lifecycle.\n\n## Event System\n\nPearlOS uses a layered event architecture for communication between the voice pipeline, backend services, and frontend:\n\n```\nBot Gateway (tool call)\n    │\n    ▼\nDaily.co app-message\n    │\n    ▼\nAppMessageForwarder (frontend)\n    │\n    ▼\nniaEventRouter (dispatcher)\n    │\n    ▼\nReact CustomEvents (component handlers)\n```\n\n**Flow:** When the AI decides to perform an action (open a note, play music, show a canvas), the bot gateway sends it as a Daily app-message. The frontend's `AppMessageForwarder` picks it up, routes it through `niaEventRouter`, and dispatches the appropriate CustomEvent for React components to handle.\n\n## Bot Tools\n\nPearl has access to 71+ tools organized into categories:\n\n| Category | Count | Examples |\n|----------|-------|---------|\n| View / App Management | 19 | Open/close/focus windows, switch desktop modes |\n| Notes CRUD | 13 | Create, read, update, delete, search notes |\n| HTML / Applet Creation | 6 | Generate and display interactive HTML content |\n| YouTube | 4 | Search, play, pause, queue management |\n| Window Management | 6 | Resize, move, arrange, snap windows |\n| Sharing | 5 | Screenshot, export, share content |\n| Soundtrack | 5 | Play, pause, skip, volume, queue |\n| Profile | 2 | User preferences and settings |\n| Misc | 6 | Calculator, timer, system info |\n\n### Tool Registration\n\nTools are registered using the `@bot_tool` decorator and discovered automatically by `BotToolDiscovery`:\n\n```python\n@bot_tool(\n    name=\"create_note\",\n    description=\"Create a new note with the given title and content\",\n    parameters={...}\n)\nasync def create_note(self, title: str, content: str):\n    ...\n```\n\n## Feature Flags\n\nPearlOS uses a feature flag system (`@nia/features`) to progressively enable capabilities:\n\n- Flags are defined in the `supportedFeatures` list\n- Each feature can be toggled independently\n- The bot gateway checks flags before exposing tools\n- Example: `openclawBridge` gates the OpenClaw integration tools\n\n## Data Layer\n\n**Mesh** (`:2000`) provides a GraphQL API for:\n\n- Notes storage and retrieval\n- User preferences\n- Session state\n- Inter-service data sharing\n\nComponents query Mesh directly for data operations, keeping the frontend decoupled from specific storage backends.\n\n## Key Design Decisions\n\n1. **Voice first:** Every feature should work via voice. Visual UI is complementary, not primary.\n2. **Mobile first layouts:** All UI uses vertical stacking (`flex-direction: column`), `clamp()` for responsive sizing. No side by side layouts that break on small screens.\n3. **Event driven updates:** The frontend reacts to events rather than polling. This keeps the UI responsive during voice interactions.\n4. **Tool based AI:** Pearl interacts with the system through explicit, typed tools rather than free form code execution. This provides safety and auditability.\n5. **Monorepo:** All services live together for easy cross-cutting changes and shared types.\n",
+              "exit_code": 0,
+              "duration": {
+                "secs": 0,
+                "nanos": 6960
+              },
+              "formatted_output": "# PearlOS Architecture\n\n## System Overview\n\nPearlOS is an AI native personal operating system: a voice first, agentic desktop environment where an AI companion (Pearl) has full awareness and control of the user's visual and audio experience.\n\nThe system is a monorepo with several interconnected services that together deliver a complete AI desktop.\n\n```\n┌─────────────────────────────────────────────────────┐\n│                    User (Browser)                     │\n│                                                       │\n│  ┌─────────────┐  ┌──────────┐  ┌────────────────┐  │\n│  │  Desktop UI  │  │  Voice   │  │ Wonder Canvas  │  │\n│  │  (Next.js)   │  │ (WebRTC) │  │  (Rich Views)  │  │\n│  └──────┬───────┘  └────┬─────┘  └───────┬────────┘  │\n└─────────┼───────────────┼────────────────┼────────────┘\n          │               │                │\n     Port 3000       Daily.co         Event Bus\n          │               │                │\n┌─────────▼───────────────▼────────────────▼────────────┐\n│                   Backend Services                     │\n│                                                        │\n│  ┌──────────────┐  ┌────────────┐  ┌──────────────┐  │\n│  │  Bot Gateway  │  │    Mesh    │  │  PocketTTS   │  │\n│  │  (Pipecat)    │  │  (GraphQL) │  │  (Azelma)    │  │\n│  │  :4444        │  │  :2000     │  │  :8766       │  │\n│  └──────────────┘  └────────────┘  └──────────────┘  │\n└───────────────────────────────────────────────────────┘\n```\n\n## Port Map\n\n| Port | Service | Description |\n|------|---------|-------------|\n| 3000 | Next.js | Frontend desktop environment |\n| 4444 | Bot Gateway | Voice pipeline orchestration (Pipecat + Daily.co) |\n| 2000 | Mesh | GraphQL API for data, state, and inter-service communication |\n| 8766 | PocketTTS | Text to speech engine (voice: Azelma) |\n\n## Monorepo Structure\n\n```\nPearlOS/\n├── apps/\n│   ├── interface/          # Next.js frontend (the desktop)\n│   ├── pipecat-daily-bot/  # Voice pipeline (Pipecat + bot logic)\n│   ├── mesh/               # GraphQL API layer\n│   └── dashboard/          # Admin dashboard\n├── packages/               # Shared libraries and utilities\n├── docs/                   # Documentation\n└── .github/                # CI, issue templates, workflows\n```\n\n## Voice Pipeline\n\nThe voice system is a core differentiator. Here is the full path from user speech to AI response:\n\n```\nUser speaks\n    │\n    ▼\nDaily.co WebRTC (browser to server)\n    │\n    ▼\nDeepgram STT (speech to text)\n    │\n    ▼\nPipecat Orchestration (bot gateway :4444)\n    │\n    ▼\nLLM (Anthropic Claude / configurable)\n    │\n    ▼\nPocketTTS :8766 (text to speech, voice: Azelma)\n    │\n    ▼\nDaily.co WebRTC (server to browser)\n    │\n    ▼\nUser hears Pearl respond\n```\n\n**Key components:**\n- **Deepgram** provides real time speech to text with low latency\n- **Pipecat** orchestrates the full pipeline: VAD, STT, LLM, TTS, transport\n- **PocketTTS** generates speech output using the Azelma voice model\n- **Daily.co** handles WebRTC transport for both input and output audio\n\n## Desktop Environment\n\nThe frontend (`apps/interface`) implements a windowed desktop with:\n\n- **Window Manager:** Draggable, resizable windows with z-index management\n- **Built in Apps:** Notes, YouTube, Calculator, Browser\n- **Wonder Canvas:** Rich visual content renderer for AI generated displays\n- **Sprite System:** Animated overlays with bot framework for interactive elements\n- **Soundtrack:** Ambient music system with persistent playback across desktop modes\n- **Desktop Modes:** HOME and WORK modes with different layouts and behaviors\n\n### Window Types\n\nEach app runs in a managed window with standard controls (close, minimize, resize). Windows are registered through a central window manager that handles focus, positioning, and lifecycle.\n\n## Event System\n\nPearlOS uses a layered event architecture for communication between the voice pipeline, backend services, and frontend:\n\n```\nBot Gateway (tool call)\n    │\n    ▼\nDaily.co app-message\n    │\n    ▼\nAppMessageForwarder (frontend)\n    │\n    ▼\nniaEventRouter (dispatcher)\n    │\n    ▼\nReact CustomEvents (component handlers)\n```\n\n**Flow:** When the AI decides to perform an action (open a note, play music, show a canvas), the bot gateway sends it as a Daily app-message. The frontend's `AppMessageForwarder` picks it up, routes it through `niaEventRouter`, and dispatches the appropriate CustomEvent for React components to handle.\n\n## Bot Tools\n\nPearl has access to 71+ tools organized into categories:\n\n| Category | Count | Examples |\n|----------|-------|---------|\n| View / App Management | 19 | Open/close/focus windows, switch desktop modes |\n| Notes CRUD | 13 | Create, read, update, delete, search notes |\n| HTML / Applet Creation | 6 | Generate and display interactive HTML content |\n| YouTube | 4 | Search, play, pause, queue management |\n| Window Management | 6 | Resize, move, arrange, snap windows |\n| Sharing | 5 | Screenshot, export, share content |\n| Soundtrack | 5 | Play, pause, skip, volume, queue |\n| Profile | 2 | User preferences and settings |\n| Misc | 6 | Calculator, timer, system info |\n\n### Tool Registration\n\nTools are registered using the `@bot_tool` decorator and discovered automatically by `BotToolDiscovery`:\n\n```python\n@bot_tool(\n    name=\"create_note\",\n    description=\"Create a new note with the given title and content\",\n    parameters={...}\n)\nasync def create_note(self, title: str, content: str):\n    ...\n```\n\n## Feature Flags\n\nPearlOS uses a feature flag system (`@nia/features`) to progressively enable capabilities:\n\n- Flags are defined in the `supportedFeatures` list\n- Each feature can be toggled independently\n- The bot gateway checks flags before exposing tools\n- Example: `openclawBridge` gates the OpenClaw integration tools\n\n## Data Layer\n\n**Mesh** (`:2000`) provides a GraphQL API for:\n\n- Notes storage and retrieval\n- User preferences\n- Session state\n- Inter-service data sharing\n\nComponents query Mesh directly for data operations, keeping the frontend decoupled from specific storage backends.\n\n## Key Design Decisions\n\n1. **Voice first:** Every feature should work via voice. Visual UI is complementary, not primary.\n2. **Mobile first layouts:** All UI uses vertical stacking (`flex-direction: column`), `clamp()` for responsive sizing. No side by side layouts that break on small screens.\n3. **Event driven updates:** The frontend reacts to events rather than polling. This keeps the UI responsive during voice interactions.\n4. **Tool based AI:** Pearl interacts with the system through explicit, typed tools rather than free form code execution. This provides safety and auditability.\n5. **Monorepo:** All services live together for easy cross-cutting changes and shared types.\n",
+              "status": "completed"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-04-21T09:54:51.295Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {
+    "available_commands": [
+      "review",
+      "review-branch",
+      "review-commit",
+      "init",
+      "compact",
+      "undo",
+      "logout"
+    ]
+  }
+}

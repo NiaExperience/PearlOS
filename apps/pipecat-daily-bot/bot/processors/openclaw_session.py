@@ -51,38 +51,49 @@ except ImportError:
 _INSTANT_FILLERS = [
     "One sec.",
     "On it.",
-    "Hmm, let me see.",
+    "Hmm.",
     "Hang on.",
     "Checking.",
     "Yeah, one sec.",
     "Sure, hang on.",
-    "Oh, let me look.",
+    "Got it.",
     "Alright.",
-    "Mmhm, checking.",
+    "Mmhm.",
 ]
 
 _CONTEXTUAL_FILLERS = {
-    "weather": ["Let me see what it's like out there.", "Checking outside.", "Oh, let me look."],
-    "search": ["Hmm, let me look.", "One sec.", "Oh, interesting."],
+    "weather": ["Checking outside.", "One sec.", "On it."],
+    "search": ["Hmm.", "One sec.", "Oh, interesting."],
     "message": ["On it.", "Sending that.", "Yeah, one sec."],
     "discord": ["Checking Discord.", "One sec."],
-    "note": ["Pulling up your notes.", "Let me grab that.", "One sec."],
-    "play": ["On it.", "Yeah, let me find that.", "One sec."],
+    "note": ["Pulling up your notes.", "On it.", "One sec."],
+    "play": ["On it.", "Got it.", "One sec."],
     "time": ["One sec.", "Checking."],
     "remind": ["Got it.", "On it."],
-    "news": ["Let me see what's going on.", "Checking.", "Oh, let me look."],
-    "price": ["One sec.", "Checking.", "Let me look."],
+    "news": ["Checking.", "One sec.", "On it."],
+    "price": ["One sec.", "Checking.", "On it."],
     "stock": ["Checking.", "One sec."],
     "email": ["Checking your inbox.", "One sec."],
     "calendar": ["Checking your schedule.", "One sec."],
-    "youtube": ["On it.", "Let me find that.", "One sec."],
+    "youtube": ["On it.", "Got it.", "One sec."],
     "show": ["On it.", "One sec.", "Yeah, hang on."],
     "tell": ["Sure.", "Alright.", "Hmm."],
-    "what is": ["Hmm.", "Oh, let me think.", "One sec."],
-    "what's": ["One sec.", "Let me see.", "Hmm."],
-    "how": ["Hmm, let me think.", "Oh, that's interesting.", "One sec."],
-    "who": ["Hmm, let me check.", "One sec.", "Oh, let me look."],
+    "what is": ["Hmm.", "One sec.", "Yeah."],
+    "what's": ["One sec.", "Hmm.", "Yeah."],
+    "how": ["Hmm.", "Oh, that's interesting.", "One sec."],
+    "who": ["Hmm.", "One sec.", "Checking."],
 }
+
+
+def _env_float(name: str, default: float, *, minimum: float = 0.0, maximum: float = 2.0) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return max(minimum, min(maximum, float(raw)))
+    except ValueError:
+        logger.warning(f"[OpenClawSession] Invalid {name}={raw!r}; using {default}")
+        return default
 
 
 def _pick_filler(user_text: str) -> str:
@@ -107,8 +118,10 @@ class OpenClawSessionProcessor(FrameProcessor):
     api_key : str | None
         Bearer token.  Defaults to ``OPENCLAW_API_KEY`` env var.
     model : str | None
-        Model identifier.  Defaults to ``BOT_SONNET_MODEL`` env var or
-        ``anthropic/claude-sonnet-4-20250514``.
+        Model identifier (or ``openclaw/<agent>`` route). Resolution order:
+        explicit arg > ``BOT_OPENCLAW_AGENT`` env > ``BOT_VOICE_MODEL`` env >
+        ``openclaw/voice`` (routes to the voice agent, which is configured to
+        use ``pearl-llm/deepseek-v4-flash`` server-side).
     max_tokens : int
         Max tokens per completion.
     timeout : int
@@ -125,15 +138,38 @@ class OpenClawSessionProcessor(FrameProcessor):
         session_key: str | None = None,
         max_tokens: int = 4096,
         timeout: int = 180,  # Increased for multi-tool agent turns
+        toolbox_bundle: Any = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
+        # OpenClaw Gateway base URL (OpenAI-compatible). We POST to
+        # ``{api_url}/chat/completions`` and consume SSE-formatted chunks.
         self._api_url = (
             api_url
             or os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
         ).rstrip("/")
-        self._api_key = api_key or os.getenv("OPENCLAW_API_KEY", "openclaw-local")
-        self._model = model or os.getenv("BOT_OPENCLAW_AGENT", "openclaw:voice")
+        self._api_key = api_key or os.getenv("OPENCLAW_API_KEY", "")
+        # Resolve model: explicit ctor arg > BOT_OPENCLAW_AGENT env >
+        # BOT_VOICE_MODEL env > default voice agent route. The voice agent's
+        # underlying provider model (e.g. pearl-llm/deepseek-v4-flash) is
+        # configured server-side in OpenClaw via gateway.defaults.model.primary.
+        env_agent = os.getenv("BOT_OPENCLAW_AGENT", "").strip()
+        env_voice_model = os.getenv("BOT_VOICE_MODEL", "").strip()
+        self._model = model or env_agent or env_voice_model or "openclaw/voice"
+
+        # toolbox_bundle is accepted for call-site compatibility but unused:
+        # in OpenClaw routing mode, tools execute server-side inside the agent
+        # (the voice agent's TOOLS.md / OpenClaw plugin surface). We never
+        # forward tool schemas or execute tool_calls locally.
+        if toolbox_bundle is not None:
+            try:
+                regs = list(getattr(toolbox_bundle, "registrations", []) or [])
+                logger.info(
+                    f"[OpenClawSession] Ignoring local toolbox_bundle "
+                    f"({len(regs)} tools) — OpenClaw executes tools server-side"
+                )
+            except Exception:
+                pass
         # Voice gets a dedicated session under the main agent — shares workspace,
         # skills, SOUL.md, MEMORY.md with all other Pearl sessions but doesn't
         # block TUI/Discord with serialized requests.
@@ -164,10 +200,17 @@ class OpenClawSessionProcessor(FrameProcessor):
         self._is_processing: bool = False
         self._processing_start_time: float = 0.0
         self._last_interruption_time: float = 0.0
+        self._pending_incoming: list[dict[str, str]] | None = None
+        self._last_user_text: str = ""
+        self._last_user_time: float = 0.0
+        # True once the first content token has been pushed for the current turn.
+        # Until the bot is actually speaking, interruptions should be suppressed
+        # because there is nothing audible to interrupt.
+        self._response_started: bool = False
         # Minimum seconds into a request before allowing cancellation.
         self._min_processing_secs: float = 2.0
         # Debounce window: ignore rapid-fire interruptions within this window.
-        self._interruption_debounce_secs: float = 1.0
+        self._interruption_debounce_secs: float = 1.5
 
         # ── User model preference (from UI settings) ──────────────
         # The UI saves model preferences via /api/bot/model-settings which
@@ -278,6 +321,19 @@ class OpenClawSessionProcessor(FrameProcessor):
             )
 
         if messages is not None:
+            # One-line debug breadcrumb so "voice greets but doesn't reply"
+            # bugs are diagnosable from logs: confirms a context frame with
+            # user messages reached the LLM processor.
+            try:
+                last_user = next(
+                    (m.get("content") for m in reversed(messages) if m.get("role") == "user"),
+                    None,
+                )
+                if last_user:
+                    preview = (last_user if isinstance(last_user, str) else str(last_user))[:80]
+                    logger.debug(f"[OpenClawSession] received user frame: {preview!r}")
+            except Exception:
+                pass
             await self._run_completion(messages)
         else:
             # Pass through frames we don't handle (audio, control, etc.)
@@ -287,198 +343,239 @@ class OpenClawSessionProcessor(FrameProcessor):
     # Core streaming completion
     # ------------------------------------------------------------------
 
+    def _latest_user_text(self) -> str:
+        """Return latest user utterance from current message history."""
+        for msg in reversed(self._messages):
+            if msg.get("role") != "user":
+                continue
+            content = msg.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+        return ""
+
     async def _run_completion(self, incoming_messages: list[dict[str, str]]) -> None:
         """Send messages to OpenClaw and stream the response as TextFrames."""
 
-        # Signal any in-flight request to stop — but respect the processing guard.
+        # Do not drop live user turns. Keep the latest context snapshot.
+        # But DON'T cancel the in-flight request if it hasn't started producing
+        # output yet — OpenClaw can take 5-10s for first token, and cancelling
+        # before any response arrives creates an infinite loop where the bot
+        # never speaks (the "silence after Hi" bug).
         if self._is_processing:
-            elapsed = time.monotonic() - self._processing_start_time
-            if elapsed < self._min_processing_secs:
-                logger.info(
-                    f"[OpenClawSession] Ignoring new completion request — "
-                    f"current request only {elapsed:.1f}s old (min {self._min_processing_secs}s)"
-                )
-                return
-        self._cancel_event.set()
-        self._cancel_event = asyncio.Event()
+            self._pending_incoming = incoming_messages
+            if self._response_started:
+                # Bot is already speaking — cancel to process fresh user input
+                self._cancel_event.set()
+                logger.info("[OpenClawSession] Queued user turn + cancelled (bot was speaking)")
+            else:
+                # Bot hasn't spoken yet — let the request complete, then handle
+                # the queued turn. Cancelling here would cause permanent silence.
+                logger.info("[OpenClawSession] Queued user turn (preserving in-flight request — no response yet)")
+            return
+
         self._is_processing = True
-        self._processing_start_time = time.monotonic()
-
-        # Merge incoming messages into our session history.
-        # The context aggregator sends the *full* conversation each time,
-        # so we sync: keep our system prompt, then adopt everything after.
-        if incoming_messages:
-            # Find non-system messages from incoming
-            non_system = [m for m in incoming_messages if m.get("role") != "system"]
-            # Rebuild: our system prompt + all conversation messages
-            self._messages = [self._messages[0]] + non_system
-
-        # Ensure at least one user message (Anthropic requirement).
-        if all(m.get("role") == "system" for m in self._messages):
-            self._messages.append(
-                {"role": "user", "content": "[user has joined the conversation]"}
-            )
-
-        # Trim history: keep system prompt + last N non-system messages
-        non_system = [m for m in self._messages if m.get("role") != "system"]
-        if len(non_system) > self._max_history:
-            self._messages = [self._messages[0]] + non_system[-self._max_history:]
-
-        cancel = self._cancel_event
-        turn_start = time.monotonic()
-
-        payload = {
-            "model": self._model,
-            "messages": self._messages,
-            "stream": True,
-            "max_tokens": self._max_tokens,
-            "user": "pearlos-voice",
-        }
-
-        await self.push_frame(LLMFullResponseStartFrame())
-
-        full_response_chunks: list[str] = []
-
-        # -- Instant acknowledgment: speak BEFORE the HTTP request fires --
-        user_text = ""
-        for m in reversed(self._messages):
-            if m.get("role") == "user":
-                content = m.get("content", "")
-                if isinstance(content, str) and not content.startswith("["):
-                    user_text = content
-                    break
-
-        # Meeting mode gate: if active, only respond when addressed by name.
-        # Still forward transcript to meeting notes endpoint in background.
-        if self._meeting_mode and user_text:
-            # Always send transcript to meeting notes backend
-            try:
-                if self._http_session is None or self._http_session.closed:
-                    self._http_session = aiohttp.ClientSession()
-                gateway_base = os.getenv("BOT_GATEWAY_URL", "http://localhost:7860")
-                asyncio.create_task(
-                    self._http_session.post(
-                        f"{gateway_base}/api/meeting/transcript",
-                        json={"speaker": "participant", "text": user_text},
-                        timeout=aiohttp.ClientTimeout(total=5),
-                    )
-                )
-            except Exception:
-                pass  # best-effort
-
-            if not self._is_addressing_pearl(user_text):
-                logger.info(f"[OpenClawSession] Meeting mode: ignoring (not addressed): {user_text[:80]!r}")
-                self._is_processing = False
-                await self.push_frame(LLMFullResponseEndFrame())
-                return
-
-        # Instant filler removed per Blair's directive (2026-02-23)
-        # Pearl now waits naturally for OpenClaw response without filler phrases
-
-        # No follow-up filler loop — the instant contextual filler above is
-        # enough.  The LLM should start streaming its real response quickly;
-        # repeated robotic fillers ("Still working on that", "Almost there")
-        # degrade the conversational experience.
-        filler_task: asyncio.Task | None = None
-
         try:
-            if self._http_session is None or self._http_session.closed:
-                self._http_session = aiohttp.ClientSession()
-            session = self._http_session
-            # Fetch user's model preference on first request (lazy init)
-            if self._model_override is None:
-                pref = await self._fetch_model_preference()
-                # Use empty string as sentinel for "already checked, no preference"
-                self._model_override = pref or ""
+            next_incoming: list[dict[str, str]] | None = incoming_messages
+            while next_incoming is not None:
+                self._pending_incoming = None
+                self._cancel_event.set()
+                self._cancel_event = asyncio.Event()
+                self._processing_start_time = time.monotonic()
+                self._response_started = False
 
-            req_headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-                # Route to main agent session — voice IS the main Pearl,
-                # not a separate session. Shares context with Discord/webchat/TUI.
-                "x-openclaw-session-key": self._session_key,
-                # Tell the gateway this is a voice channel so bindings
-                # resolve correctly (not hardcoded to "webchat").
-                "x-openclaw-channel": "voice",
-            }
-            # Pass user's model preference so OpenClaw uses the UI-selected model
-            if self._model_override:
-                req_headers["x-openclaw-model-override"] = self._model_override
+                # Merge incoming messages into our session history.
+                # The context aggregator sends the *full* conversation each time,
+                # so we sync: keep our system prompt, then adopt everything after.
+                if next_incoming:
+                    non_system = [
+                        m for m in next_incoming if m.get("role") != "system"
+                    ]
+                    self._messages = [self._messages[0]] + non_system
 
-            async with session.post(
-                f"{self._api_url}/chat/completions",
-                json=payload,
-                headers=req_headers,
-                timeout=aiohttp.ClientTimeout(total=self._timeout),
-            ) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    logger.error(
-                        f"[OpenClawSession] API error {resp.status}: "
-                        f"{error_text[:300]}"
+                # Ensure at least one user message (Anthropic requirement).
+                if all(m.get("role") == "system" for m in self._messages):
+                    self._messages.append(
+                        {"role": "user", "content": "[user has joined the conversation]"}
                     )
+
+                # Trim history: keep system prompt + last N non-system messages
+                non_system = [m for m in self._messages if m.get("role") != "system"]
+                if len(non_system) > self._max_history:
+                    self._messages = [self._messages[0]] + non_system[-self._max_history:]
+
+                # Debounce duplicate transcript snapshots (partial->final churn).
+                user_text = self._latest_user_text()
+                now = time.monotonic()
+                if (
+                    user_text
+                    and user_text == self._last_user_text
+                    and (now - self._last_user_time) < 3.0
+                ):
+                    logger.debug(
+                        "[OpenClawSession] Skipping duplicate user turn snapshot"
+                    )
+                    next_incoming = self._pending_incoming
+                    continue
+                if user_text:
+                    self._last_user_text = user_text
+                    self._last_user_time = now
+
+                cancel = self._cancel_event
+                turn_start = time.monotonic()
+
+                await self.push_frame(LLMFullResponseStartFrame())
+
+                full_response_chunks: list[str] = []
+
+                # Meeting mode gate: if active, only respond when addressed by name.
+                # Still forward transcript to meeting notes endpoint in background.
+                if self._meeting_mode and user_text:
+                    # Always send transcript to meeting notes backend
+                    try:
+                        if self._http_session is None or self._http_session.closed:
+                            self._http_session = aiohttp.ClientSession()
+                        gateway_base = os.getenv("BOT_GATEWAY_URL", "http://localhost:7860")
+                        asyncio.create_task(
+                            self._http_session.post(
+                                f"{gateway_base}/api/meeting/transcript",
+                                json={"speaker": "participant", "text": user_text},
+                                timeout=aiohttp.ClientTimeout(total=5),
+                            )
+                        )
+                    except Exception:
+                        pass  # best-effort
+
+                    if not self._is_addressing_pearl(user_text):
+                        logger.info(
+                            f"[OpenClawSession] Meeting mode: ignoring (not addressed): {user_text[:80]!r}"
+                        )
+                        await self.push_frame(LLMFullResponseEndFrame())
+                        next_incoming = self._pending_incoming
+                        continue
+
+                # Instant filler removed per Blair's directive (2026-02-23)
+                # Pearl now waits naturally for OpenClaw response without filler phrases
+
+                # No follow-up filler loop — the instant contextual filler above is
+                # enough.  The LLM should start streaming its real response quickly;
+                # repeated robotic fillers ("Still working on that", "Almost there")
+                # degrade the conversational experience.
+                filler_task: asyncio.Task | None = None
+
+                try:
+                    if self._http_session is None or self._http_session.closed:
+                        self._http_session = aiohttp.ClientSession()
+                    session = self._http_session
+                    # Fetch user's model preference on first request (lazy init)
+                    if self._model_override is None:
+                        pref = await self._fetch_model_preference()
+                        # Use empty string as sentinel for "already checked, no preference"
+                        self._model_override = pref or ""
+
+                    req_headers = {
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                        # Route to main agent session — voice IS the main Pearl,
+                        # not a separate session. Shares context with Discord/webchat/TUI.
+                        "x-openclaw-session-key": self._session_key,
+                        # Tell the gateway this is a voice channel so bindings
+                        # resolve correctly (not hardcoded to "webchat").
+                        "x-openclaw-channel": "voice",
+                    }
+                    # Pass user's model preference so OpenClaw uses the UI-selected model
+                    if self._model_override:
+                        req_headers["x-openclaw-model-override"] = self._model_override
+
+                    # OpenAI-compatible streaming completion. OpenClaw's voice
+                    # agent owns its own tool surface server-side — we only
+                    # consume text tokens here.
+                    payload = {
+                        "model": self._model,
+                        "messages": self._messages,
+                        "stream": True,
+                        "max_tokens": self._max_tokens,
+                        "temperature": _env_float("BOT_VOICE_TEMPERATURE", 0.9),
+                        "user": "pearlos-voice",
+                    }
+
+                    async with session.post(
+                        f"{self._api_url}/chat/completions",
+                        json=payload,
+                        headers=req_headers,
+                        timeout=aiohttp.ClientTimeout(total=self._timeout),
+                    ) as resp:
+                        if resp.status != 200:
+                            error_text = await resp.text()
+                            logger.error(
+                                f"[OpenClawSession] API error {resp.status}: "
+                                f"{error_text[:300]}"
+                            )
+                            await self.push_frame(
+                                TextFrame(
+                                    text="Hmm, give me just a moment to think about that."
+                                )
+                            )
+                            await self.push_frame(LLMFullResponseEndFrame())
+                            next_incoming = self._pending_incoming
+                            continue
+
+                        async for raw_line in resp.content:
+                            if cancel.is_set():
+                                logger.info("[OpenClawSession] Cancelled mid-stream (interruption)")
+                                break
+                            line = raw_line.decode("utf-8", errors="replace").strip()
+                            if not line.startswith("data:"):
+                                continue
+                            data_str = line[len("data:"):].strip()
+                            if data_str == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(data_str)
+                                choice = chunk.get("choices", [{}])[0]
+                                delta = choice.get("delta", {})
+                                content = delta.get("content")
+                                if content:
+                                    if not full_response_chunks:
+                                        ttfb_ms = (time.monotonic() - turn_start) * 1000
+                                        logger.info(
+                                            f"[OpenClawSession] ⚡ TTFB: {ttfb_ms:.0f}ms "
+                                            f"(first content token from OpenClaw)"
+                                        )
+                                        self._response_started = True
+                                    full_response_chunks.append(content)
+                                    await self.push_frame(TextFrame(text=content))
+                            except (ValueError, IndexError, KeyError):
+                                continue
+
+                except asyncio.CancelledError:
+                    logger.info("[OpenClawSession] Request cancelled (interruption)")
+                    if filler_task is not None:
+                        filler_task.cancel()
+                    raise
+                except aiohttp.ClientError as exc:
+                    logger.error(f"[OpenClawSession] Network error: {exc}")
                     await self.push_frame(
                         TextFrame(
-                            text="Hmm, give me just a moment to think about that."
+                            text="Lost my train of thought. Try that again."
                         )
                     )
+                except Exception as exc:
+                    logger.exception(f"[OpenClawSession] Unexpected error: {exc}")
+                    await self.push_frame(
+                        TextFrame(text="Trying that a different way.")
+                    )
+                finally:
+                    if filler_task is not None:
+                        filler_task.cancel()
+                    # Record assistant response in history.
+                    if full_response_chunks:
+                        self._messages.append(
+                            {"role": "assistant", "content": "".join(full_response_chunks)}
+                        )
                     await self.push_frame(LLMFullResponseEndFrame())
-                    return
-
-                async for raw_line in resp.content:
-                    if cancel.is_set():
-                        logger.info("[OpenClawSession] Cancelled mid-stream (interruption)")
-                        break
-                    line = raw_line.decode("utf-8", errors="replace").strip()
-                    if not line.startswith("data:"):
-                        continue
-                    data_str = line[len("data:"):].strip()
-                    if data_str == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data_str)
-                        choice = chunk.get("choices", [{}])[0]
-                        delta = choice.get("delta", {})
-                        content = delta.get("content")
-                        if content:
-                            if not full_response_chunks:
-                                ttfb_ms = (time.monotonic() - turn_start) * 1000
-                                logger.info(
-                                    f"[OpenClawSession] ⚡ TTFB: {ttfb_ms:.0f}ms "
-                                    f"(first content token from OpenClaw)"
-                                )
-                            full_response_chunks.append(content)
-                            await self.push_frame(TextFrame(text=content))
-                    except (ValueError, IndexError, KeyError):
-                        continue
-
-        except asyncio.CancelledError:
-            logger.info("[OpenClawSession] Request cancelled (interruption)")
-            if filler_task is not None:
-                filler_task.cancel()
-            raise
-        except aiohttp.ClientError as exc:
-            logger.error(f"[OpenClawSession] Network error: {exc}")
-            await self.push_frame(
-                TextFrame(
-                    text="I lost my train of thought for a moment. Let me get back on track."
-                )
-            )
-        except Exception as exc:
-            logger.exception(f"[OpenClawSession] Unexpected error: {exc}")
-            await self.push_frame(
-                TextFrame(text="One sec, let me try that a different way.")
-            )
+                    next_incoming = self._pending_incoming
         finally:
             self._is_processing = False
-            if filler_task is not None:
-                filler_task.cancel()
-            # Record assistant response in history.
-            if full_response_chunks:
-                self._messages.append(
-                    {"role": "assistant", "content": "".join(full_response_chunks)}
-                )
-            await self.push_frame(LLMFullResponseEndFrame())
 
     # ------------------------------------------------------------------
     # Cleanup
@@ -500,10 +597,12 @@ class OpenClawSessionProcessor(FrameProcessor):
     ) -> None:
         """Signal in-flight request to stop on user interruption.
 
-        Guards against self-interruption (bot echo triggering VAD) and
-        rapid-fire interruption spam by enforcing:
-          1. A minimum processing time before cancellation is allowed.
-          2. A debounce window between successive interruptions.
+        Guards against spurious cancellations by enforcing:
+          1. No cancellation until the bot has started speaking (first token received).
+             Before that, there is nothing audible to interrupt and cancelling just
+             prevents the bot from ever responding (the "interruption storm" bug).
+          2. A minimum processing time before cancellation is allowed.
+          3. A debounce window between successive interruptions.
         """
         now = time.monotonic()
 
@@ -517,8 +616,20 @@ class OpenClawSessionProcessor(FrameProcessor):
             await self.push_frame(frame, direction)
             return
 
-        # Processing guard: don't cancel a request that just started (likely bot echo).
         if self._is_processing:
+            # Gate: don't cancel until the bot has actually started speaking.
+            # While waiting for the LLM's first token there is no audio to
+            # interrupt, and cancelling here creates an infinite loop where
+            # the bot never responds.
+            if not self._response_started:
+                logger.info(
+                    "[OpenClawSession] Suppressed interruption — response not yet "
+                    "started (no audio to interrupt)"
+                )
+                await self.push_frame(frame, direction)
+                return
+
+            # Processing guard: don't cancel a request that just started speaking.
             elapsed = now - self._processing_start_time
             if elapsed < self._min_processing_secs:
                 logger.info(

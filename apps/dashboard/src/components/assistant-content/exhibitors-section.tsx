@@ -101,7 +101,7 @@ export default function ExhibitorsSection({
     const fetchExhibitors = async () => {
       setIsLoading(true);
       try {
-        const result = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`);
+        const result = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`);
         if (result.ok) {
           const data = await result.json();
           setExhibitors(data.items || []);
@@ -215,14 +215,14 @@ export default function ExhibitorsSection({
   const handleFormSubmit = async (data: ExhibitorFormData) => {
     try {
       const result = editingExhibitor
-        ? await fetch(`/api/contentDetail/${editingExhibitor._id}`, {
+        ? await fetch(`/dashboard/api/contentDetail/${editingExhibitor._id}`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify(data),
           })
-        : await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`, {
+        : await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -231,7 +231,7 @@ export default function ExhibitorsSection({
           });
 
       if (result.ok) {
-        const updatedExhibitors = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`);
+        const updatedExhibitors = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`);
         if (updatedExhibitors.ok) {
           const data = await updatedExhibitors.json();
           setExhibitors(data.items || []);
@@ -266,11 +266,11 @@ export default function ExhibitorsSection({
 
   const handleDeleteExhibitor = async (exhibitorId: string) => {
     try {
-      const result = await fetch(`/api/contentDetail/${exhibitorId}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/${exhibitorId}`, {
         method: "DELETE",
       });
       if (result.ok) {
-        const updatedExhibitors = await fetch(`/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`);
+        const updatedExhibitors = await fetch(`/dashboard/api/contentList?assistantId=${selectedAssistant._id}&type=exhibitor`);
         if (updatedExhibitors.ok) {
           const data = await updatedExhibitors.json();
           setExhibitors(data.items || []);

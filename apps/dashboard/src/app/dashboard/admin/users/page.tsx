@@ -90,7 +90,7 @@ export default function AdminUsersRolesPage() {
       setLoading(true);
       setError(undefined);
       try {
-        const resUsers = await fetch(`/api/users?tenantId=${selectedTenantId}`);
+        const resUsers = await fetch(`/dashboard/api/users?tenantId=${selectedTenantId}`);
         if (!resUsers.ok) {
           toast({
             title: 'Load failed',
@@ -107,7 +107,7 @@ export default function AdminUsersRolesPage() {
           : [];
         setUsers(deduped);
         // fetch all roles in one call
-        const resRoles = await fetch(`/api/tenant-roles?tenantId=${selectedTenantId}`);
+        const resRoles = await fetch(`/dashboard/api/tenant-roles?tenantId=${selectedTenantId}`);
         if (resRoles.ok) {
           const data = await resRoles.json();
           const map: Record<string, TenantRole | undefined> = {};
@@ -172,12 +172,12 @@ export default function AdminUsersRolesPage() {
               if (!selectedTenantId) return;
               setLoading(true); setError(undefined);
               try {
-                const resUsers = await fetch(`/api/users?tenantId=${selectedTenantId}`);
+                const resUsers = await fetch(`/dashboard/api/users?tenantId=${selectedTenantId}`);
                 if (!resUsers.ok) throw new Error('Failed to load users');
                 const usersData = await resUsers.json();
                 const deduped = Array.isArray(usersData) ? Array.from(new Map(usersData.map((u: any) => [u._id, u])).values()) : [];
                 setUsers(deduped);
-                const resRoles = await fetch(`/api/tenant-roles?tenantId=${selectedTenantId}`);
+                const resRoles = await fetch(`/dashboard/api/tenant-roles?tenantId=${selectedTenantId}`);
                 if (resRoles.ok) {
                   const data = await resRoles.json();
                   const map: Record<string, TenantRole | undefined> = {};
@@ -185,7 +185,7 @@ export default function AdminUsersRolesPage() {
                   setRolesMap(map);
                 }
                 if (selectedOrganizationId) {
-                  const resOrg = await fetch(`/api/organization-roles?tenantId=${selectedTenantId}&organizationId=${selectedOrganizationId}`);
+                  const resOrg = await fetch(`/dashboard/api/organization-roles?tenantId=${selectedTenantId}&organizationId=${selectedOrganizationId}`);
                   if (resOrg.ok) {
                     const data = await resOrg.json();
                     const omap: Record<string, OrgRole | undefined> = {};

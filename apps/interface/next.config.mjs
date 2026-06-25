@@ -30,7 +30,8 @@ const nextConfig = {
     // Pass values to the client explicitly
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_TWILIO_ACCOUNT_SID: process.env.NEXT_PUBLIC_TWILIO_ACCOUNT_SID,
-    NEXT_PUBLIC_TWILIO_AUTH_TOKEN: process.env.NEXT_PUBLIC_TWILIO_AUTH_TOKEN,
+    // SECURITY: TWILIO_AUTH_TOKEN removed from client bundle — use server-side only
+    // NEXT_PUBLIC_TWILIO_AUTH_TOKEN: process.env.NEXT_PUBLIC_TWILIO_AUTH_TOKEN,
     NEXT_PUBLIC_DAILY_ROOM_URL: process.env.NEXT_PUBLIC_DAILY_ROOM_URL,
     // Mesh configuration for Prism
     MESH_ENDPOINT: process.env.MESH_ENDPOINT,
@@ -45,13 +46,21 @@ const nextConfig = {
   // Add headers to fix CORS/COOP issues for OAuth popups + aggressive cache busting
   async headers() {
     return [
-      // HTML pages: no caching, always revalidate
+      // HTML pages: no caching, always revalidate — force CDN bypass
       {
         source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
+            value: 'private, no-cache, no-store, must-revalidate, max-age=0',
+          },
+          {
+            key: 'CDN-Cache-Control',
+            value: 'no-store',
+          },
+          {
+            key: 'Surrogate-Control',
+            value: 'no-store',
           },
           {
             key: 'Pragma',
@@ -154,6 +163,11 @@ const nextConfig = {
         source: '/bot-api/:path*',
         destination: 'http://localhost:4444/api/:path*',
       },
+      // Gateway API — proxy bot gateway APIs through Next.js (same-origin for CORS)
+      {
+        source: '/gateway/:path*',
+        destination: 'http://localhost:4444/api/:path*',
+      },
       // Canvas HTML store — proxy to bot gateway for URL-based payload delivery
       {
         source: '/canvas/:path*',
@@ -164,8 +178,16 @@ const nextConfig = {
         source: '/canvas-apps/:path*',
         destination: 'http://localhost:4444/canvas-apps/:path*',
       },
+      // The Agency is now a native PearlOS app route. Star Office / Pearl's
+      // House proxy routes are intentionally absent from this staging branch.
     ];
   },
+
+  // Explicitly set the monorepo root so Next.js doesn't traverse up to the
+  // stray /workspace/package-lock.json and misidentify /workspace as root.
+  // Without this, findRootDir() picks /workspace (the outermost lockfile),
+  // causing "Cannot find module .next/server/pages/_document.js" at build time.
+  outputFileTracingRoot: resolve(__dirname, '../..'),
 
   experimental: {
     // Improve error handling for scripts
@@ -174,6 +196,10 @@ const nextConfig = {
   // Generate unique build ID using git hash or timestamp fallback
   generateBuildId: async () => {
     try {
+      const explicitBuildId = process.env.PEARLOS_BUILD_ID?.trim();
+      if (explicitBuildId) {
+        return `build-${explicitBuildId}-${Date.now()}`;
+      }
       const { execSync } = await import('child_process');
       const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
       return `build-${gitHash}-${Date.now()}`;
@@ -253,4 +279,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-

@@ -21,6 +21,18 @@ import {
   VoiceEventCallbacks,
   TranscriptEvent,
 } from '@interface/lib/daily';
+import {
+  PEARL_ONBOARDING_FIRST_REPLY_EVENT,
+  readOnboardingStatus,
+  type WebchatOnboardingFirstReplyDetail,
+} from '@interface/lib/webchat-onboarding';
+import {
+  defaultVoiceIdForBotProvider,
+  normalizeVoiceProvider,
+  readLocalPreference,
+  toBotVoiceProvider,
+  VOICE_PROVIDER_KEY,
+} from '@interface/lib/pearlos-user-preferences';
 import { normalizeVoiceParameters, type VoiceParametersInput } from '@interface/lib/voice/kokoro';
 import {
   Message,
@@ -37,7 +49,214 @@ const LOADING_TIMEOUT_MS = 20_000; // Grace window for bot to join before surfac
 // This timeout ID is cleared if the component remounts within the grace period
 let pendingUnmountCleanupTimer: ReturnType<typeof setTimeout> | null = null;
 let cleanupMountId: string | null = null;
-const UNMOUNT_CLEANUP_DELAY_MS = 200; // Allow 200ms for remount before tearing down session
+const UNMOUNT_CLEANUP_DELAY_MS = 3000; // Allow slow remounts before tearing down an in-flight voice session
+
+// Short-window voice-room reuse: when the user returns to the page within
+// ~60s the deterministic /api/voice/room call is redundant — the bot
+// gateway also reuses sessions per-room for 2 minutes. Caching the room
+// response per-user lets a quick reload skip the round-trip and avoids
+// bouncing the runner.
+const VOICE_ROOM_REUSE_TTL_MS = 60_000;
+const VOICE_ROOM_CACHE_KEY = 'pearl:voiceRoomCache';
+const DEFAULT_PUBLIC_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+const AUTO_RECORDING_ENABLED =
+  process.env.NEXT_PUBLIC_VOICE_AUTO_RECORDING === '1' ||
+  process.env.NEXT_PUBLIC_VOICE_AUTO_RECORDING === 'true';
+
+type VoiceRoomResponse = {
+  roomUrl: string;
+  roomName?: string;
+  tenantId?: string;
+  token?: string;
+  reused?: boolean;
+  [key: string]: unknown;
+};
+
+type VoiceRoomCacheEntry = {
+  userId: string;
+  tenantId: string;
+  roomUrl: string;
+  roomName?: string;
+  token?: string;
+  reused?: boolean;
+  cachedAt: number;
+};
+
+const isTenantCacheable = (tenantId: string | null | undefined): tenantId is string =>
+  Boolean(tenantId && tenantId !== DEFAULT_PUBLIC_TENANT_ID);
+
+function nowMs(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function isRemoteParticipant(participant: unknown): boolean {
+  return Boolean(
+    participant &&
+      typeof participant === 'object' &&
+      (participant as { local?: boolean }).local !== true,
+  );
+}
+
+function getRemoteParticipantIds(callObject: DailyCall): string[] {
+  const participants = callObject.participants?.() || {};
+  return Object.entries(participants)
+    .filter(([, participant]) => isRemoteParticipant(participant))
+    .map(([id]) => id);
+}
+
+function waitForRemoteParticipant(callObject: DailyCall, timeoutMs: number): Promise<string[]> {
+  const existing = getRemoteParticipantIds(callObject);
+  if (existing.length > 0) {
+    return Promise.resolve(existing);
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      callObject.off?.('participant-joined' as any, handleParticipantJoined);
+      clearTimeout(timer);
+    };
+    const finish = (participantIds: string[]) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(participantIds);
+    };
+    const handleParticipantJoined = () => {
+      const participantIds = getRemoteParticipantIds(callObject);
+      if (participantIds.length > 0) {
+        finish(participantIds);
+      }
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(`Timed out waiting ${timeoutMs}ms for bot participant to join`));
+    }, timeoutMs);
+
+    callObject.on?.('participant-joined' as any, handleParticipantJoined);
+  });
+}
+
+const getWebRTCSupportFailure = (): string | null => {
+  if (typeof window === 'undefined') return 'browser_unavailable';
+  const browser = window as typeof window & {
+    RTCPeerConnection?: typeof RTCPeerConnection;
+    webkitRTCPeerConnection?: typeof RTCPeerConnection;
+    mozRTCPeerConnection?: typeof RTCPeerConnection;
+  };
+  if (!browser.isSecureContext) return 'insecure_context';
+  if (!navigator.mediaDevices?.getUserMedia) return 'media_devices_unavailable';
+  if (!browser.RTCPeerConnection && !browser.webkitRTCPeerConnection && !browser.mozRTCPeerConnection) {
+    return 'rtc_peer_connection_unavailable';
+  }
+  return null;
+};
+
+const MICROPHONE_BUSY_MESSAGE =
+  'Pearl cannot use your microphone. Another Pearl tab, browser tab, or app may already be using it. Close the other voice session, then try again.';
+const MICROPHONE_PERMISSION_MESSAGE =
+  'Pearl cannot use your microphone. Allow microphone access for PearlOS in your browser, then try again.';
+const VOICE_UNAVAILABLE_MESSAGE =
+  'Pearl voice is unavailable right now. Check your microphone and try again.';
+
+function classifyVoiceUnavailableMessage(errorOrReason: unknown): string {
+  const name = typeof errorOrReason === 'object' && errorOrReason
+    ? String((errorOrReason as { name?: unknown }).name || '')
+    : '';
+  const message = errorOrReason instanceof Error
+    ? errorOrReason.message
+    : typeof errorOrReason === 'string'
+      ? errorOrReason
+      : String(errorOrReason || '');
+  const combined = `${name} ${message}`.toLowerCase();
+  if (
+    combined.includes('notallowederror') ||
+    combined.includes('permission') ||
+    combined.includes('denied')
+  ) {
+    return MICROPHONE_PERMISSION_MESSAGE;
+  }
+  if (
+    combined.includes('notreadableerror') ||
+    combined.includes('aborterror') ||
+    combined.includes('trackstarterror') ||
+    combined.includes('could not start audio source') ||
+    combined.includes('device in use') ||
+    combined.includes('already in use')
+  ) {
+    return MICROPHONE_BUSY_MESSAGE;
+  }
+  return VOICE_UNAVAILABLE_MESSAGE;
+}
+
+const getRoomNameFromVoiceUrl = (roomUrl: string): string => {
+  try {
+    const url = new URL(roomUrl);
+    return decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '');
+  } catch {
+    return '';
+  }
+};
+
+const isDeterministicVoiceRoomName = (roomName: string | undefined): boolean => {
+  return /^voice-[0-9a-f]{16}-[0-9a-f]{16}$/i.test(roomName || '');
+};
+
+const isStaleSharedVoiceRoom = (roomName: string, roomUrl: string): boolean => {
+  const haystack = `${roomName} ${roomUrl}`.toLowerCase();
+  return (
+    haystack.includes('staging-pearl-voice') ||
+    haystack.includes('voice-anonymous') ||
+    roomName.toLowerCase().startsWith('stg-')
+  );
+};
+
+const isValidVoiceRoomCacheEntry = (entry: VoiceRoomCacheEntry): boolean => {
+  const roomName = entry.roomName || getRoomNameFromVoiceUrl(entry.roomUrl);
+  if (!roomName || isStaleSharedVoiceRoom(roomName, entry.roomUrl)) return false;
+  return isDeterministicVoiceRoomName(roomName);
+};
+
+const readVoiceRoomCache = (userId: string, tenantId: string | null | undefined): VoiceRoomCacheEntry | null => {
+  if (typeof window === 'undefined') return null;
+  if (!isTenantCacheable(tenantId)) return null;
+  try {
+    const raw = window.localStorage.getItem(VOICE_ROOM_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as VoiceRoomCacheEntry;
+    if (!parsed || parsed.userId !== userId || !parsed.roomUrl) return null;
+    if (parsed.tenantId !== tenantId) return null;
+    if (Date.now() - parsed.cachedAt > VOICE_ROOM_REUSE_TTL_MS) return null;
+    if (!isValidVoiceRoomCacheEntry(parsed)) {
+      window.localStorage.removeItem(VOICE_ROOM_CACHE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeVoiceRoomCache = (entry: VoiceRoomCacheEntry): void => {
+  if (typeof window === 'undefined') return;
+  if (!isValidVoiceRoomCacheEntry(entry)) return;
+  try {
+    window.localStorage.setItem(VOICE_ROOM_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    /* storage disabled or full — non-fatal */
+  }
+};
+
+const clearVoiceRoomCache = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(VOICE_ROOM_CACHE_KEY);
+  } catch {
+    /* non-fatal */
+  }
+};
 
 const voiceLogger = getClientLogger('[daily_call]');
 
@@ -57,7 +276,7 @@ interface UseVoiceSessionProps {
   personalityId?: string; // OS personality ID for voice-only sessions
   tenantId?: string; // Tenant ID for personality resolution
   persona?: string; // Bot display name from Assistant.persona_name (e.g., "Pearl")
-  voiceId?: string; // Preferred TTS voice id (ElevenLabs)
+  voiceId?: string; // Preferred TTS voice id or local preset
   voiceProvider?: string;
   voiceParameters?: VoiceParametersInput;
   supportedFeatures?: string[]; // Feature flags for tool filtering (e.g., ['notes', 'youtube', 'gmail'])
@@ -66,6 +285,53 @@ interface UseVoiceSessionProps {
   config?: any;
   onSessionStart?: () => void;
   onSessionEnd?: () => void;
+}
+
+const CHAT_HISTORY_CACHE_PREFIX = 'pearl-chat-history-v1';
+const ACTIVE_NOTE_CONTEXT_KEY = 'pearl-active-note-context-v1';
+
+function readRecentWebChatContext(userId?: string): Array<{ role: 'user' | 'assistant'; content: string; timestamp?: number }> {
+  if (typeof window === 'undefined' || !userId) return [];
+  try {
+    const raw = window.localStorage.getItem(`${CHAT_HISTORY_CACHE_PREFIX}:${userId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.messages)) return [];
+    return parsed.messages
+      .filter((message: any) => (
+        (message?.role === 'user' || message?.role === 'assistant') &&
+        typeof message?.content === 'string' &&
+        message.content.trim().length > 0
+      ))
+      .slice(-12)
+      .map((message: any) => ({
+        role: message.role,
+        content: message.content.trim().slice(0, 1200),
+        timestamp: typeof message.timestamp === 'number' ? message.timestamp : undefined,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function readActiveNoteContext(): { noteId: string; title?: string; content?: string; tenantId?: string | null } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(ACTIVE_NOTE_CONTEXT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.noteId !== 'string' || !parsed.noteId) {
+      return null;
+    }
+    return {
+      noteId: parsed.noteId,
+      title: typeof parsed.title === 'string' ? parsed.title : undefined,
+      content: typeof parsed.content === 'string' ? parsed.content.slice(0, 5000) : undefined,
+      tenantId: typeof parsed.tenantId === 'string' ? parsed.tenantId : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -117,6 +383,7 @@ export function useVoiceSession({
   const resolvedUserName = userName ?? session?.user?.name ?? undefined;
   const resolvedUserEmail = userEmail ?? session?.user?.email ?? undefined;
   const resolvedSessionId = (session as any)?.sessionId ?? (session?.user as any)?.sessionId ?? undefined;
+  const onboardingUserKey = resolvedUserId !== 'anonymous' ? resolvedUserId : resolvedUserEmail;
   
   // State
   const [isSpeechActive, setIsSpeechActive] = useState(false);
@@ -124,14 +391,19 @@ export function useVoiceSession({
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeTranscript, setActiveTranscript] = useState<TranscriptMessage | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [unavailableMessage, setUnavailableMessage] = useState<string | null>(null);
 
   // Event cleanup and room URL references
   const eventCleanupRef = useRef<(() => void) | null>(null);
   const roomUrlRef = useRef<string | null>(null);
+  const voiceTenantIdRef = useRef<string | null>(null);
   const callStatusRef = useRef<CALL_STATUS>(callStatus);
   const startRef = useRef<(() => Promise<void>) | null>(null);
   const stopRef = useRef<(() => Promise<void>) | null>(null);
   const startInFlightRef = useRef(false);
+  const sessionGenerationRef = useRef(0);
+  const startupStartedAtRef = useRef<number | null>(null);
+  const firstBotTranscriptLoggedRef = useRef(false);
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allowAssistantSelfClose = useMemo(
     () => supportedFeatures && supportedFeatures.includes('assistantSelfClose'),
@@ -191,6 +463,16 @@ export function useVoiceSession({
         // 'bot' source = bot TTS output = ASSISTANT
         // 'user' source = user speech recognition = USER
         const role = event.source === 'bot' ? MessageRoleEnum.ASSISTANT : MessageRoleEnum.USER;
+        if (event.source === 'bot' && !firstBotTranscriptLoggedRef.current && event.text?.trim()) {
+          firstBotTranscriptLoggedRef.current = true;
+          const startedAt = startupStartedAtRef.current;
+          voiceLogger.info('First bot transcript received', {
+            event: 'voice_first_bot_transcript',
+            elapsedMs: startedAt != null ? Math.round(nowMs() - startedAt) : undefined,
+            isFinal: event.isFinal,
+            length: event.text.length,
+          });
+        }
         
         voiceLogger.debug('Transcript event', {
           event: 'voice_transcript',
@@ -212,6 +494,20 @@ export function useVoiceSession({
         if (event.isFinal) {
           setMessages((prev) => [...prev, transcriptMessage]);
           setActiveTranscript(null);
+          if (
+            event.source === 'user' &&
+            event.text?.trim() &&
+            onboardingUserKey &&
+            !userProfile?.loading &&
+            !userProfile?.onboardingComplete &&
+            readOnboardingStatus(onboardingUserKey) === 'idle'
+          ) {
+            window.dispatchEvent(
+              new CustomEvent<WebchatOnboardingFirstReplyDetail>(PEARL_ONBOARDING_FIRST_REPLY_EVENT, {
+                detail: { source: 'voice' },
+              }),
+            );
+          }
         } else {
           setActiveTranscript(transcriptMessage);
         }
@@ -257,6 +553,7 @@ export function useVoiceSession({
             error: error?.message ?? String(error),
           });
         }
+        setUnavailableMessage(classifyVoiceUnavailableMessage(error));
         setCallStatus(CALL_STATUS.UNAVAILABLE);
       },
 
@@ -325,7 +622,7 @@ export function useVoiceSession({
     });
 
     return cleanup;
-  }, [allowAssistantSelfClose]);
+  }, [allowAssistantSelfClose, onboardingUserKey, userProfile?.loading, userProfile?.onboardingComplete]);
 
   const clearLoadingTimeout = useCallback(() => {
     if (loadingTimeoutRef.current) {
@@ -334,42 +631,25 @@ export function useVoiceSession({
     }
   }, []);
 
-  // Track whether we've already auto-retried on timeout
-  const timeoutRetryAttemptedRef = useRef(false);
-
   const armLoadingTimeout = useCallback(() => {
     clearLoadingTimeout();
-    loadingTimeoutRef.current = setTimeout(async () => {
+    loadingTimeoutRef.current = setTimeout(() => {
       if (callStatusRef.current === CALL_STATUS.LOADING) {
-        // Auto-retry once before showing UNAVAILABLE
-        if (!timeoutRetryAttemptedRef.current) {
-          timeoutRetryAttemptedRef.current = true;
-          voiceLogger.warn('Bot join timed out after 20s — auto-retrying once', {
-            event: 'voice_bot_join_timeout_retry',
-            timeoutMs: LOADING_TIMEOUT_MS,
-            meetingState: getCallObject?.()?.meetingState?.() ?? 'unknown',
+        let meetingState: ReturnType<DailyCall['meetingState']> | 'unknown' = 'unknown';
+        try {
+          meetingState = getCallObject?.()?.meetingState?.() ?? 'unknown';
+        } catch (error) {
+          voiceLogger.warn('Unable to read meeting state during bot join timeout', {
+            event: 'voice_bot_join_timeout_meeting_state_unavailable',
+            error: error instanceof Error ? error.message : String(error),
           });
-          startInFlightRef.current = false;
-          try {
-            if (stopRef.current) await stopRef.current();
-            // Brief pause before retry
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (startRef.current) await startRef.current();
-          } catch {
-            voiceLogger.error('Auto-retry after timeout failed', { event: 'voice_timeout_retry_failed' });
-            setCallStatus(CALL_STATUS.UNAVAILABLE);
-            startInFlightRef.current = false;
-          }
-          return;
         }
-
-        // Second timeout — give up
-        voiceLogger.warn('Bot join timed out after 20s (retry exhausted) — marking unavailable', {
+        voiceLogger.warn('Bot join timed out after 20s; user action required to retry', {
           event: 'voice_bot_join_timeout',
           timeoutMs: LOADING_TIMEOUT_MS,
-          meetingState: getCallObject?.()?.meetingState?.() ?? 'unknown',
+          meetingState,
         });
-        timeoutRetryAttemptedRef.current = false;
+        setUnavailableMessage(VOICE_UNAVAILABLE_MESSAGE);
         setCallStatus(CALL_STATUS.UNAVAILABLE);
         startInFlightRef.current = false;
       }
@@ -388,6 +668,10 @@ export function useVoiceSession({
   }, []);
 
   const ensureRecordingActive = useCallback(async (callObject: DailyCall) => {
+    if (!AUTO_RECORDING_ENABLED) {
+      return;
+    }
+
     if (!callObject?.startRecording) {
       return;
     }
@@ -429,9 +713,6 @@ export function useVoiceSession({
    * Start voice session
    */
   const start = useCallback(async () => {
-    const MAX_RETRIES = 3;
-    const RETRY_BACKOFF_MS = [2000, 4000, 6000];
-
     try {
       if (callStatusRef.current === CALL_STATUS.LOADING || startInFlightRef.current) {
         voiceLogger.warn('Start request ignored; already loading', {
@@ -442,57 +723,133 @@ export function useVoiceSession({
       }
 
       startInFlightRef.current = true;
+      setUnavailableMessage(null);
+      const startGeneration = sessionGenerationRef.current + 1;
+      sessionGenerationRef.current = startGeneration;
+      startupStartedAtRef.current = nowMs();
+      firstBotTranscriptLoggedRef.current = false;
       voiceLogger.info('Starting session for user', {
         event: 'voice_start',
         userId: resolvedUserId,
         configIsOnboarding: config?.isOnboarding,
         personalityId,
       });
+
+      const webRTCSupportFailure = getWebRTCSupportFailure();
+      if (webRTCSupportFailure) {
+        voiceLogger.error('Voice start blocked before Daily init because WebRTC is unavailable', {
+          event: 'voice_webrtc_unavailable',
+          reason: webRTCSupportFailure,
+        });
+        startInFlightRef.current = false;
+        setUnavailableMessage(classifyVoiceUnavailableMessage(webRTCSupportFailure));
+        setCallStatus(CALL_STATUS.UNAVAILABLE);
+        return;
+      }
+
+      let callObject: DailyCall;
+      try {
+        callObject = getCallObject();
+      } catch (error) {
+        voiceLogger.error('Daily call object unavailable; voice disabled without crashing interface', {
+          event: 'voice_call_object_unavailable',
+          error: error instanceof Error ? error.message : String(error),
+        });
+        startInFlightRef.current = false;
+        setUnavailableMessage(VOICE_UNAVAILABLE_MESSAGE);
+        setCallStatus(CALL_STATUS.UNAVAILABLE);
+        return;
+      }
+
+      voiceLogger.info('Daily call object prepared in voice start gesture', {
+        event: 'voice_call_object_prepared',
+        meetingState: callObject.meetingState?.(),
+      });
+
       // Clear prior transcripts so new sessions (including Sprite sessions) don't show stale bubbles
       setMessages([]);
       setActiveTranscript(null);
       setCallStatus(CALL_STATUS.LOADING);
       armLoadingTimeout();
 
-      // Get or create voice room via API endpoint
-      let response;
-      try {
-        response = await fetch('/api/voice/room', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: resolvedUserId }),
+      // Get or create voice room via API endpoint.
+      // Quick-revisit fast path: if we have a fresh cached room URL for the
+      // same user, skip the round-trip. The /api/voice/room endpoint and
+      // the bot gateway both reuse sessions for the deterministic per-user
+      // room, so the cache is purely a latency win — but it also avoids
+      // any chance of triggering a fresh runner spawn on a same-tab reload.
+      let voiceRoom: VoiceRoomResponse;
+      const cachedRoom = resolvedUserId ? readVoiceRoomCache(resolvedUserId, tenantId) : null;
+      if (cachedRoom) {
+        voiceLogger.info('Reusing cached voice room (fast path)', {
+          event: 'voice_room_cache_hit',
+          ageMs: Date.now() - cachedRoom.cachedAt,
+          tenantId: cachedRoom.tenantId,
         });
-      } catch (err) {
-        voiceLogger.warn('Network error creating room, retrying once', {
-          event: 'voice_room_create_retry',
-          error: err instanceof Error ? err.message : String(err),
-        });
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        response = await fetch('/api/voice/room', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: resolvedUserId }),
-        });
+        voiceRoom = {
+          roomUrl: cachedRoom.roomUrl,
+          roomName: cachedRoom.roomName,
+          tenantId: cachedRoom.tenantId,
+          token: cachedRoom.token,
+          reused: true,
+        };
+      } else {
+        let response;
+        try {
+          response = await fetch('/api/voice/room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: resolvedUserId }),
+          });
+        } catch (err) {
+          voiceLogger.warn('Network error creating room, retrying once', {
+            event: 'voice_room_create_retry',
+            error: err instanceof Error ? err.message : String(err),
+          });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          response = await fetch('/api/voice/room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: resolvedUserId }),
+          });
+        }
+
+        if (!response.ok) {
+          // If 401, it might be a session issue, but we can't fix it here easily.
+          // Just throw with status.
+          clearVoiceRoomCache();
+          throw new Error(`Failed to create voice room: ${response.status}`);
+        }
+
+        voiceRoom = (await response.json()) as VoiceRoomResponse;
+        const voiceRoomTenantId = typeof voiceRoom?.tenantId === 'string' ? voiceRoom.tenantId.trim() : '';
+        if (resolvedUserId && voiceRoom?.roomUrl && isTenantCacheable(voiceRoomTenantId)) {
+          writeVoiceRoomCache({
+            userId: resolvedUserId,
+            tenantId: voiceRoomTenantId,
+            roomUrl: voiceRoom.roomUrl,
+            roomName: voiceRoom.roomName,
+            token: voiceRoom.token,
+            reused: voiceRoom.reused,
+            cachedAt: Date.now(),
+          });
+        }
       }
 
-      if (!response.ok) {
-        // If 401, it might be a session issue, but we can't fix it here easily.
-        // Just throw with status.
-        throw new Error(`Failed to create voice room: ${response.status}`);
-      }
-
-      const voiceRoom = await response.json();
       roomUrlRef.current = voiceRoom.roomUrl;
+      const resolvedVoiceTenantId =
+        (typeof voiceRoom?.tenantId === 'string' && voiceRoom.tenantId.trim()) ||
+        tenantId ||
+        null;
+      voiceTenantIdRef.current = resolvedVoiceTenantId;
       setContextRoomUrl(voiceRoom.roomUrl); // Share room URL with context
 
       voiceLogger.info('Room ready', {
         event: 'voice_room_ready',
         roomName: voiceRoom.roomName,
         reused: voiceRoom.reused,
+        tenantId: resolvedVoiceTenantId,
       });
-
-      // Get or create call object from context
-      const callObject = getCallObject();
 
       // Setup event handlers
       setupEventHandlers(callObject);
@@ -511,6 +868,9 @@ export function useVoiceSession({
       }
       if (resolvedUserEmail) {
         userData.sessionUserEmail = resolvedUserEmail;
+      }
+      if (resolvedVoiceTenantId) {
+        userData.tenantId = resolvedVoiceTenantId;
       }
 
       // Request bot to join with OS personality (not bot personality)
@@ -563,7 +923,7 @@ export function useVoiceSession({
         personalityId: effectivePersonalityId,
         voiceId: effectiveVoiceId,
         voiceProvider: effectiveVoiceProvider,
-        tenantId,
+        tenantId: resolvedVoiceTenantId || undefined,
         token: voiceRoom.token,
         persona,
         voiceParameters,
@@ -583,6 +943,13 @@ export function useVoiceSession({
       const botJoinWithRetry = async () => {
         const BOT_JOIN_MAX_RETRIES = 2;
         for (let attempt = 0; attempt <= BOT_JOIN_MAX_RETRIES; attempt++) {
+          if (sessionGenerationRef.current !== startGeneration) {
+            voiceLogger.warn('Bot join cancelled by newer voice session generation', {
+              event: 'voice_bot_join_generation_cancelled',
+              attempt: attempt + 1,
+            });
+            return null;
+          }
           try {
             await requestBotJoin(botJoinArgs);
             return 'ok';
@@ -605,8 +972,6 @@ export function useVoiceSession({
         return null;
       };
 
-      const botJoinPromise = botJoinWithRetry();
-      
       // Join room with token and userData
       // User joins with their display name (e.g., "Jeffrey Klug"), bot joins separately with persona
       voiceLogger.info('Client joining Daily room', {
@@ -638,21 +1003,120 @@ export function useVoiceSession({
         throw err;
       });
 
-      // Wait for both to complete (bot failure is non-fatal)
-      voiceLogger.info('Waiting for bot and client join promises', {
-        event: 'voice_join_await_start',
+      // Join the browser first, then start the bot. The bot's fast greeting can
+      // otherwise beat Daily's remote-audio subscription path on fresh/mobile
+      // sessions, making the first spoken turn effectively silent.
+      voiceLogger.info('Waiting for client Daily join before bot spawn', {
+        event: 'voice_client_join_await_start',
       });
-      await Promise.all([botJoinPromise, clientJoinPromise]);
+      await clientJoinPromise;
+
+      try {
+        await callObject.setLocalAudio(true);
+        voiceLogger.info('Local audio track enabled before bot join', {
+          event: 'voice_local_audio_enabled_before_bot_join',
+          localAudio: callObject.localAudio?.(),
+        });
+      } catch (audioErr) {
+        voiceLogger.warn('setLocalAudio(true) failed before bot join', {
+          event: 'voice_local_audio_enable_before_bot_join_failed',
+          error: audioErr instanceof Error ? audioErr.message : String(audioErr),
+        });
+        try {
+          await callObject.leave();
+        } catch {
+          /* best effort */
+        }
+        try {
+          await leaveVoiceRoom(voiceRoom.roomUrl);
+        } catch {
+          /* best effort */
+        }
+        if (eventCleanupRef.current) {
+          eventCleanupRef.current();
+          eventCleanupRef.current = null;
+        }
+        clearVoiceRoomCache();
+        roomUrlRef.current = null;
+        voiceTenantIdRef.current = null;
+        setContextRoomUrl(null);
+        throw audioErr;
+      }
+
+      voiceLogger.info('Starting bot after client Daily join', {
+        event: 'voice_bot_join_after_client_join_start',
+        meetingState: callObject.meetingState?.(),
+        participants: Object.keys(callObject.participants() || {}),
+      });
+      const botJoinResult = await botJoinWithRetry();
+      if (botJoinResult !== 'ok') {
+        throw new Error('Bot join did not reach running state');
+      }
+
+      voiceLogger.info('Waiting for bot participant readiness', {
+        event: 'voice_bot_readiness_wait_start',
+        participants: Object.keys(callObject.participants() || {}),
+      });
+      const remoteParticipantIds = await waitForRemoteParticipant(callObject, 15_000);
+      voiceLogger.info('Bot participant readiness confirmed', {
+        event: 'voice_bot_readiness_confirmed',
+        remoteParticipantIds,
+      });
+
+      for (const participantId of remoteParticipantIds) {
+        try {
+          callObject.updateParticipant?.(participantId, { setAudio: true } as any);
+          voiceLogger.info('Remote bot audio subscription forced on', {
+            event: 'voice_remote_audio_subscription_enabled',
+            participantId,
+          });
+        } catch (audioErr) {
+          voiceLogger.warn('Failed to force remote bot audio subscription on', {
+            event: 'voice_remote_audio_subscription_enable_failed',
+            participantId,
+            error: audioErr instanceof Error ? audioErr.message : String(audioErr),
+          });
+        }
+      }
+
+      // Explicitly publish the local mic track. Without this, Daily may join
+      // the room without an active audio send-track, which starves the bot's
+      // STT of input frames and manifests as "voice not capturing".
+      try {
+        await callObject.setLocalAudio(true);
+        voiceLogger.info('Local audio track enabled post-join', {
+          event: 'voice_local_audio_enabled',
+          localAudio: callObject.localAudio?.(),
+        });
+      } catch (audioErr) {
+        voiceLogger.warn('setLocalAudio(true) failed post-join', {
+          event: 'voice_local_audio_enable_failed',
+          error: audioErr instanceof Error ? audioErr.message : String(audioErr),
+        });
+      }
 
       voiceLogger.info('Joined room successfully', {
         event: 'voice_join_success',
         meetingState: callObject.meetingState?.(),
         participants: Object.keys(callObject.participants() || {}),
       });
-      await ensureRecordingActive(callObject);
+      void ensureRecordingActive(callObject);
+      if (sessionGenerationRef.current !== startGeneration) {
+        voiceLogger.warn('Voice start completed after session was stopped or superseded; leaving room', {
+          event: 'voice_start_generation_stale',
+          roomUrl: voiceRoom.roomUrl,
+        });
+        try {
+          await callObject.leave();
+        } catch {
+          /* best effort */
+        }
+        startInFlightRef.current = false;
+        return;
+      }
       clearLoadingTimeout();
-      timeoutRetryAttemptedRef.current = false; // Reset retry flag on successful connect
       setCallStatus(CALL_STATUS.ACTIVE);
+      setUnavailableMessage(null);
       startInFlightRef.current = false;
 
       // Dismiss the welcome overlay on first voice session start
@@ -674,50 +1138,14 @@ export function useVoiceSession({
         error: errorMsg,
       });
 
-      // Auto-retry with backoff for transient failures (timeouts, network errors, 5xx)
-      const isRetryable = /timed out|abort|network|fetch|5\d\d/i.test(errorMsg);
-      const retryCountRef = (start as any).__retryCount || 0;
-
-      if (isRetryable && retryCountRef < MAX_RETRIES) {
-        const backoff = RETRY_BACKOFF_MS[retryCountRef] || 6000;
-        voiceLogger.info('Auto-retrying voice session start', {
-          event: 'voice_start_auto_retry',
-          attempt: retryCountRef + 1,
-          maxRetries: MAX_RETRIES,
-          backoffMs: backoff,
-          error: errorMsg,
-        });
-
-        // Clean up current attempt
-        clearLoadingTimeout();
-        startInFlightRef.current = false;
-
-        // Try to leave any partial session
-        try {
-          const callObject = getCallObject();
-          const state = callObject.meetingState?.() as unknown as string | undefined;
-          if (state === 'joined' || state === 'joining') {
-            await callObject.leave();
-          }
-        } catch (_) { /* ignore cleanup errors */ }
-
-        // Wait then retry
-        await new Promise(resolve => setTimeout(resolve, backoff));
-        (start as any).__retryCount = retryCountRef + 1;
-        try {
-          await start();
-        } finally {
-          (start as any).__retryCount = 0;
-        }
-        return;
-      }
-
-      // Reset retry count on final failure
-      (start as any).__retryCount = 0;
+      voiceLogger.warn('Voice session start failed; user action required to retry', {
+        event: 'voice_start_retry_suppressed',
+        error: errorMsg,
+      });
       clearLoadingTimeout();
       startInFlightRef.current = false;
+      setUnavailableMessage(classifyVoiceUnavailableMessage(error));
       setCallStatus(CALL_STATUS.UNAVAILABLE);
-      throw error;
     }
   }, [
     resolvedUserId,
@@ -764,6 +1192,8 @@ export function useVoiceSession({
    */
   const stop = useCallback(async () => {
     try {
+      sessionGenerationRef.current += 1;
+      startInFlightRef.current = false;
       clearLoadingTimeout();
       voiceLogger.info('Stopping session', { event: 'voice_stop' });
 
@@ -785,7 +1215,14 @@ export function useVoiceSession({
         
         // Clear pending config in gateway Redis to prevent stale sprite/voice config
         // from affecting the next session (non-critical, fire-and-forget)
-        requestBotLeave(roomUrlToLeave).catch((err) => {
+        requestBotLeave({
+          roomUrl: roomUrlToLeave,
+          tenantId: voiceTenantIdRef.current || tenantId,
+          sessionId: resolvedSessionId,
+          sessionUserId: resolvedUserId,
+          sessionUserName: resolvedUserName,
+          sessionUserEmail: resolvedUserEmail,
+        }).catch((err) => {
           voiceLogger.warn('Failed to notify bot gateway of leave', {
             event: 'voice_leave_gateway_error',
             error: err instanceof Error ? err.message : String(err),
@@ -800,9 +1237,12 @@ export function useVoiceSession({
       }
 
       // Don't destroy call object - it's managed by context
+      clearVoiceRoomCache();
+      setUnavailableMessage(null);
       setCallStatus(CALL_STATUS.INACTIVE);
       setIsSpeechActive(false);
       roomUrlRef.current = null;
+      voiceTenantIdRef.current = null;
       setContextRoomUrl(null); // Clear room URL from context
       recordingAttemptRef.current = false;
       
@@ -827,6 +1267,7 @@ export function useVoiceSession({
         error: error instanceof Error ? error.message : String(error),
       });
       // Still set to inactive even if error
+      setUnavailableMessage(null);
       setCallStatus(CALL_STATUS.INACTIVE);
     }
   }, [onSessionEnd, getCallObject, setContextRoomUrl, setActiveSpriteId, setActiveSpriteVoice, setSpriteVoiceWasPaused, setSpriteStartedSession, clearPendingSpriteConfig]);
@@ -893,23 +1334,34 @@ export function useVoiceSession({
    * Toggle voice session on/off
    */
   const toggleCall = useCallback(async () => {
-    voiceLogger.info('toggleCall invoked', {
-      event: 'voice_toggle',
-      status: callStatusRef.current,
-    });
-    if (callStatusRef.current === CALL_STATUS.ACTIVE || callStatusRef.current === CALL_STATUS.LOADING) {
-      if (stopRef.current) {
-        await stopRef.current();
-      }
-    } else if (callStatusRef.current === CALL_STATUS.INACTIVE) {
-      if (startRef.current) {
-        await startRef.current();
-      }
-    } else {
-      voiceLogger.warn('toggleCall ignored due to status', {
-        event: 'voice_toggle_ignored',
+    try {
+      voiceLogger.info('toggleCall invoked', {
+        event: 'voice_toggle',
         status: callStatusRef.current,
       });
+      if (callStatusRef.current === CALL_STATUS.ACTIVE || callStatusRef.current === CALL_STATUS.LOADING) {
+        if (stopRef.current) {
+          await stopRef.current();
+        }
+      } else if (callStatusRef.current === CALL_STATUS.INACTIVE || callStatusRef.current === CALL_STATUS.UNAVAILABLE) {
+        if (startRef.current) {
+          await startRef.current();
+        }
+      } else {
+        voiceLogger.warn('toggleCall ignored due to status', {
+          event: 'voice_toggle_ignored',
+          status: callStatusRef.current,
+        });
+      }
+    } catch (error) {
+      voiceLogger.error('toggleCall failed without crashing interface', {
+        event: 'voice_toggle_failed',
+        status: callStatusRef.current,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      clearLoadingTimeout();
+      startInFlightRef.current = false;
+      setCallStatus(CALL_STATUS.UNAVAILABLE);
     }
   }, []);
 
@@ -920,6 +1372,19 @@ export function useVoiceSession({
     async (message: string) => {
       try {
         const callObject = getCallObject();
+        if (
+          message.trim() &&
+          onboardingUserKey &&
+          !userProfile?.loading &&
+          !userProfile?.onboardingComplete &&
+          readOnboardingStatus(onboardingUserKey) === 'idle'
+        ) {
+          window.dispatchEvent(
+            new CustomEvent<WebchatOnboardingFirstReplyDetail>(PEARL_ONBOARDING_FIRST_REPLY_EVENT, {
+              detail: { source: 'voice' },
+            }),
+          );
+        }
         
         // Send as app message to bot
         await callObject.sendAppMessage({
@@ -944,7 +1409,7 @@ export function useVoiceSession({
         });
       }
     },
-    [getCallObject]
+    [getCallObject, onboardingUserKey, userProfile?.loading, userProfile?.onboardingComplete]
   );
 
   /**
@@ -970,6 +1435,7 @@ export function useVoiceSession({
         // Check for idempotency to prevent loops
         const configHash = JSON.stringify({
           pid: personalityConfig.personalityId,
+          persona: personalityConfig.name,
           vid: personalityConfig.voiceId,
           vp: personalityConfig.voiceProvider,
           vparam: personalityConfig.voiceParameters,
@@ -992,6 +1458,7 @@ export function useVoiceSession({
           await callObject.sendAppMessage({
             type: 'updatePersonality',
             personalityId: personalityConfig.personalityId,
+            persona: personalityConfig.name,
             voiceId: personalityConfig.voiceId,
             voiceProvider: personalityConfig.voiceProvider,
             voiceParameters: personalityConfig.voiceParameters,
@@ -1023,6 +1490,7 @@ export function useVoiceSession({
               sessionUserEmail: resolvedUserEmail,
               sessionUserName: resolvedUserName,
               personalityId: personalityConfig.personalityId,
+              persona: personalityConfig.name,
               voice: personalityConfig.voiceId,
               voiceProvider: personalityConfig.voiceProvider,
               voiceParameters: personalityConfig.voiceParameters,
@@ -1180,6 +1648,7 @@ export function useVoiceSession({
   return {
     isSpeechActive,
     callStatus,
+    unavailableMessage,
     audioLevel,
     activeTranscript,
     messages,
@@ -1210,6 +1679,8 @@ interface RequestBotJoinOptions {
   sessionOverride?: Record<string, any>;
   config?: any;
   mode?: string; // 'sprite' when starting with sprite voice
+  webChatContext?: Array<{ role: 'user' | 'assistant'; content: string; timestamp?: number }>;
+  activeNoteContext?: { noteId: string; title?: string; content?: string; tenantId?: string | null } | null;
 }
 
 /**
@@ -1217,14 +1688,36 @@ interface RequestBotJoinOptions {
  * Clears pending config from Redis to prevent stale sprite/voice config
  * from affecting the next session.
  */
-async function requestBotLeave(roomUrl: string): Promise<void> {
+async function requestBotLeave(params: {
+  roomUrl: string;
+  tenantId?: string;
+  sessionId?: string;
+  sessionUserId?: string;
+  sessionUserName?: string;
+  sessionUserEmail?: string;
+}): Promise<void> {
   try {
+    const {
+      roomUrl,
+      tenantId,
+      sessionId,
+      sessionUserId,
+      sessionUserName,
+      sessionUserEmail,
+    } = params;
     const response = await fetch('/api/bot/leave', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ room_url: roomUrl }),
+      body: JSON.stringify({
+        room_url: roomUrl,
+        tenantId,
+        sessionId,
+        sessionUserId,
+        sessionUserName,
+        sessionUserEmail,
+      }),
     });
 
     if (!response.ok) {
@@ -1269,18 +1762,29 @@ async function requestBotJoin({
   mode,
 }: RequestBotJoinOptions): Promise<void> {
   try {
+    // User override from Settings -> Audio panel.
+    let effectiveVoiceProvider = voiceProvider;
+    const storedVoiceProvider = normalizeVoiceProvider(
+      readLocalPreference(VOICE_PROVIDER_KEY, userId ?? null),
+    );
+    if (storedVoiceProvider) {
+      effectiveVoiceProvider = toBotVoiceProvider(storedVoiceProvider);
+    }
+
+    const effectiveVoiceId = voiceId || defaultVoiceIdForBotProvider(effectiveVoiceProvider);
+
     // Allow server to enrich tenantId from session if not provided
     const normalizedVoiceParameters = normalizeVoiceParameters(
-      voiceProvider,
-      voiceId,
+      effectiveVoiceProvider,
+      effectiveVoiceId,
       voiceParameters,
     );
 
     voiceLogger.info('Requesting bot to join', {
       event: 'voice_bot_join_request',
       personalityId,
-      voiceId,
-      voiceProvider,
+      voiceId: effectiveVoiceId,
+      voiceProvider: effectiveVoiceProvider,
       tenantId,
       hasToken: !!token,
       supportedFeaturesCount: supportedFeatures?.length,
@@ -1289,16 +1793,20 @@ async function requestBotJoin({
 
     const stableSessionUserId = userId || (sessionId ? `anon:${sessionId}` : undefined);
     const debugTraceId = `voice:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    const webChatContext = readRecentWebChatContext(userId);
+    const activeNoteContext = readActiveNoteContext();
     voiceLogger.info('Voice bot join trace', {
       event: 'voice_bot_join_trace',
       debugTraceId,
       roomUrl,
       hasStableSessionUserId: !!stableSessionUserId,
+      webChatContextCount: webChatContext.length,
+      hasActiveNoteContext: !!activeNoteContext,
       mode,
     });
 
     const botJoinCtrl = new AbortController();
-    const botJoinTimeout = setTimeout(() => botJoinCtrl.abort(), 20000); // 20s timeout for pipeline setup
+    const botJoinTimeout = setTimeout(() => botJoinCtrl.abort(), 45000); // Gateway may wait up to 30s on pending direct launches.
     const response = await fetch('/api/bot/join', {
       method: 'POST',
       signal: botJoinCtrl.signal,
@@ -1309,12 +1817,12 @@ async function requestBotJoin({
         room_url: roomUrl,
         personalityId: personalityId.toLowerCase(),
         voiceOnly: true, // Voice-only session
-        voice: voiceId || 'kdmDKE6EkgrWrrykO9Qt', // Default ElevenLabs voice
-        voiceProvider: voiceProvider,
+        voice: effectiveVoiceId,
+        voiceProvider: effectiveVoiceProvider,
         tenantId: tenantId, // Required for personality resolution
         token: token, // Daily room token for authorization
         persona: persona || 'Pearl', // Bot display name from Assistant.persona_name
-        voiceParameters: normalizedVoiceParameters, // ElevenLabs/Kokoro voice parameters
+        voiceParameters: normalizedVoiceParameters,
         supportedFeatures: supportedFeatures, // Feature flags for tool filtering
         sessionUserId: stableSessionUserId, // Stable fallback supports bot reuse/transition for anonymous sessions
         sessionUserName: userName, // User display name for profile loading
@@ -1326,6 +1834,9 @@ async function requestBotJoin({
         isOnboarding: config?.isOnboarding,
         mode: mode, // 'sprite' when starting with sprite voice
         debugTraceId,
+        webChatContext,
+        activeNoteId: activeNoteContext?.noteId,
+        activeNoteContext,
       }),
     });
 

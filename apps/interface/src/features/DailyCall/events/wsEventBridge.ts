@@ -15,6 +15,7 @@
 
 import { getClientLogger } from '@interface/lib/client-logger';
 import { isDuplicateEvent } from '@interface/lib/event-dedup';
+import { getGatewayWsAuth } from '@interface/lib/gateway-ws-auth';
 
 import type { AppMessageEnvelope } from './appMessageBridge';
 import { routeNiaEvent } from './niaEventRouter';
@@ -26,6 +27,7 @@ let _url: string | null = null;
 let _sessionId: string | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _stopped = false;
+let _connectionGeneration = 0;
 
 const RECONNECT_INTERVAL_MS = 3000;
 const MAX_RECONNECT_INTERVAL_MS = 30000;
@@ -40,20 +42,88 @@ function isNiaEnvelope(obj: unknown): obj is AppMessageEnvelope {
   );
 }
 
-function connect(url: string) {
+function clearReconnectTimer() {
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
+}
+
+function closeCurrentSocket() {
+  if (!_ws) return;
+  const ws = _ws;
+  _ws = null;
+  ws.onopen = null;
+  ws.onmessage = null;
+  ws.onclose = null;
+  ws.onerror = null;
+  try {
+    ws.close();
+  } catch {
+    // ignore close errors
+  }
+}
+
+function reconnectCurrentUrl() {
+  if (!_url) return;
+  clearReconnectTimer();
+  _connectionGeneration += 1;
+  closeCurrentSocket();
+  _reconnectDelay = RECONNECT_INTERVAL_MS;
+  void connect(_url);
+}
+
+function resolveBridgeUrl(url?: string): string {
+  if (url) return url;
+
+  // Derive from env or current host
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gatewayPort =
+    (typeof process !== 'undefined' &&
+      (process as any).env?.NEXT_PUBLIC_BOT_GATEWAY_WS_URL) ||
+    null;
+  if (gatewayPort) {
+    return gatewayPort;
+  }
+
+  // Default: same host, port 4444
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname;
+  // Non-localhost (RunPod proxy, Cloudflare tunnel, etc.):
+  // Always use same-origin rewrite path (/gateway-ws/events).
+  // Next.js rewrites proxy this to localhost:4444/ws/events.
+  // Direct port-based connections (e.g. {pod}-4444.proxy.runpod.net)
+  // fail because RunPod doesn't expose port 4444 externally.
+  if (host !== 'localhost' && host !== '127.0.0.1') {
+    return `${proto}//${window.location.host}/gateway-ws/events`;
+  }
+  return `${proto}//${host}:4444/ws/events`;
+}
+
+async function connect(url: string) {
   if (_stopped) return;
+  const generation = ++_connectionGeneration;
+  const requestedSessionId = _sessionId;
 
   try {
-    const ws = new WebSocket(url);
+    const auth = await getGatewayWsAuth(url, { sessionId: requestedSessionId });
+    if (_stopped || generation !== _connectionGeneration) return;
+
+    const ws = new WebSocket(auth.url, auth.protocols);
+    const authorizedSessionId = requestedSessionId || auth.sessionId;
 
     ws.onopen = () => {
-      log.info('Connected to bot gateway WebSocket', { url, sessionId: _sessionId });
+      if (generation !== _connectionGeneration || _ws !== ws) {
+        try { ws.close(); } catch { /* noop */ }
+        return;
+      }
+      log.info('Connected to bot gateway WebSocket', { url, sessionId: authorizedSessionId });
       _reconnectDelay = RECONNECT_INTERVAL_MS; // reset backoff
       // Send session scoping message if a session ID is set
-      if (_sessionId) {
+      if (authorizedSessionId) {
         try {
-          ws.send(JSON.stringify({ session_id: _sessionId }));
-          log.info('Sent session_id to gateway WebSocket', { sessionId: _sessionId });
+          ws.send(JSON.stringify({ session_id: authorizedSessionId }));
+          log.info('Sent session_id to gateway WebSocket', { sessionId: authorizedSessionId });
         } catch (err) {
           log.warn('Failed to send session_id', { error: String(err) });
         }
@@ -61,6 +131,7 @@ function connect(url: string) {
     };
 
     ws.onmessage = (ev: MessageEvent) => {
+      if (generation !== _connectionGeneration || _ws !== ws) return;
       try {
         const data = JSON.parse(ev.data);
 
@@ -80,7 +151,11 @@ function connect(url: string) {
 
         if (isNiaEnvelope(data)) {
           if (!isDuplicateEvent(data.seq, data.ts, data.event)) {
-            routeNiaEvent(data);
+            // routeNiaEvent expects (eventType, payload). Passing the raw
+            // envelope made every event from this bridge silently no-op,
+            // which masked the duplicate-bridge issue and caused mobile
+            // reconnects to leak old window opens through the other bridge.
+            routeNiaEvent(data.event as unknown as string, (data as { payload?: Record<string, unknown> }).payload || {});
           }
         }
         // Also handle nia.tool_invoke envelopes (pass through to router as-is)
@@ -95,10 +170,11 @@ function connect(url: string) {
     };
 
     ws.onclose = () => {
+      if (generation !== _connectionGeneration) return;
       log.info('WebSocket disconnected, scheduling reconnect', {
         delay: _reconnectDelay,
       });
-      _ws = null;
+      if (_ws === ws) _ws = null;
       scheduleReconnect(url);
     };
 
@@ -109,6 +185,7 @@ function connect(url: string) {
 
     _ws = ws;
   } catch (err) {
+    if (generation !== _connectionGeneration) return;
     log.warn('Failed to create WebSocket', { error: String(err) });
     scheduleReconnect(url);
   }
@@ -134,56 +211,41 @@ function scheduleReconnect(url: string) {
  *                   If provided, only events for this session will be received.
  */
 export function updateWsSessionId(sessionId: string | undefined) {
-  _sessionId = sessionId ?? null;
-  // If already connected, re-send session scoping
-  if (_ws && _ws.readyState === WebSocket.OPEN && _sessionId) {
-    try {
-      _ws.send(JSON.stringify({ session_id: _sessionId }));
-    } catch { /* ignore */ }
+  const nextSessionId = sessionId ?? null;
+  if (nextSessionId === _sessionId) return;
+
+  _sessionId = nextSessionId;
+  if (_url && _ws) {
+    // Gateway tokens are scoped. Changing from user scope to Daily room scope
+    // requires a fresh token; re-sending session_id over the old socket is
+    // rejected by the gateway as scope_forbidden.
+    reconnectCurrentUrl();
   }
 }
 
 export function startWsEventBridge(url?: string, sessionId?: string) {
-  // If already running, just update session ID if needed
+  const resolvedUrl = resolveBridgeUrl(url);
+  const nextSessionId = sessionId ?? null;
+
+  // If already running, reconnect when the scoped session changes so auth is
+  // refreshed for the new Daily room/user scope.
   if (_ws) {
-    if (sessionId && sessionId !== _sessionId) {
-      updateWsSessionId(sessionId);
+    if (resolvedUrl !== _url) {
+      _url = resolvedUrl;
+      _sessionId = nextSessionId;
+      reconnectCurrentUrl();
+    } else if (nextSessionId !== _sessionId) {
+      updateWsSessionId(nextSessionId ?? undefined);
     }
     return;
   }
 
   _stopped = false;
-  _sessionId = sessionId ?? null;
-
-  if (!url) {
-    // Derive from env or current host
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gatewayPort =
-      (typeof process !== 'undefined' &&
-        (process as any).env?.NEXT_PUBLIC_BOT_GATEWAY_WS_URL) ||
-      null;
-    if (gatewayPort) {
-      url = gatewayPort;
-    } else {
-      // Default: same host, port 4444
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname;
-      // Non-localhost (RunPod proxy, Cloudflare tunnel, etc.):
-      // Always use same-origin rewrite path (/gateway-ws/events).
-      // Next.js rewrites proxy this to localhost:4444/ws/events.
-      // Direct port-based connections (e.g. {pod}-4444.proxy.runpod.net)
-      // fail because RunPod doesn't expose port 4444 externally.
-      if (host !== 'localhost' && host !== '127.0.0.1') {
-        url = `${proto}//${window.location.host}/gateway-ws/events`;
-      } else {
-        url = `${proto}//${host}:4444/ws/events`;
-      }
-    }
-  }
-
-  _url = url ?? null;
-  log.info('Starting WebSocket event bridge', { url });
-  connect(url!);
+  _sessionId = nextSessionId;
+  _url = resolvedUrl;
+  clearReconnectTimer();
+  log.info('Starting WebSocket event bridge', { url: resolvedUrl, sessionId: _sessionId });
+  connect(resolvedUrl);
 }
 
 /**
@@ -195,10 +257,8 @@ export function stopWsEventBridge() {
     clearTimeout(_reconnectTimer);
     _reconnectTimer = null;
   }
-  if (_ws) {
-    _ws.close();
-    _ws = null;
-  }
+  _connectionGeneration += 1;
+  closeCurrentSocket();
   _url = null;
   _sessionId = null;
   _reconnectDelay = RECONNECT_INTERVAL_MS;

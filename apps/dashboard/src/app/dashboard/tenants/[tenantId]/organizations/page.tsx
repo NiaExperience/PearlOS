@@ -13,13 +13,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function TenantOrganizationsPage({ params }: { params: { tenantId: string } }) {
   const session = await getSessionSafely(undefined, dashboardAuthOptions);
-  if (!session?.user || session.user.is_anonymous) redirect('/login');
+  if (!session?.user || session.user.is_anonymous) redirect('/dashboard/login');
   const { tenantId } = params;
   const tenant = await TenantActions.getTenantById(tenantId);
   if (!tenant) return notFound();
   const tenantRoles = await TenantActions.getTenantRolesForTenant(tenantId) as any[];
   const isAdmin = tenantRoles.some(r => r.userId === session.user.id && (r.role === TenantRole.ADMIN || r.role === TenantRole.OWNER));
-  if (!isAdmin) redirect('/login');
+  if (!isAdmin) redirect('/dashboard/login');
   const orgs = await OrganizationActions.getOrganizationsForTenant(tenantId);
 
   return (

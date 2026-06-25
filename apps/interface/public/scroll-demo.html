@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PearlOS — Discover</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --text: #1a1a2e; --accent: #8b5cf6; --accent2: #a78bfa;
+  --bg1: #e8e0f0; --bg2: #f0e8f5; --bg3: #faf8f5;
+  --glass: rgba(255,255,255,0.25); --gcard: rgba(255,255,255,0.15);
+  --radius: 28px; --r2: 24px;
+  --shadow: 0px 6px 14px rgba(0,0,0,0.06), 0px 25px 25px rgba(0,0,0,0.04);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif; color: var(--text);
+  background: linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 40%, var(--bg3) 100%);
+  overflow-x: hidden; -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:256px 256px;
+}
+
+/* ===== LAYOUT ===== */
+.section { position:relative; z-index:1; display:flex; min-height:100vh; }
+.col-carousel { position:sticky; top:0; height:100vh; width:50%; display:flex; align-items:center; justify-content:center; overflow:visible; }
+.col-cards { width:50%; position:relative; z-index:2; }
+.col-cards::before { content:''; position:absolute; left:0; top:0; bottom:0; width:80px; background:linear-gradient(to right, rgba(250,248,245,0.0), transparent); z-index:5; pointer-events:none; }
+
+/* ===== 3D CAROUSEL ===== */
+.scene { width:250px; height:370px; perspective:1100px; perspective-origin:55% 50%; margin-left:60px; }
+.ring {
+  width:100%; height:100%; position:relative;
+  transform-style:preserve-3d;
+  transform: rotateZ(-18deg) rotateY(var(--ry,0deg));
+  transition:transform 0.6s cubic-bezier(0.22,0.61,0.36,1);
+  will-change:transform;
+}
+.c-card {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  transform-style:preserve-3d;
+}
+.c-card .face {
+  position:absolute; inset:0; border-radius:var(--radius);
+  overflow:hidden; backface-visibility:hidden;
+  box-shadow: 0px 8px 32px rgba(0,0,0,0.12), 0px 30px 40px rgba(0,0,0,0.06);
+}
+.c-card .face img { width:100%; height:100%; object-fit:cover; display:block; }
+.c-card .back-face { transform:rotateY(180deg); }
+.c-card .back-content { transform:scaleX(-1); }
+.face-fallback {
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:'Instrument Serif',serif; font-size:2.6rem; color:white;
+  text-shadow:0 2px 12px rgba(0,0,0,0.3); text-align:center; padding:2rem; line-height:1.2;
+}
+.g0{background:linear-gradient(135deg,#8b5cf6,#5b21b6)}.g1{background:linear-gradient(135deg,#ec4899,#9d174d)}
+.g2{background:linear-gradient(135deg,#06b6d4,#155e75)}.g3{background:linear-gradient(135deg,#f59e0b,#92400e)}
+.g4{background:linear-gradient(135deg,#10b981,#065f46)}.g5{background:linear-gradient(135deg,#6366f1,#3730a3)}
+
+/* ===== SCROLL CARDS ===== */
+.scroll-card-wrap {
+  height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem;
+}
+.scroll-card {
+  width:100%; max-width:500px; background:var(--gcard);
+  backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,0.25); border-radius:var(--r2);
+  padding:3rem 2.5rem; box-shadow:0px 4px 24px rgba(0,0,0,0.04), 0px 16px 32px rgba(0,0,0,0.03);
+  transition:opacity 0.5s ease, transform 0.5s ease;
+  opacity:0.35; transform:scale(0.96);
+}
+.scroll-card.active { opacity:1; transform:scale(1); }
+.scroll-card .label {
+  font-family:'Instrument Serif',serif; font-size:0.85rem; color:var(--accent);
+  text-transform:uppercase; letter-spacing:0.15em; margin-bottom:1rem; opacity:0.7;
+}
+.scroll-card h2 {
+  font-family:'Instrument Serif',serif; font-size:clamp(1.8rem,3vw,2.5rem);
+  font-weight:400; line-height:1.12; margin-bottom:1.2rem;
+}
+.scroll-card p {
+  font-size:1.05rem; line-height:1.65; opacity:0.78; margin-bottom:2rem;
+}
+.btn {
+  display:inline-flex; align-items:center; gap:0.5rem;
+  background:var(--text); color:white; font-family:'DM Sans',sans-serif;
+  font-size:0.95rem; font-weight:500; padding:0.8rem 2rem; border-radius:9999px;
+  border:none; cursor:pointer; text-decoration:none;
+  transition:all 0.25s ease; box-shadow:0px 4px 12px rgba(0,0,0,0.12);
+}
+.btn:hover { background:var(--accent); transform:translateY(-2px); box-shadow:0px 8px 20px rgba(139,92,246,0.35); }
+.btn .arrow { display:inline-block; transition:transform 0.2s ease; font-size:1.1em; }
+.btn:hover .arrow { transform:translateX(4px); }
+
+/* ===== MOBILE ===== */
+@media (max-width:767px) {
+  .col-carousel { display:none; }
+  .col-cards { width:100%; }
+  .scroll-cards-h { display:flex; flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch; height:100vh; align-items:center; gap:1rem;
+    padding:0 9vw; scrollbar-width:none;
+  }
+  .scroll-cards-h::-webkit-scrollbar{display:none;}
+  .scroll-card-wrap { flex:0 0 auto; width:82vw; height:auto; min-height:60vh; scroll-snap-align:center; padding:0; }
+  .scroll-card { border-radius:18px; padding:2rem 1.5rem; opacity:1; transform:scale(1); max-width:none; }
+  .scroll-card h2 { font-size:1.9rem; } .scroll-card p { font-size:0.95rem; }
+}
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="col-carousel">
+    <div class="scene"><div class="ring" id="ring"></div></div>
+  </div>
+  <div class="col-cards" id="colC"></div>
+</div>
+<script>
+(function(){
+  const cards = [
+    {n:'01',h:'Your AI, Your Terms',d:'PearlOS runs on your hardware, under your control. No data extraction, no surveillance, no hidden costs.',g:'g0',btn:'Get Started'},
+    {n:'02',h:'Open Source, Open Future',d:'Built in the open by a community. Every line is auditable, forkable, free. No walled gardens.',g:'g1',btn:'Star on GitHub'},
+    {n:'03',h:'Voice, Touch, Keyboard, Screen Reader',d:'Universal accessibility isn\'t an afterthought — it\'s the foundation.',g:'g2',btn:'Learn More'},
+    {n:'04',h:'Rebuild Community',d:'Technology should connect, not isolate. Your AI serves you and your community.',g:'g3',btn:'Join Discord'},
+    {n:'05',h:'Give \'Em Hope',d:'Technology for human flourishing. Not optimization at all costs.',g:'g4',btn:'Read Our Story'},
+    {n:'06',h:'Self-Evolving Intelligence',d:'Pearl learns and grows with you. Your AI gets better every day — without sending your data anywhere.',g:'g5',btn:'Experience Pearl'},
+  ];
+  const N = cards.length;
+  const RING_R = 285;
+  const isMob = ()=>matchMedia('(max-width:767px)').matches;
+
+  // -- Build 3D ring --
+  const ring = document.getElementById('ring');
+  cards.forEach((c,i)=>{
+    const el = document.createElement('div'); el.className='c-card';
+    const a = (i/N)*Math.PI*2;
+    el.style.transform = `rotateY(${a}rad) translateZ(${RING_R}px)`;
+    el.innerHTML = `
+      <div class="face"><div class="face-fallback ${c.g}">${c.h}</div></div>
+      <div class="face back-face"><div class="face-fallback ${c.g} back-content">${c.h}</div></div>`;
+    ring.appendChild(el);
+  });
+
+  // -- Build scroll cards --
+  const colC = document.getElementById('colC');
+  const container = document.createElement('div');
+  if(!isMob()) container.className='scroll-v'; else container.className='scroll-cards-h';
+  const wraps = [];
+  cards.forEach((c,i)=>{
+    const w = document.createElement('div'); w.className='scroll-card-wrap';
+    w.innerHTML = `<div class="scroll-card">
+      <div class="label">${c.n}</div>
+      <h2>${c.h}</h2><p>${c.d}</p>
+      <a href="#" class="btn">${c.btn}<span class="arrow">→</span></a>
+    </div>`;
+    container.appendChild(w); wraps.push(w);
+  });
+  colC.appendChild(container);
+
+  // -- Desktop: ring rotation driven by right-side scroll --
+  if(!isMob()){
+    const obs = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting){
+        const idx = wraps.indexOf(e.target);
+        ring.style.setProperty('--ry', -(idx/N)*360+'deg');
+        wraps.forEach((w,j)=>{ const c=w.querySelector('.scroll-card');
+          c.style.opacity=j===idx?'1':'0.35'; c.style.transform=j===idx?'scale(1)':'scale(0.96)';
+        });
+      }});
+    },{threshold:0.5});
+    wraps.forEach(w=>obs.observe(w));
+  }
+
+  // -- Mobile rebuild on resize --
+  window.addEventListener('resize',()=>{
+    container.className = isMob()?'scroll-cards-h':'scroll-v';
+  });
+})();
+</script>
+</body>
+</html>

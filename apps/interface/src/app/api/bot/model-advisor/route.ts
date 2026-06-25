@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { isTestModeBypassAllowed } from '@interface/lib/api-auth';
 import { getLogger } from '@interface/lib/logger';
 
 const log = getLogger('[api_model_advisor]');
@@ -11,7 +12,7 @@ const OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || 'c29b81e25840c89c64
 export async function POST(req: NextRequest) {
   try {
     // Check authentication — bypass in test mode (same pattern as model-settings)
-    const testMode = process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true';
+    const testMode = isTestModeBypassAllowed();
     const session = await getSessionSafely(req, interfaceAuthOptions);
     if (!testMode && !session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

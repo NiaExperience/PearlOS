@@ -60,42 +60,6 @@ export default function LoginPage() {
     void run();
   }, [status, session, interfaceLogin.guestLogin]);
 
-  // Auto-start guest session for local flows (e.g. /pearlos -> /login?autoguest=1)
-  React.useEffect(() => {
-    const run = async () => {
-      if (typeof window === 'undefined') return;
-      if (!interfaceLogin.guestLogin) return;
-      if (status !== 'unauthenticated') return;
-
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('autoguest') !== '1') return;
-
-      const callbackUrl = params.get('callbackUrl') || '/';
-      const assistant = parseAssistantFromCallback(callbackUrl, window.location.origin);
-      if (!assistant) return;
-
-      // Only auto-guest when the assistant allows anonymous sessions
-      if (await assistantDisallowsAnonymous(assistant)) return;
-
-      // Create a real NextAuth session cookie (so /api/users/me etc work)
-      await signIn('credentials', { redirect: true, isAnonymous: true, callbackUrl });
-    };
-    void run();
-  }, [interfaceLogin.guestLogin, status]);
-  // Auto-start Google OAuth when coming from invite completion flow
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!interfaceLogin.googleAuth) return;
-    const params = new URLSearchParams(window.location.search);
-    const auto = params.get('autoGoogle');
-    if (auto === '1') {
-      const callbackUrl = params.get('callbackUrl') || '/';
-      const login_hint = params.get('login_hint') || undefined;
-      // Kick off Google OAuth and let NextAuth handle redirect back
-      signIn('google', { callbackUrl, login_hint, prompt: 'select_account' });
-    }
-  }, [interfaceLogin.googleAuth]);
-
   // Show loading state while session is being determined
   if (status === 'loading') {
     return (

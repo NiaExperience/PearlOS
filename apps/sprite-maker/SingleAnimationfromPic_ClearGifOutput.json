@@ -35,16 +35,7 @@
       "title": "Int"
     }
   },
-  "956": {
-    "inputs": {
-      "string": "You're pixel sprite animator. Transform a brief animation description into a new prompt with a complete and detailed animation description. Your response containins all information for a text-to-video pixel animation model. The prompt should describe the character movement and their unique animation descriptors. NO BACKGROUNDS. style: LucasArts animation. A pixelated sprite character against a CLEAR SHARP white background. CLEAR HEX #FFFFFF BACKGROUND.\n\n\nOutput 1 animation prompt matchiung the user request. 1 animation only. No titles, sections or line separators. Just 5 sentences of raw animation text description."
-    },
-    "class_type": "String Literal",
-    "_meta": {
-      "title": "LLM Instructions"
-    }
-  },
-  "970": {
+  "486": {
     "inputs": {
       "string": "The dog in a black leather jacket does a wild crazy dance and swings his axe."
     },
@@ -55,7 +46,7 @@
   },
   "1003": {
     "inputs": {
-      "string": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHAPR white background. CLEAR HEX #FFFFFF BACKGROUND.\n\n"
+      "string": "style: lcsarts gamestyle. A pixelated sprite character against a CLEAR SHARP white background. CLEAR HEX #FFFFFF BACKGROUND.\n\n"
     },
     "class_type": "String Literal",
     "_meta": {
@@ -153,51 +144,6 @@
     "class_type": "VAEDecode",
     "_meta": {
       "title": "VAE Decode"
-    }
-  },
-  "1082": {
-    "inputs": {
-      "system_prompt": "",
-      "user_prompt": "",
-      "temperature": 1,
-      "is_memory": "enable",
-      "is_tools_in_sys_prompt": "disable",
-      "is_locked": "disable",
-      "main_brain": "enable",
-      "max_length": 4096,
-      "imgbb_api_key": "",
-      "conversation_rounds": 100,
-      "historical_record": "",
-      "is_enable": true,
-      "stream": false,
-      "model": [
-        "1083",
-        0
-      ],
-      "system_prompt_input": [
-        "956",
-        0
-      ],
-      "user_prompt_input": [
-        "970",
-        0
-      ]
-    },
-    "class_type": "LLM",
-    "_meta": {
-      "title": "☁️API LLM general link"
-    }
-  },
-  "1083": {
-    "inputs": {
-      "model_name": "mistral",
-      "base_url": "https://25wmgzhsglmhnk-11434.proxy.runpod.net",
-      "api_key": "",
-      "is_ollama": false
-    },
-    "class_type": "LLM_api_loader",
-    "_meta": {
-      "title": "☁️API LLM Loader"
     }
   },
   "1384": {
@@ -346,19 +292,6 @@
       "title": "Video Combine 🎥🅥🅗🅢"
     }
   },
-  "1421": {
-    "inputs": {
-      "text_0": " Animation: Wild Crazy Dance - Pixelated Dog with Axe\nThis single-frame animation highlights a pixel sprite character designed with the LucasArts aesthetic, standing proudly against an immaculate white background (#FFFFFF). The main character is embodied as a pet-like creature in a stylish black leather jacket and features an axe at its side.\n\nPhase 1: At rest, the dog adopts a confident pose with its paws planted on the ground, gazing straight ahead while holding the axe by the shaft in both hands.\n\nPhase 2: The dance begins as the dog sways from left to right, tapping each paw rhythmically - first forward, then swinging it backward, and finally landing with a brief bounce on its toes.\n\nPhase 3: With increasing energy, the pet-like creature lifts each paw higher, creating an impression of leaping as if it were bounding across the screen. As this happens, the axe swings wildly above its head, adding a dynamic element to the dance.\n\nPhase 4: A mesmerizing moment occurs when the dog executes a 180-degree turn using its hind legs, spinning in mid-air and landing back on both feet with their paws pointing outwards. Upon landing, it catches its balance before continuing with the dance.\n\nPhase 5: After displaying great agility and vigor, the dance reaches its climax as the axe sweeps downward in a grand flourish, coming to rest at the side of the dog. The pet exhausts itself, standing on its toes and shaking slightly before returning to its initial pose.",
-      "text": [
-        "1082",
-        0
-      ]
-    },
-    "class_type": "ShowText|pysssss",
-    "_meta": {
-      "title": "Show Text 🐍"
-    }
-  },
   "1426": {
     "inputs": {
       "delimiter": " ",
@@ -367,7 +300,7 @@
         0
       ],
       "string2": [
-        "1082",
+        "486",
         0
       ]
     },

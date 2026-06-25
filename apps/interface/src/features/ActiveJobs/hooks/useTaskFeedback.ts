@@ -78,8 +78,10 @@ export function useTaskFeedback() {
       if (feedback.taskDescription) {
         formData.append('taskDescription', feedback.taskDescription);
       }
-      // Request relaunch when negative feedback
-      formData.append('relaunch', 'true');
+      // The widget itself re-queues the task to pending (PATCH status='pending'
+      // with the user's note) right after this submission, so we no longer
+      // ask the feedback API to fire a duplicate /api/message relaunch.
+      formData.append('relaunch', 'false');
       for (const img of feedback.images) {
         formData.append('images', img);
       }
@@ -87,12 +89,6 @@ export function useTaskFeedback() {
       await fetch('/api/task-feedback', {
         method: 'POST',
         body: formData,
-      });
-
-      setFeedbackState((prev) => {
-        const next = new Map(prev.submitted);
-        next.set(feedback.taskId, 'down');
-        return { submitted: next };
       });
 
       closeInlineFeedback();

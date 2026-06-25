@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { WindowLayout } from '../types/maneuverable-window-types';
 
 interface ControlsProps {
@@ -9,243 +10,131 @@ interface ControlsProps {
     onMinimize: () => void;
     onClose: () => void;
     onRestoreCenter: () => void;
+    /** Show compact YouTube search under the close control (browser window wires this when YouTube is open). */
+    showYoutubeSearch?: boolean;
+    /** Current query from window state (keeps input in sync when search changes elsewhere). */
+    youtubeSearchQuery?: string | null;
+    onYoutubeSearchSubmit?: (query: string) => void;
 }
 
-export function ManeuverableWindowControls({ layout, onLayoutChange, onMinimize, onClose, onRestoreCenter }: ControlsProps) {
-    const [controlsVisible, setControlsVisible] = useState(true);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-    const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const controlsContainerRef = useRef<HTMLDivElement>(null);
-    const HIDE_DELAY = 3000; // 3 seconds
+export function ManeuverableWindowControls({
+    onClose,
+    showYoutubeSearch,
+    youtubeSearchQuery,
+    onYoutubeSearchSubmit,
+}: ControlsProps) {
+    const [draft, setDraft] = useState('');
+    const [searchExpanded, setSearchExpanded] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const youtubeSearchRef = useRef<HTMLDivElement>(null);
 
-    // Detect mobile device
     useEffect(() => {
-        const checkMobile = () => {
-            const mobile = window.innerWidth < 768; // Tailwind's md breakpoint
-            setIsMobile(mobile);
-            // On mobile, start with controls hidden
-            if (mobile) {
-                setControlsVisible(false);
+        setDraft(youtubeSearchQuery ?? '');
+    }, [youtubeSearchQuery]);
+
+    useEffect(() => {
+        if (!searchExpanded) return;
+        const t = window.setTimeout(() => inputRef.current?.focus(), 0);
+        return () => window.clearTimeout(t);
+    }, [searchExpanded]);
+
+    useEffect(() => {
+        if (!searchExpanded) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const el = youtubeSearchRef.current;
+            if (el && !el.contains(e.target as Node)) {
+                setSearchExpanded(false);
             }
         };
-        
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    const resetHideTimer = useCallback(() => {
-        if (hideTimeoutRef.current) {
-            clearTimeout(hideTimeoutRef.current);
-        }
-        setControlsVisible(true);
-        // Don't auto-hide if dropdown is open
-        if (isDropdownOpen) return;
-        hideTimeoutRef.current = setTimeout(() => {
-            setControlsVisible(false);
-        }, HIDE_DELAY);
-    }, [HIDE_DELAY, isDropdownOpen]);
-
-    // Helper function to check if an element is interactive
-    const isInteractiveElement = useCallback((element: HTMLElement | null): boolean => {
-        if (!element) return false;
-        
-        // Check if element is a button, input, select, textarea, or anchor
-        const tagName = element.tagName.toLowerCase();
-        if (['button', 'input', 'select', 'textarea', 'a'].includes(tagName)) {
-            return true;
-        }
-        
-        // Check if element has role="button" or other interactive roles
-        const role = element.getAttribute('role');
-        if (role && ['button', 'link', 'tab', 'menuitem', 'option'].includes(role)) {
-            return true;
-        }
-        
-        // Check if element has onClick handler or is clickable
-        if (element.onclick || element.getAttribute('onclick')) {
-            return true;
-        }
-        
-        // Check if element has cursor: pointer style
-        const computedStyle = window.getComputedStyle(element);
-        if (computedStyle.cursor === 'pointer') {
-            return true;
-        }
-        
-        return false;
-    }, []);
-
-    // Listen for dropdown state changes from HtmlContentViewer
-    useEffect(() => {
-        const handleDropdownStateChange = (e: Event) => {
-            const customEvent = e as CustomEvent<{ isDropdownOpen: boolean }>;
-            const newDropdownState = customEvent.detail?.isDropdownOpen ?? false;
-            setIsDropdownOpen(newDropdownState);
-            
-            // If dropdown opens, force controls to be visible
-            if (newDropdownState) {
-                setControlsVisible(true);
-                if (hideTimeoutRef.current) {
-                    clearTimeout(hideTimeoutRef.current);
-                }
-            }
-            // If dropdown just closed, restart the hide timer
-            else {
-                resetHideTimer();
-            }
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setSearchExpanded(false);
         };
-
-        window.addEventListener('htmlViewer.dropdownStateChange', handleDropdownStateChange);
-        
+        document.addEventListener('pointerdown', onPointerDown, true);
+        document.addEventListener('keydown', onKeyDown);
         return () => {
-            window.removeEventListener('htmlViewer.dropdownStateChange', handleDropdownStateChange);
+            document.removeEventListener('pointerdown', onPointerDown, true);
+            document.removeEventListener('keydown', onKeyDown);
         };
-    }, [resetHideTimer]);
+    }, [searchExpanded]);
 
-    // Handle mouse movement and window focus/blur (desktop)
-    // Handle touch/click events (mobile)
-    useEffect(() => {
-        // Find the browser window container
-        const browserWindow = document.querySelector('[class*="border"][class*="rounded-xl"][class*="overflow-hidden"]');
-        if (!browserWindow) return;
+    const submitSearch = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        e?.stopPropagation();
+        const q = draft.trim();
+        if (!q || !onYoutubeSearchSubmit) return;
+        onYoutubeSearchSubmit(q);
+        setSearchExpanded(false);
+    };
 
-        const handleMouseMove = () => {
-            if (!isMobile) {
-                resetHideTimer();
-            }
-        };
-
-        const handleMouseLeave = () => {
-            if (isMobile) return; // Skip on mobile
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
-            // Don't hide if dropdown is open
-            if (isDropdownOpen) return;
-            setControlsVisible(false);
-        };
-
-        const handleMouseEnter = () => {
-            if (!isMobile) {
-                resetHideTimer();
-            }
-        };
-
-        const handleWindowBlur = () => {
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
-            // Don't hide if dropdown is open
-            if (isDropdownOpen) return;
-            setControlsVisible(false);
-        };
-
-        const handleWindowFocus = () => {
-            if (!isMobile) {
-                resetHideTimer();
-            }
-        };
-
-        // Mobile: Handle touch/click events to show controls
-        const handleTouchStart = (e: Event) => {
-            if (isMobile) {
-                const touchEvent = e as TouchEvent;
-                // Don't show controls if clicking on the controls themselves
-                const target = touchEvent.target as HTMLElement;
-                if (controlsContainerRef.current && controlsContainerRef.current.contains(target)) {
-                    return;
-                }
-                
-                // Check if target is an interactive element
-                const isInteractive = isInteractiveElement(target);
-                const INTERACTIVE_DELAY = 500; // 500ms delay for interactive elements
-                
-                if (isInteractive) {
-                    // Delay showing controls for interactive elements to allow their action to complete
-                    setTimeout(() => {
-                        resetHideTimer();
-                    }, INTERACTIVE_DELAY);
-                } else {
-                    // Show controls immediately for non-interactive areas
-                    resetHideTimer();
-                }
-            }
-        };
-
-        const handleClick = (e: Event) => {
-            if (isMobile) {
-                const mouseEvent = e as MouseEvent;
-                // Don't show controls if clicking on the controls themselves
-                const target = mouseEvent.target as HTMLElement;
-                if (controlsContainerRef.current && controlsContainerRef.current.contains(target)) {
-                    return;
-                }
-                
-                // Check if target is an interactive element
-                const isInteractive = isInteractiveElement(target);
-                const INTERACTIVE_DELAY = 500; // 500ms delay for interactive elements
-                
-                if (isInteractive) {
-                    // Delay showing controls for interactive elements to allow their action to complete
-                    setTimeout(() => {
-                        resetHideTimer();
-                    }, INTERACTIVE_DELAY);
-                } else {
-                    // Show controls immediately for non-interactive areas
-                    resetHideTimer();
-                }
-            }
-        };
-
-        // Add event listeners to the browser window container
-        browserWindow.addEventListener('mousemove', handleMouseMove);
-        browserWindow.addEventListener('mouseleave', handleMouseLeave);
-        browserWindow.addEventListener('mouseenter', handleMouseEnter);
-        
-        // Mobile: Add touch and click listeners
-        browserWindow.addEventListener('touchstart', handleTouchStart, { passive: true });
-        browserWindow.addEventListener('click', handleClick);
-        
-        // Window focus/blur for when user switches windows/apps
-        window.addEventListener('blur', handleWindowBlur);
-        window.addEventListener('focus', handleWindowFocus);
-        
-        // Start initial timer (only for desktop)
-        if (!isMobile) {
-            resetHideTimer();
-        }
-
-        return () => {
-            browserWindow.removeEventListener('mousemove', handleMouseMove);
-            browserWindow.removeEventListener('mouseleave', handleMouseLeave);
-            browserWindow.removeEventListener('mouseenter', handleMouseEnter);
-            browserWindow.removeEventListener('touchstart', handleTouchStart);
-            browserWindow.removeEventListener('click', handleClick);
-            window.removeEventListener('blur', handleWindowBlur);
-            window.removeEventListener('focus', handleWindowFocus);
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
-        };
-    }, [resetHideTimer, isDropdownOpen, isMobile, isInteractiveElement]);
+    const searchIconButtonClass =
+        'pearl-app-window-control flex h-9 w-9 shrink-0 items-center justify-center rounded-full border p-0 transition-all active:scale-95';
 
     return (
-        <div 
-            ref={controlsContainerRef}
-            className={`absolute top-2.5 right-4 z-50 flex items-center gap-2 transition-all duration-300 ease-in-out ${
-                controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
-            }`}
-        >
+        <div className="absolute top-2.5 right-4 z-[300] flex flex-col items-end gap-2">
             <button
+                type="button"
                 onClick={onClose}
-                className="wonder-close-button"
+                className="pearl-app-window-control flex h-9 w-9 shrink-0 items-center justify-center rounded-full border p-0 text-base font-semibold leading-none transition-all active:scale-95"
                 title="Close"
+                aria-label="Close window"
             >
                 ✕
             </button>
+
+            {showYoutubeSearch && onYoutubeSearchSubmit ? (
+                <div ref={youtubeSearchRef} className="flex flex-col items-end">
+                    {!searchExpanded ? (
+                        <button
+                            type="button"
+                            className={searchIconButtonClass}
+                            title="Search YouTube"
+                            aria-label="Open YouTube search"
+                            aria-expanded={false}
+                            aria-controls="youtube-window-search-field"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSearchExpanded(true);
+                            }}
+                        >
+                            <Search className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                    ) : (
+                        <form
+                            id="youtube-window-search-form"
+                            onSubmit={submitSearch}
+                            className="pearl-app-window-control flex max-w-[min(18rem,calc(100vw-5rem))] origin-top-right animate-in fade-in zoom-in-95 duration-150 items-center gap-1 rounded-full border py-1 pl-2.5 pr-1 shadow-lg sm:max-w-none sm:w-48"
+                            aria-label="Search YouTube"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <input
+                                ref={inputRef}
+                                id="youtube-window-search-field"
+                                data-yt-window-search
+                                type="text"
+                                inputMode="search"
+                                enterKeyHint="search"
+                                value={draft}
+                                onChange={(e) => setDraft(e.target.value)}
+                                placeholder="Search YouTube…"
+                                className="min-w-0 flex-1 appearance-none border-0 bg-transparent text-xs text-[var(--pearl-text)] shadow-none outline-none ring-0 placeholder:text-[var(--pearl-muted)] focus:ring-0"
+                                aria-label="YouTube search"
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                            />
+                            <button
+                                type="submit"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--pearl-text)] transition-colors hover:bg-[var(--pearl-window-control-hover-bg)] active:scale-95 sm:h-7 sm:w-7"
+                                title="Search"
+                                aria-label="Search YouTube"
+                            >
+                                <Search className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                        </form>
+                    )}
+                </div>
+            ) : null}
         </div>
     );
 }

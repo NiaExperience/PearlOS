@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wonder Canvas — Sprite Demo</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; color: #e8e8f0; font-family: system-ui, -apple-system, sans-serif; }
+#tabs { display: flex; background: #12101e; border-bottom: 1px solid rgba(150,130,255,0.2); }
+#tabs button { flex: 1; padding: 12px; border: none; background: transparent; color: #8880aa; font-size: 14px; cursor: pointer; transition: all 0.2s; border-bottom: 2px solid transparent; }
+#tabs button.active { color: #c8b8f0; border-bottom-color: #9682c8; background: rgba(150,130,255,0.05); }
+#tabs button:hover { color: #e8e8f0; }
+.scene { display: none; width: 100%; height: calc(100% - 46px); overflow-y: auto; }
+.scene.active { display: block; }
+</style>
+<script src="wonder-sprites.js"></script>
+</head>
+<body>
+
+<div id="tabs">
+  <button class="active" onclick="showScene(0)">🌲 Forest Story</button>
+  <button onclick="showScene(1)">🎒 Inventory</button>
+  <button onclick="showScene(2)">✨ Sprite Gallery</button>
+</div>
+
+<div class="scene active" id="scene0"></div>
+<div class="scene" id="scene1"></div>
+<div class="scene" id="scene2"></div>
+
+<script>
+const { resolve, sprites } = WonderSprites;
+
+function showScene(idx) {
+  document.querySelectorAll('.scene').forEach((s, i) => {
+    s.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('#tabs button').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+}
+
+// ========== SCENE 0: Forest Story ==========
+document.getElementById('scene0').innerHTML = resolve(`
+<div style="position:relative;width:100%;height:100%;background:linear-gradient(180deg, #0a0e1a 0%, #0d1a2a 40%, #1a2a1a 100%);padding:24px;overflow:hidden;">
+  <!-- Stars -->
+  <div style="position:absolute;top:20px;right:40px">{{sprite:star:w-sprite--shimmer}}</div>
+  <div style="position:absolute;top:50px;right:120px">{{sprite:star:w-sprite--shimmer}}</div>
+  <div style="position:absolute;top:15px;left:60px">{{sprite:moon:w-sprite--float}}</div>
+  
+  <!-- Forest background -->
+  <div style="position:absolute;bottom:80px;left:20px">{{sprite:tree}}</div>
+  <div style="position:absolute;bottom:75px;left:80px">{{sprite:tree}}</div>
+  <div style="position:absolute;bottom:90px;right:40px">{{sprite:tree}}</div>
+  <div style="position:absolute;bottom:70px;right:100px">{{sprite:mushroom:w-sprite--shimmer}}</div>
+  <div style="position:absolute;bottom:82px;left:140px">{{sprite:flower}}</div>
+  
+  <!-- Fireflies -->
+  <div class="wonder-particles-fireflies"></div>
+  
+  <!-- Characters -->
+  <div style="position:absolute;bottom:100px;left:50%;transform:translateX(-50%)">
+    <div style="text-align:center">
+      <div>{{sprite:pearl:w-sprite--float}}</div>
+      <div style="font-size:11px;color:#5ff5f5;margin-top:4px;text-shadow:0 0 8px rgba(90,220,220,0.5)">Pearl</div>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:98px;left:30%">
+    <div style="text-align:center">
+      <div>{{sprite:companion:w-sprite--bounce}}</div>
+      <div style="font-size:11px;color:#f0cc5a;margin-top:4px">Fennec</div>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:100px;right:20%">
+    <div style="text-align:center">
+      <div>{{sprite:fairy:w-sprite--float}}</div>
+    </div>
+  </div>
+  
+  <!-- Crystal cluster -->
+  <div style="position:absolute;bottom:78px;right:25%">
+    {{sprite:crystal:w-sprite--shimmer}} {{sprite:gem:w-sprite--shimmer}}
+  </div>
+  
+  <!-- Dialog box -->
+  <div style="position:absolute;bottom:20px;left:20px;right:20px;background:rgba(10,10,30,0.85);border:1px solid rgba(90,220,220,0.3);border-radius:12px;padding:16px;backdrop-filter:blur(8px);">
+    <div style="font-size:12px;color:#5ff5f5;margin-bottom:6px">{{sprite:pearl}} Pearl</div>
+    <div style="font-size:14px;line-height:1.5;color:#e8e8f0">
+      The {{sprite:crystal:w-sprite--shimmer}} Crystal Grove is just ahead. I can feel the magic resonating... 
+      {{sprite:sparkle:w-sprite--shimmer}}
+    </div>
+  </div>
+  
+  <!-- Choice buttons -->
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;gap:10px;width:70%;max-width:300px;">
+    <div style="padding:12px 20px;border-radius:10px;background:rgba(90,220,220,0.08);border:1px solid rgba(90,220,220,0.25);cursor:pointer;text-align:center;transition:all 0.2s;font-size:14px" data-action="explore">
+      {{sprite:path}} Explore the grove
+    </div>
+    <div style="padding:12px 20px;border-radius:10px;background:rgba(150,130,255,0.08);border:1px solid rgba(150,130,255,0.25);cursor:pointer;text-align:center;transition:all 0.2s;font-size:14px" data-action="portal">
+      {{sprite:portal:w-sprite--shimmer}} Enter the portal
+    </div>
+    <div style="padding:12px 20px;border-radius:10px;background:rgba(212,165,52,0.08);border:1px solid rgba(212,165,52,0.25);cursor:pointer;text-align:center;transition:all 0.2s;font-size:14px" data-action="rest">
+      {{sprite:flame}} Rest by the fire
+    </div>
+  </div>
+</div>
+`);
+
+// ========== SCENE 1: Inventory + Stats Mix ==========
+document.getElementById('scene1').innerHTML = resolve(`
+<div style="width:100%;height:100%;background:linear-gradient(180deg, #0e0c1a 0%, #1a1432 100%);padding:20px;overflow-y:auto;">
+  <!-- Header -->
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="font-size:20px;color:#c8b8f0;font-weight:600">{{sprite:pearl:w-sprite--float}} Pearl's Journey</div>
+    <div style="font-size:12px;color:#6a6680;margin-top:4px">Level 7 · Crystal Grove</div>
+  </div>
+  
+  <!-- Health/Stats bar (SVG-style, professional) -->
+  <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;flex-wrap:wrap">
+    <div style="background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.3);border-radius:8px;padding:8px 14px;font-size:13px">
+      {{sprite:heart}} {{sprite:heart}} {{sprite:heart}} {{sprite:heartEmpty}} {{sprite:heartEmpty}}
+      <span style="color:#888;margin-left:4px">3/5</span>
+    </div>
+    <div style="background:rgba(90,220,220,0.1);border:1px solid rgba(90,220,220,0.3);border-radius:8px;padding:8px 14px;font-size:13px">
+      {{sprite:star:w-sprite--shimmer}} <span style="color:#5ff5f5">42 XP</span>
+    </div>
+    <div style="background:rgba(212,165,52,0.1);border:1px solid rgba(212,165,52,0.3);border-radius:8px;padding:8px 14px;font-size:13px">
+      {{sprite:coin}} <span style="color:#f0cc5a">128</span>
+    </div>
+  </div>
+
+  <!-- XP Progress bar (professional/data-viz style — uses regular HTML, not sprites) -->
+  <div style="margin:0 20px 20px;background:rgba(255,255,255,0.05);border-radius:6px;height:8px;overflow:hidden">
+    <div style="width:68%;height:100%;background:linear-gradient(90deg,#1a8a8a,#3cdfdf);border-radius:6px;transition:width 0.5s"></div>
+  </div>
+  
+  <!-- Inventory Grid -->
+  <div style="font-size:13px;color:#8880aa;margin-bottom:10px;padding:0 4px">INVENTORY</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+    ${[
+      {s:'sword', n:'Iron Sword', r:'common'},
+      {s:'shield', n:'Teal Guard', r:'rare'},
+      {s:'potion', n:'Mana Potion', r:'rare'},
+      {s:'scroll', n:'Fire Scroll', r:'epic'},
+      {s:'key', n:'Gold Key', r:'common'},
+      {s:'wand', n:'Star Wand', r:'epic'},
+      {s:'gem', n:'Amethyst', r:'rare'},
+      {s:'chest', n:'Loot Box', r:'legendary'},
+    ].map(i => {
+      const border = {common:'rgba(150,150,150,0.2)',rare:'rgba(90,220,220,0.3)',epic:'rgba(150,130,255,0.4)',legendary:'rgba(212,165,52,0.5)'}[i.r];
+      const bg = {common:'rgba(150,150,150,0.05)',rare:'rgba(90,220,220,0.06)',epic:'rgba(150,130,255,0.08)',legendary:'rgba(212,165,52,0.08)'}[i.r];
+      const shimmer = i.r === 'legendary' ? ':w-sprite--shimmer' : i.r === 'epic' ? ':w-sprite--pulse' : '';
+      return '<div style="background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer">'+
+        '<div style="margin-bottom:4px">{{sprite:'+i.s+shimmer+'}}</div>'+
+        '<div style="font-size:10px;color:#c8c4d8">'+i.n+'</div>'+
+        '</div>';
+    }).join('')}
+  </div>
+
+  <!-- Recent Rewards -->
+  <div style="font-size:13px;color:#8880aa;margin-bottom:10px;padding:0 4px">REWARDS EARNED</div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="background:rgba(90,220,220,0.06);border:1px solid rgba(90,220,220,0.15);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px">
+      {{sprite:crystal:w-sprite--shimmer}}
+      <div><div style="color:#e8e8f0">Found a Crystal Shard</div><div style="font-size:11px;color:#6a6680">Crystal Grove · 2 min ago</div></div>
+      <span style="margin-left:auto;color:#f0cc5a">+15 XP {{sprite:sparkle}}</span>
+    </div>
+    <div style="background:rgba(150,130,255,0.06);border:1px solid rgba(150,130,255,0.15);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px">
+      {{sprite:companion:w-sprite--bounce}}
+      <div><div style="color:#e8e8f0">Fennec joined your party!</div><div style="font-size:11px;color:#6a6680">Moonlit Path · 10 min ago</div></div>
+      <span style="margin-left:auto;color:#5ff5f5">{{sprite:checkmark}}</span>
+    </div>
+  </div>
+</div>
+`);
+
+// ========== SCENE 2: Sprite Gallery ==========
+const allSprites = ['pearl','companion','dragon','wolf','fairy','tree','flower','mushroom','crystal','gem','star','moon','sun','sword','shield','potion','scroll','key','chest','coin','wand','heart','heartEmpty','arrow','checkmark','sparkle','flame','lightning','door','path','bridge','portal'];
+const effects = ['','w-sprite--bounce','w-sprite--float','w-sprite--shimmer','w-sprite--pulse','w-sprite--wiggle'];
+
+document.getElementById('scene2').innerHTML = resolve(`
+<div style="width:100%;height:100%;background:linear-gradient(180deg,#0a0a14 0%,#12101e 100%);padding:20px;overflow-y:auto;">
+  <div style="text-align:center;margin-bottom:6px">
+    <div style="font-size:18px;color:#c8b8f0;font-weight:600">{{sprite:sparkle:w-sprite--shimmer}} PearlOS Sprite Collection {{sprite:sparkle:w-sprite--shimmer}}</div>
+    <div style="font-size:12px;color:#6a6680;margin-top:4px">${allSprites.length} sprites · 6 animation effects</div>
+  </div>
+  
+  <!-- Animation effects showcase -->
+  <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:16px 0;padding:12px;background:rgba(150,130,255,0.04);border-radius:10px;border:1px solid rgba(150,130,255,0.1)">
+    <div style="text-align:center"><div>{{sprite:pearl}}</div><div style="font-size:9px;color:#6a6680;margin-top:2px">static</div></div>
+    <div style="text-align:center"><div>{{sprite:pearl:w-sprite--bounce}}</div><div style="font-size:9px;color:#6a6680;margin-top:2px">bounce</div></div>
+    <div style="text-align:center"><div>{{sprite:pearl:w-sprite--float}}</div><div style="font-size:9px;color:#6a6680;margin-top:2px">float</div></div>
+    <div style="text-align:center"><div>{{sprite:pearl:w-sprite--shimmer}}</div><div style="font-size:9px;color:#6a6680;margin-top:2px">shimmer</div></div>
+    <div style="text-align:center"><div>{{sprite:pearl:w-sprite--pulse}}</div><div style="font-size:9px;color:#6a6680;margin-top:2px">pulse</div></div>
+    <div style="text-align:center"><div>{{sprite:pearl:w-sprite--wiggle}}</div><div style="font-size:9px;color:#6a6680;margin-top:2px">wiggle</div></div>
+  </div>
+  
+  <!-- Full grid -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin-top:12px">
+    ${allSprites.map(name => {
+      const effect = ['crystal','gem','star','sparkle','portal','fairy'].includes(name) ? ':w-sprite--shimmer' : 
+                     ['pearl','companion'].includes(name) ? ':w-sprite--float' :
+                     ['flame','lightning'].includes(name) ? ':w-sprite--pulse' : '';
+      return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;text-align:center">'+
+        '<div style="margin-bottom:4px">{{sprite:'+name+effect+'}}</div>'+
+        '<div style="font-size:9px;color:#6a6680">'+name+'</div></div>';
+    }).join('')}
+  </div>
+  
+  <!-- Composition demo -->
+  <div style="margin-top:20px;padding:16px;background:rgba(90,220,220,0.04);border:1px solid rgba(90,220,220,0.15);border-radius:12px">
+    <div style="font-size:13px;color:#5ff5f5;margin-bottom:8px">Composition Example</div>
+    <div style="font-size:14px;line-height:2;color:#e8e8f0">
+      {{sprite:pearl:w-sprite--float}} found a {{sprite:key:w-sprite--shimmer}} near the {{sprite:door}}. 
+      Behind it, a {{sprite:chest:w-sprite--wiggle}} glowed with {{sprite:sparkle:w-sprite--shimmer}} magical energy.
+      {{sprite:companion:w-sprite--bounce}} barked excitedly as {{sprite:dragon:w-sprite--float}} circled overhead.
+      The {{sprite:portal:w-sprite--shimmer}} to the next world awaited...
+    </div>
+  </div>
+</div>
+`);
+</script>
+</body>
+</html>

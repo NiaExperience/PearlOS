@@ -11,6 +11,11 @@ const INVIDIOUS_FALLBACKS = [
   'https://invidious.privacyredirect.com',
   'https://vid.puffyan.us',
 ];
+const SEARCH_RESULT_LIMIT = 15;
+const STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'for', 'from', 'in', 'me', 'of', 'on', 'or',
+  'show', 'the', 'to', 'video', 'videos', 'with', 'youtube',
+]);
 
 /** Invidious search result item (video type). */
 interface InvidiousVideoItem {
@@ -22,6 +27,76 @@ interface InvidiousVideoItem {
   published?: number;
   videoThumbnails?: Array< { url: string; quality?: string } >;
   [key: string]: unknown;
+}
+
+type SearchVideo = {
+  videoId: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  channelTitle: string;
+  publishedAt: string;
+};
+
+function decodeSearchQuery(query: string): string {
+  try {
+    return decodeURIComponent(query.replace(/\+/g, ' '));
+  } catch {
+    return query;
+  }
+}
+
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
+}
+
+function scoreVideoForQuery(rawQuery: string, video: SearchVideo): number {
+  const tokens = [...new Set(tokenize(rawQuery))];
+  if (tokens.length === 0) return 0;
+  const title = `${video.title || ''}`.toLowerCase();
+  const description = `${video.description || ''}`.toLowerCase();
+  const channel = `${video.channelTitle || ''}`.toLowerCase();
+  const haystack = `${title} ${description} ${channel}`;
+  let score = 0;
+
+  for (const token of tokens) {
+    if (title.includes(token)) score += 8;
+    if (description.includes(token)) score += 3;
+    if (channel.includes(token)) score += 1;
+  }
+
+  const compactQuery = rawQuery.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (compactQuery && title.includes(compactQuery)) score += 20;
+  if (tokens.length >= 3 && tokens.every((token) => haystack.includes(token))) score += 12;
+
+  const userAskedForLongform =
+    /\b(movie|film|documentary|comedian|comedy|stand ?up|trailer|review|essay)\b/i.test(rawQuery);
+  if (!userAskedForLongform && /\b(full movie|movie|official trailer|stand ?up|comedian|comedy special)\b/i.test(title)) {
+    score -= 18;
+  }
+  if (/\b(kids?|children|school bus|bus)\b/i.test(rawQuery) && /\b(horror|true crime|stand ?up|comedian)\b/i.test(haystack)) {
+    score -= 20;
+  }
+
+  return score;
+}
+
+function rankVideos(rawQuery: string, videos: SearchVideo[]): SearchVideo[] {
+  const scored = videos.map((video, index) => ({
+    video,
+    index,
+    score: scoreVideoForQuery(rawQuery, video),
+  }));
+  const hasPositiveSignal = scored.some((item) => item.score > 0);
+  if (!hasPositiveSignal) return videos;
+  return scored
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.video);
 }
 
 function normalizeInvidiousToVideo(item: InvidiousVideoItem): {
@@ -48,7 +123,7 @@ function normalizeInvidiousToVideo(item: InvidiousVideoItem): {
 }
 
 async function searchViaInvidious(queryEnc: string): Promise<{
-  videos: Array<{ videoId: string; title: string; description: string; thumbnail: string; channelTitle: string; publishedAt: string }>;
+  videos: SearchVideo[];
   totalResults: number;
 }> {
   const configuredInstance = process.env.YOUTUBE_INVIDIOUS_INSTANCE;
@@ -74,7 +149,7 @@ async function searchViaInvidious(queryEnc: string): Promise<{
       }
       const videoItems = data.filter((item: InvidiousVideoItem) => item.type === 'video' && item.videoId);
       const videos = videoItems
-        .slice(0, 5)
+        .slice(0, SEARCH_RESULT_LIMIT)
         .map(normalizeInvidiousToVideo)
         .filter((v) => v.videoId);
       return { videos, totalResults: videoItems.length };
@@ -109,12 +184,13 @@ export async function GET_impl(req: NextRequest) {
 
 async function getViaInvidious(query: string) {
   const { videos, totalResults } = await searchViaInvidious(query);
-  if (videos.length === 0) {
+  const rankedVideos = rankVideos(decodeSearchQuery(query), videos).slice(0, 5);
+  if (rankedVideos.length === 0) {
     return NextResponse.json({ error: 'No videos found' }, { status: 404 });
   }
   return NextResponse.json({
-    videos,
-    currentVideo: videos[0],
+    videos: rankedVideos,
+    currentVideo: rankedVideos[0],
     totalResults,
     comments: []
   });
@@ -122,7 +198,7 @@ async function getViaInvidious(query: string) {
 
 async function getViaYouTubeApi(query: string, apiKey: string) {
   const response = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${query}&type=video&key=${apiKey}`,
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=${SEARCH_RESULT_LIMIT}&q=${query}&type=video&order=relevance&safeSearch=strict&videoEmbeddable=true&key=${apiKey}`,
     { method: 'GET' }
   );
 
@@ -146,13 +222,14 @@ async function getViaYouTubeApi(query: string, apiKey: string) {
       channelTitle: item.snippet.channelTitle,
       publishedAt: item.snippet.publishedAt
     }));
+  const rankedVideos = rankVideos(decodeSearchQuery(query), videos).slice(0, 5);
 
-  if (videos.length === 0) {
+  if (rankedVideos.length === 0) {
     return NextResponse.json({ error: 'No videos found' }, { status: 404 });
   }
 
   let comments: Array<{ author: string; text: string; publishedAt: string; likeCount: number }> = [];
-  const firstVideoId = videos[0]?.videoId;
+  const firstVideoId = rankedVideos[0]?.videoId;
   if (firstVideoId) {
     try {
       const commentsResponse = await fetch(
@@ -173,9 +250,9 @@ async function getViaYouTubeApi(query: string, apiKey: string) {
   }
 
   return NextResponse.json({
-    videos,
-    currentVideo: videos[0],
+    videos: rankedVideos,
+    currentVideo: rankedVideos[0],
     totalResults: data.items.length,
     comments
   });
-} 
+}

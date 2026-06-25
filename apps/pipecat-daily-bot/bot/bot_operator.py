@@ -170,7 +170,7 @@ class BotOperator:
 
         try:
             # Use scan_iter to avoid blocking
-            async for key in self.redis.scan_iter(match="room_active:*"):
+            async for key in self.redis.scan_iter(match="user_session_bot:*"):
                 room_url = None
                 data = {}
                 try:
@@ -186,14 +186,22 @@ class BotOperator:
                         await self.redis.delete(key)
                         continue
 
-                    room_url = key.split(":", 1)[1] if ":" in key else None
+                    parts = key.split(":")
+                    room_url = data.get("room_url")
+                    tenant_id = parts[1] if len(parts) > 1 else None
+                    session_user_id = parts[2] if len(parts) > 2 else None
+                    session_id = parts[3] if len(parts) > 3 else data.get("session_id")
                     state_logger = logger.bind(roomUrl=room_url, sessionId=data.get("session_id"))
                     state_logger.info(f"[operator] Checking active room key: {key}")
 
                     job_name = data.get("job_name")
                     job_type = data.get("type")
 
-                    keepalive_key = f"room_keepalive:{room_url}" if room_url else None
+                    keepalive_key = (
+                        f"user_session_keepalive:{tenant_id}:{session_user_id}:{session_id}"
+                        if tenant_id and session_user_id and session_id
+                        else None
+                    )
                     keepalive_raw = await self.redis.get(keepalive_key) if keepalive_key else None
                     keepalive_stale = False
                     keepalive_age = None
@@ -357,22 +365,6 @@ class BotOperator:
                         "debugTraceId": job.get("debugTraceId"),
                     })
                     
-                    # ─────────────────────────────────────────────────────────────
-                    # DUPLICATE DETECTION: Check if a bot is already active for this room
-                    # ─────────────────────────────────────────────────────────────
-                    room_url = job.get("room_url")
-                    if room_url:
-                        active_bot = await self._check_active_bot(room_url, job_logger)
-                        if active_bot:
-                            job_logger.warning(
-                                f"[operator] DUPLICATE REJECTED: Bot already active for room {room_url}",
-                                existing_job=active_bot.get("job_name"),
-                                existing_type=active_bot.get("type"),
-                                existing_session=active_bot.get("session_id"),
-                                new_session=job.get("sessionId"),
-                            )
-                            continue  # Skip this job - bot already running
-                    
                     # Try to dispatch to warm pool first
                     dispatched = await self.dispatch_to_warm_pool(job, job_logger)
                     if not dispatched:
@@ -413,7 +405,7 @@ class BotOperator:
                                 start_data = await resp.json()
                                 job_logger.info(f"[operator] Successfully dispatched to {runner_url}")
                                 # Mark room as active
-                                await self._mark_room_active(job.get("room_url"), {
+                                await self._mark_session_active(job, {
                                     "status": "running",
                                     "runner_url": runner_url,
                                     "session_id": start_data.get("sessionId"),
@@ -433,22 +425,28 @@ class BotOperator:
             job_logger.error(f"[operator] Error checking warm pool: {e}")
             return False
 
-    async def _mark_room_active(self, room_url: str, details: Dict[str, Any]):
-        """Update the room active lock in Redis."""
-        if not room_url:
+    async def _mark_session_active(self, job: Dict[str, Any], details: Dict[str, Any]):
+        """Update session active lock in Redis with per-user-session key."""
+        room_url = job.get("room_url")
+        tenant_id = (job.get("tenantId") or "").strip()
+        session_user_id = (job.get("sessionUserId") or "").strip()
+        session_id = (job.get("sessionId") or details.get("session_id") or "").strip()
+        if not room_url or not tenant_id or not session_user_id or not session_id:
             return
         try:
-            room_logger = logger.bind(roomUrl=room_url, sessionId=details.get("session_id"))
-            key = f"room_active:{room_url}"
+            room_logger = logger.bind(roomUrl=room_url, sessionId=session_id, userId=session_user_id)
+            key = f"user_session_bot:{tenant_id}:{session_user_id}:{session_id}"
+            keepalive_key = f"user_session_keepalive:{tenant_id}:{session_user_id}:{session_id}"
+            presence_key = f"room_presence:{tenant_id}:{room_url}:{session_user_id}:{session_id}"
             # Add timestamp
             details["timestamp"] = time.time()
-            # Set with no expiry (or long expiry like 24h to prevent infinite locks)
             await self.redis.set(key, json.dumps(details))
-            # Optional: Set a safety expiry of 24 hours
             await self.redis.expire(key, 86400)
-            room_logger.info(f"[operator] Marked room {room_url} as active: {details}")
+            await self.redis.setex(keepalive_key, 40, json.dumps({"timestamp": time.time(), "session_id": session_id}))
+            await self.redis.setex(presence_key, 300, json.dumps({"timestamp": time.time()}))
+            room_logger.info(f"[operator] Marked user session active: {key}")
         except Exception as e:
-            room_logger.error(f"[operator] Failed to mark room active: {e}")
+            room_logger.error(f"[operator] Failed to mark user session active: {e}")
 
     async def _check_active_bot(self, room_url: str, job_logger=None) -> Optional[Dict[str, Any]]:
         """
@@ -589,7 +587,7 @@ class BotOperator:
         job_name = f"bot-{job_id}"
         
         # Mark room as active immediately with job details
-        await self._mark_room_active(room_url, {
+        await self._mark_session_active(job, {
             "status": "running",
             "job_id": job_id,
             "job_name": job_name,

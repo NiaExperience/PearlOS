@@ -511,7 +511,7 @@
   .nia-daily-call-root .prejoin-title { font-size: 1.6rem; }
   .nia-daily-call-root .prejoin-subtitle { font-size: 0.9rem; }
   .nia-daily-call-root .prejoin-form { max-width: 100%; }
-  .nia-daily-call-root .prejoin-input { font-size: 0.9rem; padding: 10px 14px; }
+  .nia-daily-call-root .prejoin-input { font-size: 16px; padding: 10px 14px; }
   .nia-daily-call-root .prejoin-button { width: 100%; font-size: 0.95rem; padding: 12px 14px; }
 }
 
@@ -2577,7 +2577,7 @@
   border-radius: 12px;
   padding: 10px 14px;
   color: white;
-  font-size: 0.9rem;
+  font-size: 16px;
   transition: all 0.3s ease;
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.2),
@@ -3526,7 +3526,12 @@
 
 /* Mobile Panel Styles - Centered Modal Design */
 @media (max-width: 1024px) {
-  /* Chat Overlay - Centered Modal */
+  /* Chat Overlay - Centered Modal
+     Mobile note: use dvh (dynamic viewport) so the modal shrinks with the
+     visible area when the URL bar / keyboard is up. min-height removed —
+     a forced 400px floor would push content past the bottom on phones with
+     ~500px visible height + keyboard. max-height: 90dvh guarantees the
+     modal never exceeds the visible viewport. */
   .chat-overlay {
     position: fixed;
     top: 50%;
@@ -3535,9 +3540,8 @@
     bottom: auto;
     width: 88vw !important;
     max-width: 440px !important;
-    height: 55vh;
-    max-height: 480px;
-    min-height: 400px;
+    height: 55dvh;
+    max-height: min(480px, 90dvh);
     transform: translate(-50%, -50%) scale(0.95);
     opacity: 0;
     visibility: hidden;
@@ -3559,7 +3563,7 @@
     z-index: 1000;
   }
   
-  /* Participants Overlay - Centered Modal */
+  /* Participants Overlay - Centered Modal (see chat-overlay note above re: dvh) */
   .participants-overlay {
     position: fixed;
     top: 50%;
@@ -3568,9 +3572,8 @@
     bottom: auto;
     width: 86vw !important;
     max-width: 420px !important;
-    height: 50vh;
-    max-height: 400px;
-    min-height: 320px;
+    height: 50dvh;
+    max-height: min(400px, 90dvh);
     transform: translate(-50%, -50%) scale(0.95);
     opacity: 0;
     visibility: hidden;
@@ -3592,7 +3595,9 @@
     z-index: 1000;
   }
   
-  /* Settings Overlay - Centered Modal */
+  /* Settings Overlay - Centered Modal (see chat-overlay note above re: dvh).
+     Settings is the tallest of the three overlays; cap at 90dvh so Connection /
+     Audio sections at the bottom remain reachable on small phones. */
   .settings-overlay {
     position: fixed;
     top: 50%;
@@ -3601,9 +3606,8 @@
     bottom: auto;
     width: 88vw !important;
     max-width: 440px !important;
-    height: 60vh;
-    max-height: 520px;
-    min-height: 450px;
+    height: 60dvh;
+    max-height: min(520px, 90dvh);
     transform: translate(-50%, -50%) scale(0.95);
     opacity: 0;
     visibility: hidden;
@@ -3720,23 +3724,20 @@
 @media (max-width: 480px) {
   .chat-overlay {
     width: 92vw !important;
-    height: 50vh !important;
-    max-height: 420px !important;
-    min-height: 350px !important;
+    height: 50dvh !important;
+    max-height: min(420px, 90dvh) !important;
   }
-  
+
   .participants-overlay {
     width: 90vw !important;
-    height: 45vh !important;
-    max-height: 360px !important;
-    min-height: 280px !important;
+    height: 45dvh !important;
+    max-height: min(360px, 90dvh) !important;
   }
-  
+
   .settings-overlay {
     width: 92vw !important;
-    height: 55vh !important;
-    max-height: 460px !important;
-    min-height: 380px !important;
+    height: 55dvh !important;
+    max-height: min(460px, 90dvh) !important;
   }
   
   .chat-header h3,

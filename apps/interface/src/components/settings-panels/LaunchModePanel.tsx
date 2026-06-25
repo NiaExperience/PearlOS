@@ -8,36 +8,58 @@ import {
   CardHeader,
   CardTitle,
 } from '@interface/components/ui/card';
+import { useUserProfileOptional } from '@interface/contexts/user-profile-context';
+import { useResilientSession } from '@interface/hooks/use-resilient-session';
+import {
+  DEFAULT_LAUNCH_PREF,
+  getPearlOSPreferences,
+  LAUNCH_PREF_KEY,
+  LAST_MODE_KEY,
+  normalizeLaunchPref,
+  readLocalPreference,
+  type LaunchPref,
+  writeLocalPreference,
+} from '@interface/lib/pearlos-user-preferences';
 
 const FONT = { fontFamily: 'Gohufont, monospace' } as const;
-
-const LAUNCH_PREF_KEY = 'pearlos-launch-mode-preference';
-const LAST_MODE_KEY = 'pearlos-last-desktop-mode';
-
-type LaunchPref = 'auto' | 'home' | 'work';
 
 const OPTIONS: { value: LaunchPref; label: string; desc: string; icon: string }[] = [
   { value: 'auto', label: 'Auto', desc: 'Remember last screen used', icon: '🔄' },
   { value: 'home', label: 'Always Home', desc: 'Always launch into Home mode', icon: '🏠' },
-  { value: 'work', label: 'Always Desktop', desc: 'Always launch into Desktop mode', icon: '💼' },
+  { value: 'desktop', label: 'Always Desktop', desc: 'Always launch into Desktop mode', icon: '💼' },
 ];
 
 export function LaunchModePanel() {
-  const [pref, setPref] = useState<LaunchPref>('auto');
+  const profile = useUserProfileOptional();
+  const { data: session } = useResilientSession();
+  const userId = session?.user?.id ?? null;
+  const [pref, setPref] = useState<LaunchPref>(DEFAULT_LAUNCH_PREF);
   const [lastMode, setLastMode] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(LAUNCH_PREF_KEY);
-    if (stored === 'auto' || stored === 'home' || stored === 'work') {
-      setPref(stored);
+    if (profile?.loading) return;
+
+    const prefs = getPearlOSPreferences(profile?.privateMemory);
+    const profilePref = normalizeLaunchPref(prefs.launchModePreference);
+    const localPref = normalizeLaunchPref(readLocalPreference(LAUNCH_PREF_KEY, userId));
+    const nextPref = profilePref ?? localPref ?? DEFAULT_LAUNCH_PREF;
+    setPref(nextPref);
+    if (localPref === 'desktop' && readLocalPreference(LAUNCH_PREF_KEY, userId) === 'work') {
+      writeLocalPreference(LAUNCH_PREF_KEY, 'desktop', userId);
     }
-    setLastMode(localStorage.getItem(LAST_MODE_KEY));
-  }, []);
+
+    setLastMode(
+      typeof prefs.lastDesktopMode === 'string'
+        ? prefs.lastDesktopMode
+        : readLocalPreference(LAST_MODE_KEY, userId)
+    );
+  }, [profile?.loading, profile?.privateMemory, userId]);
 
   const handleChange = (val: LaunchPref) => {
     setPref(val);
-    localStorage.setItem(LAUNCH_PREF_KEY, val);
+    writeLocalPreference(LAUNCH_PREF_KEY, val, userId);
+    profile?.updatePearlOSPreferences({ launchModePreference: val });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

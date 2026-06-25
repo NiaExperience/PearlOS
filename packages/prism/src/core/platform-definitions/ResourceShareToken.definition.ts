@@ -20,7 +20,7 @@ export const ResourceShareTokenDefinition: IDynamicContent = {
           token: { type: 'string' },
           assistantName: { type: 'string' },
           resourceId: { type: 'string' },
-          resourceType: { type: 'string', enum: ['HtmlGeneration', 'Notes'] },
+          resourceType: { type: 'string', enum: ['HtmlGeneration', 'Apps', 'Notes', 'DailyCallRoom', 'Sprite'] },
           role: { type: 'string', enum: ['viewer', 'member'] },
           createdBy: { type: 'string' },
           tenantId: { type: 'string' },
@@ -30,6 +30,7 @@ export const ResourceShareTokenDefinition: IDynamicContent = {
             items: { type: 'string' }
           },
           maxRedemptions: { type: 'number' },
+          targetMode: { type: 'string' },
           isActive: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' }

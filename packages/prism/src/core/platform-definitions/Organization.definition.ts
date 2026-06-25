@@ -31,7 +31,7 @@ export const OrganizationDefinition: IDynamicContent = {
             type: 'object',
             additionalProperties: {
               type: 'string',
-              enum: ['Notes', 'HtmlGeneration']
+              enum: ['Notes', 'HtmlGeneration', 'Apps', 'DailyCallRoom', 'Sprite']
             }
           }
         },

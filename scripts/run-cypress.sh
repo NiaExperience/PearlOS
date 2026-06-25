@@ -2,9 +2,9 @@
 
 # Check if we're actually running Cypress commands
 if [[ "$1" == "cypress" ]]; then
-    # Run Cypress with config from tests/
+    # Run Cypress
     echo "Running Cypress..."
-    npx cypress "${@:2}" --config-file tests/cypress.config.js
+    npx cypress "${@:2}"
 
     echo "Cypress run completed."
 else

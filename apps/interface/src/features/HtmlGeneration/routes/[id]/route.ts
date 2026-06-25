@@ -206,10 +206,10 @@ export async function DELETE_impl(
       );
     }
 
-    // CRITICAL: tenantId must come from the assistant, NOT the user
-    // Get assistantName from query params or body
+    // CRITICAL: tenantId must come from the assistant, NOT the user.
+    // Accept both names used by the Studio clients.
     const url = new URL(request.url);
-    const assistantName = url.searchParams.get('assistantName');
+    const assistantName = url.searchParams.get('assistantName') || url.searchParams.get('agent');
     
     if (!assistantName) {
       return NextResponse.json(

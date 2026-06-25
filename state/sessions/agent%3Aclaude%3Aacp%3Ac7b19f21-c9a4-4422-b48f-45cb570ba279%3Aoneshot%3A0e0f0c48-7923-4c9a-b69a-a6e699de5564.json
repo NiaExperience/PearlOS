@@ -1,0 +1,850 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:claude:acp:c7b19f21-c9a4-4422-b48f-45cb570ba279:oneshot:0e0f0c48-7923-4c9a-b69a-a6e699de5564",
+  "acp_session_id": "cda3e3d2-dd6d-4522-a37c-c68aa14700f0",
+  "agent_command": "npx -y @agentclientprotocol/claude-agent-acp@^0.25.0",
+  "cwd": "/workspace/nia-universal/claude",
+  "name": "agent:claude:acp:c7b19f21-c9a4-4422-b48f-45cb570ba279",
+  "created_at": "2026-04-22T05:26:30.057Z",
+  "last_used_at": "2026-04-22T05:28:41.004Z",
+  "last_seq": 0,
+  "last_request_id": "e182ad07-058f-4ab4-8b5c-b9de40ef3721",
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Aclaude%3Aacp%3Ac7b19f21-c9a4-4422-b48f-45cb570ba279%3Aoneshot%3A0e0f0c48-7923-4c9a-b69a-a6e699de5564.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": true,
+  "closed_at": "2026-04-22T05:28:44.655Z",
+  "pid": 3201249,
+  "agent_started_at": "2026-04-22T05:26:30.223Z",
+  "last_prompt_at": "2026-04-22T05:26:39.482Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "_meta": {
+      "claudeCode": {
+        "promptQueueing": true
+      }
+    },
+    "promptCapabilities": {
+      "image": true,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": true
+    },
+    "loadSession": true,
+    "sessionCapabilities": {
+      "fork": {},
+      "list": {},
+      "resume": {},
+      "close": {}
+    }
+  },
+  "title": null,
+  "messages": [
+    {
+      "User": {
+        "id": "cb08535f-c7f8-4b42-9009-42932fe08806",
+        "content": [
+          {
+            "Text": "[Wed 2026-04-22 05:26 UTC] Task: Build Playwright screenshot script for QA\n\nRequirements:\n- Auth via DASHBOARD_ADMIN_EMAIL/PASSWORD from .env\n- Navigate to localhost:3000\n- Screenshot ActiveJobsWidget\n- Save to /workspace/nia-universal/qa/screenshots/\n\nWrite script: /workspace/nia-universal/scripts/qa-screenshot.ts"
+          }
+        ]
+      }
+    },
+    {
+      "Agent": {
+        "content": [
+          {
+            "Thinking": {
+              "text": "Let me understand the task: build a Playwright screenshot script that authenticates and captures a screenshot of the ActiveJobsWidget. Let me first explore the codebase to understand the existing setup.",
+              "signature": null
+            }
+          },
+          {
+            "Text": "Let me gather context on the existing setup first."
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_0125qcmaKNGABvZ6ZNu5Y96D",
+              "name": "Explore Playwright and widget setup",
+              "raw_input": "{\"subagent_type\":\"Explore\",\"description\":\"Explore Playwright and widget setup\",\"prompt\":\"I need to write a Playwright screenshot script. Find:\\n1. Any existing Playwright config (playwright.config.ts or similar)\\n2. The ActiveJobsWidget component - where it lives, what selector/test-id it uses\\n3. Any existing .env or .env.example files at the repo root that show DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD\\n4. Any existing login/auth flow in the dashboard app (apps/dashboard) - how does login work, what's the login page URL/form structure\\n5. Any existing scripts in /workspace/nia-universal/scripts/\\n\\nSearch in /workspace/nia-universal. Be thorough - check apps/dashboard and apps/interface for the widget and auth patterns.\"}",
+              "input": {
+                "subagent_type": "Explore",
+                "description": "Explore Playwright and widget setup",
+                "prompt": "I need to write a Playwright screenshot script. Find:\n1. Any existing Playwright config (playwright.config.ts or similar)\n2. The ActiveJobsWidget component - where it lives, what selector/test-id it uses\n3. Any existing .env or .env.example files at the repo root that show DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD\n4. Any existing login/auth flow in the dashboard app (apps/dashboard) - how does login work, what's the login page URL/form structure\n5. Any existing scripts in /workspace/nia-universal/scripts/\n\nSearch in /workspace/nia-universal. Be thorough - check apps/dashboard and apps/interface for the widget and auth patterns."
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01JiJMmjf7gsygda8kmCo3Us",
+              "name": "Find `/workspace/nia-universal` `**/playwright.config.ts`",
+              "raw_input": "{\"pattern\":\"**/playwright.config.ts\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/playwright.config.ts",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01TenF3vs2HFqPJRfLqggapD",
+              "name": "Find `/workspace/nia-universal` `**/.env*`",
+              "raw_input": "{\"pattern\":\"**/.env*\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/.env*",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01BEGn1e3tWoEDuRNyVsVufs",
+              "name": "Find `/workspace/nia-universal` `**/ActiveJobsWidget*`",
+              "raw_input": "{\"pattern\":\"**/ActiveJobsWidget*\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/ActiveJobsWidget*",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_012r1fj1kihZT9QdCS8qc46P",
+              "name": "find /workspace/nia-universal/scripts -type f 2>/dev/null | head -20",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/scripts -type f 2>/dev/null | head -20\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/scripts -type f 2>/dev/null | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_011wZLmJcWP6Gn3ArgzjD2Ck",
+              "name": "Read /workspace/nia-universal/tests/e2e/playwright.config.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/tests/e2e/playwright.config.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/tests/e2e/playwright.config.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_017f3TeV5U6KRAYnau5ZZQpy",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01GTUZrkE6WAHAWM81YStYTN",
+              "name": "Read /workspace/nia-universal/.env.local",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/.env.local\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/.env.local"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01WHHMU1koizF31XxUhLSmbB",
+              "name": "Read /workspace/nia-universal/.env.production.template",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/.env.production.template\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/.env.production.template"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_012dxFJ2JFGgt9LFZ3beXz45",
+              "name": "Read /workspace/nia-universal/apps/dashboard/.env.local",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/dashboard/.env.local\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/dashboard/.env.local"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VyAMM4YLtc8jJqCVVsB59N",
+              "name": "Read /workspace/nia-universal/scripts/qa-screenshot.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/scripts/qa-screenshot.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/scripts/qa-screenshot.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01UvzADxgmk4PCtyRRxkMvtC",
+              "name": "Find `/workspace/nia-universal` `**/apps/dashboard/src/**/*auth*`",
+              "raw_input": "{\"pattern\":\"**/apps/dashboard/src/**/*auth*\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/apps/dashboard/src/**/*auth*",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Tgxz9BWt3Ji34apSdCGc1X",
+              "name": "Find `/workspace/nia-universal` `**/apps/dashboard/src/**/*login*`",
+              "raw_input": "{\"pattern\":\"**/apps/dashboard/src/**/*login*\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/apps/dashboard/src/**/*login*",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Cz7EXjfB1sxwy9GoYeLv5m",
+              "name": "find /workspace/nia-universal/apps/dashboard -name \"page.tsx\" -o -name \"page.ts\" | head -20",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/apps/dashboard -name \\\"page.tsx\\\" -o -name \\\"page.ts\\\" | head -20\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/apps/dashboard -name \"page.tsx\" -o -name \"page.ts\" | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01QyQzTokgC4pMUaLhVqJuz1",
+              "name": "Read /workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01GcZrAUxbEZg3b1aisPSvUk",
+              "name": "Read /workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_018Mmf5QRMCkBqnunSx9dKQm",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01QjYksF5URKBsjhWuJG9RQQ",
+              "name": "grep -r \"email-input\\|password-input\" /workspace/nia-universal/apps/dashboard --include=\"*.tsx\" --include=\"*.ts\" | head -20",
+              "raw_input": "{\"command\":\"grep -r \\\"email-input\\\\|password-input\\\" /workspace/nia-universal/apps/dashboard --include=\\\"*.tsx\\\" --include=\\\"*.ts\\\" | head -20\"}",
+              "input": {
+                "command": "grep -r \"email-input\\|password-input\" /workspace/nia-universal/apps/dashboard --include=\"*.tsx\" --include=\"*.ts\" | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_015r9ssK2GAFacaKh2E8YRcA",
+              "name": "grep \"data-testid|id=.*input\" /workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+              "raw_input": "{\"pattern\":\"data-testid|id=.*input\",\"path\":\"/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx\",\"output_mode\":\"content\"}",
+              "input": {
+                "pattern": "data-testid|id=.*input",
+                "path": "/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+                "output_mode": "content"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_019vknXwP5WCwjrVMVHhivZp",
+              "name": "find /workspace/nia-universal/apps/interface/src -type f -name \"*.tsx\" | grep -i \"root\\|layout\\|app\" | head -10",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/apps/interface/src -type f -name \\\"*.tsx\\\" | grep -i \\\"root\\\\|layout\\\\|app\\\" | head -10\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/apps/interface/src -type f -name \"*.tsx\" | grep -i \"root\\|layout\\|app\" | head -10"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_0139TyC6HyKPfNuToGS26Gb9",
+              "name": "find /workspace/nia-universal/apps/interface/src/app -maxdepth 2 -type f -name \"*.tsx\" | head -5",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/apps/interface/src/app -maxdepth 2 -type f -name \\\"*.tsx\\\" | head -5\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/apps/interface/src/app -maxdepth 2 -type f -name \"*.tsx\" | head -5"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VV6VtB2JmuCh46zyqVpJxF",
+              "name": "ls -la /workspace/nia-universal/apps/interface/src/app/ | head -20",
+              "raw_input": "{\"command\":\"ls -la /workspace/nia-universal/apps/interface/src/app/ | head -20\"}",
+              "input": {
+                "command": "ls -la /workspace/nia-universal/apps/interface/src/app/ | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Gbmfzg9AaSACQq77Va1UqS",
+              "name": "grep -l \"ActiveJobsWidgetGate\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"ActiveJobsWidgetGate\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "ActiveJobsWidgetGate",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01VZLuEgmdLYyKWKRPUU8xLr",
+              "name": "Read /workspace/nia-universal/apps/interface/src/app/layout.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/layout.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/layout.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01JQLxafs7kA7BhXF4FFqhMq",
+              "name": "ls -la /workspace/nia-universal/apps/interface/src/app/login/",
+              "raw_input": "{\"command\":\"ls -la /workspace/nia-universal/apps/interface/src/app/login/\"}",
+              "input": {
+                "command": "ls -la /workspace/nia-universal/apps/interface/src/app/login/"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01KZJSaJNgMxxTHgNwpmFtut",
+              "name": "Read /workspace/nia-universal/tests/e2e/playwright.config.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/tests/e2e/playwright.config.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/tests/e2e/playwright.config.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "Text": "There's already a `qa-screenshot.ts` script. Let me read it and the login form to understand what needs fixing or rewriting."
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01EVRMBeQnAnMFS8Cdu7WPcW",
+              "name": "Read /workspace/nia-universal/scripts/qa-screenshot.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/scripts/qa-screenshot.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/scripts/qa-screenshot.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01S35NThAmSB1GUuKLtcVy8C",
+              "name": "Read /workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_015cpQs1HPWaJiJis5qzRZWt",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "Thinking": {
+              "text": "The existing script looks good but has issues with the login form selectors. The login form doesn't have `#email-input` or `#password-input` IDs — it uses React Hook Form with shadcn/ui Input components. The login page is at `/dashboard/login`, not `/login`.\n\nLet me check what the Interface app's login page looks like (the script navigates to localhost:3000/login).",
+              "signature": null
+            }
+          },
+          {
+            "Text": "Let me check the Interface app's login route since the script targets port 3000, not the dashboard."
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01M4q1SsgZMrS8T7YWXGp2Yg",
+              "name": "Find `/workspace/nia-universal` `apps/interface/src/app/**/login/**/page.{tsx,ts,jsx}`",
+              "raw_input": "{\"pattern\":\"apps/interface/src/app/**/login/**/page.{tsx,ts,jsx}\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "apps/interface/src/app/**/login/**/page.{tsx,ts,jsx}",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01MKqWPnSaLCJvFwJV291AMF",
+              "name": "Find `/workspace/nia-universal` `apps/interface/src/app/login/**`",
+              "raw_input": "{\"pattern\":\"apps/interface/src/app/login/**\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "apps/interface/src/app/login/**",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01WAjVVazMMASTvs33tF6uts",
+              "name": "grep -l --include=\"apps/interface/src/app/**/page.{tsx,ts}\" \"/login\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"/login\",\"glob\":\"apps/interface/src/app/**/page.{tsx,ts}\",\"path\":\"/workspace/nia-universal\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "/login",
+                "glob": "apps/interface/src/app/**/page.{tsx,ts}",
+                "path": "/workspace/nia-universal",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_015bQw77f4x3Yp2FJuDwa6oG",
+              "name": "grep -i -l --include=\"apps/interface/src/app/**/page.{tsx,ts}\" \"login|signin|sign-in\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"login|signin|sign-in\",\"glob\":\"apps/interface/src/app/**/page.{tsx,ts}\",\"path\":\"/workspace/nia-universal\",\"output_mode\":\"files_with_matches\",\"-i\":true}",
+              "input": {
+                "pattern": "login|signin|sign-in",
+                "glob": "apps/interface/src/app/**/page.{tsx,ts}",
+                "path": "/workspace/nia-universal",
+                "output_mode": "files_with_matches",
+                "-i": true
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "Text": "The Interface app (port 3000) doesn't have its own login page — it uses the Dashboard login at `/dashboard/login`. The existing script has two issues:\n\n1. **Wrong login URL**: navigates to `/login` instead of `/dashboard/login`\n2. **Wrong selectors**: uses `#email-input` / `#password-input` which don't exist in the form\n\nLet me fix the script. The login form uses React Hook Form with placeholder-based inputs — I'll use robust label/placeholder selectors."
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Et4sMnA2AgSS3JRkY1pjPw",
+              "name": "Write",
+              "raw_input": "{}",
+              "input": {},
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          }
+        ],
+        "tool_results": {
+          "toolu_0125qcmaKNGABvZ6ZNu5Y96D": {
+            "tool_use_id": "toolu_0125qcmaKNGABvZ6ZNu5Y96D",
+            "tool_name": "Explore Playwright and widget setup",
+            "is_error": false,
+            "content": {
+              "Text": "[{\"type\":\"text\",\"text\":\"Perfect! I have all the information needed. Let me compile my findings:\\n\\n## Summary of Findings\\n\\n### 1. **Playwright Config**\\n- **Location**: `/workspace/nia-universal/tests/e2e/playwright.config.ts`\\n- **Key Details**:\\n  - Base URL: Uses `PEARLOS_URL` env var (defaults to `http://localhost:3000`)\\n  - Timeout: 60 seconds\\n  - Retries: 1\\n  - Screenshots: Only on failure\\n  - Trace: On first retry\\n  - Browser: Chromium\\n\\n### 2. **ActiveJobsWidget Component**\\n- **Source File**: `/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx`\\n- **Mounted In**: `/workspace/nia-universal/apps/interface/src/app/layout.tsx` via `ActiveJobsWidgetGate`\\n- **Key Identifiers**:\\n  - **Font-face ID**: `gohufont-active-jobs` (injected as a style tag with id when component mounts)\\n  - **No data-testid** on the widget itself\\n  - **Characteristic**: Injects a style element with id `gohufont-active-jobs`\\n  - **Access Pattern**: The widget is a client-side component that mounts after hydration\\n  - **Hidden on**: Login/signup pages (via `ActiveJobsWidgetGate` check)\\n\\n### 3. **Environment Variables**\\n**Location**: `/workspace/nia-universal/.env.local` (root-level)\\n- `DASHBOARD_ADMIN_EMAIL=dev@niaxp.com`\\n- `DASHBOARD_ADMIN_PASSWORD=harbour`\\n- `DASHBOARD_ADMIN_USERNAME=admin`\\n- `PEARLOS_URL=http://localhost:3000` (can be overridden, defaults to localhost:3000)\\n\\n### 4. **Dashboard Login Flow**\\n**Login Page**: `/dashboard/login`\\n- **Router**: `/workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx`\\n- **Form Component**: `/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx`\\n- **Form Structure**:\\n  - Email input field: Uses React Hook Form, field name is `email` (no explicit id set, but wrapped in Input component)\\n  - Password input field: field name is `password` (no explicit id set, but wrapped in Input component)\\n  - Submit button: type=\\\"submit\\\" inside a `<form>` element\\n  - **Strategy for Playwright**: The form uses React Hook Form, so selectors should target:\\n    - Input fields by their position in the form or by finding inputs in the form\\n    - The submit button with `button[type=\\\"submit\\\"]` or text content \\\"Sign In\\\"\\n\\n**Authentication**: Uses NextAuth with credentials provider\\n- Callback URL after login: `/dashboard/assistants`\\n- Role-based access check: User must have `admin` or `owner` role\\n\\n**Note**: The qa-screenshot.ts script tries these selectors:\\n  - `#email-input`\\n  - `#password-input`\\n  - These IDs are **not explicitly present** in the current LoginForm component, but the script has fallback selectors\\n\\n### 5. **Existing Scripts**\\n**Location**: `/workspace/nia-universal/scripts/`\\n\\nKey files:\\n- **`qa-screenshot.ts`**: Existing Playwright script that:\\n  - Authenticates via login form (uses `#email-input` and `#password-input` IDs)\\n  - Waits for ActiveJobsWidget by checking for `gohufont-active-jobs` style tag\\n  - Takes full-page and targeted widget screenshots\\n  - Saves to `/qa/screenshots/` directory\\n  - Uses environment variables `DASHBOARD_ADMIN_EMAIL`, `DASHBOARD_ADMIN_PASSWORD`, `PEARLOS_URL`\\n\\nOther scripts include:\\n- `validate-env.ts`, `sync-local-env.ts`, `seed-db.ts`, health check scripts, etc.\\n\\n---\\n\\n## Key Takeaway for Your Script\\n\\nTo write your Playwright screenshot script:\\n\\n1. **Target the Interface app** (port 3000) for the ActiveJobsWidget - NOT the Dashboard app\\n2. **Login credentials** are in root `.env.local`: `dev@niaxp.com` / `harbour`\\n3. **Widget detection**: Wait for `document.getElementById('gohufont-active-jobs')` style tag to appear\\n4. **Existing reference**: Study `/workspace/nia-universal/scripts/qa-screenshot.ts` - it already does most of what you need\\n5. **Form selectors** for the Dashboard login: Use React Hook Form field names or find inputs by their text labels if IDs aren't available\"}]"
+            },
+            "output": [
+              {
+                "type": "text",
+                "text": "Perfect! I have all the information needed. Let me compile my findings:\n\n## Summary of Findings\n\n### 1. **Playwright Config**\n- **Location**: `/workspace/nia-universal/tests/e2e/playwright.config.ts`\n- **Key Details**:\n  - Base URL: Uses `PEARLOS_URL` env var (defaults to `http://localhost:3000`)\n  - Timeout: 60 seconds\n  - Retries: 1\n  - Screenshots: Only on failure\n  - Trace: On first retry\n  - Browser: Chromium\n\n### 2. **ActiveJobsWidget Component**\n- **Source File**: `/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx`\n- **Mounted In**: `/workspace/nia-universal/apps/interface/src/app/layout.tsx` via `ActiveJobsWidgetGate`\n- **Key Identifiers**:\n  - **Font-face ID**: `gohufont-active-jobs` (injected as a style tag with id when component mounts)\n  - **No data-testid** on the widget itself\n  - **Characteristic**: Injects a style element with id `gohufont-active-jobs`\n  - **Access Pattern**: The widget is a client-side component that mounts after hydration\n  - **Hidden on**: Login/signup pages (via `ActiveJobsWidgetGate` check)\n\n### 3. **Environment Variables**\n**Location**: `/workspace/nia-universal/.env.local` (root-level)\n- `DASHBOARD_ADMIN_EMAIL=dev@niaxp.com`\n- `DASHBOARD_ADMIN_PASSWORD=harbour`\n- `DASHBOARD_ADMIN_USERNAME=admin`\n- `PEARLOS_URL=http://localhost:3000` (can be overridden, defaults to localhost:3000)\n\n### 4. **Dashboard Login Flow**\n**Login Page**: `/dashboard/login`\n- **Router**: `/workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx`\n- **Form Component**: `/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx`\n- **Form Structure**:\n  - Email input field: Uses React Hook Form, field name is `email` (no explicit id set, but wrapped in Input component)\n  - Password input field: field name is `password` (no explicit id set, but wrapped in Input component)\n  - Submit button: type=\"submit\" inside a `<form>` element\n  - **Strategy for Playwright**: The form uses React Hook Form, so selectors should target:\n    - Input fields by their position in the form or by finding inputs in the form\n    - The submit button with `button[type=\"submit\"]` or text content \"Sign In\"\n\n**Authentication**: Uses NextAuth with credentials provider\n- Callback URL after login: `/dashboard/assistants`\n- Role-based access check: User must have `admin` or `owner` role\n\n**Note**: The qa-screenshot.ts script tries these selectors:\n  - `#email-input`\n  - `#password-input`\n  - These IDs are **not explicitly present** in the current LoginForm component, but the script has fallback selectors\n\n### 5. **Existing Scripts**\n**Location**: `/workspace/nia-universal/scripts/`\n\nKey files:\n- **`qa-screenshot.ts`**: Existing Playwright script that:\n  - Authenticates via login form (uses `#email-input` and `#password-input` IDs)\n  - Waits for ActiveJobsWidget by checking for `gohufont-active-jobs` style tag\n  - Takes full-page and targeted widget screenshots\n  - Saves to `/qa/screenshots/` directory\n  - Uses environment variables `DASHBOARD_ADMIN_EMAIL`, `DASHBOARD_ADMIN_PASSWORD`, `PEARLOS_URL`\n\nOther scripts include:\n- `validate-env.ts`, `sync-local-env.ts`, `seed-db.ts`, health check scripts, etc.\n\n---\n\n## Key Takeaway for Your Script\n\nTo write your Playwright screenshot script:\n\n1. **Target the Interface app** (port 3000) for the ActiveJobsWidget - NOT the Dashboard app\n2. **Login credentials** are in root `.env.local`: `dev@niaxp.com` / `harbour`\n3. **Widget detection**: Wait for `document.getElementById('gohufont-active-jobs')` style tag to appear\n4. **Existing reference**: Study `/workspace/nia-universal/scripts/qa-screenshot.ts` - it already does most of what you need\n5. **Form selectors** for the Dashboard login: Use React Hook Form field names or find inputs by their text labels if IDs aren't available"
+              }
+            ]
+          },
+          "toolu_01JiJMmjf7gsygda8kmCo3Us": {
+            "tool_use_id": "toolu_01JiJMmjf7gsygda8kmCo3Us",
+            "tool_name": "Find `/workspace/nia-universal` `**/playwright.config.ts`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/tests/e2e/playwright.config.ts\n/workspace/nia-universal/tests/visual-regression/playwright.config.ts"
+            },
+            "output": "/workspace/nia-universal/tests/e2e/playwright.config.ts\n/workspace/nia-universal/tests/visual-regression/playwright.config.ts"
+          },
+          "toolu_01TenF3vs2HFqPJRfLqggapD": {
+            "tool_use_id": "toolu_01TenF3vs2HFqPJRfLqggapD",
+            "tool_name": "Find `/workspace/nia-universal` `**/.env*`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/node_modules/dotenv-cli/.env\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/.env.local.bak\n/workspace/nia-universal/apps/mesh/.env\n/workspace/nia-universal/apps/dashboard/.env.local\n/workspace/nia-universal/packages/msam/.env\n/workspace/nia-universal/apps/pipecat-daily-bot/ui/.env\n/workspace/nia-universal/apps/mesh/.env.example\n/workspace/nia-universal/apps/mesh/.env.cache.example\n/workspace/nia-universal/archive/core/nia-chat-agent/.env.example\n/workspace/nia-universal/apps/interface/.env.dev.local\n/workspace/nia-universal/apps/interface/.env.local.bak\n/workspace/nia-universal/apps/mesh/.env.local\n/workspace/nia-universal/apps/pipecat-daily-bot/.env\n/workspace/nia-universal/.env.local\n/workspace/nia-universal/.env.production.template\n/workspace/nia-universal/apps/pipecat-daily-bot/.env.backup.20260216_230337\n/workspace/nia-universal/apps/pipecat-daily-bot/.env.backup-pre-gold-restore-2026-03-06\n/workspace/nia-universal/apps/pipecat-daily-bot/.env.backup-20260222-192417\n/workspace/nia-universal/packages/msam/.env.example\n/workspace/nia-universal/apps/interface/.env.local"
+            },
+            "output": "/workspace/nia-universal/node_modules/dotenv-cli/.env\n/workspace/nia-universal/apps/pipecat-daily-bot/bot/.env.local.bak\n/workspace/nia-universal/apps/mesh/.env\n/workspace/nia-universal/apps/dashboard/.env.local\n/workspace/nia-universal/packages/msam/.env\n/workspace/nia-universal/apps/pipecat-daily-bot/ui/.env\n/workspace/nia-universal/apps/mesh/.env.example\n/workspace/nia-universal/apps/mesh/.env.cache.example\n/workspace/nia-universal/archive/core/nia-chat-agent/.env.example\n/workspace/nia-universal/apps/interface/.env.dev.local\n/workspace/nia-universal/apps/interface/.env.local.bak\n/workspace/nia-universal/apps/mesh/.env.local\n/workspace/nia-universal/apps/pipecat-daily-bot/.env\n/workspace/nia-universal/.env.local\n/workspace/nia-universal/.env.production.template\n/workspace/nia-universal/apps/pipecat-daily-bot/.env.backup.20260216_230337\n/workspace/nia-universal/apps/pipecat-daily-bot/.env.backup-pre-gold-restore-2026-03-06\n/workspace/nia-universal/apps/pipecat-daily-bot/.env.backup-20260222-192417\n/workspace/nia-universal/packages/msam/.env.example\n/workspace/nia-universal/apps/interface/.env.local"
+          },
+          "toolu_01BEGn1e3tWoEDuRNyVsVufs": {
+            "tool_use_id": "toolu_01BEGn1e3tWoEDuRNyVsVufs",
+            "tool_name": "Find `/workspace/nia-universal` `**/ActiveJobsWidget*`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.d.ts\n/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.d.ts.map\n/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.jsx\n/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.jsx.map\n/workspace/nia-universal/coverage/lcov-report/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx.html\n/workspace/nia-universal/coverage/lcov-report/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx.html\n/workspace/nia-universal/coverage/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx.html\n/workspace/nia-universal/coverage/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx.html\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.d.ts\n/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.d.ts.map\n/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.jsx\n/workspace/nia-universal/apps/interface/dist/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.jsx.map\n/workspace/nia-universal/coverage/lcov-report/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx.html\n/workspace/nia-universal/coverage/lcov-report/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx.html\n/workspace/nia-universal/coverage/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx.html\n/workspace/nia-universal/coverage/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx.html\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+          },
+          "toolu_012r1fj1kihZT9QdCS8qc46P": {
+            "tool_use_id": "toolu_012r1fj1kihZT9QdCS8qc46P",
+            "tool_name": "find /workspace/nia-universal/scripts -type f 2>/dev/null | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/scripts/qa-screenshot.ts\n/workspace/nia-universal/scripts/health-loop.sh\n/workspace/nia-universal/scripts/web-chat-health-check.js\n/workspace/nia-universal/scripts/web-chat-health-check.sh\n/workspace/nia-universal/scripts/validate-voice-config.sh\n/workspace/nia-universal/scripts/validate-env.ts\n/workspace/nia-universal/scripts/validate-email.mjs\n/workspace/nia-universal/scripts/uninstall-all.sh\n/workspace/nia-universal/scripts/uninstall-all.ps1\n/workspace/nia-universal/scripts/test-voice-pipeline.sh\n/workspace/nia-universal/scripts/test-openclaw-pearlos.sh\n/workspace/nia-universal/scripts/test-new-setup-dry-run.sh\n/workspace/nia-universal/scripts/test-mig-elevenlabs.ts\n/workspace/nia-universal/scripts/sync-local-env.ts\n/workspace/nia-universal/scripts/stop-all.ts\n/workspace/nia-universal/scripts/start-chorus-tts.sh\n/workspace/nia-universal/scripts/setup-wizard-ui.mjs\n/workspace/nia-universal/scripts/setup-env.mjs\n/workspace/nia-universal/scripts/seed-db.ts\n/workspace/nia-universal/scripts/seed-all-functional-prompts.ts"
+            },
+            "output": "/workspace/nia-universal/scripts/qa-screenshot.ts\n/workspace/nia-universal/scripts/health-loop.sh\n/workspace/nia-universal/scripts/web-chat-health-check.js\n/workspace/nia-universal/scripts/web-chat-health-check.sh\n/workspace/nia-universal/scripts/validate-voice-config.sh\n/workspace/nia-universal/scripts/validate-env.ts\n/workspace/nia-universal/scripts/validate-email.mjs\n/workspace/nia-universal/scripts/uninstall-all.sh\n/workspace/nia-universal/scripts/uninstall-all.ps1\n/workspace/nia-universal/scripts/test-voice-pipeline.sh\n/workspace/nia-universal/scripts/test-openclaw-pearlos.sh\n/workspace/nia-universal/scripts/test-new-setup-dry-run.sh\n/workspace/nia-universal/scripts/test-mig-elevenlabs.ts\n/workspace/nia-universal/scripts/sync-local-env.ts\n/workspace/nia-universal/scripts/stop-all.ts\n/workspace/nia-universal/scripts/start-chorus-tts.sh\n/workspace/nia-universal/scripts/setup-wizard-ui.mjs\n/workspace/nia-universal/scripts/setup-env.mjs\n/workspace/nia-universal/scripts/seed-db.ts\n/workspace/nia-universal/scripts/seed-all-functional-prompts.ts"
+          },
+          "toolu_011wZLmJcWP6Gn3ArgzjD2Ck": {
+            "tool_use_id": "toolu_011wZLmJcWP6Gn3ArgzjD2Ck",
+            "tool_name": "Read /workspace/nia-universal/tests/e2e/playwright.config.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { defineConfig } from '@playwright/test';\n2\t\n3\texport default defineConfig({\n4\t  testDir: '.',\n5\t  timeout: 60_000,\n6\t  retries: 1,\n7\t  outputDir: './test-results',\n8\t  use: {\n9\t    baseURL: process.env.PEARLOS_URL ?? 'http://localhost:3000',\n10\t    headless: true,\n11\t    screenshot: 'only-on-failure',\n12\t    trace: 'on-first-retry',\n13\t  },\n14\t  reporter: [['list']],\n15\t  projects: [\n16\t    {\n17\t      name: 'chromium',\n18\t      use: { browserName: 'chromium' },\n19\t    },\n20\t  ],\n21\t});\n22\t"
+            },
+            "output": "1\timport { defineConfig } from '@playwright/test';\n2\t\n3\texport default defineConfig({\n4\t  testDir: '.',\n5\t  timeout: 60_000,\n6\t  retries: 1,\n7\t  outputDir: './test-results',\n8\t  use: {\n9\t    baseURL: process.env.PEARLOS_URL ?? 'http://localhost:3000',\n10\t    headless: true,\n11\t    screenshot: 'only-on-failure',\n12\t    trace: 'on-first-retry',\n13\t  },\n14\t  reporter: [['list']],\n15\t  projects: [\n16\t    {\n17\t      name: 'chromium',\n18\t      use: { browserName: 'chromium' },\n19\t    },\n20\t  ],\n21\t});\n22\t"
+          },
+          "toolu_017f3TeV5U6KRAYnau5ZZQpy": {
+            "tool_use_id": "toolu_017f3TeV5U6KRAYnau5ZZQpy",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+          },
+          "toolu_01GTUZrkE6WAHAWM81YStYTN": {
+            "tool_use_id": "toolu_01GTUZrkE6WAHAWM81YStYTN",
+            "tool_name": "Read /workspace/nia-universal/.env.local",
+            "is_error": false,
+            "content": {
+              "Text": "1\t# Database\n2\tDATABASE_URL=postgresql://doadmin:AVNS_VexOkV7ulF8eTkrVbPx@pearlos-postgres-do-user-35386841-0.d.db.ondigitalocean.com:25060/defaultdb?sslmode=require\n3\tPOSTGRES_HOST=pearlos-postgres-do-user-35386841-0.d.db.ondigitalocean.com\n4\tPOSTGRES_PORT=25060\n5\tPOSTGRES_USER=doadmin\n6\tPOSTGRES_PASSWORD=AVNS_VexOkV7ulF8eTkrVbPx\n7\tPOSTGRES_DB=defaultdb\n8\t\n9\t# Redis\n10\tUSE_REDIS=true\n11\t\n12\t# Auth\n13\tNEXTAUTH_SECRET=Ow5+xhInwDlvnewfgZwWyPEr2Cs8JpQXV1m8o0e9k2s=\n14\tNEXTAUTH_INTERFACE_URL=http://localhost:3000\n15\tNEXTAUTH_DASHBOARD_URL=http://localhost:4000\n16\tDISABLE_DASHBOARD_AUTH=false\n17\tTOKEN_ENCRYPTION_KEY=LlNAqdYx4+zPrjD9JrND68RE8vhrEW4J1fJslEwBY50=\n18\t\n19\t# Mesh\n20\tMESH_SHARED_SECRET=5YqNVCz688HgWfx01q8aRM2nYQ+uSe3SpZxoKtLJShg=\n21\tMESH_SECRET=5YqNVCz688HgWfx01q8aRM2nYQ+uSe3SpZxoKtLJShg=\n22\tMESH_ENDPOINT=http://localhost:2000/graphql\n23\t\n24\t# Bot/Voice\n25\tNEXT_PUBLIC_AUTO_START_DAILY_CALL=false\n26\tNEXT_PUBLIC_BOT_AUTO_JOIN=true\n27\tNEXT_PUBLIC_BOT_CONTROL_BASE_URL=http://localhost:4444\n28\tBOT_GATEWAY_URL=http://localhost:4444\n29\tNEXT_PUBLIC_DAILY_ROOM_URL=https://pearlos.daily.co/staging-pearl-voice\n30\tDAILY_API_KEY=eb5b09b8b1cc82ef940d93cd1914d43a45ec89979187c87b53f86f66a5a049d9\n31\tDAILY_DOMAIN=pearlos.daily.co\n32\t\n33\t# General\n34\tNODE_ENV=production\n35\tNEXT_PUBLIC_TEST_ANONYMOUS_USER=false\n36\tPEARLOS_ONLY=true\n37\tPOSTGRES_SSL=true\n38\tBOT_CONTROL_AUTH_REQUIRED=false\n39\tPIPECAT_BOT_ENV_PATH=/opt/pearlos/apps/pipecat-daily-bot/.env\n40\tBOT_CONTROL_SHARED_SECRET=78cc539181c2c512b7714c4c0d2b1bc8403b5790ee3251bcea3b6e5d4ba763c9\n41\tDASHBOARD_ADMIN_USERNAME=admin\n42\tDASHBOARD_ADMIN_EMAIL=dev@niaxp.com\n43\tDASHBOARD_ADMIN_PASSWORD=harbour\n44\t\n45\t# Staging isolation\n46\tVOICE_ROOM_PREFIX=stg-\n47\t\n48\t# Auth - Cloudflare tunnel URL (update when tunnel rotates)\n49\tNEXTAUTH_URL=https://computation-exercise-vegetation-other.trycloudflare.com\n50\tAUTH_TRUST_HOST=true\n51\tNEXT_PUBLIC_APP_URL=https://computation-exercise-vegetation-other.trycloudflare.com\n52\tNEXT_PUBLIC_TUNNEL_URL=https://computation-exercise-vegetation-other.trycloudflare.com\n53\t\n54\t# OpenClaw gateway for frontend\n55\tNEXT_PUBLIC_OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789\n56\t\n57\t# ComfyUI — sprite generation + animation\n58\tCOMFYUI_ORIGIN_BASE_URL=http://localhost:8188\n59\tCOMFYUI_ANIMATION_BASE_URL=http://localhost:8188\n60\t"
+            },
+            "output": "1\t# Database\n2\tDATABASE_URL=postgresql://doadmin:AVNS_VexOkV7ulF8eTkrVbPx@pearlos-postgres-do-user-35386841-0.d.db.ondigitalocean.com:25060/defaultdb?sslmode=require\n3\tPOSTGRES_HOST=pearlos-postgres-do-user-35386841-0.d.db.ondigitalocean.com\n4\tPOSTGRES_PORT=25060\n5\tPOSTGRES_USER=doadmin\n6\tPOSTGRES_PASSWORD=AVNS_VexOkV7ulF8eTkrVbPx\n7\tPOSTGRES_DB=defaultdb\n8\t\n9\t# Redis\n10\tUSE_REDIS=true\n11\t\n12\t# Auth\n13\tNEXTAUTH_SECRET=Ow5+xhInwDlvnewfgZwWyPEr2Cs8JpQXV1m8o0e9k2s=\n14\tNEXTAUTH_INTERFACE_URL=http://localhost:3000\n15\tNEXTAUTH_DASHBOARD_URL=http://localhost:4000\n16\tDISABLE_DASHBOARD_AUTH=false\n17\tTOKEN_ENCRYPTION_KEY=LlNAqdYx4+zPrjD9JrND68RE8vhrEW4J1fJslEwBY50=\n18\t\n19\t# Mesh\n20\tMESH_SHARED_SECRET=5YqNVCz688HgWfx01q8aRM2nYQ+uSe3SpZxoKtLJShg=\n21\tMESH_SECRET=5YqNVCz688HgWfx01q8aRM2nYQ+uSe3SpZxoKtLJShg=\n22\tMESH_ENDPOINT=http://localhost:2000/graphql\n23\t\n24\t# Bot/Voice\n25\tNEXT_PUBLIC_AUTO_START_DAILY_CALL=false\n26\tNEXT_PUBLIC_BOT_AUTO_JOIN=true\n27\tNEXT_PUBLIC_BOT_CONTROL_BASE_URL=http://localhost:4444\n28\tBOT_GATEWAY_URL=http://localhost:4444\n29\tNEXT_PUBLIC_DAILY_ROOM_URL=https://pearlos.daily.co/staging-pearl-voice\n30\tDAILY_API_KEY=eb5b09b8b1cc82ef940d93cd1914d43a45ec89979187c87b53f86f66a5a049d9\n31\tDAILY_DOMAIN=pearlos.daily.co\n32\t\n33\t# General\n34\tNODE_ENV=production\n35\tNEXT_PUBLIC_TEST_ANONYMOUS_USER=false\n36\tPEARLOS_ONLY=true\n37\tPOSTGRES_SSL=true\n38\tBOT_CONTROL_AUTH_REQUIRED=false\n39\tPIPECAT_BOT_ENV_PATH=/opt/pearlos/apps/pipecat-daily-bot/.env\n40\tBOT_CONTROL_SHARED_SECRET=78cc539181c2c512b7714c4c0d2b1bc8403b5790ee3251bcea3b6e5d4ba763c9\n41\tDASHBOARD_ADMIN_USERNAME=admin\n42\tDASHBOARD_ADMIN_EMAIL=dev@niaxp.com\n43\tDASHBOARD_ADMIN_PASSWORD=harbour\n44\t\n45\t# Staging isolation\n46\tVOICE_ROOM_PREFIX=stg-\n47\t\n48\t# Auth - Cloudflare tunnel URL (update when tunnel rotates)\n49\tNEXTAUTH_URL=https://computation-exercise-vegetation-other.trycloudflare.com\n50\tAUTH_TRUST_HOST=true\n51\tNEXT_PUBLIC_APP_URL=https://computation-exercise-vegetation-other.trycloudflare.com\n52\tNEXT_PUBLIC_TUNNEL_URL=https://computation-exercise-vegetation-other.trycloudflare.com\n53\t\n54\t# OpenClaw gateway for frontend\n55\tNEXT_PUBLIC_OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789\n56\t\n57\t# ComfyUI — sprite generation + animation\n58\tCOMFYUI_ORIGIN_BASE_URL=http://localhost:8188\n59\tCOMFYUI_ANIMATION_BASE_URL=http://localhost:8188\n60\t"
+          },
+          "toolu_01WHHMU1koizF31XxUhLSmbB": {
+            "tool_use_id": "toolu_01WHHMU1koizF31XxUhLSmbB",
+            "tool_name": "Read /workspace/nia-universal/.env.production.template",
+            "is_error": false,
+            "content": {
+              "Text": "1\t# PearlOS Production Environment Template\n2\t# Copy to .env.production and fill in values\n3\t\n4\t# === Required: Daily.co (WebRTC voice) ===\n5\tDAILY_API_KEY=\n6\tDAILY_ROOM_URL=\n7\t\n8\t# === Required: Speech-to-Text ===\n9\tDEEPGRAM_API_KEY=\n10\t\n11\t# === Required: LLM ===\n12\tANTHROPIC_API_KEY=\n13\t# Or use OpenClaw as proxy:\n14\t# OPENCLAW_API_URL=http://localhost:18789/v1\n15\t# OPENCLAW_API_KEY=\n16\t\n17\t# === Required: Database ===\n18\tMONGODB_URI=mongodb://localhost:27017/pearlos\n19\t\n20\t# === Required: Auth ===\n21\tNEXTAUTH_SECRET=change-me-to-random-string\n22\tNEXTAUTH_URL=http://localhost:3000\n23\t\n24\t# === Optional: TTS ===\n25\tBOT_TTS_PROVIDER=pocket\n26\t# Or for ElevenLabs:\n27\t# BOT_TTS_PROVIDER=elevenlabs\n28\t# ELEVENLABS_API_KEY=\n29\t\n30\t# === Optional: OpenClaw (agent backend) ===\n31\t# OPENCLAW_API_URL=http://localhost:18789/v1\n32\t# OPENCLAW_API_KEY=\n33\t\n34\t# === Feature Flags (all default true) ===\n35\t# NEXT_PUBLIC_FEATURE_SUMMON_SPRITE_TOOL=true\n36\t# NEXT_PUBLIC_FEATURE_WONDER_CANVAS=true\n37\t"
+            },
+            "output": "1\t# PearlOS Production Environment Template\n2\t# Copy to .env.production and fill in values\n3\t\n4\t# === Required: Daily.co (WebRTC voice) ===\n5\tDAILY_API_KEY=\n6\tDAILY_ROOM_URL=\n7\t\n8\t# === Required: Speech-to-Text ===\n9\tDEEPGRAM_API_KEY=\n10\t\n11\t# === Required: LLM ===\n12\tANTHROPIC_API_KEY=\n13\t# Or use OpenClaw as proxy:\n14\t# OPENCLAW_API_URL=http://localhost:18789/v1\n15\t# OPENCLAW_API_KEY=\n16\t\n17\t# === Required: Database ===\n18\tMONGODB_URI=mongodb://localhost:27017/pearlos\n19\t\n20\t# === Required: Auth ===\n21\tNEXTAUTH_SECRET=change-me-to-random-string\n22\tNEXTAUTH_URL=http://localhost:3000\n23\t\n24\t# === Optional: TTS ===\n25\tBOT_TTS_PROVIDER=pocket\n26\t# Or for ElevenLabs:\n27\t# BOT_TTS_PROVIDER=elevenlabs\n28\t# ELEVENLABS_API_KEY=\n29\t\n30\t# === Optional: OpenClaw (agent backend) ===\n31\t# OPENCLAW_API_URL=http://localhost:18789/v1\n32\t# OPENCLAW_API_KEY=\n33\t\n34\t# === Feature Flags (all default true) ===\n35\t# NEXT_PUBLIC_FEATURE_SUMMON_SPRITE_TOOL=true\n36\t# NEXT_PUBLIC_FEATURE_WONDER_CANVAS=true\n37\t"
+          },
+          "toolu_012dxFJ2JFGgt9LFZ3beXz45": {
+            "tool_use_id": "toolu_012dxFJ2JFGgt9LFZ3beXz45",
+            "tool_name": "Read /workspace/nia-universal/apps/dashboard/.env.local",
+            "is_error": false,
+            "content": {
+              "Text": "1\t# Auto-generated from root .env.local\n2\t# Edit root .env.local and run: npm run sync:env\n3\t\n4\t\n5\tMESH_SHARED_SECRET=bl9preCJ+l/LNqsk+0FF7dYpOMpjL5XKFpZiIR+vhrU=\n6\t\n7\tMESH_ENDPOINT=http://localhost:2000/graphql\n8\t\n9\tNEXTAUTH_SECRET=p52lS3mbMtsyptHuvHrgHFw9G/Vn9Ffa55B1v4nc2Co=\n10\t\n11\tNEXTAUTH_INTERFACE_URL=http://localhost:3000\n12\t\n13\tNEXTAUTH_DASHBOARD_URL=http://localhost:4000\n14\t\n15\tDISABLE_DASHBOARD_AUTH=true\n16\t\n17\tTOKEN_ENCRYPTION_KEY=0iUvNWk8l4JRRG2yHhBr7Rkl+S2UVbaO2lVQSQXHVPY=\n18\t\n19\tPOSTGRES_HOST=localhost\n20\t\n21\tPOSTGRES_PORT=5432\n22\t\n23\tPOSTGRES_USER=postgres\n24\t\n25\tPOSTGRES_PASSWORD=password\n26\t\n27\tPOSTGRES_DB=testdb\n28\t\n29\tUSE_REDIS=false\n30\t\n31\tNODE_ENV=development"
+            },
+            "output": "1\t# Auto-generated from root .env.local\n2\t# Edit root .env.local and run: npm run sync:env\n3\t\n4\t\n5\tMESH_SHARED_SECRET=bl9preCJ+l/LNqsk+0FF7dYpOMpjL5XKFpZiIR+vhrU=\n6\t\n7\tMESH_ENDPOINT=http://localhost:2000/graphql\n8\t\n9\tNEXTAUTH_SECRET=p52lS3mbMtsyptHuvHrgHFw9G/Vn9Ffa55B1v4nc2Co=\n10\t\n11\tNEXTAUTH_INTERFACE_URL=http://localhost:3000\n12\t\n13\tNEXTAUTH_DASHBOARD_URL=http://localhost:4000\n14\t\n15\tDISABLE_DASHBOARD_AUTH=true\n16\t\n17\tTOKEN_ENCRYPTION_KEY=0iUvNWk8l4JRRG2yHhBr7Rkl+S2UVbaO2lVQSQXHVPY=\n18\t\n19\tPOSTGRES_HOST=localhost\n20\t\n21\tPOSTGRES_PORT=5432\n22\t\n23\tPOSTGRES_USER=postgres\n24\t\n25\tPOSTGRES_PASSWORD=password\n26\t\n27\tPOSTGRES_DB=testdb\n28\t\n29\tUSE_REDIS=false\n30\t\n31\tNODE_ENV=development"
+          },
+          "toolu_01VyAMM4YLtc8jJqCVVsB59N": {
+            "tool_use_id": "toolu_01VyAMM4YLtc8jJqCVVsB59N",
+            "tool_name": "Read /workspace/nia-universal/scripts/qa-screenshot.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t/**\n2\t * PearlOS QA Screenshot Script\n3\t *\n4\t * Authenticates against the Interface app, waits for the ActiveJobsWidget,\n5\t * captures a timestamped screenshot of the widget, and saves it to\n6\t * /qa/screenshots/.\n7\t *\n8\t * Environment variables (read from .env.local by default):\n9\t *   DASHBOARD_ADMIN_EMAIL    - login email\n10\t *   DASHBOARD_ADMIN_PASSWORD - login password\n11\t *   PEARLOS_URL              - base URL (default: http://localhost:3000)\n12\t *\n13\t * Usage:\n14\t *   npx playwright test --config scripts/qa-screenshot.config.ts\n15\t *   # or via npm script:\n16\t *   npm run qa:screenshot\n17\t */\n18\t\n19\timport { chromium, type Page } from 'playwright';\n20\timport * as fs from 'fs';\n21\timport * as path from 'path';\n22\timport * as dotenv from 'dotenv';\n23\t\n24\t// Load env\n25\tdotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });\n26\t\n27\tconst BASE_URL = process.env.PEARLOS_URL || 'http://localhost:3000';\n28\tconst EMAIL = process.env.DASHBOARD_ADMIN_EMAIL;\n29\tconst PASSWORD = process.env.DASHBOARD_ADMIN_PASSWORD;\n30\tconst SCREENSHOTS_DIR = path.resolve(__dirname, '..', 'qa', 'screenshots');\n31\t\n32\tasync function authenticate(page: Page): Promise<void> {\n33\t  if (!EMAIL || !PASSWORD) {\n34\t    throw new Error(\n35\t      'Missing DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD in environment',\n36\t    );\n37\t  }\n38\t\n39\t  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: 30_000 });\n40\t\n41\t  // Fill login form\n42\t  await page.fill('#email-input', EMAIL);\n43\t  await page.fill('#password-input', PASSWORD);\n44\t\n45\t  // Submit — find the submit button within the login form\n46\t  await page.click('form button[type=\"submit\"], form .login-button, form button');\n47\t\n48\t  // Wait for navigation away from /login\n49\t  await page.waitForURL((url) => !url.pathname.includes('/login'), {\n50\t    timeout: 30_000,\n51\t  });\n52\t\n53\t  // Extra settle time for React hydration\n54\t  await page.waitForTimeout(3000);\n55\t}\n56\t\n57\tasync function waitForActiveJobsWidget(page: Page): Promise<void> {\n58\t  // The ActiveJobsWidget doesn't have a data-testid, so we look for its\n59\t  // characteristic class or the component's wrapper. The widget uses the\n60\t  // Gohufont font-face with id='gohufont-active-jobs' as a fingerprint.\n61\t  // We wait for either the style tag (proving the component mounted) or\n62\t  // fall back to a generous timeout.\n63\t  try {\n64\t    await page.waitForFunction(\n65\t      () => !!document.getElementById('gohufont-active-jobs'),\n66\t      { timeout: 20_000 },\n67\t    );\n68\t  } catch {\n69\t    console.warn(\n70\t      'ActiveJobsWidget font-face tag not found — widget may not be rendered. Continuing anyway.',\n71\t    );\n72\t  }\n73\t\n74\t  // Let animations settle\n75\t  await page.waitForTimeout(2000);\n76\t}\n77\t\n78\tfunction screenshotFilename(label: string): string {\n79\t  const ts = new Date().toISOString().replace(/[:.]/g, '-');\n80\t  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();\n81\t  return `${slug}-${ts}.png`;\n82\t}\n83\t\n84\tasync function main() {\n85\t  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });\n86\t\n87\t  const browser = await chromium.launch({ headless: true });\n88\t  const context = await browser.newContext({\n89\t    viewport: { width: 1280, height: 800 },\n90\t  });\n91\t  const page = await context.newPage();\n92\t\n93\t  try {\n94\t    console.log(`Navigating to ${BASE_URL} ...`);\n95\t\n96\t    // Authenticate\n97\t    await authenticate(page);\n98\t    console.log('Authenticated.');\n99\t\n100\t    // Navigate to main page (may already be there after login redirect)\n101\t    if (!page.url().includes(BASE_URL) || page.url().includes('/login')) {\n102\t      await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30_000 });\n103\t    }\n104\t\n105\t    // Wait for ActiveJobsWidget\n106\t    await waitForActiveJobsWidget(page);\n107\t    console.log('ActiveJobsWidget detected (or timeout reached).');\n108\t\n109\t    // Full-page screenshot\n110\t    const fullPath = path.join(SCREENSHOTS_DIR, screenshotFilename('pearlos-f..."
+            },
+            "output": "1\t/**\n2\t * PearlOS QA Screenshot Script\n3\t *\n4\t * Authenticates against the Interface app, waits for the ActiveJobsWidget,\n5\t * captures a timestamped screenshot of the widget, and saves it to\n6\t * /qa/screenshots/.\n7\t *\n8\t * Environment variables (read from .env.local by default):\n9\t *   DASHBOARD_ADMIN_EMAIL    - login email\n10\t *   DASHBOARD_ADMIN_PASSWORD - login password\n11\t *   PEARLOS_URL              - base URL (default: http://localhost:3000)\n12\t *\n13\t * Usage:\n14\t *   npx playwright test --config scripts/qa-screenshot.config.ts\n15\t *   # or via npm script:\n16\t *   npm run qa:screenshot\n17\t */\n18\t\n19\timport { chromium, type Page } from 'playwright';\n20\timport * as fs from 'fs';\n21\timport * as path from 'path';\n22\timport * as dotenv from 'dotenv';\n23\t\n24\t// Load env\n25\tdotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });\n26\t\n27\tconst BASE_URL = process.env.PEARLOS_URL || 'http://localhost:3000';\n28\tconst EMAIL = process.env.DASHBOARD_ADMIN_EMAIL;\n29\tconst PASSWORD = process.env.DASHBOARD_ADMIN_PASSWORD;\n30\tconst SCREENSHOTS_DIR = path.resolve(__dirname, '..', 'qa', 'screenshots');\n31\t\n32\tasync function authenticate(page: Page): Promise<void> {\n33\t  if (!EMAIL || !PASSWORD) {\n34\t    throw new Error(\n35\t      'Missing DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD in environment',\n36\t    );\n37\t  }\n38\t\n39\t  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: 30_000 });\n40\t\n41\t  // Fill login form\n42\t  await page.fill('#email-input', EMAIL);\n43\t  await page.fill('#password-input', PASSWORD);\n44\t\n45\t  // Submit — find the submit button within the login form\n46\t  await page.click('form button[type=\"submit\"], form .login-button, form button');\n47\t\n48\t  // Wait for navigation away from /login\n49\t  await page.waitForURL((url) => !url.pathname.includes('/login'), {\n50\t    timeout: 30_000,\n51\t  });\n52\t\n53\t  // Extra settle time for React hydration\n54\t  await page.waitForTimeout(3000);\n55\t}\n56\t\n57\tasync function waitForActiveJobsWidget(page: Page): Promise<void> {\n58\t  // The ActiveJobsWidget doesn't have a data-testid, so we look for its\n59\t  // characteristic class or the component's wrapper. The widget uses the\n60\t  // Gohufont font-face with id='gohufont-active-jobs' as a fingerprint.\n61\t  // We wait for either the style tag (proving the component mounted) or\n62\t  // fall back to a generous timeout.\n63\t  try {\n64\t    await page.waitForFunction(\n65\t      () => !!document.getElementById('gohufont-active-jobs'),\n66\t      { timeout: 20_000 },\n67\t    );\n68\t  } catch {\n69\t    console.warn(\n70\t      'ActiveJobsWidget font-face tag not found — widget may not be rendered. Continuing anyway.',\n71\t    );\n72\t  }\n73\t\n74\t  // Let animations settle\n75\t  await page.waitForTimeout(2000);\n76\t}\n77\t\n78\tfunction screenshotFilename(label: string): string {\n79\t  const ts = new Date().toISOString().replace(/[:.]/g, '-');\n80\t  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();\n81\t  return `${slug}-${ts}.png`;\n82\t}\n83\t\n84\tasync function main() {\n85\t  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });\n86\t\n87\t  const browser = await chromium.launch({ headless: true });\n88\t  const context = await browser.newContext({\n89\t    viewport: { width: 1280, height: 800 },\n90\t  });\n91\t  const page = await context.newPage();\n92\t\n93\t  try {\n94\t    console.log(`Navigating to ${BASE_URL} ...`);\n95\t\n96\t    // Authenticate\n97\t    await authenticate(page);\n98\t    console.log('Authenticated.');\n99\t\n100\t    // Navigate to main page (may already be there after login redirect)\n101\t    if (!page.url().includes(BASE_URL) || page.url().includes('/login')) {\n102\t      await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30_000 });\n103\t    }\n104\t\n105\t    // Wait for ActiveJobsWidget\n106\t    await waitForActiveJobsWidget(page);\n107\t    console.log('ActiveJobsWidget detected (or timeout reached).');\n108\t\n109\t    // Full-page screenshot\n110\t    const fullPath = path.join(SCREENSHOTS_DIR, screenshotFilename('pearlos-f..."
+          },
+          "toolu_01UvzADxgmk4PCtyRRxkMvtC": {
+            "tool_use_id": "toolu_01UvzADxgmk4PCtyRRxkMvtC",
+            "tool_name": "Find `/workspace/nia-universal` `**/apps/dashboard/src/**/*auth*`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/dashboard/src/providers/auth-provider-client.tsx\n/workspace/nia-universal/apps/dashboard/src/lib/next-auth-config.ts\n/workspace/nia-universal/apps/dashboard/src/providers/auth-provider.tsx\n/workspace/nia-universal/apps/dashboard/src/lib/auth-config.ts"
+            },
+            "output": "/workspace/nia-universal/apps/dashboard/src/providers/auth-provider-client.tsx\n/workspace/nia-universal/apps/dashboard/src/lib/next-auth-config.ts\n/workspace/nia-universal/apps/dashboard/src/providers/auth-provider.tsx\n/workspace/nia-universal/apps/dashboard/src/lib/auth-config.ts"
+          },
+          "toolu_01Tgxz9BWt3Ji34apSdCGc1X": {
+            "tool_use_id": "toolu_01Tgxz9BWt3Ji34apSdCGc1X",
+            "tool_name": "Find `/workspace/nia-universal` `**/apps/dashboard/src/**/*login*`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/dashboard/src/components/login-form.tsx"
+          },
+          "toolu_01Cz7EXjfB1sxwy9GoYeLv5m": {
+            "tool_use_id": "toolu_01Cz7EXjfB1sxwy9GoYeLv5m",
+            "tool_name": "find /workspace/nia-universal/apps/dashboard -name \"page.tsx\" -o -name \"page.ts\" | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/dashboard/.next/types/app/dashboard/admin/userProfile/page.ts\n/workspace/nia-universal/apps/dashboard/.next/types/app/page.ts\n/workspace/nia-universal/apps/dashboard/src/app/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/reset-password/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/unauthorized/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/secret/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/tenants/[tenantId]/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/tenants/[tenantId]/users/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/tenants/[tenantId]/organizations/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/users/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/userProfile/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/tenants/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/resource-shares/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/personalities/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/link-map/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/global-settings/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/functional-prompts/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/users/page.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/dashboard/.next/types/app/dashboard/admin/userProfile/page.ts\n/workspace/nia-universal/apps/dashboard/.next/types/app/page.ts\n/workspace/nia-universal/apps/dashboard/src/app/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/reset-password/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/unauthorized/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/secret/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/tenants/[tenantId]/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/tenants/[tenantId]/users/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/tenants/[tenantId]/organizations/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/users/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/userProfile/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/tenants/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/resource-shares/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/personalities/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/link-map/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/global-settings/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/admin/functional-prompts/page.tsx\n/workspace/nia-universal/apps/dashboard/src/app/dashboard/users/page.tsx"
+          },
+          "toolu_01QyQzTokgC4pMUaLhVqJuz1": {
+            "tool_use_id": "toolu_01QyQzTokgC4pMUaLhVqJuz1",
+            "tool_name": "Read /workspace/nia-universal/apps/dashboard/src/app/dashboard/login/page.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport { useEffect } from 'react';\n4\timport { useSession, signOut } from 'next-auth/react';\n5\timport { PasswordSetupForm } from '@nia/prism/core/components/PasswordSetupForm';\n6\timport { useRouter } from 'next/navigation';\n7\timport { LoginForm } from '@dashboard/components/login-form';\n8\timport { ThemeToggle } from '../../../components/theme-toggle';\n9\timport { useState } from 'react';\n10\t\n11\texport default function DashboardLoginPage() {\n12\t  const { data: session, status } = useSession();\n13\t  const router = useRouter();\n14\t  const [isCheckingAccess, setIsCheckingAccess] = useState(false);\n15\t\n16\t  useEffect(() => {\n17\t    if (status === 'authenticated' && !session?.user?.email) {\n18\t      signOut({ redirect: false });\n19\t      return;\n20\t    }\n21\t\n22\t    if (status === 'authenticated' && session?.user?.email) {\n23\t      let cancelled = false;\n24\t      setIsCheckingAccess(true);\n25\t      (async () => {\n26\t        try {\n27\t          const response = await fetch('/dashboard/api/users/me/tenant-roles', {\n28\t            credentials: 'include',\n29\t          });\n30\t          if (!response.ok) {\n31\t            throw new Error('Failed to resolve tenant roles');\n32\t          }\n33\t          const data = await response.json();\n34\t          const hasAdminAccess =\n35\t            data?.roles?.some((role: { role?: string }) => role.role === 'admin' || role.role === 'owner') || false;\n36\t\n37\t          if (cancelled) return;\n38\t          if (hasAdminAccess) {\n39\t            router.push('/dashboard/assistants');\n40\t            return;\n41\t          }\n42\t\n43\t          await signOut({ redirect: true, callbackUrl: '/dashboard/login?error=NoAccess' });\n44\t        } catch {\n45\t          if (!cancelled) {\n46\t            await signOut({ redirect: true, callbackUrl: '/dashboard/login?error=NoAccess' });\n47\t          }\n48\t        } finally {\n49\t          if (!cancelled) {\n50\t            setIsCheckingAccess(false);\n51\t          }\n52\t        }\n53\t      })();\n54\t\n55\t      return () => {\n56\t        cancelled = true;\n57\t      };\n58\t    }\n59\t  }, [session, status, router]);\n60\t\n61\t  if (status === 'loading' || isCheckingAccess) {\n62\t    return (\n63\t      <div className=\"flex items-center justify-center min-h-screen\">\n64\t        <div className=\"text-center\">\n65\t          <div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto\"></div>\n66\t          <p className=\"mt-2 text-sm text-muted-foreground\">Loading...</p>\n67\t        </div>\n68\t      </div>\n69\t    );\n70\t  }\n71\t\n72\t  if (status === 'authenticated' && (session as any)?.user?.mustSetPassword && !(session as any)?.user?.google_access_token) {\n73\t    return (\n74\t      <div className=\"min-h-screen flex flex-col items-center justify-center p-6\">\n75\t        <div className=\"mb-6 text-center max-w-md\">\n76\t          <h1 className=\"text-2xl font-semibold mb-2\">Set Your Password</h1>\n77\t          <p className=\"text-sm text-muted-foreground\">Your account was created without a password. Please set one now to complete setup.</p>\n78\t        </div>\n79\t        <PasswordSetupForm onSuccess={() => { window.location.href = '/dashboard/assistants'; }} />\n80\t        <button onClick={() => signOut({ redirect: true })} className=\"mt-6 text-xs text-muted-foreground underline\">Sign out</button>\n81\t      </div>\n82\t    );\n83\t  }\n84\t\n85\t  return (\n86\t    <div className=\"min-h-screen bg-background dark:bg-slate-900 text-foreground relative overflow-hidden\">\n87\t      <div className='fixed top-10 left-12 z-50'>\n88\t        <img\n89\t          src=\"/Nia Logo 1.svg\"\n90\t          alt=\"Nia Logo\"\n91\t          className=\"w-16 h-16\"\n92\t        />\n93\t      </div>\n94\t\n95\t      <div className='fixed top-6 right-6 z-50'>\n96\t        <ThemeToggle />\n97\t      </div>\n98\t\n99\t      <div className=\"flex h-screen w-full\">\n100\t        <div className=\"flex-1 flex items-center justify-start pl-12 pr-8\">\n101\t          <div className=\"max-w-lg\">\n102\t            <h1 className=\"text-5xl font-bold leading-tight mb-4 t..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport { useEffect } from 'react';\n4\timport { useSession, signOut } from 'next-auth/react';\n5\timport { PasswordSetupForm } from '@nia/prism/core/components/PasswordSetupForm';\n6\timport { useRouter } from 'next/navigation';\n7\timport { LoginForm } from '@dashboard/components/login-form';\n8\timport { ThemeToggle } from '../../../components/theme-toggle';\n9\timport { useState } from 'react';\n10\t\n11\texport default function DashboardLoginPage() {\n12\t  const { data: session, status } = useSession();\n13\t  const router = useRouter();\n14\t  const [isCheckingAccess, setIsCheckingAccess] = useState(false);\n15\t\n16\t  useEffect(() => {\n17\t    if (status === 'authenticated' && !session?.user?.email) {\n18\t      signOut({ redirect: false });\n19\t      return;\n20\t    }\n21\t\n22\t    if (status === 'authenticated' && session?.user?.email) {\n23\t      let cancelled = false;\n24\t      setIsCheckingAccess(true);\n25\t      (async () => {\n26\t        try {\n27\t          const response = await fetch('/dashboard/api/users/me/tenant-roles', {\n28\t            credentials: 'include',\n29\t          });\n30\t          if (!response.ok) {\n31\t            throw new Error('Failed to resolve tenant roles');\n32\t          }\n33\t          const data = await response.json();\n34\t          const hasAdminAccess =\n35\t            data?.roles?.some((role: { role?: string }) => role.role === 'admin' || role.role === 'owner') || false;\n36\t\n37\t          if (cancelled) return;\n38\t          if (hasAdminAccess) {\n39\t            router.push('/dashboard/assistants');\n40\t            return;\n41\t          }\n42\t\n43\t          await signOut({ redirect: true, callbackUrl: '/dashboard/login?error=NoAccess' });\n44\t        } catch {\n45\t          if (!cancelled) {\n46\t            await signOut({ redirect: true, callbackUrl: '/dashboard/login?error=NoAccess' });\n47\t          }\n48\t        } finally {\n49\t          if (!cancelled) {\n50\t            setIsCheckingAccess(false);\n51\t          }\n52\t        }\n53\t      })();\n54\t\n55\t      return () => {\n56\t        cancelled = true;\n57\t      };\n58\t    }\n59\t  }, [session, status, router]);\n60\t\n61\t  if (status === 'loading' || isCheckingAccess) {\n62\t    return (\n63\t      <div className=\"flex items-center justify-center min-h-screen\">\n64\t        <div className=\"text-center\">\n65\t          <div className=\"animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto\"></div>\n66\t          <p className=\"mt-2 text-sm text-muted-foreground\">Loading...</p>\n67\t        </div>\n68\t      </div>\n69\t    );\n70\t  }\n71\t\n72\t  if (status === 'authenticated' && (session as any)?.user?.mustSetPassword && !(session as any)?.user?.google_access_token) {\n73\t    return (\n74\t      <div className=\"min-h-screen flex flex-col items-center justify-center p-6\">\n75\t        <div className=\"mb-6 text-center max-w-md\">\n76\t          <h1 className=\"text-2xl font-semibold mb-2\">Set Your Password</h1>\n77\t          <p className=\"text-sm text-muted-foreground\">Your account was created without a password. Please set one now to complete setup.</p>\n78\t        </div>\n79\t        <PasswordSetupForm onSuccess={() => { window.location.href = '/dashboard/assistants'; }} />\n80\t        <button onClick={() => signOut({ redirect: true })} className=\"mt-6 text-xs text-muted-foreground underline\">Sign out</button>\n81\t      </div>\n82\t    );\n83\t  }\n84\t\n85\t  return (\n86\t    <div className=\"min-h-screen bg-background dark:bg-slate-900 text-foreground relative overflow-hidden\">\n87\t      <div className='fixed top-10 left-12 z-50'>\n88\t        <img\n89\t          src=\"/Nia Logo 1.svg\"\n90\t          alt=\"Nia Logo\"\n91\t          className=\"w-16 h-16\"\n92\t        />\n93\t      </div>\n94\t\n95\t      <div className='fixed top-6 right-6 z-50'>\n96\t        <ThemeToggle />\n97\t      </div>\n98\t\n99\t      <div className=\"flex h-screen w-full\">\n100\t        <div className=\"flex-1 flex items-center justify-start pl-12 pr-8\">\n101\t          <div className=\"max-w-lg\">\n102\t            <h1 className=\"text-5xl font-bold leading-tight mb-4 t..."
+          },
+          "toolu_01GcZrAUxbEZg3b1aisPSvUk": {
+            "tool_use_id": "toolu_01GcZrAUxbEZg3b1aisPSvUk",
+            "tool_name": "Read /workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport { zodResolver } from '@hookform/resolvers/zod';\n4\timport { AudioWaveform, Loader2, Eye, EyeOff } from 'lucide-react';\n5\timport { useRouter } from 'next/navigation';\n6\timport { signIn } from 'next-auth/react';\n7\timport React, { useState, useEffect } from 'react';\n8\timport { useForm } from 'react-hook-form';\n9\timport { FcGoogle } from 'react-icons/fc';\n10\timport { z } from 'zod';\n11\t\n12\timport { Button } from '@dashboard/components/ui/button';\n13\timport { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@dashboard/components/ui/card';\n14\timport { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@dashboard/components/ui/form';\n15\timport { Input } from '@dashboard/components/ui/input';\n16\timport { useToast } from '@dashboard/hooks/use-toast';\n17\t\n18\t// Client-side only wrapper to prevent hydration mismatches\n19\tfunction ClientOnly({ children }: { children: React.ReactNode }) {\n20\t  const [hasMounted, setHasMounted] = useState(false);\n21\t\n22\t  useEffect(() => {\n23\t    setHasMounted(true);\n24\t  }, []);\n25\t\n26\t  if (!hasMounted) {\n27\t    return null;\n28\t  }\n29\t\n30\t  return <>{children}</>;\n31\t}\n32\t\n33\t// Login schema for form validation\n34\tconst LoginSchema = z.object({\n35\t  email: z.string().min(1, 'Username or email is required'),\n36\t  password: z.string().min(1, 'Password is required'),\n37\t});\n38\t\n39\ttype LoginFormData = z.infer<typeof LoginSchema>;\n40\t\n41\texport function LoginForm() {\n42\t  const [loading, setLoading] = useState(false);\n43\t  const [showPassword, setShowPassword] = useState(false);\n44\t  const [error, setError] = useState<string | null>(null);\n45\t  const router = useRouter();\n46\t  const { toast } = useToast();\n47\t\n48\t  const form = useForm<LoginFormData>({\n49\t    resolver: zodResolver(LoginSchema),\n50\t    mode: 'onChange',\n51\t  });\n52\t\n53\t  // Handle standard email/password login\n54\t  const handleSubmit = async (values: LoginFormData) => {\n55\t    setLoading(true);\n56\t    setError(null);\n57\t\n58\t    try {\n59\t      const result = await signIn('credentials', {\n60\t        redirect: false,\n61\t        email: values.email,\n62\t        password: values.password,\n63\t        callbackUrl: '/dashboard/assistants',\n64\t      });\n65\t\n66\t      if (result?.error) {\n67\t        const errorMessage = 'Invalid email or password';\n68\t        setError(errorMessage);\n69\t        toast({\n70\t          title: 'Login failed',\n71\t          description: errorMessage,\n72\t          variant: 'destructive',\n73\t        });\n74\t      } else {\n75\t        toast({\n76\t          title: 'Login successful',\n77\t          description: 'You have successfully logged in',\n78\t        });\n79\t        router.refresh();\n80\t        router.push('/dashboard/assistants');\n81\t      }\n82\t    } catch (err) {\n83\t      const errorMessage = 'An unexpected error occurred';\n84\t      setError(errorMessage);\n85\t      toast({\n86\t        title: 'Login failed',\n87\t        description: errorMessage,\n88\t        variant: 'destructive',\n89\t      });\n90\t      console.error(err);\n91\t    } finally {\n92\t      setLoading(false);\n93\t    }\n94\t  };\n95\t\n96\t  // Handle Google sign-in\n97\t  const handleGoogleSignIn = () => {\n98\t    signIn('google', { callbackUrl: '/dashboard/assistants' });\n99\t  };\n100\t\n101\t  // Resend invite (for provisional account without password)\n102\t  const handleResendInvite = async () => {\n103\t    try {\n104\t      const email = form.getValues('email');\n105\t      if (!email) return;\n106\t      const res = await fetch('/dashboard/api/users/resend-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });\n107\t      const data = await res.json().catch(() => ({}));\n108\t      if (!res.ok || !data.success) throw new Error(data.error || 'Failed');\n109\t      toast({ title: 'Invite sent', description: 'Check your email for the invite link.' });\n110\t    } catch (e: any) {\n111\t      toast({ title: 'Error', description: e.message || 'Failed to resend invite', variant: 'destr..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport { zodResolver } from '@hookform/resolvers/zod';\n4\timport { AudioWaveform, Loader2, Eye, EyeOff } from 'lucide-react';\n5\timport { useRouter } from 'next/navigation';\n6\timport { signIn } from 'next-auth/react';\n7\timport React, { useState, useEffect } from 'react';\n8\timport { useForm } from 'react-hook-form';\n9\timport { FcGoogle } from 'react-icons/fc';\n10\timport { z } from 'zod';\n11\t\n12\timport { Button } from '@dashboard/components/ui/button';\n13\timport { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@dashboard/components/ui/card';\n14\timport { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@dashboard/components/ui/form';\n15\timport { Input } from '@dashboard/components/ui/input';\n16\timport { useToast } from '@dashboard/hooks/use-toast';\n17\t\n18\t// Client-side only wrapper to prevent hydration mismatches\n19\tfunction ClientOnly({ children }: { children: React.ReactNode }) {\n20\t  const [hasMounted, setHasMounted] = useState(false);\n21\t\n22\t  useEffect(() => {\n23\t    setHasMounted(true);\n24\t  }, []);\n25\t\n26\t  if (!hasMounted) {\n27\t    return null;\n28\t  }\n29\t\n30\t  return <>{children}</>;\n31\t}\n32\t\n33\t// Login schema for form validation\n34\tconst LoginSchema = z.object({\n35\t  email: z.string().min(1, 'Username or email is required'),\n36\t  password: z.string().min(1, 'Password is required'),\n37\t});\n38\t\n39\ttype LoginFormData = z.infer<typeof LoginSchema>;\n40\t\n41\texport function LoginForm() {\n42\t  const [loading, setLoading] = useState(false);\n43\t  const [showPassword, setShowPassword] = useState(false);\n44\t  const [error, setError] = useState<string | null>(null);\n45\t  const router = useRouter();\n46\t  const { toast } = useToast();\n47\t\n48\t  const form = useForm<LoginFormData>({\n49\t    resolver: zodResolver(LoginSchema),\n50\t    mode: 'onChange',\n51\t  });\n52\t\n53\t  // Handle standard email/password login\n54\t  const handleSubmit = async (values: LoginFormData) => {\n55\t    setLoading(true);\n56\t    setError(null);\n57\t\n58\t    try {\n59\t      const result = await signIn('credentials', {\n60\t        redirect: false,\n61\t        email: values.email,\n62\t        password: values.password,\n63\t        callbackUrl: '/dashboard/assistants',\n64\t      });\n65\t\n66\t      if (result?.error) {\n67\t        const errorMessage = 'Invalid email or password';\n68\t        setError(errorMessage);\n69\t        toast({\n70\t          title: 'Login failed',\n71\t          description: errorMessage,\n72\t          variant: 'destructive',\n73\t        });\n74\t      } else {\n75\t        toast({\n76\t          title: 'Login successful',\n77\t          description: 'You have successfully logged in',\n78\t        });\n79\t        router.refresh();\n80\t        router.push('/dashboard/assistants');\n81\t      }\n82\t    } catch (err) {\n83\t      const errorMessage = 'An unexpected error occurred';\n84\t      setError(errorMessage);\n85\t      toast({\n86\t        title: 'Login failed',\n87\t        description: errorMessage,\n88\t        variant: 'destructive',\n89\t      });\n90\t      console.error(err);\n91\t    } finally {\n92\t      setLoading(false);\n93\t    }\n94\t  };\n95\t\n96\t  // Handle Google sign-in\n97\t  const handleGoogleSignIn = () => {\n98\t    signIn('google', { callbackUrl: '/dashboard/assistants' });\n99\t  };\n100\t\n101\t  // Resend invite (for provisional account without password)\n102\t  const handleResendInvite = async () => {\n103\t    try {\n104\t      const email = form.getValues('email');\n105\t      if (!email) return;\n106\t      const res = await fetch('/dashboard/api/users/resend-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });\n107\t      const data = await res.json().catch(() => ({}));\n108\t      if (!res.ok || !data.success) throw new Error(data.error || 'Failed');\n109\t      toast({ title: 'Invite sent', description: 'Check your email for the invite link.' });\n110\t    } catch (e: any) {\n111\t      toast({ title: 'Error', description: e.message || 'Failed to resend invite', variant: 'destr..."
+          },
+          "toolu_018Mmf5QRMCkBqnunSx9dKQm": {
+            "tool_use_id": "toolu_018Mmf5QRMCkBqnunSx9dKQm",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport { usePathname } from 'next/navigation';\n4\timport { ActiveJobsWidget } from './ActiveJobsWidget';\n5\t\n6\tconst HIDDEN_WHEN_UNAUTHENTICATED = new Set(['/login', '/signup']);\n7\t\n8\t/**\n9\t * Renders the jobs pill only outside auth entry routes so login/signup stay clean.\n10\t */\n11\texport function ActiveJobsWidgetGate() {\n12\t  const pathname = usePathname();\n13\t  if (HIDDEN_WHEN_UNAUTHENTICATED.has(pathname)) {\n14\t    return null;\n15\t  }\n16\t  return <ActiveJobsWidget />;\n17\t}\n18\t"
+            },
+            "output": "1\t'use client';\n2\t\n3\timport { usePathname } from 'next/navigation';\n4\timport { ActiveJobsWidget } from './ActiveJobsWidget';\n5\t\n6\tconst HIDDEN_WHEN_UNAUTHENTICATED = new Set(['/login', '/signup']);\n7\t\n8\t/**\n9\t * Renders the jobs pill only outside auth entry routes so login/signup stay clean.\n10\t */\n11\texport function ActiveJobsWidgetGate() {\n12\t  const pathname = usePathname();\n13\t  if (HIDDEN_WHEN_UNAUTHENTICATED.has(pathname)) {\n14\t    return null;\n15\t  }\n16\t  return <ActiveJobsWidget />;\n17\t}\n18\t"
+          },
+          "toolu_01QjYksF5URKBsjhWuJG9RQQ": {
+            "tool_use_id": "toolu_01QjYksF5URKBsjhWuJG9RQQ",
+            "tool_name": "grep -r \"email-input\\|password-input\" /workspace/nia-universal/apps/dashboard --include=\"*.tsx\" --include=\"*.ts\" | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_015r9ssK2GAFacaKh2E8YRcA": {
+            "tool_use_id": "toolu_015r9ssK2GAFacaKh2E8YRcA",
+            "tool_name": "grep \"data-testid|id=.*input\" /workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "No matches found"
+            },
+            "output": "No matches found"
+          },
+          "toolu_019vknXwP5WCwjrVMVHhivZp": {
+            "tool_use_id": "toolu_019vknXwP5WCwjrVMVHhivZp",
+            "tool_name": "find /workspace/nia-universal/apps/interface/src -type f -name \"*.tsx\" | grep -i \"root\\|layout\\|app\" | head -10",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/theme/AssistantThemeContext.tsx\n/workspace/nia-universal/apps/interface/src/features/VoiceInput/components/VoiceInputBox.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/WonderCanvasRenderer.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/CanvasTaskProgress.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/Stage.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/PearlBridgeProvider.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/ExperienceRenderer.tsx\n/workspace/nia-universal/apps/interface/src/features/Sprites/components/TransporterPad.tsx\n/workspace/nia-universal/apps/interface/src/features/Sprites/components/SummonInput.tsx\n/workspace/nia-universal/apps/interface/src/features/Sprites/components/SpriteGallery.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/theme/AssistantThemeContext.tsx\n/workspace/nia-universal/apps/interface/src/features/VoiceInput/components/VoiceInputBox.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/WonderCanvasRenderer.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/CanvasTaskProgress.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/Stage.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/PearlBridgeProvider.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/ExperienceRenderer.tsx\n/workspace/nia-universal/apps/interface/src/features/Sprites/components/TransporterPad.tsx\n/workspace/nia-universal/apps/interface/src/features/Sprites/components/SummonInput.tsx\n/workspace/nia-universal/apps/interface/src/features/Sprites/components/SpriteGallery.tsx"
+          },
+          "toolu_0139TyC6HyKPfNuToGS26Gb9": {
+            "tool_use_id": "toolu_0139TyC6HyKPfNuToGS26Gb9",
+            "tool_name": "find /workspace/nia-universal/apps/interface/src/app -maxdepth 2 -type f -name \"*.tsx\" | head -5",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/app/signup/page.tsx\n/workspace/nia-universal/apps/interface/src/app/recovery/page.tsx\n/workspace/nia-universal/apps/interface/src/app/pixel-art/page.tsx\n/workspace/nia-universal/apps/interface/src/app/pixel-art/Client.tsx\n/workspace/nia-universal/apps/interface/src/app/page.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/app/signup/page.tsx\n/workspace/nia-universal/apps/interface/src/app/recovery/page.tsx\n/workspace/nia-universal/apps/interface/src/app/pixel-art/page.tsx\n/workspace/nia-universal/apps/interface/src/app/pixel-art/Client.tsx\n/workspace/nia-universal/apps/interface/src/app/page.tsx"
+          },
+          "toolu_01VV6VtB2JmuCh46zyqVpJxF": {
+            "tool_use_id": "toolu_01VV6VtB2JmuCh46zyqVpJxF",
+            "tool_name": "ls -la /workspace/nia-universal/apps/interface/src/app/ | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "total 16836\ndrwxrwxrwx 18 root root 1056550 Apr 20 11:17 .\ndrwxrwxrwx 16 root root 2000467 Apr 21 11:34 ..\ndrwxrwxrwx  2 root root 1002953 Apr 20 11:17 [assistantId]\ndrwxrwxrwx  3 root root 1000609 Apr  9 18:38 accept-invite\ndrwxrwxrwx 66 root root 1037491 Apr 20 11:17 api\ndrwxrwxrwx  3 root root 1000147 Apr  9 18:38 applet\n-rw-rw-rw-  1 root root    6473 Apr 20 11:17 error.tsx\ndrwxrwxrwx  2 root root   43900 Apr 20 11:17 favicon.ico\n-rw-rw-rw-  1 root root   29960 Apr 20 11:17 globals.css\ndrwxrwxrwx  3 root root 1000354 Apr  9 18:38 health\n-rw-rw-rw-  1 root root     454 Apr 20 11:17 icon.svg\n-rw-rw-rw-  1 root root    5504 Apr 20 11:17 layout.tsx\ndrwxrwxrwx  2 root root 1002048 Apr 20 11:17 llm-lab\ndrwxrwxrwx  2 root root 1000494 Apr 20 11:17 login\n-rw-rw-rw-  1 root root     363 Apr  9 18:38 not-found.tsx\n-rw-rw-rw-  1 root root     858 Apr 20 11:17 page.tsx\ndrwxrwxrwx  2 root root 1001872 Apr 20 11:17 pixel-art\ndrwxrwxrwx  2 root root 1000141 Apr  9 18:38 privacy-policy\n-rw-rw-rw-  1 root root    2086 Apr  9 18:38 providers.tsx"
+            },
+            "output": "total 16836\ndrwxrwxrwx 18 root root 1056550 Apr 20 11:17 .\ndrwxrwxrwx 16 root root 2000467 Apr 21 11:34 ..\ndrwxrwxrwx  2 root root 1002953 Apr 20 11:17 [assistantId]\ndrwxrwxrwx  3 root root 1000609 Apr  9 18:38 accept-invite\ndrwxrwxrwx 66 root root 1037491 Apr 20 11:17 api\ndrwxrwxrwx  3 root root 1000147 Apr  9 18:38 applet\n-rw-rw-rw-  1 root root    6473 Apr 20 11:17 error.tsx\ndrwxrwxrwx  2 root root   43900 Apr 20 11:17 favicon.ico\n-rw-rw-rw-  1 root root   29960 Apr 20 11:17 globals.css\ndrwxrwxrwx  3 root root 1000354 Apr  9 18:38 health\n-rw-rw-rw-  1 root root     454 Apr 20 11:17 icon.svg\n-rw-rw-rw-  1 root root    5504 Apr 20 11:17 layout.tsx\ndrwxrwxrwx  2 root root 1002048 Apr 20 11:17 llm-lab\ndrwxrwxrwx  2 root root 1000494 Apr 20 11:17 login\n-rw-rw-rw-  1 root root     363 Apr  9 18:38 not-found.tsx\n-rw-rw-rw-  1 root root     858 Apr 20 11:17 page.tsx\ndrwxrwxrwx  2 root root 1001872 Apr 20 11:17 pixel-art\ndrwxrwxrwx  2 root root 1000141 Apr  9 18:38 privacy-policy\n-rw-rw-rw-  1 root root    2086 Apr  9 18:38 providers.tsx"
+          },
+          "toolu_01Gbmfzg9AaSACQq77Va1UqS": {
+            "tool_use_id": "toolu_01Gbmfzg9AaSACQq77Va1UqS",
+            "tool_name": "grep -l \"ActiveJobsWidgetGate\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "Found 2 files\n/workspace/nia-universal/apps/interface/src/app/layout.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx"
+            },
+            "output": "Found 2 files\n/workspace/nia-universal/apps/interface/src/app/layout.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx"
+          },
+          "toolu_01VZLuEgmdLYyKWKRPUU8xLr": {
+            "tool_use_id": "toolu_01VZLuEgmdLYyKWKRPUU8xLr",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/app/layout.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { isFeatureEnabled } from '@nia/features';\n2\t\n3\timport { GlobalHtmlGenerationStatus } from '@interface/features/HtmlGeneration/components/GlobalHtmlGenerationStatus';\n4\timport { ActiveJobsWidgetGate } from '@interface/features/ActiveJobs/components/ActiveJobsWidgetGate';\n5\timport 'reflect-metadata';\n6\timport './globals.css';\n7\t\n8\timport type { Metadata } from 'next';\n9\timport { Inter } from 'next/font/google';\n10\t\n11\timport { Toaster } from '@interface/components/ui/toaster';\n12\timport { DisableTabNavigation } from '@interface/components/disable-tab-navigation';\n13\timport { ErrorBoundary } from '@interface/components/ErrorBoundary';\n14\t// Rive avatar removed — GIF only per Blair directive 2026-02-24\n15\t\n16\timport { LabModeBanner } from '@interface/components/LabModeBanner';\n17\timport { Providers } from './providers';\n18\t\n19\tconst inter = Inter({ subsets: ['latin'] });\n20\t\n21\texport const metadata: Metadata = {\n22\t  title: 'PearlOS',\n23\t  description: 'PearlOS — Your Intelligent Desktop',\n24\t};\n25\t\n26\texport default function RootLayout({ children }: { children: React.ReactNode }) {\n27\t  // suppressHydrationWarning on <html> and <body>: browser extensions (e.g. password\n28\t  // managers, translators) can inject attributes/elements, causing hydration mismatches\n29\t  // on mobile Safari and other browsers. This is a standard Next.js safety net.\n30\t\n31\t  return (\n32\t    <html lang=\"en\" suppressHydrationWarning>\n33\t      <head>\n34\t        <link rel=\"preload\" href=\"/backgrounds/home-sunset.png\" as=\"image\" />\n35\t        <link rel=\"preload\" href=\"/backgrounds/desktop-forest.png\" as=\"image\" />\n36\t        {/* PearlOS is a fixed-viewport PWA-style app: lock zoom and drag off.\n37\t            maximum-scale=1 + user-scalable=no disables pinch-zoom on iOS Safari. */}\n38\t        <meta\n39\t          name=\"viewport\"\n40\t          content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"\n41\t        />\n42\t        {/* PWA install path (Add to Home Screen) — drops Safari chrome when launched from\n43\t            home screen. Harmless inside a normal Safari tab. */}\n44\t        <meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />\n45\t        <meta name=\"mobile-web-app-capable\" content=\"yes\" />\n46\t        <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\" />\n47\t        {/* Prevents iOS from auto-linking phone numbers, which causes layout/style artifacts */}\n48\t        <meta name=\"format-detection\" content=\"telephone=no\" />\n49\t        {/* --vh fallback for browsers without dvh support (pre-iOS 15.4). Modern browsers\n50\t            ignore this and use the 100dvh declaration in globals.css. Runs early to avoid\n51\t            FOUC where the layout briefly resolves to an unintended height. */}\n52\t        <script\n53\t          dangerouslySetInnerHTML={{\n54\t            __html: `\n55\t              (function() {\n56\t                function setVh() {\n57\t                  document.documentElement.style.setProperty(\n58\t                    '--vh',\n59\t                    (window.innerHeight * 0.01) + 'px'\n60\t                  );\n61\t                }\n62\t                setVh();\n63\t                window.addEventListener('resize', setVh, { passive: true });\n64\t                window.addEventListener('orientationchange', setVh, { passive: true });\n65\t              })();\n66\t            `,\n67\t          }}\n68\t        />\n69\t        {/* Dynamic page title with EST time + date + build ID */}\n70\t        <script\n71\t          dangerouslySetInnerHTML={{\n72\t            __html: `\n73\t              (function() {\n74\t                var BUILD_ID = '075d4794-restart-fix';\n75\t                function updateTitle() {\n76\t                  var now = new Date();\n77\t                  var est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));\n78\t                  var month = (est.getMonth()+1).toString().padStart(2,'0');\n79\t                  var day = est.getDate().toString().padStart(2,..."
+            },
+            "output": "1\timport { isFeatureEnabled } from '@nia/features';\n2\t\n3\timport { GlobalHtmlGenerationStatus } from '@interface/features/HtmlGeneration/components/GlobalHtmlGenerationStatus';\n4\timport { ActiveJobsWidgetGate } from '@interface/features/ActiveJobs/components/ActiveJobsWidgetGate';\n5\timport 'reflect-metadata';\n6\timport './globals.css';\n7\t\n8\timport type { Metadata } from 'next';\n9\timport { Inter } from 'next/font/google';\n10\t\n11\timport { Toaster } from '@interface/components/ui/toaster';\n12\timport { DisableTabNavigation } from '@interface/components/disable-tab-navigation';\n13\timport { ErrorBoundary } from '@interface/components/ErrorBoundary';\n14\t// Rive avatar removed — GIF only per Blair directive 2026-02-24\n15\t\n16\timport { LabModeBanner } from '@interface/components/LabModeBanner';\n17\timport { Providers } from './providers';\n18\t\n19\tconst inter = Inter({ subsets: ['latin'] });\n20\t\n21\texport const metadata: Metadata = {\n22\t  title: 'PearlOS',\n23\t  description: 'PearlOS — Your Intelligent Desktop',\n24\t};\n25\t\n26\texport default function RootLayout({ children }: { children: React.ReactNode }) {\n27\t  // suppressHydrationWarning on <html> and <body>: browser extensions (e.g. password\n28\t  // managers, translators) can inject attributes/elements, causing hydration mismatches\n29\t  // on mobile Safari and other browsers. This is a standard Next.js safety net.\n30\t\n31\t  return (\n32\t    <html lang=\"en\" suppressHydrationWarning>\n33\t      <head>\n34\t        <link rel=\"preload\" href=\"/backgrounds/home-sunset.png\" as=\"image\" />\n35\t        <link rel=\"preload\" href=\"/backgrounds/desktop-forest.png\" as=\"image\" />\n36\t        {/* PearlOS is a fixed-viewport PWA-style app: lock zoom and drag off.\n37\t            maximum-scale=1 + user-scalable=no disables pinch-zoom on iOS Safari. */}\n38\t        <meta\n39\t          name=\"viewport\"\n40\t          content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"\n41\t        />\n42\t        {/* PWA install path (Add to Home Screen) — drops Safari chrome when launched from\n43\t            home screen. Harmless inside a normal Safari tab. */}\n44\t        <meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />\n45\t        <meta name=\"mobile-web-app-capable\" content=\"yes\" />\n46\t        <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\" />\n47\t        {/* Prevents iOS from auto-linking phone numbers, which causes layout/style artifacts */}\n48\t        <meta name=\"format-detection\" content=\"telephone=no\" />\n49\t        {/* --vh fallback for browsers without dvh support (pre-iOS 15.4). Modern browsers\n50\t            ignore this and use the 100dvh declaration in globals.css. Runs early to avoid\n51\t            FOUC where the layout briefly resolves to an unintended height. */}\n52\t        <script\n53\t          dangerouslySetInnerHTML={{\n54\t            __html: `\n55\t              (function() {\n56\t                function setVh() {\n57\t                  document.documentElement.style.setProperty(\n58\t                    '--vh',\n59\t                    (window.innerHeight * 0.01) + 'px'\n60\t                  );\n61\t                }\n62\t                setVh();\n63\t                window.addEventListener('resize', setVh, { passive: true });\n64\t                window.addEventListener('orientationchange', setVh, { passive: true });\n65\t              })();\n66\t            `,\n67\t          }}\n68\t        />\n69\t        {/* Dynamic page title with EST time + date + build ID */}\n70\t        <script\n71\t          dangerouslySetInnerHTML={{\n72\t            __html: `\n73\t              (function() {\n74\t                var BUILD_ID = '075d4794-restart-fix';\n75\t                function updateTitle() {\n76\t                  var now = new Date();\n77\t                  var est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));\n78\t                  var month = (est.getMonth()+1).toString().padStart(2,'0');\n79\t                  var day = est.getDate().toString().padStart(2,..."
+          },
+          "toolu_01JQLxafs7kA7BhXF4FFqhMq": {
+            "tool_use_id": "toolu_01JQLxafs7kA7BhXF4FFqhMq",
+            "tool_name": "ls -la /workspace/nia-universal/apps/interface/src/app/login/",
+            "is_error": false,
+            "content": {
+              "Text": "total 2015\ndrwxrwxrwx  2 root root 1000494 Apr 20 11:17 .\ndrwxrwxrwx 18 root root 1056550 Apr 20 11:17 ..\n-rw-rw-rw-  1 root root     806 Feb  5 20:00 layout.tsx\n-rw-rw-rw-  1 root root    4262 Apr 20 11:17 page.tsx"
+            },
+            "output": "total 2015\ndrwxrwxrwx  2 root root 1000494 Apr 20 11:17 .\ndrwxrwxrwx 18 root root 1056550 Apr 20 11:17 ..\n-rw-rw-rw-  1 root root     806 Feb  5 20:00 layout.tsx\n-rw-rw-rw-  1 root root    4262 Apr 20 11:17 page.tsx"
+          },
+          "toolu_01KZJSaJNgMxxTHgNwpmFtut": {
+            "tool_use_id": "toolu_01KZJSaJNgMxxTHgNwpmFtut",
+            "tool_name": "Read /workspace/nia-universal/tests/e2e/playwright.config.ts",
+            "is_error": false,
+            "content": {
+              "Text": "Wasted call — file unchanged since your last Read. Refer to that earlier tool_result instead."
+            },
+            "output": "Wasted call — file unchanged since your last Read. Refer to that earlier tool_result instead."
+          },
+          "toolu_01EVRMBeQnAnMFS8Cdu7WPcW": {
+            "tool_use_id": "toolu_01EVRMBeQnAnMFS8Cdu7WPcW",
+            "tool_name": "Read /workspace/nia-universal/scripts/qa-screenshot.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t/**\n2\t * PearlOS QA Screenshot Script\n3\t *\n4\t * Authenticates against the Interface app, waits for the ActiveJobsWidget,\n5\t * captures a timestamped screenshot of the widget, and saves it to\n6\t * /qa/screenshots/.\n7\t *\n8\t * Environment variables (read from .env.local by default):\n9\t *   DASHBOARD_ADMIN_EMAIL    - login email\n10\t *   DASHBOARD_ADMIN_PASSWORD - login password\n11\t *   PEARLOS_URL              - base URL (default: http://localhost:3000)\n12\t *\n13\t * Usage:\n14\t *   npx playwright test --config scripts/qa-screenshot.config.ts\n15\t *   # or via npm script:\n16\t *   npm run qa:screenshot\n17\t */\n18\t\n19\timport { chromium, type Page } from 'playwright';\n20\timport * as fs from 'fs';\n21\timport * as path from 'path';\n22\timport * as dotenv from 'dotenv';\n23\t\n24\t// Load env\n25\tdotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });\n26\t\n27\tconst BASE_URL = process.env.PEARLOS_URL || 'http://localhost:3000';\n28\tconst EMAIL = process.env.DASHBOARD_ADMIN_EMAIL;\n29\tconst PASSWORD = process.env.DASHBOARD_ADMIN_PASSWORD;\n30\tconst SCREENSHOTS_DIR = path.resolve(__dirname, '..', 'qa', 'screenshots');\n31\t\n32\tasync function authenticate(page: Page): Promise<void> {\n33\t  if (!EMAIL || !PASSWORD) {\n34\t    throw new Error(\n35\t      'Missing DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD in environment',\n36\t    );\n37\t  }\n38\t\n39\t  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: 30_000 });\n40\t\n41\t  // Fill login form\n42\t  await page.fill('#email-input', EMAIL);\n43\t  await page.fill('#password-input', PASSWORD);\n44\t\n45\t  // Submit — find the submit button within the login form\n46\t  await page.click('form button[type=\"submit\"], form .login-button, form button');\n47\t\n48\t  // Wait for navigation away from /login\n49\t  await page.waitForURL((url) => !url.pathname.includes('/login'), {\n50\t    timeout: 30_000,\n51\t  });\n52\t\n53\t  // Extra settle time for React hydration\n54\t  await page.waitForTimeout(3000);\n55\t}\n56\t\n57\tasync function waitForActiveJobsWidget(page: Page): Promise<void> {\n58\t  // The ActiveJobsWidget doesn't have a data-testid, so we look for its\n59\t  // characteristic class or the component's wrapper. The widget uses the\n60\t  // Gohufont font-face with id='gohufont-active-jobs' as a fingerprint.\n61\t  // We wait for either the style tag (proving the component mounted) or\n62\t  // fall back to a generous timeout.\n63\t  try {\n64\t    await page.waitForFunction(\n65\t      () => !!document.getElementById('gohufont-active-jobs'),\n66\t      { timeout: 20_000 },\n67\t    );\n68\t  } catch {\n69\t    console.warn(\n70\t      'ActiveJobsWidget font-face tag not found — widget may not be rendered. Continuing anyway.',\n71\t    );\n72\t  }\n73\t\n74\t  // Let animations settle\n75\t  await page.waitForTimeout(2000);\n76\t}\n77\t\n78\tfunction screenshotFilename(label: string): string {\n79\t  const ts = new Date().toISOString().replace(/[:.]/g, '-');\n80\t  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();\n81\t  return `${slug}-${ts}.png`;\n82\t}\n83\t\n84\tasync function main() {\n85\t  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });\n86\t\n87\t  const browser = await chromium.launch({ headless: true });\n88\t  const context = await browser.newContext({\n89\t    viewport: { width: 1280, height: 800 },\n90\t  });\n91\t  const page = await context.newPage();\n92\t\n93\t  try {\n94\t    console.log(`Navigating to ${BASE_URL} ...`);\n95\t\n96\t    // Authenticate\n97\t    await authenticate(page);\n98\t    console.log('Authenticated.');\n99\t\n100\t    // Navigate to main page (may already be there after login redirect)\n101\t    if (!page.url().includes(BASE_URL) || page.url().includes('/login')) {\n102\t      await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30_000 });\n103\t    }\n104\t\n105\t    // Wait for ActiveJobsWidget\n106\t    await waitForActiveJobsWidget(page);\n107\t    console.log('ActiveJobsWidget detected (or timeout reached).');\n108\t\n109\t    // Full-page screenshot\n110\t    const fullPath = path.join(SCREENSHOTS_DIR, screenshotFilename('pearlos-f..."
+            },
+            "output": "1\t/**\n2\t * PearlOS QA Screenshot Script\n3\t *\n4\t * Authenticates against the Interface app, waits for the ActiveJobsWidget,\n5\t * captures a timestamped screenshot of the widget, and saves it to\n6\t * /qa/screenshots/.\n7\t *\n8\t * Environment variables (read from .env.local by default):\n9\t *   DASHBOARD_ADMIN_EMAIL    - login email\n10\t *   DASHBOARD_ADMIN_PASSWORD - login password\n11\t *   PEARLOS_URL              - base URL (default: http://localhost:3000)\n12\t *\n13\t * Usage:\n14\t *   npx playwright test --config scripts/qa-screenshot.config.ts\n15\t *   # or via npm script:\n16\t *   npm run qa:screenshot\n17\t */\n18\t\n19\timport { chromium, type Page } from 'playwright';\n20\timport * as fs from 'fs';\n21\timport * as path from 'path';\n22\timport * as dotenv from 'dotenv';\n23\t\n24\t// Load env\n25\tdotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });\n26\t\n27\tconst BASE_URL = process.env.PEARLOS_URL || 'http://localhost:3000';\n28\tconst EMAIL = process.env.DASHBOARD_ADMIN_EMAIL;\n29\tconst PASSWORD = process.env.DASHBOARD_ADMIN_PASSWORD;\n30\tconst SCREENSHOTS_DIR = path.resolve(__dirname, '..', 'qa', 'screenshots');\n31\t\n32\tasync function authenticate(page: Page): Promise<void> {\n33\t  if (!EMAIL || !PASSWORD) {\n34\t    throw new Error(\n35\t      'Missing DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD in environment',\n36\t    );\n37\t  }\n38\t\n39\t  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: 30_000 });\n40\t\n41\t  // Fill login form\n42\t  await page.fill('#email-input', EMAIL);\n43\t  await page.fill('#password-input', PASSWORD);\n44\t\n45\t  // Submit — find the submit button within the login form\n46\t  await page.click('form button[type=\"submit\"], form .login-button, form button');\n47\t\n48\t  // Wait for navigation away from /login\n49\t  await page.waitForURL((url) => !url.pathname.includes('/login'), {\n50\t    timeout: 30_000,\n51\t  });\n52\t\n53\t  // Extra settle time for React hydration\n54\t  await page.waitForTimeout(3000);\n55\t}\n56\t\n57\tasync function waitForActiveJobsWidget(page: Page): Promise<void> {\n58\t  // The ActiveJobsWidget doesn't have a data-testid, so we look for its\n59\t  // characteristic class or the component's wrapper. The widget uses the\n60\t  // Gohufont font-face with id='gohufont-active-jobs' as a fingerprint.\n61\t  // We wait for either the style tag (proving the component mounted) or\n62\t  // fall back to a generous timeout.\n63\t  try {\n64\t    await page.waitForFunction(\n65\t      () => !!document.getElementById('gohufont-active-jobs'),\n66\t      { timeout: 20_000 },\n67\t    );\n68\t  } catch {\n69\t    console.warn(\n70\t      'ActiveJobsWidget font-face tag not found — widget may not be rendered. Continuing anyway.',\n71\t    );\n72\t  }\n73\t\n74\t  // Let animations settle\n75\t  await page.waitForTimeout(2000);\n76\t}\n77\t\n78\tfunction screenshotFilename(label: string): string {\n79\t  const ts = new Date().toISOString().replace(/[:.]/g, '-');\n80\t  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();\n81\t  return `${slug}-${ts}.png`;\n82\t}\n83\t\n84\tasync function main() {\n85\t  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });\n86\t\n87\t  const browser = await chromium.launch({ headless: true });\n88\t  const context = await browser.newContext({\n89\t    viewport: { width: 1280, height: 800 },\n90\t  });\n91\t  const page = await context.newPage();\n92\t\n93\t  try {\n94\t    console.log(`Navigating to ${BASE_URL} ...`);\n95\t\n96\t    // Authenticate\n97\t    await authenticate(page);\n98\t    console.log('Authenticated.');\n99\t\n100\t    // Navigate to main page (may already be there after login redirect)\n101\t    if (!page.url().includes(BASE_URL) || page.url().includes('/login')) {\n102\t      await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30_000 });\n103\t    }\n104\t\n105\t    // Wait for ActiveJobsWidget\n106\t    await waitForActiveJobsWidget(page);\n107\t    console.log('ActiveJobsWidget detected (or timeout reached).');\n108\t\n109\t    // Full-page screenshot\n110\t    const fullPath = path.join(SCREENSHOTS_DIR, screenshotFilename('pearlos-f..."
+          },
+          "toolu_01S35NThAmSB1GUuKLtcVy8C": {
+            "tool_use_id": "toolu_01S35NThAmSB1GUuKLtcVy8C",
+            "tool_name": "Read /workspace/nia-universal/apps/dashboard/src/components/login-form.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport { zodResolver } from '@hookform/resolvers/zod';\n4\timport { AudioWaveform, Loader2, Eye, EyeOff } from 'lucide-react';\n5\timport { useRouter } from 'next/navigation';\n6\timport { signIn } from 'next-auth/react';\n7\timport React, { useState, useEffect } from 'react';\n8\timport { useForm } from 'react-hook-form';\n9\timport { FcGoogle } from 'react-icons/fc';\n10\timport { z } from 'zod';\n11\t\n12\timport { Button } from '@dashboard/components/ui/button';\n13\timport { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@dashboard/components/ui/card';\n14\timport { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@dashboard/components/ui/form';\n15\timport { Input } from '@dashboard/components/ui/input';\n16\timport { useToast } from '@dashboard/hooks/use-toast';\n17\t\n18\t// Client-side only wrapper to prevent hydration mismatches\n19\tfunction ClientOnly({ children }: { children: React.ReactNode }) {\n20\t  const [hasMounted, setHasMounted] = useState(false);\n21\t\n22\t  useEffect(() => {\n23\t    setHasMounted(true);\n24\t  }, []);\n25\t\n26\t  if (!hasMounted) {\n27\t    return null;\n28\t  }\n29\t\n30\t  return <>{children}</>;\n31\t}\n32\t\n33\t// Login schema for form validation\n34\tconst LoginSchema = z.object({\n35\t  email: z.string().min(1, 'Username or email is required'),\n36\t  password: z.string().min(1, 'Password is required'),\n37\t});\n38\t\n39\ttype LoginFormData = z.infer<typeof LoginSchema>;\n40\t\n41\texport function LoginForm() {\n42\t  const [loading, setLoading] = useState(false);\n43\t  const [showPassword, setShowPassword] = useState(false);\n44\t  const [error, setError] = useState<string | null>(null);\n45\t  const router = useRouter();\n46\t  const { toast } = useToast();\n47\t\n48\t  const form = useForm<LoginFormData>({\n49\t    resolver: zodResolver(LoginSchema),\n50\t    mode: 'onChange',\n51\t  });\n52\t\n53\t  // Handle standard email/password login\n54\t  const handleSubmit = async (values: LoginFormData) => {\n55\t    setLoading(true);\n56\t    setError(null);\n57\t\n58\t    try {\n59\t      const result = await signIn('credentials', {\n60\t        redirect: false,\n61\t        email: values.email,\n62\t        password: values.password,\n63\t        callbackUrl: '/dashboard/assistants',\n64\t      });\n65\t\n66\t      if (result?.error) {\n67\t        const errorMessage = 'Invalid email or password';\n68\t        setError(errorMessage);\n69\t        toast({\n70\t          title: 'Login failed',\n71\t          description: errorMessage,\n72\t          variant: 'destructive',\n73\t        });\n74\t      } else {\n75\t        toast({\n76\t          title: 'Login successful',\n77\t          description: 'You have successfully logged in',\n78\t        });\n79\t        router.refresh();\n80\t        router.push('/dashboard/assistants');\n81\t      }\n82\t    } catch (err) {\n83\t      const errorMessage = 'An unexpected error occurred';\n84\t      setError(errorMessage);\n85\t      toast({\n86\t        title: 'Login failed',\n87\t        description: errorMessage,\n88\t        variant: 'destructive',\n89\t      });\n90\t      console.error(err);\n91\t    } finally {\n92\t      setLoading(false);\n93\t    }\n94\t  };\n95\t\n96\t  // Handle Google sign-in\n97\t  const handleGoogleSignIn = () => {\n98\t    signIn('google', { callbackUrl: '/dashboard/assistants' });\n99\t  };\n100\t\n101\t  // Resend invite (for provisional account without password)\n102\t  const handleResendInvite = async () => {\n103\t    try {\n104\t      const email = form.getValues('email');\n105\t      if (!email) return;\n106\t      const res = await fetch('/dashboard/api/users/resend-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });\n107\t      const data = await res.json().catch(() => ({}));\n108\t      if (!res.ok || !data.success) throw new Error(data.error || 'Failed');\n109\t      toast({ title: 'Invite sent', description: 'Check your email for the invite link.' });\n110\t    } catch (e: any) {\n111\t      toast({ title: 'Error', description: e.message || 'Failed to resend invite', variant: 'destr..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport { zodResolver } from '@hookform/resolvers/zod';\n4\timport { AudioWaveform, Loader2, Eye, EyeOff } from 'lucide-react';\n5\timport { useRouter } from 'next/navigation';\n6\timport { signIn } from 'next-auth/react';\n7\timport React, { useState, useEffect } from 'react';\n8\timport { useForm } from 'react-hook-form';\n9\timport { FcGoogle } from 'react-icons/fc';\n10\timport { z } from 'zod';\n11\t\n12\timport { Button } from '@dashboard/components/ui/button';\n13\timport { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@dashboard/components/ui/card';\n14\timport { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@dashboard/components/ui/form';\n15\timport { Input } from '@dashboard/components/ui/input';\n16\timport { useToast } from '@dashboard/hooks/use-toast';\n17\t\n18\t// Client-side only wrapper to prevent hydration mismatches\n19\tfunction ClientOnly({ children }: { children: React.ReactNode }) {\n20\t  const [hasMounted, setHasMounted] = useState(false);\n21\t\n22\t  useEffect(() => {\n23\t    setHasMounted(true);\n24\t  }, []);\n25\t\n26\t  if (!hasMounted) {\n27\t    return null;\n28\t  }\n29\t\n30\t  return <>{children}</>;\n31\t}\n32\t\n33\t// Login schema for form validation\n34\tconst LoginSchema = z.object({\n35\t  email: z.string().min(1, 'Username or email is required'),\n36\t  password: z.string().min(1, 'Password is required'),\n37\t});\n38\t\n39\ttype LoginFormData = z.infer<typeof LoginSchema>;\n40\t\n41\texport function LoginForm() {\n42\t  const [loading, setLoading] = useState(false);\n43\t  const [showPassword, setShowPassword] = useState(false);\n44\t  const [error, setError] = useState<string | null>(null);\n45\t  const router = useRouter();\n46\t  const { toast } = useToast();\n47\t\n48\t  const form = useForm<LoginFormData>({\n49\t    resolver: zodResolver(LoginSchema),\n50\t    mode: 'onChange',\n51\t  });\n52\t\n53\t  // Handle standard email/password login\n54\t  const handleSubmit = async (values: LoginFormData) => {\n55\t    setLoading(true);\n56\t    setError(null);\n57\t\n58\t    try {\n59\t      const result = await signIn('credentials', {\n60\t        redirect: false,\n61\t        email: values.email,\n62\t        password: values.password,\n63\t        callbackUrl: '/dashboard/assistants',\n64\t      });\n65\t\n66\t      if (result?.error) {\n67\t        const errorMessage = 'Invalid email or password';\n68\t        setError(errorMessage);\n69\t        toast({\n70\t          title: 'Login failed',\n71\t          description: errorMessage,\n72\t          variant: 'destructive',\n73\t        });\n74\t      } else {\n75\t        toast({\n76\t          title: 'Login successful',\n77\t          description: 'You have successfully logged in',\n78\t        });\n79\t        router.refresh();\n80\t        router.push('/dashboard/assistants');\n81\t      }\n82\t    } catch (err) {\n83\t      const errorMessage = 'An unexpected error occurred';\n84\t      setError(errorMessage);\n85\t      toast({\n86\t        title: 'Login failed',\n87\t        description: errorMessage,\n88\t        variant: 'destructive',\n89\t      });\n90\t      console.error(err);\n91\t    } finally {\n92\t      setLoading(false);\n93\t    }\n94\t  };\n95\t\n96\t  // Handle Google sign-in\n97\t  const handleGoogleSignIn = () => {\n98\t    signIn('google', { callbackUrl: '/dashboard/assistants' });\n99\t  };\n100\t\n101\t  // Resend invite (for provisional account without password)\n102\t  const handleResendInvite = async () => {\n103\t    try {\n104\t      const email = form.getValues('email');\n105\t      if (!email) return;\n106\t      const res = await fetch('/dashboard/api/users/resend-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });\n107\t      const data = await res.json().catch(() => ({}));\n108\t      if (!res.ok || !data.success) throw new Error(data.error || 'Failed');\n109\t      toast({ title: 'Invite sent', description: 'Check your email for the invite link.' });\n110\t    } catch (e: any) {\n111\t      toast({ title: 'Error', description: e.message || 'Failed to resend invite', variant: 'destr..."
+          },
+          "toolu_015cpQs1HPWaJiJis5qzRZWt": {
+            "tool_use_id": "toolu_015cpQs1HPWaJiJis5qzRZWt",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+          },
+          "toolu_01M4q1SsgZMrS8T7YWXGp2Yg": {
+            "tool_use_id": "toolu_01M4q1SsgZMrS8T7YWXGp2Yg",
+            "tool_name": "Find `/workspace/nia-universal` `apps/interface/src/app/**/login/**/page.{tsx,ts,jsx}`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01MKqWPnSaLCJvFwJV291AMF": {
+            "tool_use_id": "toolu_01MKqWPnSaLCJvFwJV291AMF",
+            "tool_name": "Find `/workspace/nia-universal` `apps/interface/src/app/login/**`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01WAjVVazMMASTvs33tF6uts": {
+            "tool_use_id": "toolu_01WAjVVazMMASTvs33tF6uts",
+            "tool_name": "grep -l --include=\"apps/interface/src/app/**/page.{tsx,ts}\" \"/login\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_015bQw77f4x3Yp2FJuDwa6oG": {
+            "tool_use_id": "toolu_015bQw77f4x3Yp2FJuDwa6oG",
+            "tool_name": "grep -i -l --include=\"apps/interface/src/app/**/page.{tsx,ts}\" \"login|signin|sign-in\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01Et4sMnA2AgSS3JRkY1pjPw": {
+            "tool_use_id": "toolu_01Et4sMnA2AgSS3JRkY1pjPw",
+            "tool_name": "Write",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          }
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-04-22T05:28:30.694Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {
+    "available_commands": [
+      "update-config",
+      "debug",
+      "simplify",
+      "batch",
+      "loop",
+      "schedule",
+      "claude-api",
+      "compact",
+      "context",
+      "heapdump",
+      "init",
+      "review",
+      "security-review",
+      "extra-usage",
+      "insights"
+    ]
+  }
+}

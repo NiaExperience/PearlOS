@@ -1,0 +1,47 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:codex:acp:429f3a86-2737-4054-ba8a-994254e5c9e2:oneshot:fffa3f9d-5303-4c7f-9be7-db3c5e1bb5d2",
+  "acp_session_id": "019dc87a-6423-79a2-8a1e-ea5e80632d36",
+  "agent_command": "npx @zed-industries/codex-acp@^0.11.1",
+  "cwd": "/workspace/nia-universal/codex",
+  "name": "agent:codex:acp:429f3a86-2737-4054-ba8a-994254e5c9e2",
+  "created_at": "2026-04-26T06:29:17.506Z",
+  "last_used_at": "2026-04-26T06:29:17.506Z",
+  "last_seq": 0,
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Acodex%3Aacp%3A429f3a86-2737-4054-ba8a-994254e5c9e2%3Aoneshot%3Afffa3f9d-5303-4c7f-9be7-db3c5e1bb5d2.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": false,
+  "pid": 3575705,
+  "agent_started_at": "2026-04-26T06:29:06.359Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "loadSession": true,
+    "promptCapabilities": {
+      "image": true,
+      "audio": false,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": false
+    },
+    "sessionCapabilities": {
+      "list": {},
+      "close": {}
+    },
+    "auth": {
+      "logout": {}
+    }
+  },
+  "title": null,
+  "messages": [],
+  "updated_at": "2026-04-26T06:29:17.506Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {}
+}

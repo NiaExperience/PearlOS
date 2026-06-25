@@ -51,7 +51,7 @@ export default function CreateToolsModal() {
       }
 
       // Call the API route to create the tool
-      const response = await fetch('/api/tools', {
+      const response = await fetch('/dashboard/api/tools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

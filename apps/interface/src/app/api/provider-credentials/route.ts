@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { requireAuth } from '@interface/lib/api-auth';
+import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
+import { isBlairActor } from '@interface/lib/workspace-entitlements';
 
 const ENV_PATH = '/root/.openclaw/.env';
 
@@ -10,6 +12,18 @@ interface ProviderCredentials {
     apiKey: string;
     enabled: boolean;
   };
+}
+
+async function requirePlatformAdmin(request: NextRequest): Promise<NextResponse | null> {
+  const actorResult = await resolveInterfaceActorContext({
+    request,
+    minimumRole: TenantRole.ADMIN,
+  });
+  if (!actorResult.ok) return actorResult.response;
+  if (!isBlairActor(actorResult.actor)) {
+    return NextResponse.json({ error: 'platform_admin_required' }, { status: 403 });
+  }
+  return null;
 }
 
 // Parse .env file into key-value pairs
@@ -48,12 +62,13 @@ async function writeEnvFile(env: Record<string, string>): Promise<void> {
     return `${key}=${needsQuotes ? `'${value}'` : value}`;
   });
   
+  await fs.mkdir(path.dirname(ENV_PATH), { recursive: true });
   await fs.writeFile(ENV_PATH, lines.join('\n') + '\n', 'utf-8');
 }
 
 // GET: List provider credentials status
 export async function GET(request: NextRequest) {
-  const authError = await requireAuth(request);
+  const authError = await requirePlatformAdmin(request);
   if (authError) return authError;
   try {
     const env = await parseEnvFile();
@@ -105,7 +120,7 @@ export async function GET(request: NextRequest) {
 
 // POST: Add or update provider credentials
 export async function POST(request: NextRequest) {
-  const authError = await requireAuth(request);
+  const authError = await requirePlatformAdmin(request);
   if (authError) return authError;
   try {
     const body = await request.json();
@@ -161,7 +176,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE: Remove provider credentials
 export async function DELETE(request: NextRequest) {
-  const authError = await requireAuth(request);
+  const authError = await requirePlatformAdmin(request);
   if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);

@@ -159,7 +159,7 @@ export default function ClientManager(props: Props) {
         />
         */}
         {/* Initialize desktop mode after switcher so listener is mounted */}
-        <InitializeDesktopMode mode={(initialDesktopMode as any) || 'work'} />
+        <InitializeDesktopMode mode={(initialDesktopMode as any) || 'home'} />
         {/* ProfileDropdown removed — deprecated ? button; user menu via PersistentNavButtons */}
         {seatrade ? (
           <div

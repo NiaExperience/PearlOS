@@ -64,7 +64,7 @@ export default function CreateAssistantModal() {
         setIsFetchingTemplates(true);
         try {
           // TODO: feed it the chosen tenantId from the session
-          const res = await fetch('/api/assistant');
+          const res = await fetch('/dashboard/api/assistant');
           if (!res.ok) throw new Error('Failed to fetch templates');
           const data = await res.json();
           if (data.templates) {
@@ -95,7 +95,7 @@ export default function CreateAssistantModal() {
     setIsLoading(true);
     try {
       // TODO: feed it the chosen tenantId from the session
-      const res = await fetch('/api/assistant', {
+      const res = await fetch('/dashboard/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
@@ -129,7 +129,7 @@ export default function CreateAssistantModal() {
     }
     setIsLoading(true);
     try {
-      const res = await fetch('/api/assistant/clone', {
+      const res = await fetch('/dashboard/api/assistant/clone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

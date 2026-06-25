@@ -71,6 +71,7 @@ try:
 
     # Sprite Events (bot-specific, not in nia_events yet)
     SPRITE_SUMMON = 'sprite.summon'
+    INTERFACE_CUSTOMIZE = 'interface.customize'
 
     # Wonder Canvas Events (bot-specific)
     WONDER_CANVAS_SCENE = 'wonder.scene'
@@ -136,6 +137,7 @@ except ImportError:
     EXPERIENCE_RENDER = 'experience.render'
     EXPERIENCE_DISMISS = 'experience.dismiss'
     SPRITE_SUMMON = 'sprite.summon'
+    INTERFACE_CUSTOMIZE = 'interface.customize'
     WONDER_CANVAS_SCENE = 'wonder.scene'
     WONDER_CANVAS_ADD = 'wonder.add'
     WONDER_CANVAS_CLEAR = 'wonder.clear'

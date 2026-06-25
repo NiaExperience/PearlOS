@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Wonder Canvas Runtime</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #0a0a0f; color: #e8e8f0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+
+/* Ensure content layers allow vertical scroll when content overflows */
+#wonder-main > *, #wonder-overlay > * {
+  min-height: 0;
+}
+
+/* Responsive: stack columns on mobile for info cards / explainers */
+@media (max-width: 600px) {
+  #wonder-main [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  #wonder-main img {
+    max-height: 200px !important;
+  }
+}
+
+/* === Layer System === */
+#wonder-bg, #wonder-main, #wonder-overlay {
+  position: absolute; inset: 0; overflow: auto;
+}
+#wonder-bg    { z-index: 1; }
+#wonder-main  { z-index: 10; }
+#wonder-overlay { z-index: 100; pointer-events: none; }
+#wonder-overlay > * { pointer-events: auto; }
+
+/* === Transitions === */
+.wonder-layer-fade     { transition: opacity 300ms ease; }
+.wonder-layer-dissolve { transition: opacity 500ms ease-in-out; }
+.wonder-layer-slide-left {
+  transition: transform 350ms ease, opacity 250ms ease;
+}
+.wonder-layer-slide-right {
+  transition: transform 350ms ease, opacity 250ms ease;
+}
+
+.wonder-layer-entering-slide-left  { transform: translateX(100%); opacity: 0; }
+.wonder-layer-entering-slide-right { transform: translateX(-100%); opacity: 0; }
+.wonder-layer-exiting-slide-left   { transform: translateX(-100%); opacity: 0; }
+.wonder-layer-exiting-slide-right  { transform: translateX(100%); opacity: 0; }
+
+/* === Animation Classes === */
+@keyframes wonderFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes wonderFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes wonderSlideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes wonderBounce {
+  0%, 100% { transform: translateY(0); }
+  30%  { transform: translateY(-20px); }
+  50%  { transform: translateY(-10px); }
+  70%  { transform: translateY(-5px); }
+}
+@keyframes wonderShake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(7px); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+@keyframes wonderPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.05); opacity: 0.85; }
+}
+@keyframes wonderGlow {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+  50%      { filter: brightness(1.2) drop-shadow(0 0 12px rgba(150, 130, 255, 0.4)); }
+}
+@keyframes wonderSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes wonderTypewriter {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+@keyframes wonderBlink {
+  50% { border-color: transparent; }
+}
+
+.wonder-fadeIn   { animation: wonderFadeIn 0.5s ease both; }
+.wonder-fadeOut  { animation: wonderFadeOut 0.5s ease both; }
+.wonder-slideUp  { animation: wonderSlideUp 0.4s ease-out both; }
+.wonder-bounce   { animation: wonderBounce 0.6s ease; }
+.wonder-shake    { animation: wonderShake 0.5s ease; }
+.wonder-pulse    { animation: wonderPulse 1s ease infinite; }
+.wonder-glow     { animation: wonderGlow 2s ease infinite; }
+.wonder-spin     { animation: wonderSpin 1s linear infinite; }
+.wonder-typewriter {
+  overflow: hidden; white-space: nowrap; display: inline-block;
+  border-right: 2px solid currentColor; width: 0;
+  animation: wonderTypewriter 3s steps(40) forwards, wonderBlink 0.75s step-end infinite;
+}
+
+/* === Interactive Elements === */
+[data-action] {
+  cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s ease;
+}
+[data-action]:active { transform: scale(0.96); }
+
+/* === Wonder Choice Button === */
+.wonder-choice {
+  display: inline-block; padding: 14px 28px; margin: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(150, 130, 255, 0.25);
+  color: #e8e8f0; font-size: 16px; font-family: inherit;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(150, 130, 255, 0), 0 2px 8px rgba(0,0,0,0.3);
+  text-align: center; line-height: 1.4;
+}
+.wonder-choice:hover {
+  background: rgba(150, 130, 255, 0.15);
+  border-color: rgba(150, 130, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(150, 130, 255, 0.15), 0 4px 16px rgba(0,0,0,0.3);
+}
+.wonder-choice:active {
+  transform: translateY(0) scale(0.97);
+  background: rgba(150, 130, 255, 0.25);
+}
+
+/* === Particle Presets === */
+.wonder-particles-fireflies { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.wonder-particles-fireflies::before,
+.wonder-particles-fireflies::after {
+  content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: rgba(255, 255, 180, 0.7); box-shadow: 0 0 8px rgba(255, 255, 180, 0.5);
+}
+.wonder-particles-fireflies::before {
+  top: 30%; left: 20%; animation: fireflyFloat1 6s ease-in-out infinite;
+}
+.wonder-particles-fireflies::after {
+  top: 60%; left: 70%; animation: fireflyFloat2 8s ease-in-out infinite;
+}
+@keyframes fireflyFloat1 {
+  0%, 100% { transform: translate(0, 0); opacity: 0.3; }
+  25% { transform: translate(40px, -30px); opacity: 1; }
+  50% { transform: translate(-20px, -60px); opacity: 0.5; }
+  75% { transform: translate(60px, -20px); opacity: 0.8; }
+}
+@keyframes fireflyFloat2 {
+  0%, 100% { transform: translate(0, 0); opacity: 0.5; }
+  33% { transform: translate(-50px, 30px); opacity: 1; }
+  66% { transform: translate(30px, -40px); opacity: 0.3; }
+}
+
+/* === Avatar Safe Zone === */
+/* On mobile, Pearl's avatar sits bottom-left (~75px rendered at scale 0.3 from 250px base).
+   Reserve space so interactive content doesn't get obscured. */
+@media (max-width: 768px) {
+  .wonder-avatar-safe {
+    padding-bottom: 100px !important;
+  }
+  /* Auto-apply to choice containers near bottom */
+  #wonder-main, #wonder-overlay {
+    --avatar-safe-bottom: 100px;
+    --avatar-safe-left: 90px;
+  }
+  /* Choices auto-reposition to avoid avatar overlap */
+  .wonder-choices-safe {
+    margin-bottom: var(--avatar-safe-bottom, 0) !important;
+    margin-left: var(--avatar-safe-left, 0) !important;
+  }
+}
+
+/* === Avatar State Awareness === */
+/* Body gets data-avatar-state attribute; scenes can style accordingly */
+body[data-avatar-state="speaking"] #wonder-main {
+  transition: filter 0.3s ease;
+  filter: brightness(0.85);
+}
+body[data-avatar-state="thinking"] #wonder-main {
+  transition: filter 0.3s ease;
+  filter: brightness(0.9);
+}
+body[data-avatar-state="summoning"] #wonder-main {
+  transition: filter 0.5s ease;
+  filter: brightness(0.7) saturate(1.3);
+}
+
+/* Custom CSS injected per-scene goes into <style id="wonder-custom-css"> */
+
+/* === Sprite System === */
+.w-sprite { display: inline-block; vertical-align: middle; line-height: 0; }
+.w-sprite svg { image-rendering: pixelated; }
+@keyframes w-sprite-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes w-sprite-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes w-sprite-shimmer { 0%, 100% { filter: brightness(1) drop-shadow(0 0 2px rgba(90,220,220,0.3)); } 50% { filter: brightness(1.3) drop-shadow(0 0 8px rgba(90,220,220,0.7)); } }
+@keyframes w-sprite-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@keyframes w-sprite-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes w-sprite-wiggle { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+.w-sprite--bounce { animation: w-sprite-bounce 1s ease-in-out infinite; }
+.w-sprite--float { animation: w-sprite-float 2.5s ease-in-out infinite; }
+.w-sprite--shimmer { animation: w-sprite-shimmer 2s ease-in-out infinite; }
+.w-sprite--pulse { animation: w-sprite-pulse 1.2s ease-in-out infinite; }
+.w-sprite--spin { animation: w-sprite-spin 2s linear infinite; }
+.w-sprite--wiggle { animation: w-sprite-wiggle 0.8s ease-in-out infinite; }
+</style>
+</head>
+<body>
+  <div id="wonder-bg"></div>
+  <div id="wonder-main"></div>
+  <div id="wonder-overlay"></div>
+  <style id="wonder-custom-css"></style>
+
+<script>
+(function() {
+  'use strict';
+
+  const LAYER_IDS = { background: 'wonder-bg', main: 'wonder-main', overlay: 'wonder-overlay' };
+  const TRANSITION_DURATION = { fade: 300, 'slide-left': 350, 'slide-right': 350, instant: 0, dissolve: 500 };
+
+  // === Animation Frame Cleanup ===
+  // Track all rAF calls so we can cancel them on scene change (prevents memory leaks)
+  const _activeRAFs = new Set();
+  const _origRAF = window.requestAnimationFrame.bind(window);
+  const _origCAF = window.cancelAnimationFrame.bind(window);
+  window.requestAnimationFrame = function(cb) {
+    const id = _origRAF(function(ts) {
+      _activeRAFs.delete(id);
+      cb(ts);
+    });
+    _activeRAFs.add(id);
+    return id;
+  };
+  window.cancelAnimationFrame = function(id) {
+    _activeRAFs.delete(id);
+    _origCAF(id);
+  };
+  function cancelAllAnimations() {
+    _activeRAFs.forEach(id => _origCAF(id));
+    _activeRAFs.clear();
+    // Also clear all intervals/timeouts from scene scripts
+  }
+
+  // === Interval/Timeout Cleanup ===
+  const _activeIntervals = new Set();
+  const _activeTimeouts = new Set();
+  const _origSI = window.setInterval.bind(window);
+  const _origCI = window.clearInterval.bind(window);
+  const _origST = window.setTimeout.bind(window);
+  const _origCT = window.clearTimeout.bind(window);
+  window.setInterval = function(cb, ms, ...args) {
+    const id = _origSI(cb, ms, ...args);
+    _activeIntervals.add(id);
+    return id;
+  };
+  window.clearInterval = function(id) {
+    _activeIntervals.delete(id);
+    _origCI(id);
+  };
+  window.setTimeout = function(cb, ms, ...args) {
+    const id = _origST(function(...a) {
+      _activeTimeouts.delete(id);
+      cb(...a);
+    }, ms, ...args);
+    _activeTimeouts.add(id);
+    return id;
+  };
+  window.clearTimeout = function(id) {
+    _activeTimeouts.delete(id);
+    _origCT(id);
+  };
+  function cancelAllTimers() {
+    _activeIntervals.forEach(id => _origCI(id));
+    _activeIntervals.clear();
+    _activeTimeouts.forEach(id => _origCT(id));
+    _activeTimeouts.clear();
+  }
+
+  function cleanupScene() {
+    cancelAllAnimations();
+    cancelAllTimers();
+  }
+
+  // === Avatar State System ===
+  // Tracks Pearl's sprite state so scenes can adapt
+  const pearl = {
+    _avatarState: 'idle',  // idle | listening | speaking | thinking | summoning | dismissing
+    _spriteVisible: true,
+    get avatarState() { return this._avatarState; },
+    get spriteVisible() { return this._spriteVisible; },
+  };
+  // Expose read-only on window for scene scripts (if any)
+  Object.defineProperty(window, 'pearl', { value: Object.freeze({
+    get avatarState() { return pearl._avatarState; },
+    get spriteVisible() { return pearl._spriteVisible; },
+  }), writable: false });
+
+  function setAvatarState({ state, spriteVisible }) {
+    if (state) {
+      pearl._avatarState = state;
+      document.body.setAttribute('data-avatar-state', state);
+    }
+    if (spriteVisible !== undefined) {
+      pearl._spriteVisible = spriteVisible;
+      document.body.setAttribute('data-sprite-visible', spriteVisible);
+    }
+  }
+
+  function getLayer(name) {
+    return document.getElementById(LAYER_IDS[name] || LAYER_IDS.main);
+  }
+
+  function bindInteractions(container) {
+    container.querySelectorAll('[data-action]').forEach(el => {
+      if (el._wonderBound) return;
+      el._wonderBound = true;
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        window.parent.postMessage({
+          type: 'wonder.interaction',
+          action: el.dataset.action,
+          label: el.textContent?.trim() || '',
+          elementId: el.id || null
+        }, '*');
+      });
+    });
+  }
+
+  // Observe for dynamically added data-action elements
+  const observer = new MutationObserver(mutations => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType === 1) bindInteractions(node.parentElement || node);
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  function injectCSS(css) {
+    document.getElementById('wonder-custom-css').textContent = css;
+  }
+
+  function setScene({ html, css, transition = 'fade', layer = 'main' }) {
+    const el = getLayer(layer);
+    if (css) injectCSS(css);
+
+    const t = transition;
+    const dur = TRANSITION_DURATION[t] || 300;
+
+    // Clean up previous scene's rAF loops, intervals, timeouts
+    cleanupScene();
+
+    if (t === 'instant' || dur === 0) {
+      el.innerHTML = html;
+      el.style.opacity = 1;
+      el.style.transform = '';
+      bindInteractions(el);
+      notifyReady();
+      return;
+    }
+
+    if (t === 'slide-left' || t === 'slide-right') {
+      // Exit current
+      el.classList.add(`wonder-layer-${t}`, `wonder-layer-exiting-${t}`);
+      setTimeout(() => {
+        el.innerHTML = html;
+        bindInteractions(el);
+        el.classList.remove(`wonder-layer-exiting-${t}`);
+        el.classList.add(`wonder-layer-entering-${t}`);
+        // Force reflow
+        void el.offsetWidth;
+        el.classList.remove(`wonder-layer-entering-${t}`);
+        setTimeout(() => {
+          el.classList.remove(`wonder-layer-${t}`);
+          notifyReady();
+        }, dur);
+      }, dur);
+      return;
+    }
+
+    // fade / dissolve
+    el.style.transition = `opacity ${dur}ms ease`;
+    el.style.opacity = 0;
+    setTimeout(() => {
+      el.innerHTML = html;
+      bindInteractions(el);
+      void el.offsetWidth;
+      el.style.opacity = 1;
+      setTimeout(() => notifyReady(), dur);
+    }, dur);
+  }
+
+  function addToLayer({ html, layer = 'main', position = 'append' }) {
+    const el = getLayer(layer);
+    if (position === 'prepend') {
+      el.insertAdjacentHTML('afterbegin', html);
+    } else {
+      el.insertAdjacentHTML('beforeend', html);
+    }
+    bindInteractions(el);
+  }
+
+  function removeFromLayer({ selector, layer = 'main' }) {
+    const el = getLayer(layer);
+    if (selector) {
+      el.querySelectorAll(selector).forEach(n => n.remove());
+    }
+  }
+
+  function clearAll({ layer, transition = 'fade' } = {}) {
+    cleanupScene();
+    const layers = layer ? [getLayer(layer)] : Object.values(LAYER_IDS).map(id => document.getElementById(id));
+    const dur = transition === 'instant' ? 0 : 300;
+
+    layers.forEach(el => {
+      if (dur === 0) {
+        el.innerHTML = '';
+        el.style.opacity = 1;
+      } else {
+        el.style.transition = `opacity ${dur}ms ease`;
+        el.style.opacity = 0;
+        setTimeout(() => {
+          el.innerHTML = '';
+          el.style.opacity = 1;
+        }, dur);
+      }
+    });
+    injectCSS('');
+  }
+
+  function animateElement({ elementId, animation, duration = 500 }) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const cls = 'wonder-' + animation;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    if (!['pulse', 'glow', 'spin'].includes(animation)) {
+      setTimeout(() => el.classList.remove(cls), duration + 100);
+    }
+  }
+
+  function notifyReady() {
+    window.parent.postMessage({ type: 'wonder.ready' }, '*');
+  }
+
+  // Listen for messages from parent
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || !d.type) return;
+    switch (d.type) {
+      case 'wonder.scene':   setScene(d); break;
+      case 'wonder.add':     addToLayer(d); break;
+      case 'wonder.remove':  removeFromLayer(d); break;
+      case 'wonder.clear':   clearAll(d); break;
+      case 'wonder.animate': animateElement(d); break;
+      case 'wonder.avatarState': setAvatarState(d); break;
+    }
+  });
+
+  // Signal runtime ready
+  window.parent.postMessage({ type: 'wonder.runtime.ready' }, '*');
+})();
+</script>
+</body>
+</html>

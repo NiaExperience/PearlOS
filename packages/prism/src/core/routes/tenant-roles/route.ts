@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { assignUserToTenant, updateUserTenantRole, deleteUserTenantRole, getUserTenantRoles, getTenantRolesForTenant } from '@nia/prism/core/actions/tenant-actions';
-import { requireAuth } from '@nia/prism/core/auth';
+import { requireAuth, requireTenantAccess, requireTenantAdmin } from '@nia/prism/core/auth';
 import { getSessionSafely } from '@nia/prism/core/auth/getSessionSafely';
 import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
 import { validateTenantRoleChange, validateTenantRoleRemoval } from '@nia/prism/core/security/role-guards';
@@ -18,6 +18,14 @@ export async function GET_impl(req: NextRequest, authOptions: NextAuthOptions): 
   const tenantId = url.searchParams.get('tenantId');
   const userId = url.searchParams.get('userId');
   if (!tenantId) return NextResponse.json({ error: 'tenantId required' }, { status: 400 });
+  const session = await getSessionSafely(req, authOptions);
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const targetIsSelf = userId === session.user.id;
+  const accessError = targetIsSelf
+    ? await requireTenantAccess(tenantId, req, authOptions)
+    : await requireTenantAdmin(tenantId, req, authOptions);
+  if (accessError) return accessError as NextResponse;
+
   try {
     if (userId) {
       const roles = (await getUserTenantRoles(userId)) || [];
@@ -39,7 +47,24 @@ export async function POST_impl(req: NextRequest, authOptions: NextAuthOptions):
     const body = await req.json();
     const { tenantId, userId, role } = body;
     if (!tenantId || !userId || !role) return NextResponse.json({ error: 'tenantId, userId, role required' }, { status: 400 });
+    const session = await getSessionSafely(req, authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const adminError = await requireTenantAdmin(tenantId, req, authOptions);
+    if (adminError) return adminError as NextResponse;
+
     const roleEnum = role as TenantRole;
+    const actorRoles = (await getUserTenantRoles(session.user.id)) || [];
+    const targetRoles = (await getUserTenantRoles(userId)) || [];
+    const guard = validateTenantRoleChange({
+      actorId: session.user.id,
+      targetId: userId,
+      tenantId,
+      actorRoles: actorRoles as any,
+      targetRoles: targetRoles as any,
+      desiredRole: roleEnum,
+    });
+    if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+
     const record = await assignUserToTenant(userId, tenantId, roleEnum);
     return NextResponse.json({ role: record }, { status: 201 });
   } catch (e) {
@@ -57,21 +82,26 @@ export async function PATCH_impl(req: NextRequest, authOptions: NextAuthOptions)
     const { tenantId, userId, role } = body;
     if (!tenantId || !userId || !role) return NextResponse.json({ error: 'tenantId, userId, role required' }, { status: 400 });
     const session = await getSessionSafely(req, authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const adminError = await requireTenantAdmin(tenantId, req, authOptions);
+    if (adminError) return adminError as NextResponse;
+
     try {
-      if (session?.user?.id) {
-        const actorRoles = (await getUserTenantRoles(session.user.id)) || [];
-        const targetRoles = (await getUserTenantRoles(userId)) || [];
-        const guard = validateTenantRoleChange({
-          actorId: session.user.id,
-          targetId: userId,
-            tenantId,
-          actorRoles: actorRoles as any,
-          targetRoles: targetRoles as any,
-          desiredRole: role,
-        });
-        if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
-      }
-    } catch (e) { log.warn('Role guard evaluation failed', { error: e, tenantId, actorId: session?.user?.id, targetUserId: userId, role }); }
+      const actorRoles = (await getUserTenantRoles(session.user.id)) || [];
+      const targetRoles = (await getUserTenantRoles(userId)) || [];
+      const guard = validateTenantRoleChange({
+        actorId: session.user.id,
+        targetId: userId,
+        tenantId,
+        actorRoles: actorRoles as any,
+        targetRoles: targetRoles as any,
+        desiredRole: role,
+      });
+      if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+    } catch (e) {
+      log.warn('Role guard evaluation failed', { error: e, tenantId, actorId: session?.user?.id, targetUserId: userId, role });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const updated = await updateUserTenantRole(userId, tenantId, role as TenantRole);
     return NextResponse.json({ role: updated });
   } catch (e) {
@@ -89,19 +119,24 @@ export async function DELETE_impl(req: NextRequest, authOptions: NextAuthOptions
     const { tenantId, userId } = body;
     if (!tenantId || !userId) return NextResponse.json({ error: 'tenantId, userId required' }, { status: 400 });
     const session = await getSessionSafely(req, authOptions);
-    if (session?.user?.id) {
-      try {
-        const actorRoles = (await getUserTenantRoles(session.user.id)) || [];
-        const targetRoles = (await getUserTenantRoles(userId)) || [];
-        const guard = validateTenantRoleRemoval({
-          actorId: session.user.id,
-          targetId: userId,
-          tenantId,
-          actorRoles: actorRoles as any,
-          targetRoles: targetRoles as any,
-        });
-        if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
-      } catch (e) { log.warn('Tenant role removal guard failed', { error: e, tenantId, actorId: session?.user?.id, targetUserId: userId }); }
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const adminError = await requireTenantAdmin(tenantId, req, authOptions);
+    if (adminError) return adminError as NextResponse;
+
+    try {
+      const actorRoles = (await getUserTenantRoles(session.user.id)) || [];
+      const targetRoles = (await getUserTenantRoles(userId)) || [];
+      const guard = validateTenantRoleRemoval({
+        actorId: session.user.id,
+        targetId: userId,
+        tenantId,
+        actorRoles: actorRoles as any,
+        targetRoles: targetRoles as any,
+      });
+      if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+    } catch (e) {
+      log.warn('Tenant role removal guard failed', { error: e, tenantId, actorId: session?.user?.id, targetUserId: userId });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const deleted = await deleteUserTenantRole(userId, tenantId);
     return NextResponse.json({ role: deleted });

@@ -125,7 +125,7 @@ export function AddPersonalityVoiceDialog({
     setIsPreviewPlaying(false);
 
     try {
-      const response = await fetch('/api/tts/preview', {
+      const response = await fetch('/dashboard/api/tts/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -204,7 +204,7 @@ export function AddPersonalityVoiceDialog({
     const fetchPersonalities = async () => {
       try {
         setLoadingPersonalities(true);
-        const res = await fetch(`/api/personalities?tenantId=${tenantId}`);
+        const res = await fetch(`/dashboard/api/personalities?tenantId=${tenantId}`);
         if (!res.ok) {
           setPersonalities([]);
           return;

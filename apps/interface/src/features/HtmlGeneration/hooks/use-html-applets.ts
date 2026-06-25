@@ -1,4 +1,5 @@
 import { featureFlags } from '@nia/features';
+import { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getUserSharedResources } from '@interface/features/ResourceSharing/lib';
@@ -101,7 +102,7 @@ export function useHtmlApplets(options: UseHtmlAppletsOptions = {}): UseHtmlAppl
     tenantId,
     limit = 50,
     includeSharingMetadata = true,
-    useIncremental = true, // Default to incremental loading
+    useIncremental = false, // Prefer stable one-shot loading until SSE recovery is fully verified in prod
   } = options;
 
   const [applets, setApplets] = useState<HtmlAppletListItem[]>([]);
@@ -292,7 +293,7 @@ export function useHtmlApplets(options: UseHtmlAppletsOptions = {}): UseHtmlAppl
         // Fetch sharing metadata
         if (includeSharingMetadata && featureFlags.resourceSharing && currentUserId && tenantId) {
           try {
-            const sharedResources = await getUserSharedResources(currentUserId, tenantId, 'HtmlGeneration');
+            const sharedResources = await getUserSharedResources(currentUserId, tenantId, ResourceType.HtmlGeneration);
             const sharedIds = new Set(
               sharedResources.filter((r) => r.memberCount > 1).map((r) => r.resourceId)
             );

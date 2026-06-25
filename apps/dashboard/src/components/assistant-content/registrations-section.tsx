@@ -56,7 +56,7 @@ export default function RegistrationsSection({ selectedAssistant: assistant }: R
   useEffect(() => {
     if (!isSupported || !assistant._id) return;
     setIsLoading(true);
-    fetch(`/api/contentList?type=Registration&assistantId=${assistant._id}`)
+    fetch(`/dashboard/api/contentList?type=Registration&assistantId=${assistant._id}`)
       .then((res) => res.json())
       .then((data) => setRegistrations(data.items || []))
       .finally(() => setIsLoading(false));
@@ -64,11 +64,11 @@ export default function RegistrationsSection({ selectedAssistant: assistant }: R
 
   const handleDeleteRegistration = async (registrationId: string) => {
     try {
-      const res = await fetch(`/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${registrationId}`, {
+      const res = await fetch(`/dashboard/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${registrationId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
-        fetch(`/api/contentList?type=Registration&assistantId=${assistant._id}`)
+        fetch(`/dashboard/api/contentList?type=Registration&assistantId=${assistant._id}`)
           .then((res) => res.json())
           .then((data) => setRegistrations(data.items || []));
         setRegistrationToDelete(null);
@@ -90,7 +90,7 @@ export default function RegistrationsSection({ selectedAssistant: assistant }: R
       // Deactivate all registrations
       await Promise.all(
         registrations.map(reg =>
-          fetch(`/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${reg._id}`, {
+          fetch(`/dashboard/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${reg._id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...reg, isActive: false }),
@@ -98,12 +98,12 @@ export default function RegistrationsSection({ selectedAssistant: assistant }: R
         )
       );
       // Activate the selected registration
-      await fetch(`/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${registrationId}`, {
+      await fetch(`/dashboard/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${registrationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: true }),
       });
-      fetch(`/api/contentList?type=Registration&assistantId=${assistant._id}`)
+      fetch(`/dashboard/api/contentList?type=Registration&assistantId=${assistant._id}`)
         .then((res) => res.json())
         .then((data) => setRegistrations(data.items || []));
     } catch (error) {
@@ -177,13 +177,13 @@ export default function RegistrationsSection({ selectedAssistant: assistant }: R
                         try {
                           let result;
                           if (editingRegistration) {
-                            result = await fetch(`/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${editingRegistration._id}`, {
+                            result = await fetch(`/dashboard/api/contentDetail?type=Registration&assistantId=${assistant._id}&id=${editingRegistration._id}`, {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ ...data, assistant_id: assistant._id }),
                             });
                           } else {
-                            result = await fetch(`/api/contentList?type=Registration&assistantId=${assistant._id}`, {
+                            result = await fetch(`/dashboard/api/contentList?type=Registration&assistantId=${assistant._id}`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ ...data, assistant_id: assistant._id }),
@@ -191,7 +191,7 @@ export default function RegistrationsSection({ selectedAssistant: assistant }: R
                           }
 
                           if (result.ok) {
-                            const updated = await fetch(`/api/contentList?type=Registration&assistantId=${assistant._id}`);
+                            const updated = await fetch(`/dashboard/api/contentList?type=Registration&assistantId=${assistant._id}`);
                             const updatedData = await updated.json();
                             setRegistrations(updatedData.items || []);
                             registrationForm.reset();

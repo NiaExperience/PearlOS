@@ -87,9 +87,9 @@ const STATIC_CATEGORIES: ModelCategory[] = [
     badgeColor: 'bg-purple-500/20 text-purple-300',
     description: 'Direct Anthropic API — best pricing, highest quality',
     models: [
-      { value: 'anthropic/claude-opus-4-6', label: 'Claude Opus 4.6', description: 'Most intelligent. Best for complex reasoning, coding, creative writing. Slower, expensive.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔬 Reasoning', '🔧 Tools'] },
+      { value: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8', description: 'Current Opus. Best for complex reasoning, coding, creative writing. Slower, expensive.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔬 Reasoning', '🔧 Tools'] },
       { value: 'anthropic/claude-opus-4-5', label: 'Claude Opus 4.5', description: 'Previous-gen flagship. Still extremely capable for hard tasks.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔬 Reasoning'] },
-      { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5', description: 'Great balance of speed and intelligence. Recommended for most tasks.', recommended: true, tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔧 Tools', '⚡ Fast'] },
+      { value: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', description: 'Great balance of speed and intelligence. Recommended for most tasks.', recommended: true, tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔧 Tools', '⚡ Fast'] },
       { value: 'anthropic/claude-sonnet-4-0', label: 'Claude Sonnet 4.0', description: 'Fast and reliable. Good all-rounder at lower cost.', tags: ['⚡ Fast', '👁️ Vision', '💻 Code', '🔧 Tools'] },
       { value: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5', description: 'Fast and cheap. Good for tool routing, quick tasks, simple questions.', tags: ['⚡ Fast', '👁️ Vision', '🔧 Tools', '💰 Budget'] },
     ],
@@ -131,8 +131,8 @@ const STATIC_CATEGORIES: ModelCategory[] = [
     description: 'Access 100+ models from every major provider',
     models: [
       // Anthropic via OR
-      { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6 (OR)', description: 'Anthropic flagship via OpenRouter.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔬 Reasoning', '🔧 Tools'] },
-      { value: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OR)', description: 'Balanced Anthropic model via OpenRouter.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔧 Tools', '⚡ Fast'] },
+      { value: 'openrouter/anthropic/claude-opus-4.8', label: 'Claude Opus 4.8 (OR)', description: 'Current Anthropic Opus via OpenRouter.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔬 Reasoning', '🔧 Tools'] },
+      { value: 'openrouter/anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6 (OR)', description: 'Balanced Anthropic model via OpenRouter.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔧 Tools', '⚡ Fast'] },
       { value: 'openrouter/anthropic/claude-haiku-4.5', label: 'Claude Haiku 4.5 (OR)', description: 'Fast Anthropic model via OpenRouter.', tags: ['⚡ Fast', '👁️ Vision', '🔧 Tools', '💰 Budget'] },
       // OpenAI via OR
       { value: 'openrouter/openai/gpt-5', label: 'GPT-5 (OR)', description: 'OpenAI flagship via OpenRouter.', tags: ['🧠 Smart', '👁️ Vision', '💻 Code', '🔧 Tools', '🔬 Reasoning'] },
@@ -144,15 +144,18 @@ const STATIC_CATEGORIES: ModelCategory[] = [
       { value: 'openrouter/x-ai/grok-3', label: 'Grok 3', description: 'Previous xAI model. Still capable.', tags: ['🧠 Smart', '💻 Code'] },
       { value: 'openrouter/x-ai/grok-3-mini', label: 'Grok 3 Mini', description: 'Lightweight xAI model.', tags: ['⚡ Fast', '💰 Budget'] },
       // Google
-      { value: 'openrouter/google/gemini-3-pro-preview', label: 'Gemini 3 Pro', description: 'Google flagship. Strong multimodal capabilities.', tags: ['🧠 Smart', '👁️ Vision', '🔧 Tools', '💻 Code'] },
-      { value: 'openrouter/google/gemini-3-flash-preview', label: 'Gemini 3 Flash', description: 'Fast Google model. Good for voice and quick tasks.', tags: ['⚡ Fast', '👁️ Vision', '🔧 Tools', '💰 Budget'] },
+      { value: 'openrouter/google/gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview', description: 'Google flagship preview. Strong multimodal capabilities.', tags: ['🧠 Smart', '👁️ Vision', '🔧 Tools', '💻 Code'] },
+      { value: 'openrouter/google/gemini-3.5-flash', label: 'Gemini 3.5 Flash', description: 'Fast Google model. Good for voice and quick tasks.', tags: ['⚡ Fast', '👁️ Vision', '🔧 Tools', '💰 Budget'] },
       { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', description: 'Previous Google flagship.', tags: ['🧠 Smart', '👁️ Vision', '🔧 Tools'] },
       { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', description: 'Fast previous-gen Google model.', tags: ['⚡ Fast', '👁️ Vision', '💰 Budget'] },
       // DeepSeek
+      { value: 'openrouter/deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro', description: 'Current DeepSeek pro model for harder reasoning and coding.', tags: ['🧠 Smart', '💻 Code', '🔬 Reasoning'] },
+      { value: 'openrouter/deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash', description: 'Fast DeepSeek multimodal model for Pearl chat and vision.', recommended: true, tags: ['⚡ Fast', '👁️ Vision', '💰 Budget'] },
       { value: 'openrouter/deepseek/deepseek-r1', label: 'DeepSeek R1', description: 'Strong reasoning model. Great value.', tags: ['🔬 Reasoning', '💰 Budget'] },
-      { value: 'openrouter/deepseek/deepseek-chat', label: 'DeepSeek V3', description: 'General chat model. Very affordable.', tags: ['💰 Budget'] },
       { value: 'openrouter/deepseek/deepseek-v3.2', label: 'DeepSeek V3.2', description: 'Latest DeepSeek general model.', tags: ['💻 Code', '💰 Budget'] },
       // Qwen
+      { value: 'openrouter/qwen/qwen3.7-plus', label: 'Qwen 3.7 Plus', description: 'Current Qwen balanced model. Good speed and capability.', recommended: true, tags: ['⚡ Fast', '🔧 Tools', '💰 Budget'] },
+      { value: 'openrouter/qwen/qwen3.7-max', label: 'Qwen 3.7 Max', description: 'Current high-capability Qwen model.', tags: ['🧠 Smart', '💻 Code', '🔧 Tools'] },
       { value: 'openrouter/qwen/qwen3-coder', label: 'Qwen 3 Coder', description: 'Code-specialized Qwen model.', tags: ['💻 Code'] },
       { value: 'openrouter/qwen/qwen3-235b-a22b', label: 'Qwen 3 235B', description: 'Massive Qwen model. Very capable.', tags: ['🧠 Smart', '💻 Code', '🔬 Reasoning'] },
       { value: 'openrouter/qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B', description: 'Large Qwen instruction-tuned model.', tags: ['🧠 Smart', '💻 Code'] },
@@ -164,9 +167,8 @@ const STATIC_CATEGORIES: ModelCategory[] = [
       { value: 'openrouter/mistralai/mistral-nemo', label: 'Mistral Nemo', description: 'Small, fast Mistral model.', tags: ['⚡ Fast', '💰 Budget'] },
       // Others
       { value: 'openrouter/minimax/minimax-m2.1', label: 'MiniMax M2.1', description: 'MiniMax model via OpenRouter.', tags: ['💰 Budget'] },
-      { value: 'openrouter/moonshotai/kimi-k2', label: 'Kimi K2', description: 'Moonshot AI model.', tags: ['💻 Code'] },
-      { value: 'openrouter/moonshotai/kimi-k2.5', label: 'Kimi K2.5', description: 'Latest Moonshot model.', tags: ['💻 Code', '🧠 Smart'] },
-      { value: 'openrouter/z-ai/glm-5', label: 'GLM-5', description: 'Z-AI model. Budget-friendly.', tags: ['💰 Budget'] },
+      { value: 'openrouter/moonshotai/kimi-k2.7-code', label: 'Kimi K2.7 Code', description: 'Current Moonshot code model.', tags: ['💻 Code', '🧠 Smart'] },
+      { value: 'openrouter/z-ai/glm-5.2', label: 'GLM-5.2', description: 'Current Z-AI model. Budget-friendly.', tags: ['💰 Budget'] },
       { value: 'openrouter/z-ai/glm-4.7', label: 'GLM-4.7', description: 'Previous Z-AI model.', tags: ['💰 Budget'] },
       { value: 'openrouter/auto', label: 'Auto (Smart Routing)', description: 'Let OpenRouter pick the best model automatically.' },
     ],
@@ -360,7 +362,7 @@ function CategoryModelPicker({
           return (
             <div
               key={category.id}
-              className={`rounded-lg border transition-all ${
+              className={`rounded-lg border transition-all overflow-hidden ${
                 hasSelected ? 'border-purple-500/30 bg-purple-500/5' : 'border-gray-700/50 bg-gray-900/30'
               }`}
             >
@@ -369,27 +371,31 @@ function CategoryModelPicker({
                 type="button"
                 onClick={() => setExpandedCategory(isExpanded && !search.trim() ? null : category.id)}
                 disabled={disabled}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.02] transition-colors disabled:opacity-50"
+                className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors disabled:opacity-50"
               >
-                <span className="text-xl">{category.icon}</span>
+                <span className="text-base shrink-0 mt-0.5">{category.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-white font-medium flex items-center gap-2">
-                    {category.name}
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${category.badgeColor}`}>
+                  {/* Row 1: name + models count */}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm text-white font-medium truncate">{category.name}</span>
+                    <span className="text-gray-500 text-xs shrink-0 whitespace-nowrap ml-1">
+                      {category.models.length}m {isExpanded ? '▾' : '▸'}
+                    </span>
+                  </div>
+                  {/* Row 2: badge + selected pill */}
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${category.badgeColor}`}>
                       {category.badge}
                     </span>
                     {hasSelected && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 whitespace-nowrap">
                         ● Selected
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">{category.description}</div>
+                  {/* Row 3: description */}
+                  <div className="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-2">{category.description}</div>
                 </div>
-                <span className="text-gray-500 text-xs shrink-0">
-                  {category.models.length} model{category.models.length !== 1 ? 's' : ''}
-                  <span className="ml-2">{isExpanded ? '▾' : '▸'}</span>
-                </span>
               </button>
 
               {/* Model list */}
@@ -806,9 +812,6 @@ export function ModelSettingsPanel() {
   const [swarmValues, setSwarmValues] = useState<Record<string, string>>({});
   const [originalSwarmValues, setOriginalSwarmValues] = useState<Record<string, string>>({});
 
-  // Recommended
-  const [recommendedApplied, setRecommendedApplied] = useState(false);
-
   // AI Config Advisor
   const [useCase, setUseCase] = useState('');
   const useCaseRef = useRef<HTMLInputElement>(null);
@@ -1034,23 +1037,6 @@ export function ModelSettingsPanel() {
     setSwarmValues(prev => ({ ...prev, [envVar]: modelId }));
   };
 
-  const GOLD_STANDARD: Record<string, string> = {
-    BOT_FAST_MODEL: 'anthropic/claude-haiku-4-5',
-    BOT_VOICE_MODEL: 'google/gemini-3-flash-preview',
-    BOT_TOOLS_MODEL: 'anthropic/claude-haiku-4-5',
-    BOT_THINKING_MODEL: 'anthropic/claude-sonnet-4-5',
-    BOT_ESCALATION_MODEL: 'anthropic/claude-opus-4-6',
-    BOT_SWARM_MODEL: 'anthropic/claude-opus-4-6',
-    BOT_VISION_MODEL: 'google/gemini-3.1-pro-preview',
-  };
-
-  const handleApplyRecommendedMind = async () => {
-    setRoleValues(prev => ({ ...prev, ...GOLD_STANDARD }));
-    await handlePrimaryModelChange('anthropic/claude-haiku-4-5');
-    setRecommendedApplied(true);
-    setTimeout(() => setRecommendedApplied(false), 4000);
-  };
-
   const hasChanges =
     JSON.stringify(roleValues) !== JSON.stringify(originalValues) ||
     JSON.stringify(swarmValues) !== JSON.stringify(originalSwarmValues);
@@ -1137,7 +1123,7 @@ Recommend optimal model assignments for these roles. Return ONLY valid JSON arra
 
 Roles: BOT_FAST_MODEL, BOT_OPENCLAW_MODEL, BOT_ESCALATION_MODEL, BOT_VOICE_MODEL, BOT_TOOLS_MODEL, BOT_SWARM_MODEL, BOT_THINKING_MODEL
 
-Available models: groq/llama-3.3-70b-versatile, groq/llama-3.1-8b-instant, anthropic/claude-sonnet-4-5, anthropic/claude-haiku-4-5, anthropic/claude-opus-4-6, openai/gpt-5, openai/o3, openai/gpt-4.1, openrouter/google/gemini-3-pro-preview, openrouter/google/gemini-3-flash-preview, openrouter/deepseek/deepseek-r1, openrouter/x-ai/grok-4
+Available models: groq/llama-3.3-70b-versatile, groq/llama-3.1-8b-instant, anthropic/claude-opus-4.8, anthropic/claude-sonnet-4.6, anthropic/claude-haiku-4.5, openai/gpt-5, openai/o3, openai/gpt-4.1, openrouter/google/gemini-3.5-flash, openrouter/google/gemini-3.1-pro-preview, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash, openrouter/qwen/qwen3.7-plus, openrouter/moonshotai/kimi-k2.7-code, openrouter/z-ai/glm-5.2, openrouter/x-ai/grok-4
 
 Return: [{"tier":"Budget","icon":"💰","cost":"~$5-15/mo","assignments":{...}},{"tier":"Balanced","icon":"⚖️","cost":"~$30-60/mo","assignments":{...}},{"tier":"Premium","icon":"🚀","cost":"~$100-200/mo","assignments":{...}}]
 ONLY return the JSON array.`;
@@ -1273,52 +1259,19 @@ ONLY return the JSON array.`;
         </div>
       )}
 
-      {/* ═══ PearlOS Recommended Mind ═══ */}
-      <button
-        onClick={handleApplyRecommendedMind}
-        disabled={settingsDisabled || savingPrimary}
-        className="w-full rounded-lg p-4 text-left transition-all disabled:opacity-50 hover:scale-[1.005] active:scale-[0.995]"
-        style={{
-          ...FONT,
-          background: 'linear-gradient(135deg, rgba(20,30,40,0.95) 0%, rgba(30,40,55,0.95) 100%)',
-          border: '2px solid transparent',
-          borderImage: 'linear-gradient(135deg, #2dd4bf, #a78bfa, #2dd4bf) 1',
-        }}
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, rgba(45,212,191,0.2), rgba(167,139,250,0.2))' }}>
-            <span className="text-2xl">🐚</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-teal-300 flex items-center gap-2">
-              PearlOS Recommended Mind
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 font-normal">GOLD STANDARD</span>
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              Optimal config — Haiku 4.5 primary, Gemini 3 Flash voice, Opus 4.6 escalation
-            </div>
-          </div>
-          <div className="text-teal-400 text-xl shrink-0">→</div>
-        </div>
-        {recommendedApplied && (
-          <div className="mt-2 text-xs text-green-400">✓ Gold standard applied! Deploy below to activate.</div>
-        )}
-      </button>
-
       {/* ═══ Section A: Pearl Mind Primary — Categorized Picker ═══ */}
       <Card className={`border-gray-700 bg-gray-800 ${isOpenclawSession ? 'ring-1 ring-purple-500/30' : ''}`} style={FONT}>
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-white" style={FONT}>
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <span className="text-xl">🧠</span>
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
+              <span className="text-base">🧠</span>
             </div>
-            <div>
-              <div className="font-medium flex items-center gap-2">
-                Pearl Mind — Primary
-                {isOpenclawSession && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 font-normal">ACTIVE</span>}
+            <div className="min-w-0 flex-1">
+              <div className="font-medium flex flex-wrap items-center gap-1.5 text-base">
+                <span className="truncate">Pearl Mind — Primary</span>
+                {isOpenclawSession && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 font-normal whitespace-nowrap">ACTIVE</span>}
               </div>
-              <p className="text-sm text-gray-400 font-normal">
+              <p className="text-xs text-gray-400 font-normal mt-0.5 leading-snug">
                 The ONE model controlling all Pearl responses
               </p>
             </div>
@@ -1350,6 +1303,117 @@ ONLY return the JSON array.`;
               {primaryMessage}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ═══ Voice Stack Overview ═══ */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2" style={FONT}>🎵 Current Voice Stack</CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            The full audio pipeline for PearlOS voice sessions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2" style={FONT}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm">🧠</span>
+                <span className="text-xs text-gray-400">Voice LLM</span>
+              </div>
+              <div className="text-sm text-white font-medium">Qwen 3.7 Plus</div>
+              <div className="text-[10px] text-gray-500">OpenRouter • qwen/qwen3.7-plus</div>
+            </div>
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm">🎙️</span>
+                <span className="text-xs text-gray-400">Speech-to-Text</span>
+              </div>
+              <div className="text-sm text-white font-medium">Deepgram Nova-2</div>
+              <div className="text-[10px] text-gray-500">via Daily transcription</div>
+            </div>
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm">🔊</span>
+                <span className="text-xs text-gray-400">TTS Primary</span>
+              </div>
+              <div className="text-sm text-white font-medium">Voxtral</div>
+              <div className="text-[10px] text-gray-500">Local • port 8100</div>
+            </div>
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm">🔇</span>
+                <span className="text-xs text-gray-400">TTS Fallback</span>
+              </div>
+              <div className="text-sm text-white font-medium">PocketTTS</div>
+              <div className="text-[10px] text-gray-500">Local • port 8766</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ═══ Agency Swarm / Escalation Path ═══ */}
+      <Card className="border-gray-700 bg-gray-800" style={FONT}>
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2" style={FONT}>🐝 Agent Escalation</CardTitle>
+          <CardDescription className="text-gray-400" style={FONT}>
+            How Pearl handles complex tasks that need more brainpower
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3" style={FONT}>
+          <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+            <div className="text-sm text-purple-300 font-medium mb-2">Escalation Path</div>
+            <div className="flex items-center gap-2 text-xs text-gray-300 flex-wrap">
+              <span className="px-2 py-1 rounded bg-gray-800 border border-gray-600">Pearl (OpenClaw)</span>
+              <span className="text-gray-500">→</span>
+              <span className="px-2 py-1 rounded bg-purple-900/30 border border-purple-500/30">Claude CLI</span>
+              <span className="text-gray-500">→</span>
+              <span className="px-2 py-1 rounded bg-purple-900/50 border border-purple-500/50">The Agency Swarm</span>
+            </div>
+            <div className="text-[10px] text-gray-500 mt-2">
+              All code changes go through Claude CLI (direct Anthropic API). Multi-agent swarm for complex tasks.
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-xs text-gray-400 font-medium">👥 Swarm Models</div>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                <span className="text-sm">🧠</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-white">Claude Sonnet 4.6</div>
+                  <div className="text-[10px] text-gray-500">Primary agent • Anthropic direct</div>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400">Primary</span>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                <span className="text-sm">🚀</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-white">Claude Opus 4.8</div>
+                  <div className="text-[10px] text-gray-500">Complex reasoning • Anthropic direct</div>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Specialist</span>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                <span className="text-sm">💻</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-white">Qwen 3.7 Plus</div>
+                  <div className="text-[10px] text-gray-500">General coding • OpenRouter</div>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Backup</span>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                <span className="text-sm">🎨</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-white">Kimi K2.7 Code</div>
+                  <div className="text-[10px] text-gray-500">Creative/code tasks • OpenRouter</div>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Backup</span>
+              </div>
+            </div>
+            <div className="text-[10px] text-gray-500 mt-1">
+              Config: <code className="text-gray-400">agency-config.json</code> in pipecat-daily-bot
+            </div>
+          </div>
         </CardContent>
       </Card>
 

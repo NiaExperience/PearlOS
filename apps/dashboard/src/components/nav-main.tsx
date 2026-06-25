@@ -36,32 +36,23 @@ export function NavMain({
   const { data: session } = useSession();
   const { isAdmin, isLoading: adminLoading } = useAdminStatus();
   
-  // Check if we're in local dev mode without auth
-  const [isLocalNoAuth, setIsLocalNoAuth] = React.useState(false);
-  React.useEffect(() => {
-    const checkLocalNoAuth = 
-      process.env.NODE_ENV === 'development' &&
-      typeof window !== 'undefined' &&
-           (window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('runpod.net'));
-    setIsLocalNoAuth(checkLocalNoAuth);
-  }, []);
+  const isDashboardAuthDisabled =
+    process.env.NEXT_PUBLIC_DISABLE_DASHBOARD_AUTH === 'true';
 
   // Don't render admin items while loading admin status
   if (adminLoading) {
     return null;
   }
 
-  // Show admin items if user is admin OR if in local dev mode
-  const canShowAdminItems = isAdmin || isLocalNoAuth;
+  // Show admin items if user is admin OR dashboard auth is explicitly disabled
+  const canShowAdminItems = isAdmin || isDashboardAuthDisabled;
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) =>
-          !item.isAdmin || ((session?.user || isLocalNoAuth) && canShowAdminItems) ? (
+          !item.isAdmin || ((session?.user || isDashboardAuthDisabled) && canShowAdminItems) ? (
             <Collapsible
               key={item.title}
               asChild

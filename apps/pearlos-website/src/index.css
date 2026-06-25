@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "DM Sans", sans-serif;
+  background: #071E30;
+  color: #F5F0EA;
+  overflow-x: hidden;
+}
+
+/* Ocean depth gradient — transitions shifted higher for earlier depth */
+html, body, #root {
+  min-height: 100%;
+}
+
+.ocean-bg {
+  position: absolute;
+  inset: 0;
+  bottom: auto;
+  z-index: 0;
+  min-height: 100vh;
+  background: linear-gradient(
+    180deg,
+    #F0F6FA 0%,
+    #D6E8F2 8%,
+    #A8CCE0 18%,
+    #6BA3C4 32%,
+    #3A7BA8 48%,
+    #1A4F72 64%,
+    #071E30 100%
+  );
+  height: 100%;
+}
+
+/* Subtle water-light shimmer — moves with page */
+.ocean-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.12;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 30%, rgba(200,230,255,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 70%, rgba(180,220,250,0.04) 0%, transparent 50%);
+  animation: shimmer 8s ease-in-out infinite alternate;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-2%) translateY(0%);
+    opacity: 0.10;
+  }
+  50% {
+    transform: translateX(1%) translateY(-1%);
+    opacity: 0.14;
+  }
+  100% {
+    transform: translateX(-1%) translateY(1%);
+    opacity: 0.10;
+  }
+}
+
+/* Frosted glass — more visible over mid-gradient */
+.glass {
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Scroll-triggered reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Carousel smooth scroll */
+.carousel-container {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.carousel-card {
+  scroll-snap-align: start;
+}
+
+.discover-mobile-strip {
+  overscroll-behavior-x: contain;
+}
+
+.discover-mobile-strip::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .mobile-discover-card {
+    background: rgba(255, 255, 255, 0.13);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .mobile-discover-card img {
+    transform: translateZ(0);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+/* Focus indicators for accessibility */
+*:focus-visible {
+  outline: 2px solid #A8E6F0;
+  outline-offset: 2px;
+}
+
+/* Glistening ring around team sprite circles */
+.sprite-glisten {
+  position: relative;
+  border-radius: 50%;
+}
+
+.sprite-glisten::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(168, 230, 240, 0.8),
+    rgba(255, 255, 255, 0.6),
+    rgba(201, 169, 110, 0.7),
+    rgba(168, 230, 240, 0.4),
+    rgba(168, 230, 240, 0.8)
+  );
+  -webkit-mask: radial-gradient(circle, transparent 58%, black 60%);
+  mask: radial-gradient(circle, transparent 58%, black 60%);
+  animation: glisten-spin 4s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sprite-glisten img {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes glisten-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes scroll-rtl {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Allow glistening edge to overflow */
+.team-scroll {
+  animation: scroll-rtl 30s linear infinite;
+  overflow: visible;
+  padding: 4px 0;
+}
+
+.team-scroll:hover {
+  animation-play-state: paused;
+}

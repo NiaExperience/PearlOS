@@ -43,7 +43,7 @@ export async function GET() {
     checkService('OpenClaw Gateway', 'http://localhost:18789/health'),
     checkServiceGraphQL('Mesh GraphQL', 'http://localhost:2000/graphql'),
     checkService('Bot Gateway (Pipecat)', 'http://localhost:4444/health'),
-    checkService('PocketTTS (Azelma)', 'http://localhost:8766/health'),
+    checkService('PocketTTS (Azelma)', 'http://localhost:8766/healthz'),
   ]);
 
   return NextResponse.json({ services: results });

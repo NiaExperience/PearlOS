@@ -56,6 +56,23 @@ describe('joinRoom', () => {
     expect(body.sessionUserName).toBe('Alice');
   });
 
+  it('includes visionMode only when Pearl Vision requested', async () => {
+    const mockResp = { ok: true, status: 200, json: async () => ({ pid: 8, room_url: 'u', personality: 'y' }) } as any;
+    const fn = jest.fn().mockResolvedValue(mockResp);
+    global.fetch = fn;
+
+    await joinRoom('u', {
+      personalityId: 'P',
+      persona: 'Pearl',
+      tenantId: 'T',
+      visionMode: true,
+    });
+
+    const [, init] = fn.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.visionMode).toBe(true);
+  });
+
   it('propagates fetch/network errors with a helpful warning', async () => {
     const fn = jest.fn().mockRejectedValue(new Error('network down'));
     global.fetch = fn;

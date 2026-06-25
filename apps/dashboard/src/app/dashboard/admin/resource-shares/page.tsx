@@ -22,7 +22,7 @@ export default function ResourceSharesPage() {
   const fetchTokens = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/resource-shares');
+      const res = await fetch('/dashboard/api/admin/resource-shares');
       const data = await res.json();
       if (data.success) {
         setTokens(data.tokens);
@@ -41,7 +41,7 @@ export default function ResourceSharesPage() {
   const handleDeactivate = async (tokenId: string) => {
     if (!confirm('Are you sure you want to deactivate this token?')) return;
     try {
-      const res = await fetch('/api/admin/resource-shares', {
+      const res = await fetch('/dashboard/api/admin/resource-shares', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokenId })
@@ -57,7 +57,7 @@ export default function ResourceSharesPage() {
   const handleDelete = async (tokenId: string) => {
     if (!confirm('Are you sure you want to permanently delete this token? This action cannot be undone.')) return;
     try {
-      const res = await fetch('/api/admin/resource-shares', {
+      const res = await fetch('/dashboard/api/admin/resource-shares', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokenId, hardDelete: true })

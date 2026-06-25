@@ -97,7 +97,7 @@ export default function MemoryKeywordsSection({
     const fetchKeywords = async () => {
       setIsLoading(true);
       try {
-        const result = await fetch(`/api/contentList/keywordMemory/${selectedAssistant._id}`);
+        const result = await fetch(`/dashboard/api/contentList/keywordMemory/${selectedAssistant._id}`);
         if (result.ok) {
           const data = await result.json();
           setKeywords(data as IKeywordMemory[]);
@@ -156,7 +156,7 @@ export default function MemoryKeywordsSection({
 
   const handleEditKeyword = async (data: any) => {
     try {
-      const result = await fetch(`/api/contentDetail/keywordMemory/${editingKeyword?._id}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/keywordMemory/${editingKeyword?._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ export default function MemoryKeywordsSection({
         body: JSON.stringify(data),
       });
       if (result.ok) {
-        const updatedKeywords = await fetch(`/api/contentList/keywordMemory/${selectedAssistant._id}`);
+        const updatedKeywords = await fetch(`/dashboard/api/contentList/keywordMemory/${selectedAssistant._id}`);
         if (updatedKeywords.ok) {
           const data = await updatedKeywords.json();
           setKeywords(data as IKeywordMemory[]);
@@ -189,11 +189,11 @@ export default function MemoryKeywordsSection({
 
   const handleDeleteKeyword = async (keywordId: string) => {
     try {
-      const result = await fetch(`/api/contentDetail/keywordMemory/${keywordId}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/keywordMemory/${keywordId}`, {
         method: 'DELETE',
       });
       if (result.ok) {
-        const updatedKeywords = await fetch(`/api/contentList/keywordMemory/${selectedAssistant._id}`);
+        const updatedKeywords = await fetch(`/dashboard/api/contentList/keywordMemory/${selectedAssistant._id}`);
         if (updatedKeywords.ok) {
           const data = await updatedKeywords.json();
           setKeywords(data as IKeywordMemory[]);
@@ -218,7 +218,7 @@ export default function MemoryKeywordsSection({
     try {
       let result;
       if (editingKeyword) {
-        result = await fetch(`/api/contentDetail/keywordMemory/${editingKeyword._id}`, {
+        result = await fetch(`/dashboard/api/contentDetail/keywordMemory/${editingKeyword._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -226,7 +226,7 @@ export default function MemoryKeywordsSection({
           body: JSON.stringify(data),
         });
       } else {
-        result = await fetch(`/api/contentList/keywordMemory/${selectedAssistant._id}`, {
+        result = await fetch(`/dashboard/api/contentList/keywordMemory/${selectedAssistant._id}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -235,7 +235,7 @@ export default function MemoryKeywordsSection({
         });
       }
       if (result.ok) {
-        const updatedKeywords = await fetch(`/api/contentList/keywordMemory/${selectedAssistant._id}`);
+        const updatedKeywords = await fetch(`/dashboard/api/contentList/keywordMemory/${selectedAssistant._id}`);
         if (updatedKeywords.ok) {
           const data = await updatedKeywords.json();
           setKeywords(data as IKeywordMemory[]);

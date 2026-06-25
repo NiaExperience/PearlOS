@@ -12,10 +12,10 @@
 
 import { useEffect } from 'react';
 
-import { NIA_EVENT_OPENCLAW_TASK } from '@interface/features/DailyCall/events/niaEventRouter';
-
 import { triggerOpenClawTask } from '../triggerOpenClawTask';
 import { OPENCLAW_BRIDGE_EVENTS } from '../events';
+
+const NIA_EVENT_OPENCLAW_TASK = 'nia.event.openclawTask';
 
 export function OpenClawEventBridge() {
   useEffect(() => {

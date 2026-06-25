@@ -76,6 +76,7 @@ import {
   requestWindowOpen,
   requestWindowClose,
   WINDOW_OPEN_EVENT,
+  setBrowserWindowLifecycleReady,
   WINDOW_CLOSE_EVENT,
   type WindowOpenRequest,
   type WindowCloseRequest,
@@ -88,12 +89,19 @@ import NotesView from '@interface/features/Notes/components/notes-view-next';
 import PhotoMagicView from '@interface/features/PhotoMagic/components/PhotoMagicView';
 import FilesView from '@interface/features/Files/components/FilesView';
 import SpritesApp from '@interface/features/Sprites/SpritesApp';
+import CreationLaunchpad from '@interface/features/CreationLaunchpad/CreationLaunchpad';
+import LaunchpadProjectView from '@interface/features/CreationLaunchpad/components/LaunchpadProjectView';
+import { AgencyView, StudioView } from '@interface/features/TaskVisualization';
+import { CouncilView } from '@interface/features/Council';
+import { PulseView } from '@interface/features/Pulse';
 import TerminalView from '@interface/features/Terminal/components/TerminalView';
+import WeatherView from '@interface/features/Weather/WeatherView';
 import YouTubeViewWrapper from '@interface/features/YouTube/components/YouTubeViewWrapper';
 import { useResilientSession } from '@interface/hooks/use-resilient-session';
 import { useToast } from '@interface/hooks/use-toast';
 import { getClientLogger } from '@interface/lib/client-logger';
 import { useLLMMessaging } from '@interface/lib/daily/hooks/useLLMMessaging';
+import { buildNewsHTML } from '@interface/lib/news-app-html';
 import { trackSessionHistory } from '@interface/lib/session-history';
 import type { VoiceParametersInput } from '@interface/lib/voice/kokoro';
 import { DesktopMode, type DesktopModeSwitchResponse } from '@interface/types/desktop-modes';
@@ -141,9 +149,67 @@ const WINDOW_ACK_MESSAGES: Record<WindowAutomationAction, string> = {
   reset: 'Window centered.',
 };
 
-const DEFAULT_YOUTUBE_QUERY = 'lofi hip hop radio - beats to relax/study to';
+const DEFAULT_YOUTUBE_QUERY = '';
 
 const CREATION_ENGINE_PLACEHOLDER_HTML = renderCreativeModePlaceholder();
+const NATIVE_PEARLOS_VIEW_TYPES = new Set<string>([
+  'council',
+  'agency',
+  'studio',
+  'ourPearlos',
+  'creation',
+  'creationLaunchpad',
+  'launchpadProject',
+  'notes',
+  'terminal',
+  'files',
+  'photoMagic',
+  'sprites',
+  'settings',
+  'youtube',
+  'browser',
+  'news',
+  'pulse',
+  'weather',
+  'discord',
+  'googleDrive',
+  'gmail',
+]);
+
+const INTERNAL_BROWSER_VIEW_TYPES = new Set<string>(['miniBrowser', 'enhancedBrowser']);
+
+const InlineHtmlApp: React.FC<{ html: string; title: string }> = ({ html, title }) => (
+  <iframe
+    srcDoc={html}
+    title={title}
+    className="h-full w-full border-0"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  />
+);
+
+function urlForBrowserRequest(request: WindowOpenRequest): string | null {
+  const viewState = request.viewState as Record<string, unknown> | undefined;
+  if (request.viewType === 'miniBrowser') {
+    return typeof viewState?.browserUrl === 'string' ? viewState.browserUrl : request.url || null;
+  }
+  if (request.viewType === 'enhancedBrowser') {
+    return typeof viewState?.enhancedBrowserUrl === 'string' ? viewState.enhancedBrowserUrl : request.url || null;
+  }
+  return request.url || null;
+}
+
+function isPearlOSInternalUrl(rawUrl: string): boolean {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return true;
+  if (/^(data|blob):/i.test(trimmed)) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URL(trimmed, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 const logger = getClientLogger('[browser_window]');
 
@@ -305,6 +371,12 @@ const BrowserWindow = ({
     | 'dailyCall'
     | 'photoMagic'
     | 'sprites'
+    | 'creationLaunchpad'
+    | 'launchpadProject'
+    | 'council'
+    | 'agency'
+    | 'studio'
+    | 'pulse'
     | null
   >(null);
 
@@ -455,6 +527,14 @@ const BrowserWindow = ({
 
   useEffect(() => {
     openWindowsRef.current = openWindows;
+    window.dispatchEvent(
+      new CustomEvent('pearlos:open-windows-changed', {
+        detail: {
+          source: 'browser-window',
+          viewTypes: openWindows.map((entry) => entry.viewType),
+        },
+      })
+    );
     // Notify autohide hook when all windows are closed
     if (openWindows.length === 0) {
       window.dispatchEvent(new Event('nia:all-windows-closed'));
@@ -530,6 +610,11 @@ const BrowserWindow = ({
         'contentDetail',
         'photoMagic',
         'sprites',
+        'creationLaunchpad',
+        'council',
+        'agency',
+        'studio',
+        'pulse',
       ]),
     []
   );
@@ -1125,12 +1210,22 @@ const BrowserWindow = ({
 
   const removeAllWindows = React.useCallback(() => {
     let removedCount = 0;
+    let removedDailyCall = false;
     setOpenWindows(prev => {
       removedCount = prev.length;
+      removedDailyCall = prev.some(window => window.viewType === 'dailyCall');
       return [];
     });
 
     if (removedCount > 0) {
+      if (removedDailyCall) {
+        try {
+          window.dispatchEvent(new Event('dailyCall.forceClose'));
+          log.info('📞 [REMOVE-ALL-WINDOWS] Dispatched dailyCall.forceClose event');
+        } catch (error) {
+          log.warn('⚠️ [REMOVE-ALL-WINDOWS] Error dispatching dailyCall.forceClose:', error);
+        }
+      }
       setActiveWindowId(null);
       setShowView(null);
       setStatus(false);
@@ -1261,6 +1356,8 @@ const BrowserWindow = ({
       ['notepad', 'notes'],
       ['note', 'notes'],
       ['files', 'files'],
+      ['filespace', 'files'],
+      ['docs', 'files'],
       ['filemanager', 'files'],
       ['filebrowser', 'files'],
       ['explorer', 'files'],
@@ -1276,6 +1373,23 @@ const BrowserWindow = ({
       ['creationengine', 'htmlContent'],
       ['creation', 'htmlContent'],
       ['applet', 'htmlContent'],
+      ['council', 'council'],
+      ['thecouncil', 'council'],
+      ['summon', 'council'],
+      ['summonagent', 'council'],
+      ['agency', 'agency'],
+      ['theagency', 'agency'],
+      ['tasks', 'agency'],
+      ['tasklist', 'agency'],
+      ['rooms', 'agency'],
+      ['studio', 'studio'],
+      ['thestudio', 'studio'],
+      ['hivemind', 'studio'],
+      ['planner', 'studio'],
+      ['orchestration', 'studio'],
+      ['pulse', 'pulse'],
+      ['globalpulse', 'pulse'],
+      ['socialpulse', 'pulse'],
       ['canvas', 'canvas'],
       ['universalcanvas', 'canvas'],
       ['dailyroom', 'dailyCall'],
@@ -1464,6 +1578,37 @@ const BrowserWindow = ({
     ));
   }, []);
 
+  /** Query string shown in the top YouTube search bar (active YouTube tile, else any YouTube window, else legacy state). */
+  const youtubeSearchBarDisplayQuery = React.useMemo(() => {
+    const active = activeWindowId && openWindows.find((w) => w.id === activeWindowId);
+    if (active?.viewType === 'youtube' && typeof active.viewState?.youtubeQuery === 'string') {
+      return active.viewState.youtubeQuery;
+    }
+    const anyYt = openWindows.find((w) => w.viewType === 'youtube');
+    if (anyYt && typeof anyYt.viewState?.youtubeQuery === 'string') {
+      return anyYt.viewState.youtubeQuery;
+    }
+    return youtubeQuery ?? '';
+  }, [openWindows, activeWindowId, youtubeQuery]);
+
+  const handleYoutubeSearchFromBar = React.useCallback(
+    (raw: string) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const resolved = resolveYoutubeQuery(trimmed, false);
+      if (!resolved.trim()) return;
+      setYoutubeQuery(resolved);
+      const windows = openWindowsRef.current;
+      const active =
+        activeWindowId && windows.find((w) => w.id === activeWindowId && w.viewType === 'youtube');
+      const target = active || windows.find((w) => w.viewType === 'youtube');
+      if (target) {
+        updateWindowState(target.id, { youtubeQuery: resolved });
+      }
+    },
+    [resolveYoutubeQuery, updateWindowState, activeWindowId]
+  );
+
   // Find window by view type (for checking if view already open)
   const findWindowByViewType = React.useCallback((viewType: ViewType): WindowInstance | undefined => {
     return openWindows.find(w => w.viewType === viewType);
@@ -1475,6 +1620,7 @@ const BrowserWindow = ({
     useEnhanced?: boolean;
     allowDuplicate?: boolean;
     category?: string;
+    fileSearchQuery?: string;
     source: string;
   };
 
@@ -1592,7 +1738,7 @@ const BrowserWindow = ({
   );
 
   const handleAppLaunch = React.useCallback(
-    ({ appName, url, useEnhanced, allowDuplicate, category, source }: AppLaunchOptions) => {
+    ({ appName, url, useEnhanced, allowDuplicate, category, fileSearchQuery, source }: AppLaunchOptions) => {
       if (!appName) {
         log.warn('⚠️ handleAppLaunch called without appName', { source });
         return;
@@ -1605,7 +1751,56 @@ const BrowserWindow = ({
         case 'creation-engine':
         case 'creationengine':
         case 'creation':
-          void handleCreationEngineLaunch(source, { allowDuplicate: allowDup });
+        case 'creation-launchpad':
+        case 'creationlaunchpad':
+        case 'launchpad':
+          requestWindowOpen({ viewType: 'creationLaunchpad', source, options: { allowDuplicate: allowDup } });
+          return;
+        case 'council':
+        case 'the-council':
+        case 'thecouncil':
+        case 'summon':
+        case 'summon-agent':
+        case 'summonagent':
+          requestWindowOpen({ viewType: 'council', source, options: { allowDuplicate: allowDup } });
+          return;
+        case 'agency':
+        case 'the-agency':
+        case 'theagency':
+        case 'tasks':
+        case 'rooms':
+          requestWindowOpen({ viewType: 'agency', source, options: { allowDuplicate: allowDup } });
+          return;
+        case 'studio':
+        case 'the-studio':
+        case 'thestudio':
+        case 'hivemind':
+        case 'planner':
+          requestWindowOpen({ viewType: 'studio', source, options: { allowDuplicate: allowDup } });
+          return;
+        case 'our-pearlos':
+        case 'ourpearlos':
+        case 'our-pearl':
+        case 'ourpearl':
+        case 'public-features':
+        case 'feature-catalog':
+        case 'community-features':
+          requestWindowOpen({ viewType: 'ourPearlos', source, options: { allowDuplicate: allowDup } });
+          return;
+        case 'pulse':
+        case 'global-pulse':
+        case 'social-pulse':
+          requestWindowOpen({ viewType: 'pulse', source, options: { allowDuplicate: allowDup } });
+          return;
+        case 'pearlvision':
+        case 'pearl-vision':
+        case 'vision':
+          requestWindowOpen({
+            viewType: 'dailyCall',
+            viewState: { dailyMode: 'vision' },
+            source,
+            options: { allowDuplicate: allowDup },
+          });
           return;
         case 'googledrive':
         case 'google-drive':
@@ -1636,9 +1831,18 @@ const BrowserWindow = ({
           requestWindowOpen({ viewType: 'terminal', source, options: { allowDuplicate: allowDup } });
           return;
         case 'files':
+        case 'filespace':
+        case 'docs':
         case 'file-manager':
         case 'explorer':
-          requestWindowOpen({ viewType: 'files', source, options: { allowDuplicate: allowDup } });
+          requestWindowOpen({
+            viewType: 'files',
+            viewState: fileSearchQuery
+              ? { fileSearchQuery, fileSearchNonce: Date.now() }
+              : undefined,
+            source,
+            options: { allowDuplicate: allowDup },
+          });
           return;
         case 'youtube':
         case 'video':
@@ -1668,15 +1872,22 @@ const BrowserWindow = ({
         case 'news':
         case 'the-news':
         case 'thenews': {
-          // Open the built-in PearlOS News app via Wonder Canvas
-          const { buildNewsHTML } = require('@interface/lib/news-app-html');
-          const { NIA_EVENT_WONDER_SCENE } = require('@interface/features/Stage/WonderCanvas/WonderCanvasRenderer');
-          window.dispatchEvent(
-            new CustomEvent(NIA_EVENT_WONDER_SCENE, {
-              detail: { payload: { html: buildNewsHTML(category), layer: 'main', transition: 'fade' } },
-            })
-          );
-          log.info('[BrowserWindow] Opened built-in News app via Wonder Canvas');
+          requestWindowOpen({
+            viewType: 'news',
+            source,
+            meta: { category },
+            options: { allowDuplicate: allowDup },
+          });
+          window.dispatchEvent(new CustomEvent('nia:request.news', { detail: {} }));
+          log.info('[BrowserWindow] Opened built-in News app');
+          return;
+        }
+        case 'weather': {
+          requestWindowOpen({
+            viewType: 'weather',
+            source,
+            options: { allowDuplicate: allowDup },
+          });
           return;
         }
         default:
@@ -1708,6 +1919,37 @@ const BrowserWindow = ({
       case 'cmd':
       case 'command':
         return ['terminal'];
+      case 'council':
+      case 'the-council':
+      case 'thecouncil':
+      case 'summon':
+      case 'summon-agent':
+      case 'summonagent':
+        return ['council'];
+      case 'agency':
+      case 'the-agency':
+      case 'theagency':
+      case 'tasks':
+      case 'rooms':
+        return ['agency'];
+      case 'studio':
+      case 'the-studio':
+      case 'thestudio':
+      case 'hivemind':
+      case 'planner':
+        return ['studio'];
+      case 'our-pearlos':
+      case 'ourpearlos':
+      case 'our-pearl':
+      case 'ourpearl':
+      case 'public-features':
+      case 'feature-catalog':
+      case 'community-features':
+        return ['ourPearlos'];
+      case 'pearlvision':
+      case 'pearl-vision':
+      case 'vision':
+        return ['dailyCall'];
       case 'browser':
       case 'chrome':
       case 'web':
@@ -1740,6 +1982,17 @@ const BrowserWindow = ({
       }
 
       const { viewType, viewState, options, source } = request;
+      const isSplitChatSource =
+        typeof source === 'string' &&
+        (source.startsWith('chat-') || source.startsWith('chat:') || source.startsWith('splitchat:'));
+      if (isSplitChatSource) {
+        log.info('🪟 [LIFECYCLE] Ignoring split-chat window open request in BrowserWindow', {
+          viewType,
+          source,
+        });
+        return;
+      }
+
       if (!viewType) {
         log.warn('⚠️ [LIFECYCLE] Window open request missing viewType', request);
         return;
@@ -1752,6 +2005,46 @@ const BrowserWindow = ({
         source,
         event: 'window_open_request',
       });
+
+      const nativeWindowManagerReady =
+        typeof window !== 'undefined' &&
+        (window as typeof window & { __pearlNativeWindowManagerReady?: boolean }).__pearlNativeWindowManagerReady === true;
+      if (
+        nativeWindowManagerReady &&
+        INTERNAL_BROWSER_VIEW_TYPES.has(String(viewType))
+      ) {
+        const internalUrl = urlForBrowserRequest(request);
+        if (internalUrl && isPearlOSInternalUrl(internalUrl)) {
+          requestWindowOpen({
+            viewType: 'custom',
+            title: request.title || 'PearlOS',
+            url: internalUrl,
+            source: source ? `${source}:native-content` : 'browser-window:native-content',
+            meta: {
+              ...request.meta,
+              fullscreen: false,
+              fullscreenWindow: true,
+              internalPearlOSContent: true,
+            },
+            options,
+          });
+          log.info('🪟 [LIFECYCLE] PearlOS-internal content routed to native fullscreen window', {
+            viewType,
+            source,
+          });
+          return;
+        }
+      }
+      if (
+        nativeWindowManagerReady &&
+        (NATIVE_PEARLOS_VIEW_TYPES.has(String(viewType)) || request.meta?.fullscreenWindow === true)
+      ) {
+        log.info('🪟 [LIFECYCLE] Native PearlOS app request handled by WindowManager', {
+          viewType,
+          source,
+        });
+        return;
+      }
 
       if (viewType === 'htmlContent' && source?.startsWith('desktop:creation-engine') && !viewState) {
         void handleCreationEngineLaunch(source, { allowDuplicate: options?.allowDuplicate });
@@ -1796,6 +2089,21 @@ const BrowserWindow = ({
         resolvedViewState = {
           ...(resolvedViewState as Record<string, unknown>),
           youtubeQuery: resolveYoutubeQuery(incomingQuery, allowDefault),
+        } as typeof resolvedViewState;
+      }
+
+      if (viewType === 'news' && request.meta?.category) {
+        resolvedViewState = {
+          ...(resolvedViewState as Record<string, unknown>),
+          newsCategory: request.meta.category,
+        } as typeof resolvedViewState;
+      }
+
+      if (viewType === 'weather' && request.meta) {
+        resolvedViewState = {
+          ...(resolvedViewState as Record<string, unknown>),
+          weatherLocation: request.meta.location || request.meta.query,
+          weatherSnapshot: request.meta.weather,
         } as typeof resolvedViewState;
       }
 
@@ -1851,9 +2159,15 @@ const BrowserWindow = ({
       log.info('🪟 [LIFECYCLE] Processing window close request', {
         windowId,
         viewType,
+        all: request.all,
         options,
         source,
       });
+
+      if (request.all) {
+        removeAllWindows();
+        return;
+      }
 
       if (windowId) {
         removeWindow(windowId, { suppressStandaloneReset: options?.suppressStandaloneReset });
@@ -1891,7 +2205,7 @@ const BrowserWindow = ({
 
   // Grid position CSS classes
   const getGridPositionClasses = (position: GridPosition): string => {
-    const baseClasses = 'absolute border-r border-b border-gray-300/30 transition-all duration-300 ease-out';
+    const baseClasses = 'absolute border-r border-b border-[var(--pearl-window-border)] transition-all duration-300 ease-out';
     
     switch (position) {
       case 'full':
@@ -1976,6 +2290,7 @@ const BrowserWindow = ({
               assistantName={assistantName}
               supportedFeatures={supportedFeatures}
               tenantId={tenantId}
+              initialNoteId={viewState?.openNoteId}
               // Allow NotesView to drive its own close flow (including unsaved-changes dialog)
               onClose={() => {
                 removeWindow(window.id);
@@ -1989,11 +2304,22 @@ const BrowserWindow = ({
         return <TerminalView />;
 
       case 'files':
-        return <FilesView />;
+        return (
+          <FilesView
+            initialPath={viewState?.fileSpacePath}
+            initialSearchQuery={viewState?.fileSearchQuery}
+            initialSearchNonce={viewState?.fileSearchNonce}
+          />
+        );
 
       case 'miniBrowser':
         if (!isFeatureEnabled('miniBrowser', supportedFeatures)) return null;
-        return <MiniBrowserView initialUrl={viewState?.browserUrl || 'https://www.google.com'} />;
+        return (
+          <MiniBrowserView
+            initialUrl={viewState?.browserUrl || 'https://www.google.com'}
+            presentation={viewState?.miniBrowserPresentation || 'browser'}
+          />
+        );
 
       case 'enhancedBrowser':
         if (!isFeatureEnabled('miniBrowser', supportedFeatures)) return null;
@@ -2129,6 +2455,7 @@ const BrowserWindow = ({
                   voiceParameters={voiceParameters}
                   modePersonalityVoiceConfig={modePersonalityVoiceConfig}
                   dailyCallPersonalityVoiceConfig={dailyCallPersonalityVoiceConfig}
+                  visionMode={viewState?.dailyMode === 'vision'}
                   onLeave={() => {
                     // Support both legacy and multi-window modes
                     if (window.id) {
@@ -2153,6 +2480,66 @@ const BrowserWindow = ({
 
       case 'sprites':
         return <SpritesApp />;
+
+      case 'creationLaunchpad':
+        return <CreationLaunchpad />;
+
+      case 'pulse':
+        return <PulseView />;
+
+      case 'news':
+        return <InlineHtmlApp html={buildNewsHTML((viewState as any)?.newsCategory)} title="News" />;
+
+      case 'weather':
+        return (
+          <ErrorBoundary name="Weather">
+            <WeatherView
+              initialLocation={(viewState as any)?.weatherLocation}
+              initialWeather={(viewState as any)?.weatherSnapshot}
+            />
+          </ErrorBoundary>
+        );
+
+      case 'launchpadProject': {
+        const projectId = viewState?.launchpadProjectId;
+        const version = viewState?.launchpadProjectVersion as number | undefined;
+        if (!projectId) {
+          return (
+            <div
+              className="pearl-app-window-content h-full flex items-center justify-center text-xs text-[var(--pearl-muted)]"
+              style={{ fontFamily: 'var(--pearl-ui-font, Gohufont, monospace)' }}
+            >
+              No project selected.
+            </div>
+          );
+        }
+        return (
+          <ErrorBoundary name="LaunchpadProject">
+            <LaunchpadProjectView projectId={projectId} version={version} />
+          </ErrorBoundary>
+        );
+      }
+
+      case 'council':
+        return (
+          <ErrorBoundary name="Council">
+            <CouncilView />
+          </ErrorBoundary>
+        );
+
+      case 'agency':
+        return (
+          <ErrorBoundary name="TheAgency">
+            <AgencyView />
+          </ErrorBoundary>
+        );
+
+      case 'studio':
+        return (
+          <ErrorBoundary name="TheStudio">
+            <StudioView />
+          </ErrorBoundary>
+        );
 
       default:
         return <div className="p-4 text-gray-500">Unknown view type</div>;
@@ -2237,28 +2624,34 @@ const BrowserWindow = ({
 
     window.addEventListener(WINDOW_OPEN_EVENT, lifecycleOpenListener as EventListener);
     window.addEventListener(WINDOW_CLOSE_EVENT, lifecycleCloseListener as EventListener);
+    setBrowserWindowLifecycleReady(true);
 
     return () => {
+      setBrowserWindowLifecycleReady(false);
       window.removeEventListener(WINDOW_OPEN_EVENT, lifecycleOpenListener as EventListener);
       window.removeEventListener(WINDOW_CLOSE_EVENT, lifecycleCloseListener as EventListener);
     };
   }, [isSingletonActive, processWindowCloseRequest, processWindowOpenRequest]);
 
-  // Hide global UI chrome (nav, active jobs, chat bar) while Terminal is open,
+  // Hide global UI chrome (nav, active jobs, chat bar) while chrome-heavy apps are open,
   // mirroring the same behaviour Discord has via the wonder-scene mechanism.
   // We watch openWindows rather than lifecycle events because the X button calls
   // removeWindow() directly and never fires WINDOW_CLOSE_EVENT.
   const terminalIsOpen = openWindows.some(w => w.viewType === 'terminal');
-  const terminalWasOpenRef = React.useRef(false);
+  const spritesIsOpen = openWindows.some(w => w.viewType === 'sprites');
+  // Launchpad intentionally does NOT hide chrome — the user needs the chat bar
+  // accessible to prompt the assistant while Launchpad is open (bug report, 2026-04-17).
+  const chromeHideWindowIsOpen = terminalIsOpen || spritesIsOpen;
+  const chromeHideWindowWasOpenRef = React.useRef(false);
   useEffect(() => {
     if (!isSingletonActive) return;
-    if (terminalIsOpen && !terminalWasOpenRef.current) {
-      window.dispatchEvent(new CustomEvent('nia:wonder.scene', { detail: { payload: { hideChrome: true } } }));
-    } else if (!terminalIsOpen && terminalWasOpenRef.current) {
-      window.dispatchEvent(new CustomEvent('nia:wonder.clear'));
+    if (chromeHideWindowIsOpen && !chromeHideWindowWasOpenRef.current) {
+      window.dispatchEvent(new CustomEvent('nia:pixel.canvas', { detail: { payload: { hideChrome: true } } }));
+    } else if (!chromeHideWindowIsOpen && chromeHideWindowWasOpenRef.current) {
+      window.dispatchEvent(new CustomEvent('nia:pixel.canvas.clear'));
     }
-    terminalWasOpenRef.current = terminalIsOpen;
-  }, [isSingletonActive, terminalIsOpen]);
+    chromeHideWindowWasOpenRef.current = chromeHideWindowIsOpen;
+  }, [chromeHideWindowIsOpen, isSingletonActive]);
 
   useEffect(() => {
     // FIX: Only the active singleton should attach bot/automation event listeners
@@ -2293,7 +2686,12 @@ const BrowserWindow = ({
         const useEnhanced = typeof payload?.useEnhanced === 'boolean' ? payload.useEnhanced : undefined;
         const allowDuplicate = typeof payload?.allowDuplicate === 'boolean' ? payload.allowDuplicate : undefined;
         const category = typeof payload?.category === 'string' ? payload.category : undefined;
-        log.info('[BrowserWindow] Received app.open event', { appName, url, useEnhanced, allowDuplicate, category });
+        const fileSearchQuery = typeof payload?.fileSearchQuery === 'string'
+          ? payload.fileSearchQuery
+          : typeof payload?.query === 'string'
+            ? payload.query
+            : undefined;
+        log.info('[BrowserWindow] Received app.open event', { appName, url, useEnhanced, allowDuplicate, category, hasFileSearchQuery: Boolean(fileSearchQuery) });
 
         handleAppLaunch({
           appName,
@@ -2301,6 +2699,7 @@ const BrowserWindow = ({
           useEnhanced,
           allowDuplicate,
           category,
+          fileSearchQuery,
           source: 'nia.event:app.open',
         });
       }
@@ -2449,19 +2848,52 @@ const BrowserWindow = ({
       requestWindowOpen(request);
     };
 
-    // Handle view.close events from bot (be selective when multiple windows are open)
+    // Handle view.close events from bot. Prefer explicit targets from the router;
+    // fall back to the active window only for genuinely targetless close requests.
     const viewCloseListener: EventListener = (event: Event) => {
       const customEvent = event as CustomEvent<NiaEventDetail>;
+      const detail: any = customEvent.detail || {};
+      const payload: any = detail.payload && typeof detail.payload === 'object' ? detail.payload : detail;
       const windows = openWindowsRef.current;
       const count = windows.length;
       log.info(`🔴 [VIEW-CLOSE] Received view.close`, {
-        payload: customEvent.detail?.payload,
+        payload,
         openCount: count,
         windows: windows.map(w => ({ id: w.id, viewType: w.viewType }))
       });
 
+      if (payload?.all === true) {
+        removeAllWindows();
+        return;
+      }
+
+      const appNames = Array.isArray(payload?.apps)
+        ? payload.apps.map((app: unknown) => (typeof app === 'string' ? app : String(app))).filter(Boolean)
+        : typeof payload?.app === 'string'
+          ? [payload.app]
+          : [];
+
+      if (appNames.some((app: string) => app.toLowerCase() === 'all')) {
+        removeAllWindows();
+        return;
+      }
+
+      const identifiers: Array<string | null | undefined> = [
+        payload?.target,
+        payload?.view,
+        payload?.viewType,
+        payload?.viewId,
+        payload?.appName,
+        payload?.name,
+        ...appNames,
+      ];
+      const requestText = (payload?.requestText || payload?.userRequest || payload?.text) as string | undefined;
+      const targeted = attemptCloseWindows(identifiers, requestText, { fallbackToCloseAll: false });
+      if (targeted) {
+        return;
+      }
+
       if (count <= 1) {
-        // Check if the single window is a joined Daily Call
         const singleWindow = windows[0];
         if (singleWindow?.viewType === 'dailyCall' && isDailyCallJoinedRef.current) {
           log.info('🛡️ [VIEW-CLOSE] Skipping fallback close-all for active Daily Call');
@@ -2473,10 +2905,7 @@ const BrowserWindow = ({
         return;
       }
 
-      // Multi-window: close only one window (prefer active if available)
       const active = windows.find(w => w.id === activeWindowId) || windows[count - 1];
-      
-      // Check if the target window is a joined Daily Call
       if (active?.viewType === 'dailyCall' && isDailyCallJoinedRef.current) {
         log.info('🛡️ [VIEW-CLOSE] Skipping fallback close for active Daily Call');
         return;
@@ -2492,7 +2921,8 @@ const BrowserWindow = ({
     // Handle desktop.mode.switch events from bot
     const desktopModeSwitchListener: EventListener = (event: Event) => {
       const customEvent = event as CustomEvent<NiaEventDetail>;
-      const mode = customEvent.detail?.payload?.mode;
+      const detail = customEvent.detail as any;
+      const mode = detail?.payload?.mode ?? detail?.mode ?? detail?.targetMode;
       log.info(`🖥️ [BrowserWindow] Received desktop.mode.switch event for mode: ${mode}`);
       
       if (!mode || typeof mode !== 'string') {
@@ -2501,33 +2931,25 @@ const BrowserWindow = ({
       }
 
       // Normalize mode value to DesktopMode enum
-      // The bot might send layout synonyms ('desktop', 'full', 'compact', 'minimal') or actual DesktopMode values
-      // Map synonyms to DesktopMode, or use the mode directly if it's already a valid DesktopMode
+      // The bot may send 'desktop' / 'full' synonyms or an actual DesktopMode value.
       const normalizeMode = (m: string): DesktopMode => {
         const lowerMode = m.toLowerCase();
-        
-        // Map layout synonyms to desktop modes
+
         const layoutModeMap: Record<string, DesktopMode> = {
-          'desktop': DesktopMode.WORK,   // "desktop mode" -> Work mode
-          'full': DesktopMode.WORK,      // Full layout -> Work mode
-          'compact': DesktopMode.FOCUS,  // Compact layout -> Focus mode
-          'minimal': DesktopMode.FOCUS,  // Minimal layout -> Focus mode
-          'calm': DesktopMode.FOCUS,     // Calm mode -> Focus mode
-          'create': DesktopMode.CREATIVE
+          'desktop': DesktopMode.DESKTOP,
+          'full': DesktopMode.DESKTOP,
+          'create': DesktopMode.CREATIVE,
         };
-        
-        // If it's a layout synonym, map it
+
         if (layoutModeMap[lowerMode]) {
           return layoutModeMap[lowerMode];
         }
-        
-        // Check if it's already a valid DesktopMode (home, work, focus, creative, gaming, relaxation)
+
         const validModes = Object.values(DesktopMode) as string[];
         if (validModes.includes(lowerMode)) {
           return lowerMode as DesktopMode;
         }
-        
-        // Default to HOME if unknown (more user-friendly than WORK)
+
         log.warn(`⚠️ [BrowserWindow] Unknown desktop mode "${m}", defaulting to HOME`);
         return DesktopMode.HOME;
       };
@@ -2612,7 +3034,7 @@ const BrowserWindow = ({
         
         // Convert bot event to frontend CustomEvent
         const soundtrackEvent = new CustomEvent('soundtrackControl', {
-          detail: payload
+          detail: { ...payload, source: payload.source ?? 'bot' }
         });
         log.info('[BrowserWindow] Dispatching soundtrackControl CustomEvent:', soundtrackEvent.detail);
         window.dispatchEvent(soundtrackEvent);
@@ -2636,8 +3058,15 @@ const BrowserWindow = ({
       if (noteId) {
         log.info('[BrowserWindow] Received note.open event', { noteId, payload: rawPayload });
 
-        // Open the notes window first
-        addWindow('notes', {});
+        // Open/focus Notes with the target note in window state. NotesView also
+        // receives the event below, but initialNoteId makes this robust even if
+        // the component has not mounted its event listeners yet.
+        requestWindowOpen({
+          viewType: 'notes',
+          viewState: { openNoteId: noteId },
+          source: 'bot:note.open',
+          options: { allowDuplicate: false },
+        });
 
         const openPayload = {
           ...(typeof rawPayload === 'object' && rawPayload ? rawPayload : {}),
@@ -3221,6 +3650,8 @@ const BrowserWindow = ({
         return 'Photo Magic';
       case 'sprites':
         return 'Sprites';
+      case 'launchpadProject':
+        return 'Project';
       case 'contentList':
         return 'Content';
       case 'contentDetail':
@@ -3442,6 +3873,14 @@ const BrowserWindow = ({
   // Use multi-window grid when we have 2+ windows
   // Single window (1) uses legacy rendering (but still fullscreen)
   const useMultiWindow = openWindows.length >= 2;
+  const activeSingleWindow = !useMultiWindow
+    ? (openWindows.find(w => w.id === activeWindowId) || openWindows[0] || null)
+    : null;
+  const activeSingleMiniBrowserPresentation =
+    activeSingleWindow?.viewType === 'miniBrowser'
+      ? activeSingleWindow.viewState?.miniBrowserPresentation
+      : undefined;
+  const activeSingleIsSeamlessMiniBrowser = activeSingleMiniBrowserPresentation === 'seamless';
 
   return (
     <>
@@ -3464,8 +3903,10 @@ const BrowserWindow = ({
           <div
             ref={windowRef}
             className={(() => {
-              const base = 'border-muted-foreground overflow-hidden rounded-xl border';
-              if (windowLayout === 'maximized') return `${base} fixed top-0 bottom-0 left-0 z-40 h-full ${isChatMode && showView !== 'dailyCall' ? 'right-[120px]' : 'right-0 w-full'}`;
+              const base = activeSingleIsSeamlessMiniBrowser
+                ? 'overflow-hidden border-0 rounded-none bg-black'
+                : 'pearl-app-window overflow-hidden rounded-xl border';
+              if (windowLayout === 'maximized') return `${base} fixed top-0 bottom-0 left-0 z-40 h-full right-0 w-full`;
           if (windowLayout === 'left')
             return `${base} fixed left-0 top-0 z-40 h-full w-full md:w-1/2`;
           if (windowLayout === 'right')
@@ -3483,88 +3924,94 @@ const BrowserWindow = ({
           cursor: 'auto',
         }}
       >
-        <div
-          style={{
-            pointerEvents: 'auto',
-            cursor: 'auto',
-          }}
-        >
-          <ManeuverableWindowControls
-            layout={windowLayout}
-            onLayoutChange={l => {
-              if (showView) {
-                setStatus(true);
-                setWasMinimized(false);
-              }
-              setWindowLayout(l);
+        {!useMultiWindow && (
+          <div
+            style={{
+              pointerEvents: 'auto',
+              cursor: 'auto',
             }}
-            onMinimize={() => {
-              setStatus(false);
-              setWasMinimized(true);
-            }}
-            onRestoreCenter={() => {
-              if (showView) {
-                setStatus(true);
-                setWasMinimized(false);
-              }
-              setWindowLayout('normal');
-            }}
-            onClose={() => {
-              const windows = openWindowsRef.current;
-              const multiWindow = windows.length >= 2;
-              log.info(
-                `🔴 [CLOSE-BUTTON] Close clicked (useMultiWindow: ${multiWindow}, openWindows: ${windows.length})`
-              );
-
-              if (windows.length === 0) {
-                log.info('🔴 [CLOSE-BUTTON] No windows available to close');
-                return;
-              }
-
-              const active =
-                (activeWindowId && windows.find(w => w.id === activeWindowId)) ||
-                windows[windows.length - 1];
-
-              if (!active) {
-                log.warn('⚠️ [CLOSE-BUTTON] Unable to determine target window for close');
-                return;
-              }
-
-              log.info(
-                `🔴 [CLOSE-BUTTON] Targeting window ${active.id} (${active.viewType}) for close`
-              );
-
-              // Delegate close handling for notes so NotesView can show unsaved-changes dialog
-              if (active.viewType === 'notes') {
-                try {
-                  window.dispatchEvent(
-                    new CustomEvent('notepadCommand', {
-                      detail: { action: 'attemptClose', payload: {} },
-                    })
-                  );
-                  log.info('📝 [CLOSE-BUTTON] Dispatched notepadCommand:attemptClose for notes');
-                } catch (error) {
-                  log.warn(
-                    '⚠️ [CLOSE-BUTTON] Error dispatching notepadCommand:attemptClose:',
-                    error
-                  );
+          >
+            <ManeuverableWindowControls
+              layout={windowLayout}
+              onLayoutChange={l => {
+                if (showView) {
+                  setStatus(true);
+                  setWasMinimized(false);
                 }
-                return;
-              }
-
-              if (active.viewType === 'dailyCall') {
-                try {
-                  window.dispatchEvent(new Event('dailyCall.forceClose'));
-                  log.info('📞 [CLOSE-BUTTON] Dispatched dailyCall.forceClose event');
-                } catch (error) {
-                  log.warn('⚠️ [CLOSE-BUTTON] Error dispatching dailyCall.forceClose:', error);
+                setWindowLayout(l);
+              }}
+              onMinimize={() => {
+                setStatus(false);
+                setWasMinimized(true);
+              }}
+              onRestoreCenter={() => {
+                if (showView) {
+                  setStatus(true);
+                  setWasMinimized(false);
                 }
+                setWindowLayout('normal');
+              }}
+              showYoutubeSearch={
+                false
               }
+              youtubeSearchQuery={youtubeSearchBarDisplayQuery}
+              onYoutubeSearchSubmit={handleYoutubeSearchFromBar}
+              onClose={() => {
+                const windows = openWindowsRef.current;
+                log.info(
+                  `🔴 [CLOSE-BUTTON] Close clicked (openWindows: ${windows.length})`
+                );
 
-              removeWindow(active.id);
-            }}
-          />
-        </div>
+                if (windows.length === 0) {
+                  log.info('🔴 [CLOSE-BUTTON] No windows available to close');
+                  return;
+                }
+
+                const active =
+                  (activeWindowId && windows.find(w => w.id === activeWindowId)) ||
+                  windows[windows.length - 1];
+
+                if (!active) {
+                  log.warn('⚠️ [CLOSE-BUTTON] Unable to determine target window for close');
+                  return;
+                }
+
+                log.info(
+                  `🔴 [CLOSE-BUTTON] Targeting window ${active.id} (${active.viewType}) for close`
+                );
+
+                // Delegate close handling for notes so NotesView can show unsaved-changes dialog
+                if (active.viewType === 'notes') {
+                  try {
+                    window.dispatchEvent(
+                      new CustomEvent('notepadCommand', {
+                        detail: { action: 'attemptClose', payload: {} },
+                      })
+                    );
+                    log.info('📝 [CLOSE-BUTTON] Dispatched notepadCommand:attemptClose for notes');
+                  } catch (error) {
+                    log.warn(
+                      '⚠️ [CLOSE-BUTTON] Error dispatching notepadCommand:attemptClose:',
+                      error
+                    );
+                  }
+                  return;
+                }
+
+                if (active.viewType === 'dailyCall') {
+                  try {
+                    window.dispatchEvent(new Event('dailyCall.forceClose'));
+                    log.info('📞 [CLOSE-BUTTON] Dispatched dailyCall.forceClose event');
+                  } catch (error) {
+                    log.warn('⚠️ [CLOSE-BUTTON] Error dispatching dailyCall.forceClose:', error);
+                  }
+                }
+
+                removeWindow(active.id);
+              }}
+            />
+          </div>
+        )}
 
         {/* Multi-window grid container OR legacy single-window container */}
         {useMultiWindow ? (
@@ -3594,15 +4041,14 @@ const BrowserWindow = ({
               return (
                 <div
                   key={window.id}
-                  className={`${getGridPositionClasses(window.gridPosition)} group`}
+                  className={`${getGridPositionClasses(window.gridPosition)} pearl-app-window group`}
                   style={{
                     pointerEvents: 'auto',
                     cursor: 'auto',
-                    backgroundColor: seatrade ? '#fff' : 'rgba(243, 244, 246, 0.2)',
+                    background: seatrade ? '#fff' : 'var(--pearl-window-bg)',
                   }}
                   onClick={() => setActiveWindowId(window.id)}
                 >
-                  {/* Individual window close button */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -3645,18 +4091,15 @@ const BrowserWindow = ({
                       
                       removeWindow(windowInstance.id);
                     }}
-                    className={`absolute top-1 right-1 z-10 p-1 rounded-md transition-all ${
-                      isMobileDevice()
-                        ? 'bg-gray-600/60 hover:bg-gray-600/80 text-white' // Mobile: always visible with gray
-                        : 'bg-transparent hover:bg-red-600/90 text-gray-400 hover:text-white opacity-0 hover:opacity-100 group-hover:opacity-100' // Desktop: hidden, red on hover
-                    }`}
+                    className="pearl-app-window-control absolute top-2 right-2 z-50 flex h-7 w-7 items-center justify-center rounded-full border p-0 text-sm font-semibold leading-none transition-all active:scale-95"
                     title="Close this window"
+                    aria-label={`Close ${window.viewType} window`}
                   >
                     <X className="w-3 h-3" />
                   </button>
 
                   {/* Render window content */}
-                  <div className={`${seatrade ? 'bg-white' : 'bg-gray-100/20'} h-full w-full overflow-auto rounded-b-xl`}>
+                  <div className={`${seatrade ? 'bg-white' : 'pearl-app-window-content'} h-full w-full ${window.viewType === 'agency' || window.viewType === 'council' ? 'overflow-hidden' : 'overflow-auto'} rounded-b-xl`}>
                     {renderWindowContent(window)}
                   </div>
                 </div>
@@ -3666,7 +4109,7 @@ const BrowserWindow = ({
         ) : showView ? (
           /* SINGLE-WINDOW LEGACY RENDERING - Only render if showView is set */
         <div
-        className={`${seatrade ? 'bg-white' : 'bg-gray-100/20'} h-full w-full overflow-auto rounded-b-xl`}
+        className={`${activeSingleIsSeamlessMiniBrowser ? 'bg-black' : seatrade ? 'bg-white' : 'pearl-app-window-content'} h-full w-full ${showView === 'agency' || showView === 'council' || activeSingleIsSeamlessMiniBrowser ? 'overflow-hidden' : 'overflow-auto'} ${activeSingleIsSeamlessMiniBrowser ? '' : 'rounded-b-xl'}`}
           style={{
             pointerEvents: 'auto',
             cursor: 'auto',
@@ -3705,6 +4148,7 @@ const BrowserWindow = ({
                 assistantName={assistantName}
                 supportedFeatures={supportedFeatures}
                 tenantId={tenantId}
+                initialNoteId={activeSingleWindow?.viewState?.openNoteId}
                 // In legacy single-window mode, let NotesView control closing as well
                 // FIX: Also remove from openWindows queue when closing, even in legacy mode
                 onClose={() => {
@@ -3726,10 +4170,17 @@ const BrowserWindow = ({
             <TerminalView />
           )}
           {showView === 'files' && (
-            <FilesView />
+            <FilesView
+              initialPath={activeSingleWindow?.viewState?.fileSpacePath}
+              initialSearchQuery={activeSingleWindow?.viewState?.fileSearchQuery}
+              initialSearchNonce={activeSingleWindow?.viewState?.fileSearchNonce}
+            />
           )}
           {showView === 'miniBrowser' && isFeatureEnabled('miniBrowser', supportedFeatures) && (
-            <MiniBrowserView initialUrl={browserUrl} />
+            <MiniBrowserView
+              initialUrl={browserUrl}
+              presentation={activeSingleMiniBrowserPresentation || 'browser'}
+            />
           )}
           {showView === 'enhancedBrowser' && isFeatureEnabled('miniBrowser', supportedFeatures) && (
             <EnhancedMiniBrowserView key={enhancedKey} initialUrl={enhancedBrowserUrl} />
@@ -3752,6 +4203,7 @@ const BrowserWindow = ({
                 voiceParameters={voiceParameters}
                 modePersonalityVoiceConfig={modePersonalityVoiceConfig}
                 dailyCallPersonalityVoiceConfig={dailyCallPersonalityVoiceConfig}
+                visionMode={activeSingleWindow?.viewState?.dailyMode === 'vision'}
                 onLeave={() => {
                   setShowView(null);
                   setStatus(false);
@@ -3767,6 +4219,47 @@ const BrowserWindow = ({
           )}
           {showView === 'sprites' && (
             <SpritesApp />
+          )}
+          {showView === 'creationLaunchpad' && (
+            <CreationLaunchpad />
+          )}
+          {showView === 'pulse' && (
+            <PulseView />
+          )}
+          {showView === 'launchpadProject' && (() => {
+            const launchpadWindow = openWindows.find(w => w.viewType === 'launchpadProject');
+            const projectId = launchpadWindow?.viewState?.launchpadProjectId;
+            const version = launchpadWindow?.viewState?.launchpadProjectVersion as number | undefined;
+            if (!projectId) {
+              return (
+                <div
+                  className="pearl-app-window-content h-full flex items-center justify-center text-xs text-[var(--pearl-muted)]"
+                  style={{ fontFamily: 'var(--pearl-ui-font, Gohufont, monospace)' }}
+                >
+                  No project selected.
+                </div>
+              );
+            }
+            return (
+              <ErrorBoundary name="LaunchpadProject">
+                <LaunchpadProjectView projectId={projectId} version={version} />
+              </ErrorBoundary>
+            );
+          })()}
+          {showView === 'council' && (
+            <ErrorBoundary name="Council">
+              <CouncilView />
+            </ErrorBoundary>
+          )}
+          {showView === 'agency' && (
+            <ErrorBoundary name="TheAgency">
+              <AgencyView />
+            </ErrorBoundary>
+          )}
+          {showView === 'studio' && (
+            <ErrorBoundary name="TheStudio">
+              <StudioView />
+            </ErrorBoundary>
           )}
           {showView === 'htmlContent' &&
             isFeatureEnabled('htmlContent', supportedFeatures) &&

@@ -18,7 +18,7 @@ export default function UnauthorizedPage() {
   useEffect(() => {
     // If no session, redirect to login
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/dashboard/login');
     }
   }, [status, router]);
 
@@ -39,7 +39,7 @@ export default function UnauthorizedPage() {
 
   const handleSignOut = async () => {
     try {
-      const response = await fetch('/api/auth/signout', {
+      const response = await fetch('/dashboard/api/auth/signout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export default function UnauthorizedPage() {
           description: "You have been successfully signed out.",
         });
         // Redirect to login page
-        router.push('/login');
+        router.push('/dashboard/login');
         // Force a page reload to clear any client-side state
         router.refresh();
       } else {

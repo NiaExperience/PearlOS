@@ -16,6 +16,7 @@ import { AssistantActions, TenantActions } from '@nia/prism/core/actions';
 import { getUserSharedResources } from '@nia/prism/core/actions/organization-actions';
 import { getUserById } from '@nia/prism/core/actions/user-actions';
 import { getSessionSafely } from '@nia/prism/core/auth';
+import { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -111,12 +112,34 @@ export async function GET(request: NextRequest): Promise<Response> {
  */
 function createSSEResponse(userId: string, tenantId: string, limit: number): Response {
   const encoder = new TextEncoder();
+  let closed = false;
 
   const stream = new ReadableStream({
     async start(controller) {
-      const sendBatch = (batch: AppletBatch) => {
+      const sendBatch = (batch: AppletBatch): boolean => {
+        if (closed) return false;
         const data = `data: ${JSON.stringify(batch)}\n\n`;
-        controller.enqueue(encoder.encode(data));
+        try {
+          controller.enqueue(encoder.encode(data));
+          return true;
+        } catch (err) {
+          closed = true;
+          log.warn('SSE batch skipped because stream is already closed', {
+            batch: batch.batch,
+            err,
+          });
+          return false;
+        }
+      };
+
+      const closeStream = () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch (err) {
+          log.warn('SSE close skipped because stream is already closed', { err });
+        }
       };
 
       try {
@@ -134,9 +157,17 @@ function createSSEResponse(userId: string, tenantId: string, limit: number): Res
           sendBatch({ batch: 'personal', items: [], done: false, error: 'Failed to load personal applets' });
         }
 
+        if (closed) return;
+
         // Batch 2 & 3: Shared applets
         try {
-          const sharedResources = await getUserSharedResources(userId, tenantId, 'HtmlGeneration');
+          const [htmlSharedResources, appSharedResources] = await Promise.all([
+            getUserSharedResources(userId, tenantId, ResourceType.HtmlGeneration),
+            getUserSharedResources(userId, tenantId, ResourceType.Apps),
+          ]);
+          const sharedResources = [...htmlSharedResources, ...appSharedResources].filter((resource, index, all) =>
+            all.findIndex((candidate) => candidate.resourceId === resource.resourceId) === index
+          );
           log.debug('Fetched shared resources', { count: sharedResources.length });
 
           // Separate shared-to-user vs shared-to-all
@@ -164,11 +195,17 @@ function createSSEResponse(userId: string, tenantId: string, limit: number): Res
           sendBatch({ batch: 'shared-to-all', items: [], done: true });
         }
 
-        controller.close();
+        closeStream();
       } catch (err) {
         log.error('Stream error', { err });
-        controller.error(err);
+        if (!closed) {
+          sendBatch({ batch: 'shared-to-all', items: [], done: true, error: 'Stream interrupted' });
+          closeStream();
+        }
       }
+    },
+    cancel() {
+      closed = true;
     },
   });
 
@@ -206,7 +243,13 @@ async function createJSONResponse(userId: string, tenantId: string, limit: numbe
     addBatch({ batch: 'personal', items: personalApplets, done: false });
 
     // Shared
-    const sharedResources = await getUserSharedResources(userId, tenantId, 'HtmlGeneration');
+    const [htmlSharedResources, appSharedResources] = await Promise.all([
+      getUserSharedResources(userId, tenantId, ResourceType.HtmlGeneration),
+      getUserSharedResources(userId, tenantId, ResourceType.Apps),
+    ]);
+    const sharedResources = [...htmlSharedResources, ...appSharedResources].filter((resource, index, all) =>
+      all.findIndex((candidate) => candidate.resourceId === resource.resourceId) === index
+    );
     const sharedToUser = sharedResources.filter(r => !r.organization?.sharedToAllReadOnly);
     const sharedToAll = sharedResources.filter(r => r.organization?.sharedToAllReadOnly);
 

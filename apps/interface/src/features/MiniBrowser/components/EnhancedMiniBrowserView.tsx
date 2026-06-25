@@ -266,35 +266,49 @@ const EnhancedMiniBrowserView: React.FC<EnhancedMiniBrowserViewProps> = ({
   }, [logger]);
 
   return (
-    <div className="w-full h-full bg-black flex flex-col" onKeyDown={handleKeyDown}>
-      <div className="bg-gray-900 border-b border-gray-700 p-2">
-        <div className="flex items-center space-x-2 mb-2">
+    <div
+      className="box-border flex h-full w-full min-w-0 flex-col overflow-x-hidden bg-black"
+      onKeyDown={handleKeyDown}
+    >
+      <div className="border-b border-gray-700 bg-gray-900 px-2 py-2 sm:px-3">
+        <div className="mb-2 flex flex-wrap items-center gap-1">
           <button onClick={goBack} disabled={historyIndex <= 0} className="p-2 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-300" title="Go Back"><ArrowLeft className="w-4 h-4" /></button>
           <button onClick={goForward} disabled={historyIndex >= history.length - 1} className="p-2 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-300" title="Go Forward"><ArrowRight className="w-4 h-4" /></button>
           <button onClick={refresh} className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-300" title="Refresh"><RotateCcw className="w-4 h-4" /></button>
           <button onClick={goHome} className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-300" title="Home"><Home className="w-4 h-4" /></button>
           <button onClick={toggleReaderMode} className={`p-2 rounded hover:bg-gray-700 transition-colors ${readerMode ? 'text-amber-400 bg-gray-700' : 'text-gray-300'}`} title={readerMode ? 'Exit Reader View' : 'Reader View'}><BookOpen className="w-4 h-4" /></button>
         </div>
-        <form onSubmit={handleUrlSubmit} className="flex items-center space-x-2">
-          <div className="flex items-center bg-gray-800 border border-gray-600 rounded-lg flex-1 px-3 py-2">
-            <div className="flex items-center mr-2">{isSecure ? <Shield className="w-4 h-4 text-green-500" /> : <AlertTriangle className="w-4 h-4 text-orange-400" />}</div>
-            <input type="text" value={inputUrl} onChange={e => setInputUrl(e.target.value)} className="flex-1 outline-none text-sm bg-transparent text-gray-200 placeholder-gray-400" placeholder="Enter URL or search term..." />
+        <form onSubmit={handleUrlSubmit} className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-lg border border-gray-600 bg-gray-800 px-2 py-2 sm:px-3">
+            <div className="mr-1 flex shrink-0 items-center sm:mr-2">{isSecure ? <Shield className="w-4 h-4 text-green-500" /> : <AlertTriangle className="w-4 h-4 text-orange-400" />}</div>
+            <input
+              type="text"
+              value={inputUrl}
+              onChange={e => setInputUrl(e.target.value)}
+              className="min-w-0 flex-1 truncate bg-transparent text-sm text-gray-200 outline-none placeholder-gray-400"
+              placeholder="Enter URL or search term..."
+              title={inputUrl}
+            />
             {isLoading && (
-              <div className="ml-2">
-                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              <div className="ml-1 shrink-0 sm:ml-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent"></div>
               </div>
             )}
           </div>
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">Go</button>
+          <button type="submit" className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-500 sm:px-4">
+            Go
+          </button>
         </form>
-        <div className="flex items-center mt-2 text-xs text-gray-400">
-          <Globe className="w-3 h-3 mr-1" /><span>{domain}</span>{isSecure && <span className="ml-2 text-green-500">• Secure</span>}
+        <div className="mt-2 flex min-w-0 items-center text-xs text-gray-400">
+          <Globe className="mr-1 h-3 w-3 shrink-0" />
+          <span className="min-w-0 truncate">{domain}</span>
+          {isSecure && <span className="ml-2 shrink-0 text-green-500">• Secure</span>}
           {isLoading && (
-            <span className="ml-2">{Math.round(loadingProgress)}%</span>
+            <span className="ml-2 shrink-0">{Math.round(loadingProgress)}%</span>
           )}
         </div>
       </div>
-      <div className="flex-1 relative">
+      <div className="relative min-h-0 min-w-0 flex-1">
         {readerMode ? (
           readerLoading ? (
             <div className="flex items-center justify-center h-full bg-gray-950">
@@ -350,15 +364,25 @@ const EnhancedMiniBrowserView: React.FC<EnhancedMiniBrowserViewProps> = ({
           </div>
         )}
       </div>
-      <div className="bg-gray-900 border-t border-gray-700 px-4 py-2">
-        <div className="flex justify-between items-center text-xs text-gray-400">
-          <span>Enhanced Mini Browser {isCallActive ? '• Voice Ready' : ''}</span>
-          <span>{inputUrl}</span>
+      <div className="min-w-0 border-t border-gray-700 bg-gray-900 px-2 py-2 sm:px-3">
+        <div className="flex min-w-0 flex-col gap-1 text-xs text-gray-400 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          <span className="shrink-0">
+            Enhanced Mini Browser {isCallActive ? '• Voice Ready' : ''}
+          </span>
+          <span className="min-w-0 w-full truncate text-right sm:w-auto sm:max-w-[min(100%,50%)]" title={inputUrl}>
+            {inputUrl}
+          </span>
         </div>
-        <div className="mt-2 flex gap-2 text-xs">
-          <button onClick={() => startAutoScroll(1, 'down')} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded">Auto-scroll ↓</button>
-          <button onClick={() => startAutoScroll(1, 'up')} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded">Auto-scroll ↑</button>
-          <button onClick={stopAutoScroll} className="px-2 py-1 bg-gray-800 border border-gray-600 rounded">Stop</button>
+        <div className="mt-2 flex min-w-0 flex-wrap gap-2 text-xs">
+          <button type="button" onClick={() => startAutoScroll(1, 'down')} className="min-w-0 rounded border border-gray-600 bg-gray-800 px-2 py-1">
+            Auto-scroll ↓
+          </button>
+          <button type="button" onClick={() => startAutoScroll(1, 'up')} className="min-w-0 rounded border border-gray-600 bg-gray-800 px-2 py-1">
+            Auto-scroll ↑
+          </button>
+          <button type="button" onClick={stopAutoScroll} className="min-w-0 rounded border border-gray-600 bg-gray-800 px-2 py-1">
+            Stop
+          </button>
         </div>
       </div>
     </div>

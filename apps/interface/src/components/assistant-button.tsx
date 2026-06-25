@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@interface/components/ui/button';
 import { useUI } from '@interface/contexts/ui-context';
 import { useIsMobile } from '@interface/hooks/use-is-mobile';
+import { unlockAudioPlayback } from '@interface/lib/audio/autoplay-unlock';
 import { getClientLogger } from '@interface/lib/client-logger';
 
 // PearlMultiMenu removed — was Rive-based. GIF only per Blair directive 2026-02-24
@@ -229,7 +230,7 @@ const AssistantButton = ({
         }
       }
 
-      if (callStatus === CALL_STATUS.INACTIVE) {
+      if (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) {
         triggerAvatarPopup();
         if (toggleCall) {
           if (callStartBuffer) {
@@ -240,7 +241,7 @@ const AssistantButton = ({
         return;
       }
 
-      if (callStatus === CALL_STATUS.UNAVAILABLE || callStatus === CALL_STATUS.LOADING) {
+      if (callStatus === CALL_STATUS.LOADING) {
         triggerAvatarPopup();
       }
     };
@@ -406,7 +407,7 @@ const AssistantButton = ({
         });
         window.dispatchEvent(clearViewStateEvent);
       }
-    } else if (callStatus === CALL_STATUS.INACTIVE) {
+    } else if (callStatus === CALL_STATUS.INACTIVE || callStatus === CALL_STATUS.UNAVAILABLE) {
 
       // Trigger avatar popup animation first
       triggerAvatarPopup();
@@ -426,6 +427,7 @@ const AssistantButton = ({
 
       // Play call start sound and start call
       if (toggleCall) {
+        void unlockAudioPlayback();
         playSound(callStartBuffer);
         toggleCall();
         
@@ -439,7 +441,7 @@ const AssistantButton = ({
         soundtrackTimeoutRef.current = window.setTimeout(() => {
           if (typeof window !== 'undefined' && isFeatureEnabled('soundtrack', supportedFeatures)) {
             const soundtrackEvent = new CustomEvent<SoundtrackControlDetail>(SOUNDTRACK_EVENTS.CONTROL, {
-              detail: { action: 'play' }
+              detail: { action: 'play', source: 'system' }
             });
             window.dispatchEvent(soundtrackEvent);
             logger.info('Soundtrack playback triggered after 5 seconds');
@@ -524,7 +526,7 @@ const AssistantButton = ({
   // OR chat mode is active without a voice session (ChatMode renders its own Pearl orb in the input bar)
   // ChatMode now renders its own inline Pearl avatar in the input bar.
   // Hide AssistantButton whenever the chat bar is visible (chat mode OR home/work desktop modes).
-  const isHomeOrWorkMode = currentDesktopMode === DesktopMode.HOME || currentDesktopMode === DesktopMode.WORK;
+  const isHomeOrWorkMode = currentDesktopMode === DesktopMode.HOME || currentDesktopMode === DesktopMode.DESKTOP;
   const chatBarShowing = isChatMode || isHomeOrWorkMode;
   const shouldHideBell = chatBarShowing || (avatarFeatureOn && isAvatarVisible) || (isDailyCallActive && isFeatureEnabled('dailyCall', supportedFeatures)) || (isCallInactive && isNotesWindowOpen && isMobile);
   useEffect(() => {

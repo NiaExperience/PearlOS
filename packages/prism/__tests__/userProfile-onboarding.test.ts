@@ -56,4 +56,43 @@ describe('UserProfileActions onboardingComplete', () => {
 
     expect(updatedFalse.onboardingComplete).toBe(false);
   });
+
+  it('can persist and merge onboardingState without clobbering required actions', async () => {
+    const userId = uuidv4();
+    const email = `test-onboarding-state-${uuidv4()}@example.com`;
+
+    const created = await UserProfileActions.createOrUpdateUserProfile({
+      userId,
+      email,
+      onboardingComplete: false,
+      onboardingState: {
+        currentBeat: 1,
+        completedBeats: ['beat_1'],
+        requiredActions: { profileUpdated: true },
+        source: 'text',
+        promptFeatureKey: 'onboarding',
+      },
+    }, false);
+
+    expect(created).not.toBeNull();
+    expect(created.onboardingState?.currentBeat).toBe(1);
+    expect(created.onboardingState?.requiredActions?.profileUpdated).toBe(true);
+
+    const updated = await UserProfileActions.createOrUpdateUserProfile({
+      userId,
+      email,
+      onboardingState: {
+        currentBeat: 2,
+        completedBeats: ['beat_2'],
+        requiredActions: { welcomeNoteCreated: true },
+      },
+    }, false);
+
+    expect(updated.onboardingState?.currentBeat).toBe(2);
+    expect(updated.onboardingState?.completedBeats).toEqual(['beat_2']);
+    expect(updated.onboardingState?.requiredActions).toEqual({
+      profileUpdated: true,
+      welcomeNoteCreated: true,
+    });
+  });
 });

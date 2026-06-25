@@ -1,20 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafely } from '@nia/prism/core/auth';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { isTestModeBypassAllowed } from '@interface/lib/api-auth';
 import { getLogger } from '@interface/lib/logger';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const log = getLogger('[api_model_settings]');
 
+export type AvailableModelInfo = {
+  id: string;
+  name: string;
+  modelId: string;
+  description: string;
+  provider: string;
+};
+
+export type AvailableModelCatalog = Record<string, AvailableModelInfo>;
+
 // Available models for each task type - matches ModelSettingsPanel MODEL_OPTIONS
 export const AVAILABLE_MODELS = {
   // Anthropic
+  'opus-4.8': {
+    id: 'opus-4.8',
+    name: 'Opus 4.8',
+    modelId: 'anthropic/claude-opus-4.8',
+    description: 'Latest Anthropic Opus model',
+    provider: 'Anthropic',
+  },
   'opus-4.6': {
     id: 'opus-4.6',
-    name: 'Opus 4.6',
-    modelId: 'anthropic/claude-opus-4-6',
-    description: 'Most capable Anthropic model',
+    name: 'Opus 4.6 (legacy alias)',
+    modelId: 'anthropic/claude-opus-4.8',
+    description: 'Legacy key mapped to the current Opus fallback',
     provider: 'Anthropic',
   },
   'opus-4.5': {
@@ -106,17 +124,31 @@ export const AVAILABLE_MODELS = {
   },
   'gemini-3-flash': {
     id: 'gemini-3-flash',
-    name: 'Gemini 3 Flash',
-    modelId: 'google/gemini-3-flash-preview',
+    name: 'Gemini 3.5 Flash',
+    modelId: 'google/gemini-3.5-flash',
     description: 'Fast Gemini model',
     provider: 'Google',
   },
   // DeepSeek
   'deepseek': {
     id: 'deepseek',
-    name: 'DeepSeek V3',
-    modelId: 'deepseek/deepseek-chat',
-    description: 'Great value, strong reasoning',
+    name: 'DeepSeek V4 Pro',
+    modelId: 'openrouter/deepseek/deepseek-v4-pro',
+    description: 'Current DeepSeek pro model',
+    provider: 'DeepSeek',
+  },
+  'deepseek-v4-pro': {
+    id: 'deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro',
+    modelId: 'openrouter/deepseek/deepseek-v4-pro',
+    description: 'Current DeepSeek pro model',
+    provider: 'DeepSeek',
+  },
+  'deepseek-v4-flash': {
+    id: 'deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash',
+    modelId: 'openrouter/deepseek/deepseek-v4-flash',
+    description: 'Fast DeepSeek multimodal model for Pearl chat and vision',
     provider: 'DeepSeek',
   },
   'deepseek-r1': {
@@ -127,11 +159,25 @@ export const AVAILABLE_MODELS = {
     provider: 'DeepSeek',
   },
   // Qwen
+  'qwen-3.5-flash': {
+    id: 'qwen-3.5-flash',
+    name: 'Qwen 3.5 Flash (legacy alias)',
+    modelId: 'openrouter/qwen/qwen3.7-plus',
+    description: 'Legacy key mapped to Qwen 3.7 Plus.',
+    provider: 'Qwen via OpenRouter',
+  },
   'qwen-3.5-plus': {
     id: 'qwen-3.5-plus',
-    name: 'Qwen 3.5+',
-    modelId: 'qwen/qwen3.5-plus',
+    name: 'Qwen 3.7 Plus',
+    modelId: 'openrouter/qwen/qwen3.7-plus',
     description: 'Alibaba Qwen model',
+    provider: 'Qwen',
+  },
+  'qwen-3.7-max': {
+    id: 'qwen-3.7-max',
+    name: 'Qwen 3.7 Max',
+    modelId: 'openrouter/qwen/qwen3.7-max',
+    description: 'Current high-capability Qwen model',
     provider: 'Qwen',
   },
   'qwen-3-235b': {
@@ -152,8 +198,8 @@ export const AVAILABLE_MODELS = {
   // Kimi (Moonshot)
   'kimi-k2': {
     id: 'kimi-k2',
-    name: 'Kimi K2',
-    modelId: 'moonshotai/kimi-k2-0712-preview',
+    name: 'Kimi K2.7 Code',
+    modelId: 'openrouter/moonshotai/kimi-k2.7-code',
     description: 'Moonshot AI model',
     provider: 'Moonshot',
   },
@@ -168,8 +214,8 @@ export const AVAILABLE_MODELS = {
   // GLM
   'glm-5': {
     id: 'glm-5',
-    name: 'GLM-5',
-    modelId: 'openrouter/z-ai/glm-5',
+    name: 'GLM-5.2',
+    modelId: 'openrouter/z-ai/glm-5.2',
     description: 'Budget-friendly, good tools',
     provider: 'Z-AI',
   },
@@ -309,11 +355,18 @@ export const AVAILABLE_MODELS = {
   },
   
   // ═══ ANTHROPIC VIA OPENROUTER ═══
+  'or-claude-opus-4.8': {
+    id: 'or-claude-opus-4.8',
+    name: 'Claude Opus 4.8 (OpenRouter)',
+    modelId: 'openrouter/anthropic/claude-opus-4.8',
+    description: 'Anthropic Opus 4.8 via OpenRouter',
+    provider: 'Anthropic via OpenRouter',
+  },
   'or-claude-opus-4.6': {
     id: 'or-claude-opus-4.6',
-    name: 'Claude Opus 4.6 (OpenRouter)',
-    modelId: 'openrouter/anthropic/claude-opus-4.6',
-    description: 'Anthropic Opus 4.6 via OpenRouter',
+    name: 'Claude Opus 4.6 legacy alias (OpenRouter)',
+    modelId: 'openrouter/anthropic/claude-opus-4.8',
+    description: 'Legacy key mapped to Claude Opus 4.8 via OpenRouter',
     provider: 'Anthropic via OpenRouter',
   },
   'or-claude-opus-4.5': {
@@ -415,16 +468,16 @@ export const AVAILABLE_MODELS = {
   // ═══ GOOGLE VIA OPENROUTER ═══
   'or-gemini-3-pro': {
     id: 'or-gemini-3-pro',
-    name: 'Gemini 3 Pro (OpenRouter)',
-    modelId: 'openrouter/google/gemini-3-pro-preview',
-    description: 'Google Gemini 3 Pro via OpenRouter',
+    name: 'Gemini 3.1 Pro Preview (OpenRouter)',
+    modelId: 'openrouter/google/gemini-3.1-pro-preview',
+    description: 'Google Gemini 3.1 Pro Preview via OpenRouter',
     provider: 'Google via OpenRouter',
   },
   'or-gemini-3-flash': {
     id: 'or-gemini-3-flash',
-    name: 'Gemini 3 Flash (OpenRouter)',
-    modelId: 'openrouter/google/gemini-3-flash-preview',
-    description: 'Google Gemini 3 Flash via OpenRouter',
+    name: 'Gemini 3.5 Flash (OpenRouter)',
+    modelId: 'openrouter/google/gemini-3.5-flash',
+    description: 'Google Gemini 3.5 Flash via OpenRouter',
     provider: 'Google via OpenRouter',
   },
   'or-gemini-2.5-pro': {
@@ -452,9 +505,23 @@ export const AVAILABLE_MODELS = {
   },
   'or-deepseek-chat': {
     id: 'or-deepseek-chat',
-    name: 'DeepSeek V3 (OpenRouter)',
-    modelId: 'openrouter/deepseek/deepseek-chat',
-    description: 'DeepSeek V3 via OpenRouter',
+    name: 'DeepSeek Chat legacy alias (OpenRouter)',
+    modelId: 'openrouter/deepseek/deepseek-v3.2',
+    description: 'Legacy key mapped to DeepSeek V3.2 via OpenRouter',
+    provider: 'DeepSeek via OpenRouter',
+  },
+  'or-deepseek-v4-pro': {
+    id: 'or-deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro (OpenRouter)',
+    modelId: 'openrouter/deepseek/deepseek-v4-pro',
+    description: 'DeepSeek V4 Pro via OpenRouter',
+    provider: 'DeepSeek via OpenRouter',
+  },
+  'or-deepseek-v4-flash': {
+    id: 'or-deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash (OpenRouter)',
+    modelId: 'openrouter/deepseek/deepseek-v4-flash',
+    description: 'DeepSeek V4 Flash via OpenRouter',
     provider: 'DeepSeek via OpenRouter',
   },
   'or-deepseek-v3.2': {
@@ -466,6 +533,20 @@ export const AVAILABLE_MODELS = {
   },
   
   // ═══ QWEN VIA OPENROUTER ═══
+  'or-qwen3.7-plus': {
+    id: 'or-qwen3.7-plus',
+    name: 'Qwen 3.7 Plus (OpenRouter)',
+    modelId: 'openrouter/qwen/qwen3.7-plus',
+    description: 'Qwen 3.7 Plus via OpenRouter',
+    provider: 'Qwen via OpenRouter',
+  },
+  'or-qwen3.7-max': {
+    id: 'or-qwen3.7-max',
+    name: 'Qwen 3.7 Max (OpenRouter)',
+    modelId: 'openrouter/qwen/qwen3.7-max',
+    description: 'Qwen 3.7 Max via OpenRouter',
+    provider: 'Qwen via OpenRouter',
+  },
   'or-qwen3-coder': {
     id: 'or-qwen3-coder',
     name: 'Qwen 3 Coder (OpenRouter)',
@@ -498,23 +579,37 @@ export const AVAILABLE_MODELS = {
   },
   'or-kimi-k2': {
     id: 'or-kimi-k2',
-    name: 'Kimi K2 (OpenRouter)',
-    modelId: 'openrouter/moonshotai/kimi-k2',
-    description: 'Kimi K2 via OpenRouter',
+    name: 'Kimi K2 legacy alias (OpenRouter)',
+    modelId: 'openrouter/moonshotai/kimi-k2.7-code',
+    description: 'Legacy key mapped to Kimi K2.7 Code via OpenRouter',
     provider: 'Moonshot via OpenRouter',
   },
   'or-kimi-k2.5': {
     id: 'or-kimi-k2.5',
-    name: 'Kimi K2.5 (OpenRouter)',
-    modelId: 'openrouter/moonshotai/kimi-k2.5',
-    description: 'Kimi K2.5 via OpenRouter',
+    name: 'Kimi K2.5 legacy alias (OpenRouter)',
+    modelId: 'openrouter/moonshotai/kimi-k2.7-code',
+    description: 'Legacy key mapped to Kimi K2.7 Code via OpenRouter',
+    provider: 'Moonshot via OpenRouter',
+  },
+  'or-kimi-k2.7-code': {
+    id: 'or-kimi-k2.7-code',
+    name: 'Kimi K2.7 Code (OpenRouter)',
+    modelId: 'openrouter/moonshotai/kimi-k2.7-code',
+    description: 'Kimi K2.7 Code via OpenRouter',
     provider: 'Moonshot via OpenRouter',
   },
   'or-glm-5': {
     id: 'or-glm-5',
-    name: 'GLM-5 (OpenRouter)',
-    modelId: 'openrouter/z-ai/glm-5',
-    description: 'GLM-5 via OpenRouter',
+    name: 'GLM-5 legacy alias (OpenRouter)',
+    modelId: 'openrouter/z-ai/glm-5.2',
+    description: 'Legacy key mapped to GLM-5.2 via OpenRouter',
+    provider: 'Z-AI via OpenRouter',
+  },
+  'or-glm-5.2': {
+    id: 'or-glm-5.2',
+    name: 'GLM-5.2 (OpenRouter)',
+    modelId: 'openrouter/z-ai/glm-5.2',
+    description: 'GLM-5.2 via OpenRouter',
     provider: 'Z-AI via OpenRouter',
   },
   'or-glm-4.7': {
@@ -552,9 +647,9 @@ export const AVAILABLE_MODELS = {
     description: 'Mistral Nemo via OpenRouter',
     provider: 'Mistral via OpenRouter',
   },
-} as const;
+} satisfies AvailableModelCatalog;
 
-type ModelKey = keyof typeof AVAILABLE_MODELS;
+type ModelKey = string;
 
 // Task type configuration
 export const TASK_TYPES = {
@@ -577,7 +672,7 @@ export const TASK_TYPES = {
     label: 'Swarm Orchestration',
     description: 'Sub-agent spawning',
     envVar: 'BOT_SWARM_MODEL',
-    defaultModel: 'opus',
+    defaultModel: 'deepseek-v4-flash',
   },
   thinking: {
     key: 'thinking',
@@ -591,7 +686,7 @@ export const TASK_TYPES = {
     label: 'Vision / Image Understanding',
     description: 'Image analysis, screenshots, visual input for Pearl Vision',
     envVar: 'BOT_VISION_MODEL',
-    defaultModel: 'gpt-4o',
+    defaultModel: 'deepseek-v4-flash',
   },
 } as const;
 
@@ -603,6 +698,24 @@ const BOT_ENV_PATH = process.env.PIPECAT_BOT_ENV_PATH ||
 
 const OPENCLAW_CONFIG_PATH = '/root/.openclaw/openclaw.json';
 const LAB_MODE_FLAG = path.join(path.dirname(BOT_ENV_PATH), '.lab-mode-active');
+const OPENROUTER_MODELS_URL = process.env.OPENROUTER_MODELS_URL || 'https://openrouter.ai/api/v1/models';
+const OPENROUTER_MODEL_TTL_MS = Number(process.env.PEARLOS_MODEL_ROSTER_TTL_MS || 6 * 60 * 60 * 1000);
+const OPENROUTER_PROVIDER_PREFIXES: Array<[string, string]> = [
+  ['anthropic/', 'Anthropic via OpenRouter'],
+  ['deepseek/', 'DeepSeek via OpenRouter'],
+  ['google/', 'Google via OpenRouter'],
+  ['qwen/', 'Qwen via OpenRouter'],
+  ['z-ai/', 'Z-AI via OpenRouter'],
+  ['moonshotai/', 'Moonshot via OpenRouter'],
+  ['openai/', 'OpenAI via OpenRouter'],
+  ['x-ai/', 'xAI via OpenRouter'],
+];
+
+let liveModelCache: {
+  expiresAt: number;
+  catalog: AvailableModelCatalog;
+  status: { source: string; live: boolean; refreshedAt?: string; count: number; error?: string };
+} | null = null;
 
 interface ModelConfig {
   voice: ModelKey;
@@ -612,16 +725,105 @@ interface ModelConfig {
   vision: ModelKey;
 }
 
+function openRouterKey(id: string): string {
+  return `or-${id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+}
+
+function providerForOpenRouterModel(id: string): string | null {
+  for (const [prefix, provider] of OPENROUTER_PROVIDER_PREFIXES) {
+    if (id.startsWith(prefix)) return provider;
+  }
+  return null;
+}
+
+function modelNameFromId(id: string): string {
+  return id
+    .split('/')
+    .pop()!
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+async function fetchOpenRouterModels(): Promise<{
+  catalog: AvailableModelCatalog;
+  status: { source: string; live: boolean; refreshedAt?: string; count: number; error?: string };
+}> {
+  const now = Date.now();
+  if (liveModelCache && liveModelCache.expiresAt > now) {
+    return { catalog: liveModelCache.catalog, status: liveModelCache.status };
+  }
+
+  try {
+    const response = await fetch(OPENROUTER_MODELS_URL, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      throw new Error(`OpenRouter models HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    const entries = Array.isArray(data?.data) ? data.data : [];
+    const catalog: AvailableModelCatalog = {};
+    for (const entry of entries) {
+      const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+      if (!id) continue;
+      const provider = providerForOpenRouterModel(id);
+      if (!provider) continue;
+      const key = openRouterKey(id);
+      catalog[key] = {
+        id: key,
+        name: typeof entry?.name === 'string' && entry.name.trim()
+          ? `${entry.name.trim()} (OpenRouter)`
+          : `${modelNameFromId(id)} (OpenRouter)`,
+        modelId: `openrouter/${id}`,
+        description: typeof entry?.description === 'string' && entry.description.trim()
+          ? entry.description.trim().slice(0, 260)
+          : `${id} from the live OpenRouter model roster.`,
+        provider,
+      };
+    }
+    const status = {
+      source: 'openrouter',
+      live: true,
+      refreshedAt: new Date(now).toISOString(),
+      count: Object.keys(catalog).length,
+    };
+    liveModelCache = { expiresAt: now + OPENROUTER_MODEL_TTL_MS, catalog, status };
+    return { catalog, status };
+  } catch (error) {
+    const status = {
+      source: 'static-fallback',
+      live: false,
+      count: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+    liveModelCache = { expiresAt: now + 5 * 60 * 1000, catalog: {}, status };
+    log.warn('Failed to refresh OpenRouter model roster', { error: status.error });
+    return { catalog: {}, status };
+  }
+}
+
+async function getAvailableModelCatalog(): Promise<{
+  catalog: AvailableModelCatalog;
+  status: { source: string; live: boolean; refreshedAt?: string; count: number; error?: string };
+}> {
+  const live = await fetchOpenRouterModels();
+  return {
+    catalog: { ...AVAILABLE_MODELS, ...live.catalog },
+    status: live.status,
+  };
+}
+
 /**
  * Read current model configuration from .env file
  */
-function readCurrentConfig(): ModelConfig {
+function readCurrentConfig(catalog: AvailableModelCatalog): ModelConfig {
   const defaults: ModelConfig = {
     voice: 'sonnet-4',
     tools: 'glm-5',
-    swarm: 'opus-4.6',
+    swarm: 'deepseek-v4-flash',
     thinking: 'sonnet-4',
-    vision: 'gpt-4o',
+    vision: 'deepseek-v4-flash',
   };
 
   try {
@@ -657,9 +859,17 @@ function readCurrentConfig(): ModelConfig {
     for (const [taskKey, taskConfig] of Object.entries(TASK_TYPES)) {
       const envValue = envVars[taskConfig.envVar];
       if (envValue) {
+        if (
+          taskKey === 'vision' &&
+          ['openai/gpt-4o', 'openai/gpt-4o-mini', 'gpt-4o', 'gpt-4o-mini'].includes(envValue) &&
+          envVars.BOT_LLM_MODEL?.toLowerCase().includes('deepseek')
+        ) {
+          config.vision = 'deepseek-v4-flash';
+          continue;
+        }
         // Check if it matches any known model ID (normalize openrouter/ prefix)
         const normalizedEnv = envValue.replace(/^openrouter\//, '');
-        for (const [modelKey, modelInfo] of Object.entries(AVAILABLE_MODELS)) {
+        for (const [modelKey, modelInfo] of Object.entries(catalog)) {
           const normalizedModelId = modelInfo.modelId.replace(/^openrouter\//, '');
           if (envValue === modelInfo.modelId || envValue === modelKey
               || normalizedEnv === normalizedModelId || normalizedEnv === modelKey) {
@@ -680,7 +890,7 @@ function readCurrentConfig(): ModelConfig {
 /**
  * Update .env file with new model configuration
  */
-function updateEnvFile(config: ModelConfig): { success: boolean; error?: string } {
+function updateEnvFile(config: ModelConfig, catalog: AvailableModelCatalog): { success: boolean; error?: string } {
   try {
     if (!fs.existsSync(BOT_ENV_PATH)) {
       return { success: false, error: 'Bot .env.local file not found' };
@@ -696,7 +906,7 @@ function updateEnvFile(config: ModelConfig): { success: boolean; error?: string 
     for (const [taskKey, taskConfig] of Object.entries(TASK_TYPES)) {
       const modelKey = config[taskKey as TaskKey];
       if (!modelKey) continue; // Skip tasks not included in partial config
-      const modelInfo = AVAILABLE_MODELS[modelKey];
+      const modelInfo = catalog[modelKey];
       if (!modelInfo) {
         log.warn('Model key not found in AVAILABLE_MODELS', { taskKey, modelKey });
         continue;
@@ -746,7 +956,7 @@ function updateEnvFile(config: ModelConfig): { success: boolean; error?: string 
  * Maps BOT_VOICE_MODEL → "voice" agent's model.primary
  * Only runs when lab mode is active to avoid disrupting Discord/other bindings.
  */
-function updateOpenClawConfig(config: Partial<ModelConfig>): { success: boolean; error?: string } {
+function updateOpenClawConfig(config: Partial<ModelConfig>, catalog: AvailableModelCatalog): { success: boolean; error?: string } {
   try {
     if (!fs.existsSync(OPENCLAW_CONFIG_PATH)) {
       log.warn('OpenClaw config not found, skipping agent update');
@@ -768,7 +978,7 @@ function updateOpenClawConfig(config: Partial<ModelConfig>): { success: boolean;
 
     // Update voice agent model
     if (config.voice) {
-      const modelInfo = AVAILABLE_MODELS[config.voice];
+      const modelInfo = catalog[config.voice];
       if (modelInfo) {
         let voiceAgent = agents.find((a: any) => a.id === 'voice');
         if (!voiceAgent) {
@@ -843,14 +1053,16 @@ function readRawEnvModels(): Record<string, string> {
  * rawEnvValues contains the actual .env values (single source of truth).
  */
 export async function GET() {
-  const config = readCurrentConfig();
+  const { catalog, status } = await getAvailableModelCatalog();
+  const config = readCurrentConfig(catalog);
   const envExists = fs.existsSync(BOT_ENV_PATH);
   const rawEnvValues = readRawEnvModels();
   
   return NextResponse.json({
     config,
     rawEnvValues,
-    availableModels: AVAILABLE_MODELS,
+    availableModels: catalog,
+    modelRoster: status,
     taskTypes: TASK_TYPES,
     envPath: BOT_ENV_PATH,
     envExists,
@@ -919,12 +1131,13 @@ function writeDirectEnvVars(envVars: Record<string, string>): { success: boolean
 export async function POST(request: NextRequest) {
   try {
     // Check authentication (bypass in test mode)
-    const testMode = process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true';
+    const testMode = isTestModeBypassAllowed();
     const session = await getSessionSafely(request, interfaceAuthOptions);
     if (!testMode && !session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { catalog, status } = await getAvailableModelCatalog();
     const body = await request.json();
     const { config, directEnv } = body as { config?: ModelConfig; directEnv?: Record<string, string> };
 
@@ -936,7 +1149,7 @@ export async function POST(request: NextRequest) {
 
     // Handle task-type config
     if (config) {
-      const validKeys = Object.keys(AVAILABLE_MODELS);
+      const validKeys = Object.keys(catalog);
       for (const [taskKey, modelKey] of Object.entries(config)) {
         if (!validKeys.includes(modelKey)) {
           return NextResponse.json({ 
@@ -944,12 +1157,12 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
       }
-      const result = updateEnvFile(config);
+      const result = updateEnvFile(config, catalog);
       if (!result.success) {
         return NextResponse.json({ error: result.error || 'Failed to update model settings' }, { status: 500 });
       }
       // Also update OpenClaw agent config (only when lab mode is active)
-      const openclawResult = updateOpenClawConfig(config);
+      const openclawResult = updateOpenClawConfig(config, catalog);
       if (!openclawResult.success) {
         log.warn('OpenClaw config update failed (non-fatal)', { error: openclawResult.error });
       }
@@ -972,6 +1185,7 @@ export async function POST(request: NextRequest) {
       directEnv,
       message: 'Model settings updated. Changes will apply to new bot sessions.',
       restartRequired: false,
+      modelRoster: status,
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);

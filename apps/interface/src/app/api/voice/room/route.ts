@@ -6,11 +6,14 @@
  * for voice-only assistant sessions.
  */
 
+import crypto from "crypto";
 import { getSessionSafely } from "@nia/prism/core/auth";
 import { NextRequest, NextResponse } from "next/server";
 
+import { isTestModeBypassAllowed } from "@interface/lib/api-auth";
 import { interfaceAuthOptions } from "@interface/lib/auth-config";
 import { getLogger } from "@interface/lib/logger";
+import { resolveInterfaceActorContext } from "@interface/lib/tenant-actor";
 
 export const dynamic = "force-dynamic";
 
@@ -26,23 +29,33 @@ const DEFAULT_SESSION_PERSISTENCE = parseInt(
 
 interface VoiceRoomRequest {
   userId?: string;
+  tenantId?: string;
+  tenant_id?: string;
   persistence?: number; // Seconds to keep room alive after disconnect
 }
 
 interface VoiceRoomResponse {
   roomName: string;
   roomUrl: string;
+  tenantId: string;
   token: string;
   expiresAt: string;
   reused: boolean;
 }
 
 /**
- * Get voice room name for user
- * Deterministic naming: voice-{userId}
+ * Get voice room name for tenant/user.
+ * Deterministic naming keeps one persistent room per tenant/user without
+ * exposing raw internal identifiers in Daily.co room names.
  */
-function getVoiceRoomName(userId: string): string {
-  return `voice-${userId}`;
+export function getVoiceRoomName(tenantId: string, userId: string): string {
+  const tenantHash = crypto.createHash('sha256').update(tenantId).digest('hex').slice(0, 16);
+  const userHash = crypto.createHash('sha256').update(userId).digest('hex').slice(0, 16);
+  return `voice-${tenantHash}-${userHash}`;
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 /**
@@ -53,7 +66,7 @@ function getVoiceRoomProperties() {
     enable_chat: false,
     enable_screenshare: true,
     enable_recording: 'cloud',
-    enable_transcription: false,
+    enable_transcription: 'deepgram:nova-2-general',
     start_video_off: true,
     start_audio_off: false,
     max_participants: 10,
@@ -61,6 +74,41 @@ function getVoiceRoomProperties() {
     // Force SFU mode to avoid "Switch to soup failed" errors during recording start
     enable_mesh_sfu: true,
   };
+}
+
+async function updateDailyRoomProperties(roomName: string): Promise<boolean> {
+  if (!DAILY_API_KEY) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${DAILY_API_URL}/rooms/${roomName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${DAILY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        properties: getVoiceRoomProperties(),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      log.warn('Failed to update existing Daily room capabilities', {
+        roomName,
+        status: response.status,
+        error: errorText.slice(0, 300),
+      });
+      return false;
+    }
+
+    log.info('Updated existing Daily room capabilities', { roomName });
+    return true;
+  } catch (error) {
+    log.warn('Error updating existing Daily room capabilities', { roomName, error });
+    return false;
+  }
 }
 
 /**
@@ -86,28 +134,30 @@ async function checkRoomExists(roomName: string): Promise<{ exists: boolean; url
       const sfuEnabled = room?.properties?.enable_mesh_sfu === true;
       
       if (!screenshareEnabled || !sfuEnabled) {
-        log.info('Room missing required capabilities, recreating', { roomName });
-        try {
-          const deleteResponse = await fetch(`${DAILY_API_URL}/rooms/${roomName}`, {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${DAILY_API_KEY}`,
-            },
-          });
+        log.info('Room missing required capabilities, updating in place', {
+          roomName,
+          screenshareEnabled,
+          sfuEnabled,
+        });
 
-          if (!deleteResponse.ok && deleteResponse.status !== 404) {
-            const errorText = await deleteResponse.text();
-            throw new Error(`Failed to delete room: ${deleteResponse.status} ${errorText}`);
-          }
-
-          // Wait for deletion to propagate
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-        } catch (deleteError) {
-          log.warn('Failed to delete outdated room', { error: deleteError });
-          // If deletion failed, we can't proceed with creation
-          throw deleteError;
+        const updated = await updateDailyRoomProperties(roomName);
+        if (updated) {
+          return { exists: true, url: room.url };
         }
+
+        log.info('Room capability update failed, recreating as fallback', { roomName });
+        const deleteResponse = await fetch(`${DAILY_API_URL}/rooms/${roomName}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${DAILY_API_KEY}`,
+          },
+        });
+
+        if (!deleteResponse.ok && deleteResponse.status !== 404) {
+          const errorText = await deleteResponse.text();
+          throw new Error(`Failed to delete room: ${deleteResponse.status} ${errorText}`);
+        }
+
         return { exists: false };
       }
       return { exists: true, url: room.url };
@@ -210,41 +260,60 @@ async function generateRoomToken(roomName: string, userId: string): Promise<stri
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // Check authentication (allow bypass in dev mode)
-    const session = await getSessionSafely(req, interfaceAuthOptions);
-    const isTestMode = process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true';
+    // Check authentication (allow bypass in dev mode).
+    // isTestModeBypassAllowed() refuses to honor TEST_MODE on production unless
+    // ALLOW_PROD_TEST_MODE=true is explicitly set — staging stays safe by default.
+    const isTestMode = isTestModeBypassAllowed();
     const isDev = process.env.NODE_ENV === 'development';
 
     // Parse request body
     const body: VoiceRoomRequest = await req.json().catch(() => ({}));
-    
-    // Get userId - allow from body in dev/test mode, otherwise require session
+    const requestedTenantId = cleanString(body.tenantId) || cleanString(body.tenant_id);
+    const requestedUserId = cleanString(body.userId);
+
+    // Get userId/tenantId - allow generated dev/test identities only outside production.
     let userId: string | undefined;
+    let tenantId: string | undefined;
     
-    if (isTestMode || (isDev && body.userId)) {
-      // Dev/test mode: allow userId from request body
-      userId = body.userId || session?.user?.id || 'dev-user-' + Date.now();
-      log.info('Dev/test mode: Using userId from request or generated', { userId, isTestMode, isDev });
-    } else {
-      // Production mode: require valid session
-      if (!session || !session.user) {
-        log.warn('Unauthorized - no valid session');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId: requestedTenantId || undefined,
+    });
+    if (actorResult.ok) {
+      const actor = actorResult.actor;
+      if (requestedUserId && requestedUserId !== actor.userId) {
+        log.warn('Voice room request attempted to override actor user', {
+          actorUserId: actor.userId,
+          requestedUserId,
+          tenantId: actor.tenantId,
+        });
+        return NextResponse.json({ error: 'user_forbidden' }, { status: 403 });
       }
-      userId = body.userId || session.user.id;
+      userId = actor.userId;
+      tenantId = actor.tenantId;
+    } else if (isTestMode || (isDev && requestedUserId)) {
+      const session = await getSessionSafely(req, interfaceAuthOptions);
+      userId = requestedUserId || cleanString(session?.user?.id) || 'dev-user-' + Date.now();
+      tenantId =
+        requestedTenantId ||
+        cleanString((session?.user as { tenant_id?: unknown; tenantId?: unknown } | undefined)?.tenant_id) ||
+        cleanString((session?.user as { tenant_id?: unknown; tenantId?: unknown } | undefined)?.tenantId) ||
+        'dev-tenant';
+      log.info('Dev/test mode: Using fallback voice room identity', { userId, tenantId, isTestMode, isDev });
+    } else {
+      return actorResult.response;
     }
     
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    if (!userId || !tenantId) {
+      return NextResponse.json({ error: 'User and tenant identity are required' }, { status: 400 });
     }
 
     // Get persistence config
     const persistence = body.persistence || DEFAULT_SESSION_PERSISTENCE;
 
-    log.info('Creating/getting voice room for user', { userId });
+    log.info('Creating/getting voice room for user', { userId, tenantId });
 
     // Generate room name
-    const roomName = getVoiceRoomName(userId);
+    const roomName = getVoiceRoomName(tenantId, userId);
 
     // Check if room exists, create if not
     const existing = await checkRoomExists(roomName);
@@ -271,6 +340,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response: VoiceRoomResponse = {
       roomName,
       roomUrl,
+      tenantId,
       token,
       expiresAt,
       reused,

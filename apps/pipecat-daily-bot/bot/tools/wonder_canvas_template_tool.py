@@ -21,6 +21,10 @@ _greeting_card_shown = False
     name="bot_wonder_canvas_template",
     description=(
         "Display a pre-built Wonder Canvas template. ALWAYS prefer this over raw HTML. "
+        "Only use when you have specific subject data from the current user request; "
+        "never display generic cards about 'game', 'video', or 'topic'. "
+        "For complex canvas work, loading_card/progress_tracker may appear first, "
+        "then replace it with a final specific visual. "
         "For images: image_url=/api/image?q=SEARCH_TERM. No emoji as primary visual. "
         "BEST templates: galaxy (100K star parallax — NO data needed, use for space/awe), "
         "editorial_split (cinematic split-screen photo+text — great for facts/reveals), "
@@ -43,19 +47,23 @@ _greeting_card_shown = False
     ),
     feature_flag="wonderCanvas",
     parameters={
-        "template": {
-            "type": "string",
-            "description": "Template name (e.g. weather_card, news_headline, person_bio, fact_card, etc.)",
+        "type": "object",
+        "properties": {
+            "template": {
+                "type": "string",
+                "description": "Template name (e.g. weather_card, news_headline, person_bio, fact_card, etc.)",
+            },
+            "data": {
+                "type": "object",
+                "description": "Key-value data to fill into the template placeholders. Use the exact keys listed in the tool description for your chosen template.",
+            },
+            "transition": {
+                "type": "string",
+                "enum": ["fade", "slide-left", "slide-right", "instant", "dissolve"],
+                "description": "Scene transition animation. Default: fade.",
+            },
         },
-        "data": {
-            "type": "object",
-            "description": "Key-value data to fill into the template placeholders. Use the exact keys listed in the tool description for your chosen template.",
-        },
-        "transition": {
-            "type": "string",
-            "enum": ["fade", "slide-left", "slide-right", "instant", "dissolve"],
-            "description": "Scene transition animation. Default: fade.",
-        },
+        "required": ["template", "data"],
     },
     passthrough=True,
 )

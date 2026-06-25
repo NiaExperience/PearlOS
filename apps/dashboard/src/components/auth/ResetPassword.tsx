@@ -28,7 +28,7 @@ export function ResetPassword() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch('/api/users/complete-reset', {
+      const res = await fetch('/dashboard/api/users/complete-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password, confirmPassword })
@@ -38,7 +38,7 @@ export function ResetPassword() {
         throw new Error(data.error || 'Reset failed');
       }
       setMessage('Password updated successfully. You can now sign in. Redirecting to login...');
-      setTimeout(() => router.push('/login'), 2500);
+      setTimeout(() => router.push('/dashboard/login'), 2500);
     } catch (e: any) {
       setError(e.message || 'Reset failed');
     } finally {

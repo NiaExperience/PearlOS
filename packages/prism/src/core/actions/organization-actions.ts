@@ -3,11 +3,14 @@
 
 import { Prism } from '../../prism';
 import { IOrganization, BlockType_Organization } from '../blocks/organization.block';
+import { ResourceType } from '../blocks/resourceShareToken.block';
 import { IUserOrganizationRole, OrganizationRole, BlockType_UserOrganizationRole } from '../blocks/userOrganizationRole.block';
 import { PrismContentQuery } from '../types';
 import { isValidUUID } from '../utils';
 
 import { getUserById } from './user-actions';
+
+type ShareableResourceType = ResourceType | 'Notes' | 'HtmlGeneration' | 'Apps' | 'DailyCallRoom' | 'Sprite';
 
 export async function getUserOrganizationRoles(userId: string, tenantId: string): Promise<IUserOrganizationRole[] | null> {
   const prism = await Prism.getInstance();
@@ -308,17 +311,17 @@ export async function updateOrganization(organizationId: string, tenantId: strin
 export async function getUserSharedResources(
   userId: string,
   tenantId: string,
-  contentType?: 'Notes' | 'HtmlGeneration'
+  contentType?: ShareableResourceType
 ): Promise<Array<{
   resourceId: string;
-  contentType: 'Notes' | 'HtmlGeneration';
+  contentType: ShareableResourceType;
   organization: IOrganization;
   role: OrganizationRole;
 }>> {
   const prism = await Prism.getInstance();
   const sharedResourcesMap = new Map<string, {
     resourceId: string;
-    contentType: 'Notes' | 'HtmlGeneration';
+    contentType: ShareableResourceType;
     organization: IOrganization;
     role: OrganizationRole;
   }>();
@@ -337,7 +340,7 @@ export async function getUserSharedResources(
 
         sharedResourcesMap.set(resourceId, {
           resourceId,
-          contentType: resourceType as 'Notes' | 'HtmlGeneration',
+          contentType: resourceType as ShareableResourceType,
           organization: org,
           role: role.role,
         });
@@ -370,7 +373,7 @@ export async function getUserSharedResources(
         if (!sharedResourcesMap.has(resourceId)) {
           sharedResourcesMap.set(resourceId, {
             resourceId,
-            contentType: resourceType as 'Notes' | 'HtmlGeneration',
+            contentType: resourceType as ShareableResourceType,
             organization: org,
             role: OrganizationRole.VIEWER, // Global share is always read-only
           });

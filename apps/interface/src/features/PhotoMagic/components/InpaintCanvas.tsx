@@ -78,7 +78,7 @@ export function InpaintCanvas({ imageUrl, onMaskReady, onClose }: InpaintCanvasP
     const scale = imgDimRef.current.scale;
 
     for (const stroke of allStrokes) {
-      if (stroke.points.length === 0) continue;
+      if (!stroke?.points?.length) continue;
       ctx.beginPath();
       const r = (stroke.size * scale) / 2;
 
@@ -136,10 +136,12 @@ export function InpaintCanvas({ imageUrl, onMaskReady, onClose }: InpaintCanvasP
   const handlePointerUp = useCallback(() => {
     if (!isDrawingRef.current) return;
     isDrawingRef.current = false;
-    if (activeStrokeRef.current && activeStrokeRef.current.points.length > 0) {
-      setStrokes(prev => [...prev, activeStrokeRef.current!]);
-    }
+    const finished = activeStrokeRef.current;
     activeStrokeRef.current = null;
+    // Copy stroke before setState: the updater runs later; activeStrokeRef was already cleared above.
+    if (finished && finished.points.length > 0) {
+      setStrokes(prev => [...prev, finished]);
+    }
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -171,7 +173,7 @@ export function InpaintCanvas({ imageUrl, onMaskReady, onClose }: InpaintCanvasP
     ctx.lineJoin = 'round';
 
     for (const stroke of strokes) {
-      if (stroke.points.length === 0) continue;
+      if (!stroke?.points?.length) continue;
       if (stroke.points.length === 1) {
         ctx.beginPath();
         ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2);
@@ -195,54 +197,60 @@ export function InpaintCanvas({ imageUrl, onMaskReady, onClose }: InpaintCanvasP
   const hasMask = strokes.length > 0;
   const cursorSize = BRUSH_SIZES[brushSize] * imgDimRef.current.scale;
 
+  const actions = (
+    <>
+      <button className="pm-inpaint-tool-btn" onClick={onClose} title="Cancel">
+        Cancel
+      </button>
+      <button
+        className="pm-action-btn pm-action-btn--primary pm-inpaint-done-btn"
+        onClick={handleDone}
+        disabled={!hasMask}
+      >
+        Apply mask
+      </button>
+    </>
+  );
+
   return (
     <div className="pm-inpaint-overlay">
       <div className="pm-inpaint-toolbar">
-        <div className="pm-inpaint-toolbar__group">
-          {(['small', 'medium', 'large'] as BrushSize[]).map(size => (
+        <div className="pm-inpaint-toolbar__tools">
+          <div className="pm-inpaint-toolbar__group">
+            {(['small', 'medium', 'large'] as BrushSize[]).map(size => (
+              <button
+                key={size}
+                className={`pm-inpaint-brush-btn ${brushSize === size ? 'active' : ''}`}
+                onClick={() => setBrushSize(size)}
+                title={`${size} brush`}
+              >
+                <span
+                  className="pm-inpaint-brush-dot"
+                  style={{ width: BRUSH_SIZES[size] * 0.4, height: BRUSH_SIZES[size] * 0.4 }}
+                />
+              </button>
+            ))}
+          </div>
+          <div className="pm-inpaint-toolbar__group">
             <button
-              key={size}
-              className={`pm-inpaint-brush-btn ${brushSize === size ? 'active' : ''}`}
-              onClick={() => setBrushSize(size)}
-              title={`${size} brush`}
+              className="pm-inpaint-tool-btn"
+              onClick={handleUndo}
+              disabled={!hasMask}
+              title="Undo last stroke"
             >
-              <span
-                className="pm-inpaint-brush-dot"
-                style={{ width: BRUSH_SIZES[size] * 0.4, height: BRUSH_SIZES[size] * 0.4 }}
-              />
+              ↩
             </button>
-          ))}
+            <button
+              className="pm-inpaint-tool-btn"
+              onClick={handleClear}
+              disabled={!hasMask}
+              title="Clear mask"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-        <div className="pm-inpaint-toolbar__group">
-          <button
-            className="pm-inpaint-tool-btn"
-            onClick={handleUndo}
-            disabled={!hasMask}
-            title="Undo last stroke"
-          >
-            ↩
-          </button>
-          <button
-            className="pm-inpaint-tool-btn"
-            onClick={handleClear}
-            disabled={!hasMask}
-            title="Clear mask"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="pm-inpaint-toolbar__group pm-inpaint-toolbar__actions">
-          <button className="pm-inpaint-tool-btn" onClick={onClose} title="Cancel">
-            Cancel
-          </button>
-          <button
-            className="pm-action-btn pm-action-btn--primary pm-inpaint-done-btn"
-            onClick={handleDone}
-            disabled={!hasMask}
-          >
-            Apply mask
-          </button>
-        </div>
+        <div className="pm-inpaint-toolbar__actions pm-inpaint-toolbar__actions--desktop">{actions}</div>
       </div>
 
       <div className="pm-inpaint-canvas-wrap" ref={containerRef}>
@@ -257,6 +265,8 @@ export function InpaintCanvas({ imageUrl, onMaskReady, onClose }: InpaintCanvasP
           onPointerCancel={handlePointerUp}
         />
       </div>
+
+      <div className="pm-inpaint-toolbar__actions pm-inpaint-toolbar__actions--mobile">{actions}</div>
     </div>
   );
 }

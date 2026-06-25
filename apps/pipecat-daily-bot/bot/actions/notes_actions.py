@@ -17,6 +17,7 @@ Architecture:
 
 import json
 import logging
+from pathlib import Path
 from typing import Optional, Callable, Awaitable, TypeVar
 from tools.sharing import utils as sharing_tools
 from actions import sharing_actions
@@ -34,6 +35,8 @@ T = TypeVar('T')
 
 _UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
 _LOCAL_ANON_USER_UUID = "00000000-0000-0000-0000-000000000099"
+USER_ROOT = Path(os.getenv("PEARLOS_USER_ROOT", "/workspace/user"))
+_SAFE_SCOPE_RE = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
 
 def _normalize_user_id(user_id: str) -> str:
     """Normalize user identifiers to UUIDs for storage layer compatibility.
@@ -48,6 +51,22 @@ def _normalize_user_id(user_id: str) -> str:
     if user_id.lower() == "anonymous":
         return _LOCAL_ANON_USER_UUID
     return user_id
+
+
+def _documents_dir(tenant_id: str, user_id: str) -> Path | None:
+    """Resolve the tenant-scoped Documents folder for filesystem notes."""
+    if not _SAFE_SCOPE_RE.fullmatch(str(tenant_id or "")):
+        return None
+    if not _SAFE_SCOPE_RE.fullmatch(str(user_id or "")):
+        return None
+    return USER_ROOT / str(tenant_id) / str(user_id) / "Documents"
+
+
+def _legacy_documents_dir(user_id: str) -> Path | None:
+    """Old pre-tenant note location, used only as a read compatibility fallback."""
+    if not _SAFE_SCOPE_RE.fullmatch(str(user_id or "")):
+        return None
+    return USER_ROOT / str(user_id) / "Documents"
 
 
 def _extract_note_content(note: dict) -> str:
@@ -164,13 +183,7 @@ async def ensure_notes_definition(
 
 
 async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_content: bool = False) -> list[dict]:
-    """Fetch all notes for tenant from ALL sources (database + filesystem).
-    
-    Notes live in two places:
-    1. Database (Mesh/notion_blocks) — created via voice, bot tools, or API
-    2. Filesystem (/workspace/user/Documents/*.md) — created by sub-agents, manual edits, etc.
-    
-    Both sources are merged and deduplicated so callers always see the complete picture.
+    """Fetch notes visible to one authenticated user.
     
     Args:
         tenant_id: Tenant identifier for data isolation
@@ -189,7 +202,9 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
             logger.warning(f"[notes_actions] Normalized non-UUID user_id '{user_id}' -> '{normalized_user_id}' for list_notes")
         user_id = normalized_user_id
         
-        # Fetch all four note sources in parallel (work, personal, shared, filesystem)
+        # Fetch DB-backed work, personal, and explicitly shared notes. Legacy
+        # filesystem notes used to come from one global Documents folder; that
+        # is intentionally not merged here because it is not user-isolated.
         import asyncio
 
         async def _fetch_work():
@@ -242,12 +257,8 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
         async def _fetch_shared():
             return await sharing_tools.get_user_shared_resources(tenant_id, user_id, content_type="Notes")
 
-        async def _fetch_file_notes():
-            """Read markdown files from the Documents folder as notes."""
-            return await asyncio.get_event_loop().run_in_executor(None, _read_file_notes, include_content)
-
-        work_resp, personal_resp, shared_resp, file_notes = await asyncio.gather(
-            _fetch_work(), _fetch_personal(), _fetch_shared(), _fetch_file_notes(),
+        work_resp, personal_resp, shared_resp = await asyncio.gather(
+            _fetch_work(), _fetch_personal(), _fetch_shared(),
             return_exceptions=True,
         )
 
@@ -314,100 +325,71 @@ async def list_notes(tenant_id: str, user_id: str, limit: int = 100, include_con
                 }
                 results.append(payload)
 
-        # Merge file-based notes (deduplicated by title against DB notes)
-        if isinstance(file_notes, Exception):
-            logger.error(f"[notes_actions] Failed to read file notes: {file_notes}")
-        elif file_notes:
-            file_count = 0
-            for fnote in file_notes:
-                fid = fnote.get("_id")
-                ftitle = (fnote.get("title") or "").strip().lower()
-                if fid in visited or ftitle in visited_titles:
-                    continue
-                visited.add(fid)
-                visited_titles.add(ftitle)
-                results.append(fnote)
-                file_count += 1
-            logger.debug(f"[notes_actions] Added {file_count} file-based notes from Documents folder")
+        # ── File-based notes (tenant + user Documents directory) ──
+        # Webchat creates notes as .md files in /workspace/user/<tenantId>/<userId>/Documents/.
+        # Mesh queries won't find these, so we merge them in here as a second source.
+        try:
+            import re as _re
 
-        logger.debug(f"[notes_actions] returning {len(results)} total notes for user scope {user_id}")
+            docs_dirs = [d for d in [_documents_dir(tenant_id, user_id), _legacy_documents_dir(user_id)] if d and d.is_dir()]
+            for user_docs in docs_dirs:
+                for f in sorted(user_docs.glob("*.md")):
+                    try:
+                        basename = f.stem
+                        if basename in visited:
+                            continue
+                        stat = f.stat()
+                        content = f.read_text(encoding="utf-8")
+                        m = _re.search(r'^#\s+(.+)$', content, _re.MULTILINE)
+                        title = m.group(1).strip() if m else basename.replace('-', ' ')
+                        title_key = title.strip().lower()
+                        if title_key in visited_titles:
+                            continue
+                        visited.add(basename)
+                        visited_titles.add(title_key)
+
+                        if include_content:
+                            results.append({
+                                "_id": basename,
+                                "title": title,
+                                "content": content,
+                                "mode": "personal",
+                                "userId": user_id,
+                                "tenantId": tenant_id,
+                                "createdAt": stat.st_ctime,
+                                "updatedAt": stat.st_mtime,
+                                "isShared": False,
+                                "accessLevel": "owner",
+                                "isGlobal": False,
+                                "_source": "file",
+                            })
+                        else:
+                            content_preview = content[:100].strip()
+                            results.append({
+                                "_id": basename,
+                                "title": title,
+                                "content_preview": content_preview,
+                                "mode": "personal",
+                                "updated_at": stat.st_mtime,
+                                "userId": user_id,
+                                "tenantId": tenant_id,
+                                "isShared": False,
+                                "accessLevel": "owner",
+                                "isGlobal": False,
+                                "_source": "file",
+                            })
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+        logger.debug(f"[notes_actions] returning {len(results)} total notes for user scope {user_id} (mesh + file)")
         return results
 
     except Exception as e:
         # Log exception but don't re-raise - return empty list so caller can handle gracefully
         logger.error(f"[notes_actions] Failed to list notes: {e}", exc_info=True)
         return []
-
-
-# Path to user documents directory (file-based notes)
-_DOCUMENTS_DIR = "/workspace/user/Documents"
-
-
-def _read_file_notes(include_content: bool = False) -> list[dict]:
-    """Read markdown files from the Documents folder and return them as note dicts.
-    
-    This runs in a thread executor since it does synchronous filesystem I/O.
-    
-    Args:
-        include_content: If True, include full file content; otherwise just metadata + preview
-        
-    Returns:
-        List of note-shaped dicts from .md files
-    """
-    import pathlib
-    import datetime
-    
-    docs_dir = pathlib.Path(_DOCUMENTS_DIR)
-    if not docs_dir.is_dir():
-        return []
-    
-    results = []
-    for md_file in docs_dir.glob("*.md"):
-        try:
-            stat = md_file.stat()
-            basename = md_file.stem  # filename without .md
-            
-            # Read content for title extraction and optional full content
-            raw = md_file.read_text(encoding="utf-8", errors="replace")
-            
-            # Extract title from first markdown heading or use filename
-            heading_match = re.match(r'^#\s+(.+)$', raw, re.MULTILINE)
-            title = heading_match.group(1).strip() if heading_match else basename.replace("-", " ")
-            
-            updated_at = datetime.datetime.fromtimestamp(stat.st_mtime, tz=datetime.timezone.utc).isoformat()
-            created_at = datetime.datetime.fromtimestamp(stat.st_ctime, tz=datetime.timezone.utc).isoformat()
-            
-            if include_content:
-                results.append({
-                    "_id": f"file-{basename}",
-                    "title": title,
-                    "content": raw,
-                    "mode": "personal",
-                    "updated_at": updated_at,
-                    "created_at": created_at,
-                    "filePath": str(md_file),
-                    "_source": "file",
-                })
-            else:
-                content_preview = raw[:100].strip() if raw else ""
-                results.append({
-                    "_id": f"file-{basename}",
-                    "title": title,
-                    "content_preview": content_preview,
-                    "mode": "personal",
-                    "updated_at": updated_at,
-                    "userId": None,
-                    "tenantId": None,
-                    "isShared": False,
-                    "accessLevel": "owner",
-                    "isGlobal": False,
-                    "_source": "file",
-                })
-        except Exception as e:
-            logger.warning(f"[notes_actions] Skipping unreadable file {md_file}: {e}")
-            continue
-    
-    return results
 
 
 async def fuzzy_search_notes(tenant_id: str, title: str, user_id: str) -> Optional[list[dict]]:
@@ -472,7 +454,7 @@ async def fuzzy_search_notes(tenant_id: str, title: str, user_id: str) -> Option
             # Fetch full content for matched notes in parallel
             import asyncio
             full_notes = await asyncio.gather(
-                *[get_note_by_id(tenant_id, note_id) for note_id in matched_ids]
+                *[get_note_by_id(tenant_id, note_id, user_id=user_id) for note_id in matched_ids]
             )
             results = [n for n in full_notes if n is not None]
             return results if results else None
@@ -487,7 +469,7 @@ async def fuzzy_search_notes(tenant_id: str, title: str, user_id: str) -> Option
         return None
 
 
-async def get_note_by_id(tenant_id: str, note_id: str) -> Optional[dict]:
+async def get_note_by_id(tenant_id: str, note_id: str, user_id: str | None = None) -> Optional[dict]:
     """Fetch note by ID.
     
     Args:
@@ -504,7 +486,18 @@ async def get_note_by_id(tenant_id: str, note_id: str) -> Optional[dict]:
         from services import mesh as mesh_client
         
         # BUILD QUERY
-        where = {"page_id": {"eq": note_id}}
+        clauses = [
+            {"page_id": {"eq": note_id}},
+            {"indexer": {"path": "tenantId", "equals": tenant_id}},
+        ]
+        if user_id:
+            normalized_user_id = _normalize_user_id(user_id)
+            clauses.append({"OR": [
+                {"parent_id": {"eq": normalized_user_id}},
+                {"indexer": {"path": "userId", "equals": normalized_user_id}},
+                {"indexer": {"path": "mode", "equals": "work"}},
+            ]})
+        where = {"AND": clauses}
         params = {
             "tenant": tenant_id,
             "where": json.dumps(where, separators=(',', ':')),
@@ -521,6 +514,35 @@ async def get_note_by_id(tenant_id: str, note_id: str) -> Optional[dict]:
                 note = data[0]
                 logger.info(f"[notes_actions] 📋 FOUND NOTE - note_id={note_id}, note_keys={list(note.keys())}, content_type={type(note.get('content')).__name__}, content_preview={repr(note.get('content'))[:200] if note.get('content') else 'None/Empty'}")
                 return note
+        
+        # ── File-based fallback for get by ID ──
+        # Webchat saves notes as .md files; check the tenant-scoped user's Documents directory.
+        if user_id:
+            import re as _re
+            docs_dirs = [d for d in [_documents_dir(tenant_id, user_id), _legacy_documents_dir(user_id)] if d and d.is_dir()]
+            for user_docs in docs_dirs:
+                filepath = user_docs / f"{note_id}.md"
+                if not filepath.exists():
+                    continue
+                try:
+                    stat = filepath.stat()
+                    content = filepath.read_text(encoding="utf-8")
+                    m = _re.search(r'^#\s+(.+)$', content, _re.MULTILINE)
+                    title = m.group(1).strip() if m else note_id.replace('-', ' ')
+                    logger.info(f"[notes_actions] 📋 FOUND FILE NOTE - note_id={note_id}, title={title}")
+                    return {
+                        "_id": note_id,
+                        "title": title,
+                        "content": content,
+                        "mode": "personal",
+                        "userId": user_id,
+                        "tenantId": tenant_id,
+                        "createdAt": stat.st_ctime,
+                        "updatedAt": stat.st_mtime,
+                        "_source": "file",
+                    }
+                except Exception:
+                    continue
         
         logger.debug(f"[notes_actions] Note {note_id} not found")
         return None

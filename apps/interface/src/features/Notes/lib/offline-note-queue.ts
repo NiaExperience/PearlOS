@@ -54,7 +54,9 @@ const writeQueue = (queue: QueuedOfflineNote[]) => {
 export const queueOfflineNoteUpdate = (payload: OfflineNotePayload) => {
   if (!isBrowserEnvironment()) return;
 
-  const queue = readQueue();
+  const queue = readQueue().filter(
+    item => !(item.noteId === payload.noteId && item.assistantName === payload.assistantName)
+  );
   const nextItem: QueuedOfflineNote = {
     ...payload,
     queuedAt: Date.now(),
@@ -94,4 +96,3 @@ export const requeueNoteUpdate = (item: QueuedOfflineNote) => {
 export const hasQueuedOfflineNotes = () => readQueue().length > 0;
 
 export const shouldDropQueuedItem = (item: QueuedOfflineNote) => item.attempts >= MAX_ATTEMPTS;
-

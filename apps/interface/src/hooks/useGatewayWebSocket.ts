@@ -20,6 +20,7 @@ import { useEffect, useRef } from 'react';
 import { routeNiaEvent } from '@interface/features/DailyCall/events/niaEventRouter';
 import type { AppMessageEnvelope } from '@interface/features/DailyCall/events/appMessageBridge';
 import { isDuplicateEvent } from '@interface/lib/event-dedup';
+import { getGatewayWsAuth } from '@interface/lib/gateway-ws-auth';
 
 const BRIDGE_KIND = 'nia.event';
 
@@ -82,12 +83,31 @@ export function useGatewayWebSocket(options: UseGatewayWebSocketOptions = {}) {
 
     let timer: ReturnType<typeof setTimeout> | null = null;
 
-    function connect() {
+    async function connect() {
+      if (unmountedRef.current) return;
+
+      let authUrl = '';
+      let authProtocols: string[] = [];
+      let authSessionId = options.sessionId;
+      try {
+        const auth = await getGatewayWsAuth(wsUrl, { sessionId: options.sessionId });
+        authUrl = auth.url;
+        authProtocols = auth.protocols;
+        authSessionId = authSessionId || auth.sessionId;
+      } catch (err) {
+        console.error('[gateway-ws] Failed to mint WebSocket auth token', err);
+        if (!unmountedRef.current) {
+          const delay = Math.min(1000 * 2 ** retriesRef.current, 30000);
+          retriesRef.current++;
+          timer = setTimeout(connect, delay);
+        }
+        return;
+      }
       if (unmountedRef.current) return;
 
       let ws: WebSocket;
       try {
-        ws = new WebSocket(wsUrl);
+        ws = new WebSocket(authUrl, authProtocols);
       } catch (err) {
         console.error('[gateway-ws] Failed to construct WebSocket (mixed content?)', wsUrl, err);
         return;
@@ -98,10 +118,10 @@ export function useGatewayWebSocket(options: UseGatewayWebSocketOptions = {}) {
         retriesRef.current = 0;
         console.log('[gateway-ws] connected to', wsUrl);
         // Send session scoping message if a session ID is available
-        if (options.sessionId) {
+        if (authSessionId) {
           try {
-            ws.send(JSON.stringify({ session_id: options.sessionId }));
-            console.log('[gateway-ws] sent session_id', options.sessionId);
+            ws.send(JSON.stringify({ session_id: authSessionId }));
+            console.log('[gateway-ws] sent session_id', authSessionId);
           } catch (err) {
             console.warn('[gateway-ws] failed to send session_id', err);
           }

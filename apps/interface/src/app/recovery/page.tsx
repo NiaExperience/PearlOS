@@ -1,402 +1,188 @@
-'use client';
+"use client";
 
-import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
+import { useEffect, useState, useCallback } from "react";
 
-interface ServiceStatus {
+interface ServiceResult {
   name: string;
-  status: 'checking' | 'ok' | 'error';
-  detail?: string;
+  status: "up" | "down";
+  code?: number;
+  error?: string;
 }
 
-function RecoveryContent() {
-  const searchParams = useSearchParams();
-  const error = searchParams.get('error') || '';
-  const assistantName = searchParams.get('assistant') || 'pearlos';
+interface HealthResponse {
+  ts: number;
+  services: ServiceResult[];
+}
 
-  const [services, setServices] = useState<ServiceStatus[]>([]);
-  const [reseedStatus, setReseedStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([]);
-  const [chatLoading, setChatLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+/**
+ * Recovery page — displays real-time service health status.
+ *
+ * Health checks run server-side via /api/health to avoid CORS/mixed-content
+ * issues that cause false negatives when fetching localhost services directly
+ * from the browser.
+ */
+export default function RecoveryPage() {
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [polling, setPolling] = useState(true);
 
-  const checkServices = useCallback(async () => {
-    setServices([
-      { name: 'Next.js Interface', status: 'checking' },
-      { name: 'OpenClaw Gateway', status: 'checking' },
-      { name: 'Mesh GraphQL', status: 'checking' },
-      { name: 'Bot Gateway (Pipecat)', status: 'checking' },
-      { name: 'PocketTTS (Azelma)', status: 'checking' },
-    ]);
+  const fetchHealth = useCallback(async () => {
     try {
-      const res = await fetch('/api/recovery/status');
-      const data = await res.json();
-      setServices(data.services || []);
-    } catch {
-      setServices((prev) => prev.map((s) => ({ ...s, status: 'error' as const, detail: 'Status API unreachable' })));
+      const res = await fetch("/api/health", { cache: "no-store" });
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const data: HealthResponse = await res.json();
+      setHealth(data);
+      setError(null);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to reach health API");
     }
   }, []);
 
   useEffect(() => {
-    checkServices();
-  }, [checkServices]);
+    fetchHealth();
+    if (!polling) return;
+    const id = setInterval(fetchHealth, 5000);
+    return () => clearInterval(id);
+  }, [fetchHealth, polling]);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, chatLoading]);
-
-  const handleReseed = async () => {
-    setReseedStatus('running');
-    try {
-      const res = await fetch('/api/recovery/reseed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assistantName }),
-      });
-      setReseedStatus(res.ok ? 'success' : 'error');
-    } catch {
-      setReseedStatus('error');
-    }
-  };
-
-  const handleChat = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    const userMsg = chatInput.trim();
-    setChatInput('');
-    const newMessages = [...chatMessages, { role: 'user', content: userMsg }];
-    setChatMessages(newMessages);
-    setChatLoading(true);
-    try {
-      const res = await fetch('/api/recovery/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages.map((m) => ({ role: m.role, content: m.content })) }),
-      });
-      const data = await res.json();
-      const reply = data?.choices?.[0]?.message?.content || data?.error || 'No response received.';
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-    } catch (err) {
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: `Error: Could not reach gateway. ${err}` }]);
-    }
-    setChatLoading(false);
-  };
-
-  const statusIcon = (s: string) => (s === 'ok' ? '🟢' : s === 'error' ? '🔴' : '🟡');
-  const allOk = services.length > 0 && services.every((s) => s.status === 'ok');
-  const anyError = services.some((s) => s.status === 'error');
+  const allUp = health?.services.every((s) => s.status === "up");
 
   return (
     <div
-      role="main"
-      aria-label="PearlOS Recovery Page"
-      style={{ background: '#05030f', minHeight: '100vh', color: '#e0e0e0', fontFamily: 'system-ui, sans-serif' }}
+      style={{
+        minHeight: "100vh",
+        background: "#0a0a0a",
+        color: "#e0e0e0",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem",
+      }}
     >
-      <div
-        aria-hidden="true"
-        style={{
-          background:
-            'radial-gradient(circle at 30% -10%, rgba(243, 104, 224, 0.2), transparent), radial-gradient(circle at 70% 110%, rgba(0, 210, 211, 0.15), transparent), #05030f',
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 0,
-        }}
-      />
+      <h1 style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
+        🔧 System Recovery
+      </h1>
+      <p style={{ color: "#888", marginBottom: "2rem", fontSize: "0.9rem" }}>
+        Real-time service health · refreshes every 5s
+      </p>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 700, margin: '0 auto', padding: '40px 20px' }}>
-        {/* Header */}
-        <header>
-          <h1
-            style={{
-              fontSize: 32,
-              fontWeight: 'bold',
-              marginBottom: 8,
-              background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            🔧 PearlOS Recovery
-          </h1>
-          <p style={{ color: '#888', marginBottom: 8 }}>
-            {error === 'assistant_not_found'
-              ? `The assistant "${assistantName}" couldn't be found or created. Let's fix that.`
-              : "Something went wrong. Let's get you back up and running."}
-          </p>
-          {allOk && (
-            <p style={{ color: '#10b981', fontSize: 14, marginBottom: 24 }}>
-              ✅ All services are healthy. Try loading PearlOS again.
-            </p>
-          )}
-          {anyError && (
-            <p style={{ color: '#ef4444', fontSize: 14, marginBottom: 24 }}>
-              ⚠️ Some services are down. Check status below or use Direct Chat as a fallback.
-            </p>
-          )}
-        </header>
-
-        {/* Service Status */}
-        <section
-          aria-label="Service Status"
-          style={{
-            background: 'rgba(15,15,35,0.9)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
-            padding: 24,
-            marginBottom: 24,
-          }}
-        >
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Service Status</h2>
-          <div role="list">
-            {services.map((svc) => (
-              <div
-                key={svc.name}
-                role="listitem"
-                aria-label={`${svc.name}: ${svc.status}`}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 0',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                }}
-              >
-                <span>{svc.name}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {statusIcon(svc.status)} {svc.status}
-                  {svc.detail && svc.status === 'error' && (
-                    <span style={{ color: '#666', fontSize: 12 }}>({svc.detail})</span>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={checkServices}
-            aria-label="Recheck all services"
-            style={{
-              marginTop: 12,
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: 8,
-              padding: '8px 16px',
-              color: '#e0e0e0',
-              cursor: 'pointer',
-            }}
-          >
-            🔄 Recheck
-          </button>
-        </section>
-
-        {/* Quick Fixes */}
-        <section
-          aria-label="Quick Fixes"
-          style={{
-            background: 'rgba(15,15,35,0.9)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
-            padding: 24,
-            marginBottom: 24,
-          }}
-        >
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Quick Fixes</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <button
-              onClick={handleReseed}
-              disabled={reseedStatus === 'running'}
-              aria-label="Reseed assistant database"
-              style={{
-                background:
-                  reseedStatus === 'success'
-                    ? 'linear-gradient(135deg, #10b981, #059669)'
-                    : 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
-                border: 'none',
-                borderRadius: 12,
-                padding: '14px 24px',
-                color: 'white',
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: reseedStatus === 'running' ? 'wait' : 'pointer',
-                opacity: reseedStatus === 'running' ? 0.7 : 1,
-              }}
-            >
-              {reseedStatus === 'idle' && '🌱 Reseed Assistant Database'}
-              {reseedStatus === 'running' && '⏳ Reseeding...'}
-              {reseedStatus === 'success' && '✅ Reseeded! Try loading again.'}
-              {reseedStatus === 'error' && '❌ Reseed failed - try again'}
-            </button>
-
-            <a
-              href={`/${assistantName}`}
-              aria-label="Try loading PearlOS again"
-              style={{
-                display: 'block',
-                textAlign: 'center',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 12,
-                padding: '14px 24px',
-                color: '#e0e0e0',
-                fontSize: 16,
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
-              🏠 Try Loading PearlOS Again
-            </a>
-
-            <a
-              href="/settings"
-              aria-label="Open settings page"
-              style={{
-                display: 'block',
-                textAlign: 'center',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 12,
-                padding: '14px 24px',
-                color: '#e0e0e0',
-                fontSize: 16,
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
-              ⚙️ Open Settings (always works)
-            </a>
-          </div>
-        </section>
-
-        {/* Direct Chat Fallback */}
-        <section
-          aria-label="Direct Chat with OpenClaw Gateway"
-          style={{
-            background: 'rgba(15,15,35,0.9)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
-            padding: 24,
-          }}
-        >
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>💬 Direct Chat (OpenClaw Gateway)</h2>
-          <p style={{ color: '#888', fontSize: 14, marginBottom: 16 }}>
-            Bypass PearlOS entirely — talk directly to the AI via the gateway.
-          </p>
-
-          <div
-            role="log"
-            aria-label="Chat messages"
-            aria-live="polite"
-            style={{
-              maxHeight: 300,
-              overflowY: 'auto',
-              marginBottom: 12,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            {chatMessages.length === 0 && (
-              <p style={{ color: '#555', fontStyle: 'italic' }}>Send a message to start chatting...</p>
-            )}
-            {chatMessages.map((msg, i) => (
-              <div
-                key={i}
-                aria-label={`${msg.role === 'user' ? 'You' : 'Pearl'}: ${msg.content}`}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 12,
-                  maxWidth: '85%',
-                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  background:
-                    msg.role === 'user'
-                      ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)'
-                      : 'rgba(255,255,255,0.08)',
-                  whiteSpace: 'pre-wrap',
-                  fontSize: 14,
-                }}
-              >
-                {msg.content}
-              </div>
-            ))}
-            {chatLoading && (
-              <div style={{ color: '#888', fontStyle: 'italic' }} aria-label="Pearl is thinking">
-                Thinking...
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <label htmlFor="recovery-chat-input" className="sr-only" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>
-              Chat message
-            </label>
-            <input
-              id="recovery-chat-input"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleChat()}
-              placeholder="Type a message..."
-              aria-label="Type a message to Pearl"
-              style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 10,
-                padding: '12px 16px',
-                color: '#e0e0e0',
-                fontSize: 14,
-                outline: 'none',
-              }}
-            />
-            <button
-              onClick={handleChat}
-              disabled={chatLoading}
-              aria-label="Send message"
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
-                border: 'none',
-                borderRadius: 10,
-                padding: '12px 20px',
-                color: 'white',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Send
-            </button>
-          </div>
-        </section>
-
-        {/* Keyboard shortcut hint */}
-        <p style={{ color: '#444', fontSize: 12, textAlign: 'center', marginTop: 24 }}>
-          Tip: Access this page anytime at <code style={{ color: '#666' }}>/recovery</code> or from Settings → Recovery
-        </p>
-      </div>
-    </div>
-  );
-}
-
-export default function RecoveryPage() {
-  return (
-    <Suspense
-      fallback={
+      {error && (
         <div
           style={{
-            background: '#05030f',
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#888',
+            background: "#2a1010",
+            border: "1px solid #5a2020",
+            borderRadius: 8,
+            padding: "0.75rem 1.25rem",
+            marginBottom: "1.5rem",
+            color: "#ff6b6b",
+            fontSize: "0.85rem",
           }}
         >
-          Loading recovery...
+          ⚠️ Health API error: {error}
         </div>
-      }
-    >
-      <RecoveryContent />
-    </Suspense>
+      )}
+
+      <div
+        style={{
+          display: "grid",
+          gap: "0.75rem",
+          width: "100%",
+          maxWidth: 420,
+        }}
+      >
+        {health?.services.map((svc) => (
+          <div
+            key={svc.name}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "#141414",
+              border: `1px solid ${svc.status === "up" ? "#1a3a1a" : "#3a1a1a"}`,
+              borderRadius: 8,
+              padding: "0.75rem 1rem",
+            }}
+          >
+            <span style={{ fontWeight: 500 }}>{svc.name}</span>
+            <span
+              style={{
+                color: svc.status === "up" ? "#4ade80" : "#f87171",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+              }}
+            >
+              {svc.status === "up" ? "✅ Up" : "❌ Down"}
+              {svc.code ? ` (${svc.code})` : ""}
+            </span>
+          </div>
+        )) ??
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                background: "#141414",
+                border: "1px solid #222",
+                borderRadius: 8,
+                padding: "0.75rem 1rem",
+                color: "#555",
+              }}
+            >
+              Loading...
+            </div>
+          ))}
+      </div>
+
+      {health && (
+        <p
+          style={{
+            marginTop: "1.5rem",
+            fontSize: "0.8rem",
+            color: allUp ? "#4ade80" : "#f59e0b",
+          }}
+        >
+          {allUp
+            ? "All services operational ✓"
+            : `${health.services.filter((s) => s.status === "down").length} service(s) degraded`}
+        </p>
+      )}
+
+      <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
+        <button
+          onClick={fetchHealth}
+          style={{
+            background: "#222",
+            color: "#e0e0e0",
+            border: "1px solid #333",
+            borderRadius: 6,
+            padding: "0.5rem 1.25rem",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+          }}
+        >
+          Refresh Now
+        </button>
+        <button
+          onClick={() => setPolling((p) => !p)}
+          style={{
+            background: polling ? "#1a2a1a" : "#2a1a1a",
+            color: polling ? "#4ade80" : "#f87171",
+            border: `1px solid ${polling ? "#2a4a2a" : "#4a2a2a"}`,
+            borderRadius: 6,
+            padding: "0.5rem 1.25rem",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+          }}
+        >
+          Auto-refresh: {polling ? "ON" : "OFF"}
+        </button>
+      </div>
+
+      <p style={{ marginTop: "2rem", fontSize: "0.7rem", color: "#555" }}>
+        Last check:{" "}
+        {health ? new Date(health.ts).toLocaleTimeString() : "pending"}
+      </p>
+    </div>
   );
 }

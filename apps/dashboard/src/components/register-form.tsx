@@ -45,7 +45,7 @@ export function RegisterForm() {
   async function onSubmit(values: z.infer<typeof RegisterSchema>) {
     try {
       // Call the registration API route
-      const response = await fetch('/api/register', {
+      const response = await fetch('/dashboard/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -59,7 +59,7 @@ export function RegisterForm() {
           title: 'Registration successful',
           description: 'Your account has been created',
         });
-        router.push('/login');
+        router.push('/dashboard/login');
       } else {
         const data = await response.json();
         toast({
@@ -150,7 +150,7 @@ export function RegisterForm() {
           Already have an account?{' '}
           <span
             className='underline cursor-pointer'
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/dashboard/login')}
           >
             Login here
           </span>

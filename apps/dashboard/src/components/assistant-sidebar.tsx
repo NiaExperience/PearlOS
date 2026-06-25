@@ -54,7 +54,7 @@ export function AssistantSidebar({ assistants, canManageTenants, initialTenants 
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/tenants');
+        const res = await fetch('/dashboard/api/tenants');
         if (!res.ok) return; // silent fail
         const data = await res.json();
   const map: Record<string, string> = {};
@@ -205,7 +205,7 @@ export function AssistantSidebar({ assistants, canManageTenants, initialTenants 
                                     try {
                                       const prevTenant = assistant.tenantId;
                                       setAssistants(prev => prev.map(a => a._id === assistant._id ? { ...a, tenantId: t._id } : a));
-                                      const res = await fetch('/api/assistant/update', {
+                                      const res = await fetch('/dashboard/api/assistant/update', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ assistantId: assistant._id, tenantId: t._id }),
@@ -232,7 +232,7 @@ export function AssistantSidebar({ assistants, canManageTenants, initialTenants 
                                   try {
                                     const prevTenant = assistant.tenantId;
                                     setAssistants(prev => prev.map(a => a._id === assistant._id ? { ...a, tenantId: '' as any } : a));
-                                    const res = await fetch('/api/assistant/update', {
+                                    const res = await fetch('/dashboard/api/assistant/update', {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ assistantId: assistant._id, tenantId: '' }),

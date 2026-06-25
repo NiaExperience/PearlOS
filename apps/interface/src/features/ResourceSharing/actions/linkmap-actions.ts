@@ -6,6 +6,20 @@ import { randomUUID } from 'crypto';
 
 import { LinkMapDefinition } from '@nia/features/definitions';
 import { Prism } from '@nia/prism';
+import { getSessionSafely } from '@nia/prism/core/auth';
+import { interfaceAuthOptions } from '@interface/lib/auth-config';
+
+/**
+ * Validates that the caller has an authenticated session.
+ * Throws 'Unauthorized' if no valid session exists.
+ */
+async function requireAuth() {
+  const session = await getSessionSafely(undefined, interfaceAuthOptions);
+  if (!session || !session.user || !session.user.id) {
+    throw new Error('Unauthorized');
+  }
+  return session;
+}
 
 export interface LinkMapInput {
     json: any;
@@ -25,6 +39,7 @@ export interface LinkMapRecord {
  * Creates a new LinkMap record (short URL).
  */
 export async function createLinkMap(data: LinkMapInput): Promise<LinkMapRecord> {
+    await requireAuth();
     const { ttl } = data;
 
     const prism = await Prism.getInstance();
@@ -85,11 +100,13 @@ export async function getLinkMapByKey(key: string): Promise<LinkMapRecord | null
 }
 
 export async function deleteLinkMap(id: string) {
+    await requireAuth();
     const prism = await Prism.getInstance();
     await prism.delete(LinkMapDefinition.dataModel.block, id);
 }
 
 export async function listLinkMaps(limit = 20, offset = 0) {
+    await requireAuth();
     const prism = await Prism.getInstance();
     return prism.query({
         contentType: LinkMapDefinition.dataModel.block,

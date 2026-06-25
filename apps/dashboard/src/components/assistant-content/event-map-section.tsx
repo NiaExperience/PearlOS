@@ -17,7 +17,7 @@ const EventMapSection: React.FC<EventMapSectionProps> = ({ selectedAssistant: as
   useEffect(() => {
     if (!isSupported) return;
     setLoading(true);
-    fetch(`/api/contentList?type=EventMap&assistantId=${assistant._id}`)
+    fetch(`/dashboard/api/contentList?type=EventMap&assistantId=${assistant._id}`)
       .then((res) => res.json())
       .then((data) => setEventMaps(data.items || []))
       .finally(() => setLoading(false));

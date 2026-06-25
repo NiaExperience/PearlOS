@@ -20,7 +20,7 @@ export default function HtmlRenderer({ content }: Props) {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -29,6 +29,9 @@ export default function HtmlRenderer({ content }: Props) {
       color: #e0e0e8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       overflow: auto;
+      touch-action: pan-x pan-y;
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior: contain;
     }
     ${data.css || ''}
   </style>

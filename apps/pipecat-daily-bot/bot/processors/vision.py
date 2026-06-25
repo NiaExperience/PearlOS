@@ -56,6 +56,24 @@ DEFAULT_VISION_PROMPT = (
 )
 
 
+def _vision_api_headers(api_base: str) -> dict[str, str]:
+    """Build auth headers for OpenRouter or an explicitly configured vision API."""
+    headers = {"Content-Type": "application/json"}
+    base = (api_base or "").lower()
+    if "openrouter.ai" in base:
+        api_key = os.getenv("OPENROUTER_API_KEY", "")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        headers["HTTP-Referer"] = "https://pearlos.app"
+        headers["X-Title"] = "PearlOS"
+        return headers
+
+    api_key = os.getenv("BOT_VISION_API_KEY", "") or os.getenv("OPENROUTER_API_KEY", "")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
 class VisionProcessor(FrameProcessor):
     """Processes video frames through a vision LLM and injects descriptions.
     
@@ -102,13 +120,17 @@ class VisionProcessor(FrameProcessor):
         self._last_capture_time: float = 0
         self._processing_lock = asyncio.Lock()
         self._is_processing = False
+        # Track all background analysis tasks for clean cancellation on shutdown
+        self._analysis_tasks: set[asyncio.Task] = set()
+        # Lock to guard context mutations against concurrent pipeline reads
+        self._context_lock = asyncio.Lock()
         
-        # API configuration — use OpenClaw gateway or OpenRouter (no direct OpenAI)
-        self._api_base = os.getenv("OPENCLAW_API_URL", os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"))
-        self._api_key = os.getenv("OPENCLAW_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
-        
+        # API configuration: use OpenRouter directly for vision unless an
+        # explicit vision endpoint is provided. The chat/session proxy is not
+        # designed for raw image_url content blocks.
+        self._api_base = os.getenv("BOT_VISION_API_BASE", "https://openrouter.ai/api/v1")
+
         # Resolve the actual model name for the API call
-        # If using OpenClaw proxy, model can be "openai/gpt-4o" format
         self._resolved_model = self._vision_model
         
         logger.info(
@@ -216,7 +238,10 @@ class VisionProcessor(FrameProcessor):
                 f"size={frame.size}, format={frame.format}"
             )
             # Don't block the pipeline — analyze in background
-            asyncio.create_task(self._analyze_frame(frame))
+            # Track the task so we can cancel it cleanly on shutdown
+            task = asyncio.create_task(self._analyze_frame(frame))
+            self._analysis_tasks.add(task)
+            task.add_done_callback(self._analysis_tasks.discard)
             # Don't forward the raw image frame downstream
             return
         
@@ -333,11 +358,7 @@ class VisionProcessor(FrameProcessor):
                 "max_tokens": 200,
                 "temperature": 0.3,
             }
-            
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._api_key}",
-            }
+            headers = _vision_api_headers(self._api_base)
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -383,37 +404,55 @@ class VisionProcessor(FrameProcessor):
         }
         
         try:
-            # Add to the LLM context messages
-            messages = self._context.get_messages() if hasattr(self._context, 'get_messages') else []
-            
-            # Remove previous vision messages to avoid context bloat
-            cleaned = [
-                m for m in messages
-                if not (
-                    isinstance(m, dict)
-                    and m.get("role") == "system"
-                    and isinstance(m.get("content"), str)
-                    and m["content"].startswith("[VISION UPDATE]")
-                )
-            ]
-            
-            # Add the new vision message
-            cleaned.append(vision_message)
-            
-            # Update context
-            if hasattr(self._context, 'set_messages'):
-                self._context.set_messages(cleaned)
-            elif hasattr(self._context, 'messages'):
-                self._context.messages = cleaned
-            
+            # Acquire context lock to prevent racing with the pipeline's main loop
+            async with self._context_lock:
+                # Add to the LLM context messages
+                messages = self._context.get_messages() if hasattr(self._context, 'get_messages') else []
+
+                # Remove previous vision messages to avoid context bloat
+                cleaned = [
+                    m for m in messages
+                    if not (
+                        isinstance(m, dict)
+                        and m.get("role") == "system"
+                        and isinstance(m.get("content"), str)
+                        and m["content"].startswith("[VISION UPDATE]")
+                    )
+                ]
+
+                # Add the new vision message
+                cleaned.append(vision_message)
+
+                # Update context
+                if hasattr(self._context, 'set_messages'):
+                    self._context.set_messages(cleaned)
+                elif hasattr(self._context, 'messages'):
+                    self._context.messages = cleaned
+
             logger.info(f"[{BOT_PID}] [vision] Injected vision context for user {user_id}")
             
         except Exception as e:
             logger.error(f"[{BOT_PID}] [vision] Failed to inject vision context: {e}")
 
     async def cleanup(self):
-        """Clean up all capture tasks."""
+        """Clean up all capture tasks and in-flight analysis tasks."""
         for pid in list(self._capture_tasks):
             await self.stop_capture(pid)
         self._active_participants.clear()
-        logger.info(f"[{BOT_PID}] [vision] Cleaned up all vision captures")
+
+        # Cancel any in-flight frame analysis tasks
+        tasks_to_cancel = list(self._analysis_tasks)
+        for task in tasks_to_cancel:
+            if not task.done():
+                task.cancel()
+        if tasks_to_cancel:
+            await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+        self._analysis_tasks.clear()
+
+        # CRITICAL: invoke FrameProcessor.cleanup() so pipecat's base
+        # __input_frame_task / __process_frame_task get cancelled — without
+        # this we leak a "Dangling tasks: VisionProcessor#0::__input_frame_task_handler"
+        # warning on every session shutdown.
+        await super().cleanup()
+
+        logger.info(f"[{BOT_PID}] [vision] Cleaned up all vision captures and analysis tasks")

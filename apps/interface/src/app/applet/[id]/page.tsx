@@ -33,7 +33,7 @@ export default async function AppletPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="h-screen w-screen bg-white overflow-hidden">
+    <div className="h-svh w-screen bg-white overflow-hidden">
       <HtmlGenerationViewer 
         htmlGeneration={applet} 
         onClose={() => {}} 

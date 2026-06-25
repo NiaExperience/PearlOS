@@ -68,7 +68,7 @@ export default function GlobalSettingsAdminPage() {
       setStatus('loading');
       setError(null);
       try {
-        const res = await fetch('/api/global-settings', { cache: 'no-store' });
+        const res = await fetch('/dashboard/api/global-settings', { cache: 'no-store' });
         if (!res.ok) {
           const detail = res.status === 403 ? 'You must be a superadmin to view global settings.' : 'Unable to load global settings.';
           throw new Error(detail);
@@ -112,7 +112,7 @@ export default function GlobalSettingsAdminPage() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch('/api/global-settings', {
+      const res = await fetch('/dashboard/api/global-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ interfaceLogin: settings }),
@@ -168,7 +168,7 @@ export default function GlobalSettingsAdminPage() {
     setDenyListSaving(true);
     setDenyListError(null);
     try {
-      const res = await fetch('/api/global-settings', {
+      const res = await fetch('/dashboard/api/global-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ denyListEmails }),

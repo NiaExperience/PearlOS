@@ -1,0 +1,17 @@
+┌────┬─────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 3  │ bot-queue-worker    │ default     │ N/A     │ fork    │ 874681   │ 7D     │ 0    │ online    │ 0%       │ 41.0mb   │ root     │ disabled │
+│ 20 │ cron-watchdog       │ default     │ N/A     │ fork    │ 3572922  │ 4D     │ 0    │ online    │ 0%       │ 2.0mb    │ root     │ disabled │
+│ 21 │ dashboard           │ default     │ N/A     │ fork    │ 3290674  │ 27h    │ 26   │ online    │ 0%       │ 43.5mb   │ root     │ disabled │
+│ 23 │ deepseek-proxy      │ default     │ N/A     │ fork    │ 613655   │ 4h     │ 36   │ online    │ 0%       │ 23.6mb   │ root     │ disabled │
+│ 17 │ interface           │ default     │ N/A     │ fork    │ 909971   │ 4m     │ 211  │ online    │ 0%       │ 61.9mb   │ root     │ disabled │
+│ 0  │ mesh                │ default     │ N/A     │ fork    │ 874616   │ 7D     │ 1    │ online    │ 0%       │ 94.7mb   │ root     │ disabled │
+│ 6  │ openclaw-gateway    │ default     │ N/A     │ fork    │ 855637   │ 53m    │ 53   │ online    │ 0%       │ 949.3mb  │ root     │ disabled │
+│ 15 │ pearl-worker        │ default     │ N/A     │ fork    │ 784068   │ 117m   │ 10   │ online    │ 0%       │ 23.0mb   │ root     │ disabled │
+│ 2  │ pipecat-gateway     │ default     │ N/A     │ fork    │ 749242   │ 2h     │ 76   │ online    │ 0%       │ 227.2mb  │ root     │ disabled │
+│ 4  │ pipecat-runner      │ default     │ N/A     │ fork    │ 892476   │ 19m    │ 262  │ online    │ 0%       │ 236.1mb  │ root     │ disabled │
+│ 10 │ pocket-tts          │ default     │ N/A     │ fork    │ 753372   │ 7D     │ 0    │ online    │ 0%       │ 1.0gb    │ root     │ disabled │
+│ 24 │ rembg-anime         │ default     │ N/A     │ fork    │ 1676096  │ 2D     │ 0    │ online    │ 0%       │ 1.2gb    │ root     │ disabled │
+│ 22 │ voxtral-tts         │ default     │ N/A     │ fork    │ 1035459  │ 2D     │ 1    │ online    │ 0%       │ 1.1gb    │ root     │ disabled │
+└────┴─────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘

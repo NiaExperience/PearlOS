@@ -6,6 +6,11 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 
 import { useVoiceSessionContext } from '@interface/contexts/voice-session-context';
 import { getClientLogger } from '@interface/lib/client-logger';
+import {
+  readMusicEnabledPreference,
+  SOUNDTRACK_PLAYING_KEY,
+  writeMusicEnabledPreference,
+} from '@interface/lib/pearlos-user-preferences';
 
 import type { SoundtrackControlDetail } from '../lib/events';
 import { SOUNDTRACK_TRACKS, shuffleTracks } from '../lib/tracks';
@@ -54,7 +59,11 @@ function applyVolumeScaling(linear: number): number {
   return Math.pow(Math.max(0, Math.min(1, linear)), 3);
 }
 const VOLUME_STORAGE_KEY = 'nia:soundtrack:baseVolume';
-const PLAYING_STORAGE_KEY = 'nia:soundtrack:isPlaying';
+
+function sessionUserId(session: unknown): string | null {
+  const user = (session as { user?: { id?: unknown } } | null | undefined)?.user;
+  return typeof user?.id === 'string' && user.id.trim() ? user.id : null;
+}
 
 /**
  * Initialize the Web Audio API pipeline for an audio element.
@@ -141,6 +150,7 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
   const logger = useRef(getClientLogger('SoundtrackProvider')).current;
   const didLogMount = useRef(false);
   const { data: session, status: sessionStatus } = useSession();
+  const userId = sessionUserId(session);
 
   useEffect(() => {
     if (didLogMount.current) return;
@@ -181,27 +191,25 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
   // Track local speaking state from Daily events for responsive volume ducking
   const [isSpeaking, setIsSpeaking] = useState(false);
   
-  // Initialize isPlaying from localStorage (persisted pause state)
-  const [isPlaying, setIsPlayingState] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const stored = localStorage.getItem(PLAYING_STORAGE_KEY);
-      return stored === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Start paused by default; auto-play is opt-in via Settings → Audio
+  // ('pearlos-music-enabled' === 'true'). Applied once after mount to
+  // avoid SSR hydration mismatch.
+  const [isPlaying, setIsPlayingState] = useState(false);
   
   // Wrapper to persist isPlaying changes
   const setIsPlaying = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
     setIsPlayingState(prev => {
       const newValue = typeof value === 'function' ? value(prev) : value;
       try {
-        localStorage.setItem(PLAYING_STORAGE_KEY, String(newValue));
+        localStorage.setItem(SOUNDTRACK_PLAYING_KEY, String(newValue));
       } catch { /* ignore */ }
       return newValue;
     });
   }, []);
+
+  const persistStartupMusicPreference = useCallback((enabled: boolean) => {
+    writeMusicEnabledPreference(enabled, userId);
+  }, [userId]);
   
   // Track if music was playing before forum opened (for auto-restart)
   const wasPlayingBeforeForumRef = useRef(false);
@@ -231,6 +239,17 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
     }
     volumeLoadedRef.current = true;
   }, []);
+
+  // Auto-start soundtrack if the user has opted in via Settings -> Audio.
+  // This must read the same user-scoped key the Settings panel writes.
+  const musicPrefAppliedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (sessionStatus === 'loading') return;
+    const preferenceOwner = userId || '__anonymous__';
+    if (musicPrefAppliedForRef.current === preferenceOwner) return;
+    musicPrefAppliedForRef.current = preferenceOwner;
+    setIsPlaying(readMusicEnabledPreference(userId));
+  }, [sessionStatus, setIsPlaying, userId]);
 
   // Save base volume to localStorage whenever it changes (skip initial default)
   useEffect(() => {
@@ -454,17 +473,40 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
     logger.info('Setting up soundtrackControl event listener');
     const handleSoundtrackControl = (event: Event) => {
       const customEvent = event as CustomEvent<SoundtrackControlDetail>;
-      const { action, volume: targetVolume, direction, step = 0.05 } = customEvent.detail || {};
+      const {
+        action,
+        source,
+        persistPreference,
+        overridePreference,
+        volume: targetVolume,
+        direction,
+        step = 0.05,
+      } = customEvent.detail || {};
 
       logger.debug('Soundtrack control received', { action, detail: customEvent.detail });
 
       switch (action) {
         case 'play':
+          {
+            const mayPersistPreference = persistPreference === true || source === 'settings';
+            const isUserInitiated = mayPersistPreference || source === 'ui';
+            const savedMusicEnabled = readMusicEnabledPreference(userId);
+            if (!savedMusicEnabled && !isUserInitiated && overridePreference !== true) {
+              logger.info('Soundtrack play ignored because startup music is disabled', {
+                source: source || 'unknown',
+              });
+              break;
+            }
+            if (mayPersistPreference) {
+              persistStartupMusicPreference(true);
+            }
+          }
           setIsPlaying(true);
-          posthog?.capture('soundtrack_play', { source: 'event' });
-          logger.info('Soundtrack started', { source: 'event' });
+          posthog?.capture('soundtrack_play', { source: source || 'event' });
+          logger.info('Soundtrack started', { source: source || 'event' });
           break;
         case 'stop':
+          persistStartupMusicPreference(false);
           setIsPlaying(false);
           posthog?.capture('soundtrack_stop', { source: 'event' });
           if (audioRef.current) {
@@ -534,7 +576,7 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
     return () => {
       window.removeEventListener('soundtrackControl', handleSoundtrackControl);
     };
-  }, [shuffledTracks.length, posthog, logger, baseVolume]);
+  }, [shuffledTracks.length, posthog, logger, baseVolume, persistStartupMusicPreference]);
 
   // Listen for forum (DailyCall) and YouTube window open/close events to auto-stop/restart music
   useEffect(() => {
@@ -612,11 +654,13 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
   }, [logger]);
 
   const play = useCallback(() => {
+    persistStartupMusicPreference(true);
     setIsPlaying(true);
     posthog?.capture('soundtrack_play', { source: 'ui' });
-  }, []);
+  }, [persistStartupMusicPreference, posthog, setIsPlaying]);
 
   const stop = useCallback(() => {
+    persistStartupMusicPreference(false);
     setIsPlaying(false);
     posthog?.capture('soundtrack_stop', { source: 'ui' });
     if (audioRef.current) {
@@ -636,7 +680,7 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
         restoredVolume: Math.round(DEFAULT_NORMAL_VOLUME * 100) 
       });
     }
-  }, [baseVolume, logger]);
+  }, [baseVolume, logger, persistStartupMusicPreference, posthog, setIsPlaying]);
 
   const next = useCallback(() => {
     setCurrentTrackIndex((prev) => (prev + 1) % shuffledTracks.length);
@@ -663,16 +707,16 @@ export function SoundtrackProvider({ children }: { children: React.ReactNode }) 
       ? (() => {
           const host = window.location.hostname;
           const proto = window.location.protocol;
-          // RunPod proxy rewrite
-          const runpodMatch = host.match(/^(.+)-\d+(\.proxy\.runpod\.net)$/);
-          if (runpodMatch) return `${proto}//${runpodMatch[1]}-4444${runpodMatch[2]}`;
+          // RunPod proxy: use /gateway path (same origin) since RunPod only proxies :3000
+          const isRunPod = host.match(/\.proxy\.runpod\.net$/);
+          if (isRunPod) return `${proto}//${window.location.host}/gateway`;
           if (host !== 'localhost' && host !== '127.0.0.1') return `${proto}//${window.location.host}/gateway`;
-          return `${proto}//${host}:4444`;
+          return `${proto}//${host}:4444/api`;
         })()
       : null;
 
     if (gatewayBase) {
-      fetch(`${gatewayBase}/api/soundtrack/state`, {
+      fetch(`${gatewayBase}/soundtrack/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(state),
@@ -708,4 +752,3 @@ export function useSoundtrack(): SoundtrackContextValue {
   }
   return context;
 }
-

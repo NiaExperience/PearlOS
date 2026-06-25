@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { createBotClaimHeaders } from '@interface/lib/bot-auth-claims';
 import { sendBotMessage } from '@interface/lib/bot-messaging-server';
 import { getLogger } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('[api_bot_admin]');
 
 interface AdminMessageRequest {
   message: string;
   mode?: 'queued' | 'immediate';
-  tenantId: string;
+  tenantId?: string;
   sessionId?: string;
   /** Optional context for message attribution (e.g., sourceType: 'user-text', userName) */
   context?: Record<string, unknown>;
@@ -47,25 +49,29 @@ async function extractRoomContext(request: NextRequest): Promise<string> {
 }
 
 /**
- * Send admin message to bot server
- * NOTE: Open endpoint for simplicity - no authentication required
+ * Send admin message to bot server with authenticated context.
  */
 export async function POST(request: NextRequest) {
   try {
     // Parse request body
-    const body = await request.json();
-    const { message, mode = 'queued', tenantId, sessionId, roomUrl: bodyRoomUrl, context }: AdminMessageRequest & { roomUrl?: string } = body;
+    const parsed = await request.json();
+    const body = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, any> : {};
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId: body?.tenantId ?? body?.tenant_id,
+    });
+    if (!actorResult.ok) return actorResult.response;
+    const actor = actorResult.actor;
+    const { message, mode = 'queued', sessionId, roomUrl: bodyRoomUrl, context }: AdminMessageRequest & { roomUrl?: string } = body;
+    const resolvedTenantId = actor.tenantId;
+    const resolvedSessionId =
+      sessionId ||
+      request.headers.get('x-session-id') ||
+      body?.session_id ||
+      `${actor.userId}:${Date.now()}`;
     
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
         { error: 'Message is required and must be non-empty' },
-        { status: 400 }
-      );
-    }
-    
-    if (!tenantId || typeof tenantId !== 'string') {
-      return NextResponse.json(
-        { error: 'Tenant ID is required' },
         { status: 400 }
       );
     }
@@ -94,17 +100,35 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+    log.info('Multitenancy audit context resolved', {
+      event: 'multitenancy_audit_admin_context',
+      tenantId: resolvedTenantId,
+      sessionUserId: actor.userId,
+      sessionId: resolvedSessionId,
+      roomUrl,
+      hasTenantAccess: true,
+      mode,
+    });
     
+    const claimHeaders = createBotClaimHeaders({
+      tenantId: resolvedTenantId,
+      sessionUserId: actor.userId,
+      sessionId: resolvedSessionId,
+      sessionUserEmail: actor.userEmail || undefined,
+      sessionUserName: actor.userName || undefined,
+    });
+
     try {
       const botServerResponse = await sendBotMessage({
         roomUrl,
         message,
         mode,
-        senderId: 'system',
-        senderName: 'System',
-        tenantId,
-        sessionId,
+        senderId: actor.userId,
+        senderName: actor.userName || actor.userEmail || 'User',
+        tenantId: resolvedTenantId,
+        sessionId: resolvedSessionId,
         context,
+        extraHeaders: claimHeaders,
       });
       
       if (!botServerResponse.ok) {
@@ -161,7 +185,7 @@ export async function POST(request: NextRequest) {
         room_url: roomUrl
       });
     } catch (fetchError) {
-      log.error('Fetch to bot server failed', { error: fetchError, roomUrl, tenantId });
+      log.error('Fetch to bot server failed', { error: fetchError, roomUrl, tenantId: resolvedTenantId });
       const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
       return NextResponse.json(
         { error: `Bot server connection failed: ${errorMessage}` },

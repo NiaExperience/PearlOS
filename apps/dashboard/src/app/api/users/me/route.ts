@@ -7,9 +7,7 @@ import { dashboardAuthOptions } from '@dashboard/lib/auth-config';
  * GET /api/users/me
  */
 export async function GET(req: NextRequest): Promise<Response> {
-  const disableAuth =
-    process.env.DISABLE_DASHBOARD_AUTH === 'true' &&
-    (req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1');
+  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
 
   if (disableAuth) {
     // Local dev: return a stub user so the dashboard can operate without NextAuth.

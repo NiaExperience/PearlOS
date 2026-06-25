@@ -27,7 +27,7 @@ export default function AssignOrgUserForm({ tenantId, organizations }: Props) {
     try {
       if (!organizationId) throw new Error('No organization selected');
       // Use existing organizations API patch to assign by organization creation? We'll call org roles endpoint if exists later; fallback to organizations PATCH not implemented so reuse organizations route (not suitable). TODO: implement dedicated endpoint.
-      const res = await fetch('/api/organization-roles', { // hypothetical endpoint
+      const res = await fetch('/dashboard/api/organization-roles', { // hypothetical endpoint
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantId, organizationId, email, role })

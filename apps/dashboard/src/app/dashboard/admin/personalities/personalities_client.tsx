@@ -96,7 +96,7 @@ export default function PersonalitiesAdminPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/tenants');
+        const res = await fetch('/dashboard/api/tenants');
         if (res.ok) {
           const data = await res.json();
           const list: Tenant[] = (data.items || data.tenants || []).map((t: any) => ({
@@ -116,7 +116,7 @@ export default function PersonalitiesAdminPage() {
     setLoading(true);
     try {
       // Fetch all personalities (cross-tenant) in a single call
-      const res = await fetch('/api/personalities');
+      const res = await fetch('/dashboard/api/personalities');
       if (!res.ok) {
         setRows([]);
         return;
@@ -130,7 +130,7 @@ export default function PersonalitiesAdminPage() {
       await Promise.all(
         tenantIds.map(async tid => {
           try {
-            const ar = await fetch(`/api/assistants?tenantId=${tid}`);
+            const ar = await fetch(`/dashboard/api/assistants?tenantId=${tid}`);
             if (!ar.ok) {
               assistantMap[tid] = [];
               return;
@@ -297,7 +297,7 @@ export default function PersonalitiesAdminPage() {
   setEditingId(tempId);
   setEditingOriginalName(optimistic.name || '');
     try {
-      const res = await fetch('/api/personalities', {
+      const res = await fetch('/dashboard/api/personalities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -342,7 +342,7 @@ export default function PersonalitiesAdminPage() {
     try {
       const tenantId = tenantOverride ?? rowsRef.current.find(x => x._id === id)?.tenantId;
       if (!tenantId) throw new Error('Missing tenantId for save');
-      const res = await fetch(`/api/personalities/${id}?tenantId=${tenantId}`, {
+      const res = await fetch(`/dashboard/api/personalities/${id}?tenantId=${tenantId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: patch }),
@@ -371,7 +371,7 @@ export default function PersonalitiesAdminPage() {
   async function deleteRow(id: string, tenantId: string) {
     if (!confirm('Delete this personality? This cannot be undone.')) return;
     try {
-      const res = await fetch(`/api/personalities/${id}?tenantId=${tenantId}`, {
+      const res = await fetch(`/dashboard/api/personalities/${id}?tenantId=${tenantId}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -387,7 +387,7 @@ export default function PersonalitiesAdminPage() {
 
   async function cloneRow(id: string, tenantId: string) {
     try {
-      const res = await fetch(`/api/personalities/${id}/clone?tenantId=${tenantId}`, {
+      const res = await fetch(`/dashboard/api/personalities/${id}/clone?tenantId=${tenantId}`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -418,7 +418,7 @@ export default function PersonalitiesAdminPage() {
       if (uncachedUserIds.length > 0) {
         try {
           // Fetch all users at once (superadmin endpoint)
-          const res = await fetch(`/api/users/all`);
+          const res = await fetch(`/dashboard/api/users/all`);
           if (res.ok) {
             const data = await res.json();
             const userMap = new Map<string, { _id: string; name?: string; email?: string }>();

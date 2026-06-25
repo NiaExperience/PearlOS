@@ -1,6 +1,6 @@
 """CRUD operations for notes.
 
-Hybrid mode: uses file-based storage (/workspace/user/Documents/*.md) as primary,
+Hybrid mode: uses file-based storage (/workspace/user/<tenant>/<user>/Documents/*.md) as primary,
 with fallback to database via Mesh API for legacy compatibility.
 """
 from __future__ import annotations
@@ -30,7 +30,7 @@ from .file_ops import (
     delete_note as file_delete_note,
     list_notes as file_list_notes,
     search_notes as file_search_notes,
-    DOCUMENTS_DIR,
+    save_note_file as file_save_note,
 )
 
 # Feature flag: set to True to use file-based storage
@@ -38,6 +38,78 @@ USE_FILE_STORAGE = os.environ.get("NOTES_FILE_STORAGE", "false").lower() in ("tr
 
 _log = bind_context_logger(tag="[notes_tools]")
 logger = _log
+
+
+async def _resolve_file_storage_user_id(
+    params: FunctionCallParams | None,
+    room_url: str | None,
+    context: Any = None,
+) -> str | None:
+    """Resolve the user folder for file-backed notes; never fall back to shared storage."""
+    if context and hasattr(context, 'user_id'):
+        try:
+            user_id = context.user_id()
+            if user_id:
+                return str(user_id)
+        except Exception:
+            pass
+    if params:
+        param_context = getattr(params, 'handler_context', None) or getattr(params, 'context', None)
+        if param_context and hasattr(param_context, 'user_id'):
+            try:
+                user_id = param_context.user_id()
+                if user_id:
+                    return str(user_id)
+            except Exception:
+                pass
+        if room_url:
+            try:
+                user_id, _ = await sharing_tools._resolve_user_id(params, room_url)
+                if user_id:
+                    return str(user_id)
+            except Exception:
+                pass
+    env_user_id = os.environ.get('BOT_SESSION_USER_ID')
+    return str(env_user_id) if env_user_id else None
+
+
+async def _resolve_file_storage_tenant_id(
+    params: FunctionCallParams | None,
+    room_url: str | None,
+    context: Any = None,
+) -> str | None:
+    """Resolve the tenant folder for file-backed notes; never guess from user alone."""
+    for candidate_context in (
+        context,
+        getattr(params, 'handler_context', None) if params else None,
+        getattr(params, 'context', None) if params else None,
+    ):
+        if candidate_context and hasattr(candidate_context, 'tenant_id'):
+            try:
+                tenant_id = candidate_context.tenant_id()
+                if tenant_id:
+                    return str(tenant_id)
+            except Exception:
+                pass
+    if room_url:
+        try:
+            tenant_id = _get_room_state().get_room_tenant_id(room_url)
+            if tenant_id:
+                return str(tenant_id)
+        except Exception:
+            pass
+    env_tenant_id = os.environ.get('BOT_SESSION_TENANT_ID') or os.environ.get('TENANT_ID') or os.environ.get('DEFAULT_TENANT_ID')
+    return str(env_tenant_id) if env_tenant_id else None
+
+
+async def _resolve_file_storage_scope(
+    params: FunctionCallParams | None,
+    room_url: str | None,
+    context: Any = None,
+) -> tuple[str | None, str | None]:
+    tenant_id = await _resolve_file_storage_tenant_id(params, room_url, context)
+    user_id = await _resolve_file_storage_user_id(params, room_url, context)
+    return tenant_id, user_id
 
 # ============================================================================
 # Tool Handlers
@@ -85,8 +157,7 @@ async def replace_note_handler(params: FunctionCallParams):
     )
     if result.get("user_message"):
         log.info("[notes] update_note result message: %s" % result.get("user_message"))
-    should_run_llm = not result.get("success", False)
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 
 @bot_tool(
@@ -131,8 +202,7 @@ async def create_note_handler(params: FunctionCallParams):
     )
     if result.get("user_message"):
         log.info("[notes] create_note result message: %s" % result.get("user_message"))
-    should_run_llm = not result.get("success", False)
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 
 @bot_tool(
@@ -178,7 +248,11 @@ async def bot_read_current_note(
             if not note_id:
                 return {"success": False, "error": "No note open", "user_message": "Please open a note first."}
 
-            note = file_get_note(note_id)
+            tenant_id, user_id = await _resolve_file_storage_scope(params, room_url)
+            if not tenant_id or not user_id:
+                return {"success": False, "error": "No user context", "user_message": "I can't determine whose note folder to use. Please try again."}
+
+            note = file_get_note(note_id, tenant_id=tenant_id, user_id=user_id)
             if not note:
                 return {"success": False, "error": "Note not found", "user_message": "The active note file no longer exists."}
 
@@ -218,7 +292,7 @@ async def bot_read_current_note(
                 "user_message": "Please open a note first, or specify which note to read by ID."
             }
 
-        tenant_id = _get_room_state().get_room_tenant_id(room_url)
+        tenant_id = await _resolve_file_storage_tenant_id(None, room_url)
         if not tenant_id:
             return {
                 "success": False,
@@ -312,8 +386,7 @@ async def save_note_handler(params: FunctionCallParams):
     forwarder = params.forwarder
     note_id = arguments.get("note_id")
     result = await bot_save_note(room_url, forwarder, note_id=note_id)
-    should_run_llm = not result.get("success", False)
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 
 @bot_tool(
@@ -349,8 +422,7 @@ async def delete_note_handler(params: FunctionCallParams):
     title = arguments.get("title")
     confirm = arguments.get("confirm", False)
     result = await bot_delete_note(room_url, note_id, title, confirm, forwarder, params)
-    should_run_llm = not result.get("success", False)
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=should_run_llm))
+    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
 
 # ============================================================================
@@ -377,7 +449,10 @@ async def bot_replace_note(
             if not note_id:
                 # Try to find by title
                 if title:
-                    results = file_search_notes(title)
+                    tenant_id, user_id = await _resolve_file_storage_scope(params, room_url)
+                    if not tenant_id or not user_id:
+                        return {"success": False, "error": "No user context", "user_message": "I can't determine whose note folder to use. Please try again."}
+                    results = file_search_notes(title, tenant_id=tenant_id, user_id=user_id)
                     if len(results) == 1:
                         note_id = results[0]["_id"]
                     elif len(results) > 1:
@@ -386,7 +461,11 @@ async def bot_replace_note(
                 if not note_id:
                     return {"success": False, "error": "No note specified", "user_message": "Please open a note first, or specify which note to update."}
 
-            updated = file_update_note(note_id, content=content, title=title)
+            tenant_id, user_id = await _resolve_file_storage_scope(params, room_url)
+            if not tenant_id or not user_id:
+                return {"success": False, "error": "No user context", "user_message": "I can't determine whose note folder to use. Please try again."}
+
+            updated = file_update_note(note_id, content=content, title=title, tenant_id=tenant_id, user_id=user_id)
             if not updated:
                 return {"success": False, "error": "Note not found", "user_message": "The note you're trying to update doesn't exist."}
 
@@ -421,7 +500,7 @@ async def bot_replace_note(
     try:
         logger.info(f"[notes] bot_replace_note called for room {room_url} (title={'provided' if title else 'unchanged'})")
         
-        tenant_id = _get_room_state().get_room_tenant_id(room_url)
+        tenant_id = await _resolve_file_storage_tenant_id(None, room_url)
         if not tenant_id:
             logger.error(f"[notes] No tenant_id for room {room_url}")
             return {
@@ -601,7 +680,10 @@ async def bot_create_note(
     if USE_FILE_STORAGE:
         try:
             logger.info(f"[notes] Creating file-based note: title='{title}'")
-            new_note = file_create_note(title, content)
+            tenant_id, user_id = await _resolve_file_storage_scope(None, room_url, context)
+            if not tenant_id or not user_id:
+                return {"success": False, "error": "No user context", "user_message": "I can't determine whose note folder to use. Please try again."}
+            new_note = file_create_note(title, content, tenant_id=tenant_id, user_id=user_id)
             note_id = new_note.get("_id")
 
             # Set as active note
@@ -892,16 +974,20 @@ async def bot_save_note(
         title = note.get("title") or "Untitled"
         content = _extract_note_content(note)
 
-        # Prepare filesystem payload
-        DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
-        target_path: Path = DOCUMENTS_DIR / f"{note_id}.md"
+        user_id = await _get_room_state().get_active_note_owner(room_url)
+        if user_id == "unknown":
+            user_id = None
+        if not user_id:
+            user_id = os.environ.get('BOT_SESSION_USER_ID')
+        if not user_id:
+            return {
+                "success": False,
+                "error": "No user context",
+                "user_message": "Cannot save without user context.",
+            }
 
-        if content.lstrip().startswith("#"):
-            final_content = content
-        else:
-            final_content = f"# {title}\n\n{content}"
-
-        target_path.write_text(final_content, encoding="utf-8")
+        saved_note = file_save_note(note_id, title, content, tenant_id=tenant_id, user_id=user_id)
+        target_path = Path(saved_note["filePath"])
 
         # Emit refresh hint (keeps parity with prior behavior)
         if forwarder:
@@ -947,7 +1033,10 @@ async def bot_delete_note(
         try:
             # Resolve note_id from title if needed
             if not note_id and title:
-                results = file_search_notes(title)
+                tenant_id, user_id = await _resolve_file_storage_scope(params, room_url)
+                if not tenant_id or not user_id:
+                    return {"success": False, "error": "No user context", "user_message": "I can't determine whose note folder to use. Please try again."}
+                results = file_search_notes(title, tenant_id=tenant_id, user_id=user_id)
                 if len(results) == 1:
                     note_id = results[0]["_id"]
                 elif len(results) > 1:
@@ -959,7 +1048,11 @@ async def bot_delete_note(
             if not note_id:
                 return {"success": False, "error": "No note specified", "user_message": "Please provide a note ID or title."}
 
-            deleted = file_delete_note(note_id)
+            tenant_id, user_id = await _resolve_file_storage_scope(params, room_url)
+            if not tenant_id or not user_id:
+                return {"success": False, "error": "No user context", "user_message": "I can't determine whose note folder to use. Please try again."}
+
+            deleted = file_delete_note(note_id, tenant_id=tenant_id, user_id=user_id)
             if not deleted:
                 return {"success": False, "error": "Delete failed", "user_message": "Could not delete the note."}
 

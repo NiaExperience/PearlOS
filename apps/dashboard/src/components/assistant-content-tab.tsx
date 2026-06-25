@@ -178,7 +178,7 @@ export default function AssistantContentTab({
         setIsLoading(true);
 
         if (toolIds && toolIds.length > 0) {
-          const response = await fetch(`/api/tools/list?ids=${toolIds.join(',')}`, {
+          const response = await fetch(`/dashboard/api/tools/list?ids=${toolIds.join(',')}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
           });
@@ -245,7 +245,7 @@ export default function AssistantContentTab({
 
   useEffect(() => {
     const fetchRegistrations = async () => {
-      const response = await fetch(`/api/registrations/list?assistantId=${selectedAssistant._id}`);
+      const response = await fetch(`/dashboard/api/registrations/list?assistantId=${selectedAssistant._id}`);
       if (response.ok) {
         const data = await response.json();
         setRegistrations(data.registrations as RegistrationType[]);
@@ -258,7 +258,7 @@ export default function AssistantContentTab({
 
   useEffect(() => {
     const fetchOrders = async () => {
-      const response = await fetch(`/api/orders/list?assistantId=${selectedAssistant._id}`);
+      const response = await fetch(`/dashboard/api/orders/list?assistantId=${selectedAssistant._id}`);
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders as Order[]);
@@ -274,7 +274,7 @@ export default function AssistantContentTab({
 
   useEffect(() => {
     const fetchEventMaps = async () => {
-      const response = await fetch(`/api/event-maps/list?assistantId=${selectedAssistant._id}`);
+      const response = await fetch(`/dashboard/api/event-maps/list?assistantId=${selectedAssistant._id}`);
       if (response.ok) {
         const data = await response.json();
         setEventMapItems(data.eventMaps as EventMapType[]);
@@ -289,13 +289,13 @@ export default function AssistantContentTab({
 
   const handleDeleteRegistration = async (registrationId: string) => {
     try {
-      const response = await fetch(`/api/registrations/delete/${registrationId}`, {
+      const response = await fetch(`/dashboard/api/registrations/delete/${registrationId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          const updatedRegistrations = await fetch(`/api/registrations/list?assistantId=${selectedAssistant._id}`);
+          const updatedRegistrations = await fetch(`/dashboard/api/registrations/list?assistantId=${selectedAssistant._id}`);
           if (updatedRegistrations.ok) {
             const updatedData = await updatedRegistrations.json();
             setRegistrations(updatedData.registrations as RegistrationType[]);
@@ -321,7 +321,7 @@ export default function AssistantContentTab({
       // Deactivate all registrations
       await Promise.all(
         registrations.map(reg =>
-          fetch(`/api/registrations/update/${reg._id}`, {
+          fetch(`/dashboard/api/registrations/update/${reg._id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -334,14 +334,14 @@ export default function AssistantContentTab({
       );
 
       // Activate the selected registration
-      const response = await fetch(`/api/registrations/update/${registrationId}`, {
+      const response = await fetch(`/dashboard/api/registrations/update/${registrationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: true }),
       });
 
       if (response.ok) {
-        const updated = await fetch(`/api/registrations/list?assistantId=${selectedAssistant._id}`);
+        const updated = await fetch(`/dashboard/api/registrations/list?assistantId=${selectedAssistant._id}`);
         if (updated.ok) {
           const updatedData = await updated.json();
           setRegistrations(updatedData.registrations?.map((reg: RegistrationType) => ({
@@ -364,13 +364,13 @@ export default function AssistantContentTab({
 
   const handleDeleteEventMap = async (eventMapId: string) => {
     try {
-      const response = await fetch(`/api/event-maps/delete/${eventMapId}`, {
+      const response = await fetch(`/dashboard/api/event-maps/delete/${eventMapId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          const updatedEventMaps = await fetch(`/api/event-maps/list?assistantId=${selectedAssistant._id}`);
+          const updatedEventMaps = await fetch(`/dashboard/api/event-maps/list?assistantId=${selectedAssistant._id}`);
           if (updatedEventMaps.ok) {
             const updatedData = await updatedEventMaps.json();
             setEventMapItems(updatedData.eventMaps as unknown as IEventMap[]);
@@ -591,13 +591,13 @@ export default function AssistantContentTab({
             <form onSubmit={eventMapForm.handleSubmit(async (data) => {
               try {
                 if (editingEventMap) {
-                  const response = await fetch(`/api/event-maps/update/${editingEventMap._id}`, {
+                  const response = await fetch(`/dashboard/api/event-maps/update/${editingEventMap._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                   });
                   if (response.ok) {
-                    const updatedEventMaps = await fetch(`/api/event-maps/list?assistantId=${selectedAssistant._id}`);
+                    const updatedEventMaps = await fetch(`/dashboard/api/event-maps/list?assistantId=${selectedAssistant._id}`);
                     if (updatedEventMaps.ok) {
                       const updatedData = await updatedEventMaps.json();
                       setEventMapItems(updatedData.eventMaps as unknown as IEventMap[]);
@@ -611,13 +611,13 @@ export default function AssistantContentTab({
                     });
                   }
                 } else {
-                  const response = await fetch(`/api/event-maps/create`, {
+                  const response = await fetch(`/dashboard/api/event-maps/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                   });
                   if (response.ok) {
-                    const updatedEventMaps = await fetch(`/api/event-maps/list?assistantId=${selectedAssistant._id}`);
+                    const updatedEventMaps = await fetch(`/dashboard/api/event-maps/list?assistantId=${selectedAssistant._id}`);
                     if (updatedEventMaps.ok) {
                       const updatedData = await updatedEventMaps.json();
                       setEventMapItems(updatedData.eventMaps as unknown as IEventMap[]);

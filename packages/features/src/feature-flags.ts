@@ -36,6 +36,7 @@ export type FeatureKey =
     | 'lullDetection'
     | 'spriteVoice'
     | 'news'
+    | 'pulse'
     | 'weather'
     | 'wonderCanvas'
     | 'vision'
@@ -75,6 +76,7 @@ export const FeatureKeys: FeatureKey[] = [
     'lullDetection',
     'spriteVoice',
     'news',
+    'pulse',
     'weather',
     'wonderCanvas',
     'vision',
@@ -110,7 +112,7 @@ const definitions: FeatureDefinition[] = [
     { key: 'passwordLogin', hasPrompt: false, canonical: 'passwordLogin', env: ['NEXT_PUBLIC_FEATURE_PASSWORD_LOGIN'], default: true, description: 'Enable password-based login option for the assistant' },
     { key: 'notes', hasPrompt: true, canonical: 'notes', env: ['NEXT_PUBLIC_FEATURE_NOTES', 'FEATURE_NOTES'], default: true, description: 'Notes feature (content CRUD)' },
     /** TEMPORARILY hardcode disabled pearlMultiMenu, until we revise the design - it collides with our voice-per-room/mode workflow */
-    { key: 'onboarding', hasPrompt: false, canonical: 'onboarding', env: ['NEXT_PUBLIC_FEATURE_ONBOARDING', 'FEATURE_ONBOARDING'], default: true, description: 'User onboarding flow, uses default personality/voice until onboarding is complete' },  
+    { key: 'onboarding', hasPrompt: true, canonical: 'onboarding', env: ['NEXT_PUBLIC_FEATURE_ONBOARDING', 'FEATURE_ONBOARDING'], default: true, description: 'Dashboard-managed user onboarding flow, uses default personality/voice until onboarding is complete' },
     { key: 'pearlMultiMenu', hasPrompt: false, canonical: 'pearlMultiMenu', env: ['NEXT_PUBLIC_FEATURE_PEARL_MULTI_MENU', 'FEATURE_PEARL_MULTI_MENU'], default: false, description: 'Pearl multi-menu with icon buttons (when disabled, uses simple click behavior)' },
     { key: 'resourceSharing', hasPrompt: false, canonical: 'resourceSharing', env: ['NEXT_PUBLIC_FEATURE_RESOURCE_SHARING', 'FEATURE_RESOURCE_SHARING'], default: true, description: 'Cross-user resource sharing for notes and applets' },
     { key: 'screenSharePrompt', hasPrompt: false, canonical: 'screenSharePrompt', env: ['NEXT_PUBLIC_FEATURE_SCREEN_SHARE_PROMPT', 'FEATURE_SCREEN_SHARE_PROMPT'], default: true, description: 'Prompt the user to share their screen upon joining a session' },
@@ -123,6 +125,7 @@ const definitions: FeatureDefinition[] = [
     { key: 'lullDetection', hasPrompt: false, canonical: 'lullDetection', env: ['NEXT_PUBLIC_FEATURE_LULL_DETECTION', 'FEATURE_LULL_DETECTION'], default: false, description: 'Enable lull detection: the bot proactively speaks if the user is silent for a while.' },
     { key: 'spriteVoice', hasPrompt: false, canonical: 'spriteVoice', env: ['NEXT_PUBLIC_FEATURE_SPRITE_VOICE', 'FEATURE_SPRITE_VOICE'], default: true, description: 'Enable voice/personality switching when interacting with Sprites' },
     { key: 'news', hasPrompt: true, canonical: 'news', env: ['NEXT_PUBLIC_FEATURE_NEWS', 'FEATURE_NEWS'], default: true, description: 'News headlines fetching and display tools' },
+    { key: 'pulse', hasPrompt: true, canonical: 'pulse', env: ['NEXT_PUBLIC_FEATURE_PULSE', 'FEATURE_PULSE'], default: true, description: 'Pulse public conversation signal app' },
     { key: 'weather', hasPrompt: true, canonical: 'weather', env: ['NEXT_PUBLIC_FEATURE_WEATHER', 'FEATURE_WEATHER'], default: true, description: 'Weather information fetching and display tools' },
     { key: 'wonderCanvas', hasPrompt: false, canonical: 'wonderCanvas', env: ['NEXT_PUBLIC_FEATURE_WONDER_CANVAS', 'FEATURE_WONDER_CANVAS'], default: true, description: 'Wonder Canvas visual display surface for rich content' },
     { key: 'vision', hasPrompt: false, canonical: 'vision', env: ['NEXT_PUBLIC_FEATURE_VISION', 'FEATURE_VISION'], default: true, description: 'Vision/image analysis capabilities' },

@@ -1,0 +1,14 @@
+{
+  "pass": [
+    {
+      "name": "01-login",
+      "status": 200
+    }
+  ],
+  "fail": [
+    {
+      "name": "browser",
+      "error": "browserContext.addCookies: Protocol error (Storage.setCookies): Invalid cookie fields"
+    }
+  ]
+}

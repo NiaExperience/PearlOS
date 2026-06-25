@@ -26,6 +26,28 @@ function isBlockedUrl(urlStr: string): boolean {
   }
 }
 
+/**
+ * Pull clean, block-level paragraphs out of Readability's sanitized article
+ * HTML. Returns plain text per block (paragraph, list item, heading, quote) so
+ * the client can render real paragraph breaks without XSS risk from raw HTML.
+ */
+function extractParagraphs(contentHtml: string): string[] {
+  if (!contentHtml) return [];
+  try {
+    const doc = new JSDOM(contentHtml).window.document;
+    const blocks = doc.querySelectorAll('p, li, blockquote, h2, h3, h4, h5, h6');
+    const paragraphs: string[] = [];
+    blocks.forEach((el) => {
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (text.length > 0) paragraphs.push(text);
+    });
+    // Cap to a sensible reading length to keep the payload bounded.
+    return paragraphs.slice(0, 60);
+  } catch {
+    return [];
+  }
+}
+
 export async function POST_impl(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
@@ -70,11 +92,18 @@ export async function POST_impl(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Could not extract readable content from this page' }, { status: 422 });
     }
 
+    // Extract real paragraphs from the parsed article HTML so the client can
+    // render proper paragraph structure. The client previously re-segmented the
+    // flattened `textContent` with a sentence-splitting heuristic, which dropped
+    // every paragraph break and produced an unformatted wall of text.
+    const paragraphs = extractParagraphs(article.content || '');
+
     return NextResponse.json({
       title: article.title,
       byline: article.byline,
       content: article.content,
       textContent: article.textContent,
+      paragraphs,
       excerpt: article.excerpt,
       siteName: article.siteName,
       length: article.length,

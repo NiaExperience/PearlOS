@@ -21,7 +21,7 @@ export function useOrganizations(tenantId?: string) {
     if (!tenantId) { setOrgs([]); return; }
     setLoading(true); setError(undefined);
     try {
-      const res = await fetch(`/api/organizations?tenantId=${tenantId}`);
+      const res = await fetch(`/dashboard/api/organizations?tenantId=${tenantId}`);
       if (!res.ok) throw new Error('Failed to load organizations');
       const data = await res.json();
       setOrgs((data.organizations || []).map((o: any) => ({ 
@@ -47,7 +47,7 @@ export function useOrganizations(tenantId?: string) {
       opts.onOptimistic(tempId);
     }
     try {
-      const res = await fetch('/api/organizations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenantId, name: name.trim() }) });
+      const res = await fetch('/dashboard/api/organizations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenantId, name: name.trim() }) });
       if (!res.ok) throw new Error('Create failed');
       const data = await res.json();
       const real = data.organization;
@@ -70,7 +70,7 @@ export function useOrganizations(tenantId?: string) {
     const snapshot = orgs;
     setOrgs(prev => prev.map(o => o._id === id ? { ...o, ...attrs } : o));
     try {
-      const res = await fetch('/api/organizations', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, tenantId, ...attrs }) });
+      const res = await fetch('/dashboard/api/organizations', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, tenantId, ...attrs }) });
       if (!res.ok) throw new Error('Update failed');
       const data = await res.json(); const updated = data.organization;
       setOrgs(prev => prev.map(o => o._id === id ? { _id: updated._id, name: updated.name } : o));
@@ -88,7 +88,7 @@ export function useOrganizations(tenantId?: string) {
     // Optimistically remove from list
     setOrgs(prev => prev.filter(o => o._id !== id));
     try {
-      const res = await fetch('/api/organizations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, tenantId }) });
+      const res = await fetch('/dashboard/api/organizations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, tenantId }) });
       if (!res.ok) throw new Error('Delete failed');
       const data = await res.json();
       toast({ title: 'Organization deleted', description: data.organization?.name || 'Organization' });

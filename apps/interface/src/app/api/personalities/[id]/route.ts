@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
-import { getSessionSafely } from '@nia/prism/core/auth';
 import { getPersonalityById } from '@nia/prism/core/actions/personality.actions';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 // GET /api/personalities/[id]?tenantId=...
 export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   try {
-    const session = await getSessionSafely(req, interfaceAuthOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const url = new URL(req.url);
+    const requestedTenantId = url.searchParams.get('tenantId') || url.searchParams.get('tenant_id');
+    const actorResult = await resolveInterfaceActorContext({ requestedTenantId });
+    if (!actorResult.ok) return actorResult.response;
+
     const id = ctx.params.id;
-    const personality = await getPersonalityById(id);
+    const personality = await getPersonalityById(id, actorResult.actor.tenantId);
     if (!personality) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }

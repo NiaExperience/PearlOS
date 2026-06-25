@@ -77,22 +77,22 @@ describe('Dashboard NextAuth Configuration', () => {
       url: 'http://localhost:4000/auth/signin', 
       baseUrl: 'http://localhost:4000' 
     });
-    expect(result).toBe('http://localhost:4000/dashboard');
+    expect(result).toBe('http://localhost:4000/dashboard/assistants');
   });
 
-  it('should handle redirect callback for login page', async () => {
+  it('should handle redirect callback for dashboard login page', async () => {
     const result = await dashboardAuthOptions.callbacks?.redirect?.({ 
-      url: 'http://localhost:4000/login', 
+      url: 'http://localhost:4000/dashboard/login', 
       baseUrl: 'http://localhost:4000' 
     });
-    expect(result).toBe('http://localhost:4000/dashboard');
+    expect(result).toBe('http://localhost:4000/dashboard/assistants');
   });
 
   it('should handle redirect callback for other URLs', async () => {
     const result = await dashboardAuthOptions.callbacks?.redirect?.({ 
-      url: 'http://localhost:4000/dashboard', 
+      url: 'http://localhost:4000/dashboard/assistants', 
       baseUrl: 'http://localhost:4000' 
     });
-    expect(result).toBe('http://localhost:4000/dashboard');
+    expect(result).toBe('http://localhost:4000/dashboard/assistants');
   });
 }); 

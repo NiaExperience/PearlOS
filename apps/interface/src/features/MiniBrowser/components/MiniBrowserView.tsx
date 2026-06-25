@@ -5,9 +5,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, RotateCcw, Home, Shield, AlertTriangle, Globe } from 'lucide-react';
 import { usePostHog } from 'posthog-js/react';
 
-interface MiniBrowserViewProps { initialUrl?: string; }
+interface MiniBrowserViewProps {
+  initialUrl?: string;
+  presentation?: 'browser' | 'seamless';
+}
 
-const MiniBrowserView: React.FC<MiniBrowserViewProps> = ({ initialUrl = 'https://www.google.com' }) => {
+const MiniBrowserView: React.FC<MiniBrowserViewProps> = ({
+  initialUrl = 'https://www.google.com',
+  presentation = 'browser',
+}) => {
   const posthog = usePostHog();
   const [url, setUrl] = useState(initialUrl);
   const [inputUrl, setInputUrl] = useState(initialUrl);
@@ -46,6 +52,42 @@ const MiniBrowserView: React.FC<MiniBrowserViewProps> = ({ initialUrl = 'https:/
   const handleIframeLoad = () => { setIsLoading(false); setError(null); };
   const handleIframeError = () => { setIsLoading(false); setError('Failed to load page. This might be due to CORS restrictions or the site blocking iframe embedding.'); };
   const isSecure = url.startsWith('https://'); const domain = url.replace(/^https?:\/\//, '').split('/')[0];
+  const isSeamless = presentation === 'seamless';
+
+  if (isSeamless) {
+    return (
+      <div className="relative h-full w-full bg-black">
+        {error ? (
+          <div className="flex h-full items-center justify-center bg-gray-950">
+            <div className="max-w-md p-8 text-center">
+              <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-orange-400" />
+              <h3 className="mb-2 text-lg font-semibold text-gray-200">App Load Error</h3>
+              <p className="mb-4 text-sm text-gray-400">{error}</p>
+              <button onClick={refresh} className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white transition-colors hover:bg-white/15">
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : (
+          <iframe
+            ref={iframeRef}
+            src={url}
+            className="h-full w-full border-0 bg-black"
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation"
+            referrerPolicy="strict-origin-when-cross-origin"
+            title="Studio App"
+          />
+        )}
+        {isLoading && !error && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/70 border-t-transparent" />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full bg-black flex flex-col">

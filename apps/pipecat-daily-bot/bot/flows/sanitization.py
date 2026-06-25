@@ -71,6 +71,97 @@ def _sanitize_context_scalar(value: Any) -> Any:
     return None
 
 
+def _profile_preferred_display_name(profile: Any) -> Optional[str]:
+    if not isinstance(profile, dict):
+        return None
+
+    first_name = profile.get("first_name")
+    if isinstance(first_name, str) and first_name.strip():
+        return first_name.strip()
+
+    public_persona = profile.get("publicPersona")
+    if isinstance(public_persona, dict):
+        display_name = public_persona.get("displayName")
+        if isinstance(display_name, str) and display_name.strip():
+            return display_name.strip()
+
+    metadata = profile.get("metadata")
+    if isinstance(metadata, dict):
+        for key in ("preferred_name", "first_name", "name", "full_name"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return None
+
+
+def _profile_from_context(context_dict: Dict[str, Any]) -> Any:
+    profile = context_dict.get("user_profile")
+    if profile is None:
+        profile = context_dict.get("profile_data")
+    return profile
+
+
+def _sanitize_public_persona(persona: Any) -> Dict[str, Any]:
+    if not isinstance(persona, dict):
+        return {}
+    result: Dict[str, Any] = {}
+    for key in ("displayName", "bio", "location", "profession", "avatarUrl", "isPublic"):
+        value = persona.get(key)
+        sanitized = _sanitize_context_scalar(value)
+        if sanitized is not None:
+            result[key] = sanitized
+    interests = persona.get("interests")
+    if isinstance(interests, list):
+        clean_interests = [
+            item.strip()
+            for item in interests
+            if isinstance(item, str) and item.strip()
+        ][:12]
+        if clean_interests:
+            result["interests"] = clean_interests
+    social_links = persona.get("socialLinks")
+    if isinstance(social_links, dict):
+        clean_links: Dict[str, Any] = {}
+        for key in ("twitter", "bluesky", "github", "website"):
+            value = _sanitize_context_scalar(social_links.get(key))
+            if value is not None:
+                clean_links[key] = value
+        if clean_links:
+            result["socialLinks"] = clean_links
+    return result
+
+
+def _sanitize_private_memory(private_memory: Any) -> Dict[str, Any]:
+    if not isinstance(private_memory, dict):
+        return {}
+    result: Dict[str, Any] = {}
+    for key in ("personalNotes", "relationshipContext"):
+        value = _sanitize_context_scalar(private_memory.get(key))
+        if value is not None:
+            result[key] = value
+    preferences = private_memory.get("preferences")
+    if isinstance(preferences, dict) and preferences:
+        result["preferences"] = preferences
+    reminders = private_memory.get("reminders")
+    if isinstance(reminders, list):
+        clean_reminders = []
+        for reminder in reminders[-5:]:
+            if not isinstance(reminder, dict):
+                continue
+            text = _sanitize_context_scalar(reminder.get("text"))
+            if text is None:
+                continue
+            clean_reminder: Dict[str, Any] = {"text": text}
+            due = _sanitize_context_scalar(reminder.get("dueDate"))
+            if due is not None:
+                clean_reminder["dueDate"] = due
+            clean_reminders.append(clean_reminder)
+        if clean_reminders:
+            result["reminders"] = clean_reminders
+    return result
+
+
 def _sanitize_profile_data(profile: Any, is_private_session: bool = False) -> Dict[str, Any]:
     """Extract metadata children, first_name, email, and lastConversationSummary from profile.
     
@@ -127,6 +218,15 @@ def _sanitize_profile_data(profile: Any, is_private_session: bool = False) -> Di
         last_convo = profile.get("lastConversationSummary")
         if isinstance(last_convo, dict):
             result["lastConversationSummary"] = last_convo
+
+    public_persona = _sanitize_public_persona(profile.get("publicPersona"))
+    if public_persona:
+        result["publicPersona"] = public_persona
+
+    if is_private_session:
+        private_memory = _sanitize_private_memory(profile.get("privateMemory"))
+        if private_memory:
+            result["privateMemory"] = private_memory
     
     return result
 
@@ -222,13 +322,21 @@ def _normalize_greeting_state(state: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(participant_contexts, dict):
         state["participant_contexts"] = {}
 
-    greeted_ids = state.get("greeted_ids")
-    if isinstance(greeted_ids, set):
+    greeted_user_ids = state.get("greeted_user_ids")
+    if isinstance(greeted_user_ids, set):
         pass
-    elif isinstance(greeted_ids, (list, tuple)):
-        state["greeted_ids"] = set(greeted_ids)
+    elif isinstance(greeted_user_ids, (list, tuple)):
+        state["greeted_user_ids"] = set(greeted_user_ids)
     else:
-        state["greeted_ids"] = set()
+        legacy_greeted_ids = state.get("greeted_ids")
+        if isinstance(legacy_greeted_ids, set):
+            state["greeted_user_ids"] = set(legacy_greeted_ids)
+        elif isinstance(legacy_greeted_ids, (list, tuple)):
+            state["greeted_user_ids"] = set(legacy_greeted_ids)
+        else:
+            state["greeted_user_ids"] = set()
+
+    state.pop("greeted_ids", None)
 
     # Leave grace_task / pair_task as-is; callers manage asyncio.Task lifecycle.
     state.setdefault("grace_task", None)
@@ -281,6 +389,10 @@ def _resolve_display_name(
     session_metadata: Dict[str, Any],
     context_dict: Dict[str, Any],
 ) -> Optional[str]:
+    profile_name = _profile_preferred_display_name(_profile_from_context(context_dict))
+    if profile_name:
+        return profile_name
+
     if isinstance(entry_display_name, str):
         trimmed = entry_display_name.strip()
         if trimmed:

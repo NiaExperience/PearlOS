@@ -42,20 +42,45 @@ _OUTPUT_SAMPLE_RATE = 24000
 _TTS_GAIN = float(os.environ.get("TTS_GAIN", "3.0"))
 
 
+_SOFT_CLIP_KNEE = 26000  # ~80% of full scale; samples below pass through linearly
+
+
+def _is_voice_url(value: str | None) -> bool:
+    if not value:
+        return False
+    lowered = value.strip().lower()
+    return lowered.startswith(("http://", "https://", "hf://"))
+
+
 def _apply_gain(pcm_bytes: bytes, gain: float) -> bytes:
-    """Amplify 16-bit PCM audio by gain factor with clipping protection."""
+    """Amplify 16-bit PCM audio with a soft knee instead of hard clipping.
+
+    Hard clipping at ±32767 produces audible buzzing on loud passages.
+    Below the knee we apply gain linearly; above it we asymptote toward
+    the rail using a smooth piecewise compression so peaks bend rather
+    than slam, eliminating the characteristic clip-buzz reported by Blair.
+    """
     if gain == 1.0:
         return pcm_bytes
     n_samples = len(pcm_bytes) // 2
     samples = struct.unpack(f"<{n_samples}h", pcm_bytes)
     boosted = []
+    knee = _SOFT_CLIP_KNEE
+    headroom = 32767 - knee
     for s in samples:
-        v = int(s * gain)
-        if v > 32767:
-            v = 32767
-        elif v < -32768:
-            v = -32768
-        boosted.append(v)
+        v = s * gain
+        absv = v if v >= 0 else -v
+        if absv <= knee:
+            out = int(v)
+        else:
+            over = absv - knee
+            compressed = knee + headroom * (over / (over + headroom))
+            out = int(compressed if v >= 0 else -compressed)
+            if out > 32767:
+                out = 32767
+            elif out < -32768:
+                out = -32768
+        boosted.append(out)
     return struct.pack(f"<{n_samples}h", *boosted)
 
 
@@ -150,8 +175,12 @@ class PocketTTSService(TTSService):
         # Build multipart form data
         data = aiohttp.FormData()
         data.add_field("text", text)
-        if self._params.voice_url:
+        if _is_voice_url(self._params.voice_url):
             data.add_field("voice_url", self._params.voice_url)
+        elif self._params.voice_url:
+            logger.debug(
+                f"PocketTTS ignoring non-URL voice selector: {self._params.voice_url[:80]}"
+            )
 
         try:
             async with self._session.post(

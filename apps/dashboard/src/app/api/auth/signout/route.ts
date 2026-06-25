@@ -11,9 +11,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Create response that redirects to login page
-    // const response = NextResponse.redirect(new URL('/login', request.url));    
+    // const response = NextResponse.redirect(new URL('/dashboard/login', request.url));    
     // Create response that clears the session
-    const response = NextResponse.json({ success: true, redirect: '/login' });
+    const response = NextResponse.json({ success: true, redirect: '/dashboard/login' });
 
 
     // Clear all NextAuth cookies comprehensively
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('[SIGNOUT] Error during sign-out:', error);
-    const response = NextResponse.json({ success: true, redirect: '/login' });
+    const response = NextResponse.json({ success: true, redirect: '/dashboard/login' });
     return response;
   }
 }

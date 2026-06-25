@@ -598,7 +598,42 @@ const Chat: React.FC<ChatProps> = ({
       return; // Block the message completely
     }
     
-    if (!daily || (!newMessage.trim() && !attachedImage)) {
+    if (!newMessage.trim() && !attachedImage) {
+      return;
+    }
+
+    // Daily.co's call object is null in headless / WebRTC-suppressed environments
+    // (server-rendered preview, Cloudflare tunnel without WebRTC, etc.). The
+    // historical behaviour was a silent early-return — the upload button looked
+    // functional but nothing transmitted. Now we surface a clear banner and, when
+    // an image is attached, fall back to a server-side upload endpoint so the
+    // file still lands in the user's workspace even if the chat link is down.
+    if (!daily) {
+      if (attachedImage) {
+        try {
+          const fd = new FormData();
+          fd.append('imageDataUrl', attachedImage.dataUrl);
+          fd.append('imageName', attachedImage.filename);
+          if (newMessage.trim()) fd.append('message', newMessage.trim());
+          const resp = await fetch('/api/chat/upload', { method: 'POST', body: fd });
+          if (!resp.ok) {
+            const err = await resp.text().catch(() => '');
+            throw new Error(`upload ${resp.status}: ${err.slice(0, 200)}`);
+          }
+          const result = await resp.json();
+          setLastFilteredMessage(`Image saved to your workspace as ${result.savedAs ?? attachedImage.filename}.`);
+          setTimeout(() => setLastFilteredMessage(null), 5000);
+          setNewMessage('');
+          setAttachedImage(null);
+          return;
+        } catch (e) {
+          setLastFilteredMessage('Chat link is down and the upload fallback failed. Please retry shortly.');
+          setTimeout(() => setLastFilteredMessage(null), 5000);
+          return;
+        }
+      }
+      setLastFilteredMessage('Chat link is not connected yet — message not sent. Try again in a moment.');
+      setTimeout(() => setLastFilteredMessage(null), 5000);
       return;
     }
 

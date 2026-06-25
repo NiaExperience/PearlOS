@@ -2,6 +2,7 @@
 
 import { isFeatureEnabled } from '@nia/features';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { DesktopModeProvider } from '@interface/contexts/desktop-mode-context';
@@ -13,12 +14,14 @@ import { DailyCallStateProvider } from '@interface/features/DailyCall/state/stor
 import { ErrorBoundary } from '@interface/components/ErrorBoundary';
 import { SoundtrackProvider, SoundtrackToggleButton } from '@interface/features/Soundtrack';
 import { setClientLogContext } from '@interface/lib/client-logger';
+import { installGlobalErrorReporter } from '@interface/lib/error-reporter';
 import { useLayoutModeSwitchListener } from '@interface/hooks/useLayoutModeSwitchListener';
 import { useGatewaySocket } from '@interface/features/DailyCall/hooks/useGatewaySocket';
 import { useDailyCallState } from '@interface/features/DailyCall/state/store';
 import { ConsoleNoiseFilter } from '@interface/providers/console-noise-filter';
 import { PostHogProvider } from '@interface/providers/posthog-provider';
 import { AssistantSoundEffects } from '@interface/components/assistant-sound-effects';
+import { PersonalFeaturePackageHydrator } from '@interface/components/PersonalFeaturePackageHydrator';
 import { getClientLogger } from '@interface/lib/client-logger';
 
 const providersLog = getClientLogger('[client_providers]');
@@ -28,16 +31,29 @@ function LogContextProvider({ children }: { children: React.ReactNode }) {
   const { data, status } = useSession();
 
   useEffect(() => {
+    installGlobalErrorReporter();
+  }, []);
+
+  useEffect(() => {
     if (status === 'loading') return;
     const sessionUser = (data?.user as Record<string, unknown>) || {};
     const sessionId = (data as Record<string, unknown> | null | undefined)?.sessionId as string | undefined;
     const userScopedSessionId = (sessionUser as Record<string, unknown>).sessionId as string | undefined;
 
+    const currentUserId = ((sessionUser as Record<string, unknown>).id as string | null | undefined) ?? null;
     setClientLogContext({
       sessionId: sessionId || userScopedSessionId || null,
-      userId: (sessionUser as Record<string, unknown>).id as string | null ?? null,
-      userName: (sessionUser as Record<string, unknown>).name as string | null ?? null,
+      userId: currentUserId,
+      userName: ((sessionUser as Record<string, unknown>).name as string | null | undefined) ?? null,
     });
+    if (typeof window !== 'undefined') {
+      try {
+        if (currentUserId) window.sessionStorage.setItem('sessionUserId', currentUserId);
+        else window.sessionStorage.removeItem('sessionUserId');
+      } catch {
+        // ignore private-mode storage failures
+      }
+    }
   }, [data, status]);
 
   return <>{children}</>;
@@ -63,14 +79,27 @@ function LayoutModeSwitchBridge() {
 
 /** Activates the gateway WebSocket so nia.events arrive even without Daily. */
 function GatewaySocketBridge() {
+  const { data: session, status } = useSession();
   const { roomUrl, joined } = useDailyCallState();
-  const sessionId = joined ? extractRoomName(roomUrl) : undefined;
-  useGatewaySocket({ sessionId });
+  const sessionUser = (session?.user as Record<string, unknown> | null | undefined) || {};
+  const sessionRecord = session as unknown as Record<string, unknown> | null | undefined;
+  const userId = typeof sessionUser.id === 'string' ? sessionUser.id : null;
+  const authSessionId =
+    typeof sessionRecord?.sessionId === 'string'
+      ? sessionRecord.sessionId
+      : typeof sessionUser.sessionId === 'string'
+        ? sessionUser.sessionId
+        : undefined;
+  const dailySessionId = joined ? extractRoomName(roomUrl) : undefined;
+  const sessionId = dailySessionId || authSessionId || userId || undefined;
+  useGatewaySocket({ sessionId: status === 'loading' ? undefined : sessionId, userId });
   return null;
 }
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const soundtrackEnabled = isFeatureEnabled('soundtrack');
+  const terminalOnlyRoute = pathname === '/terminal' || Boolean(pathname?.endsWith('/terminal'));
 
   useEffect(() => {
     providersLog.info('ClientProviders mounted', {
@@ -90,6 +119,15 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     }
   }, [soundtrackEnabled]);
 
+  if (terminalOnlyRoute) {
+    return (
+      <LogContextProvider>
+        <ConsoleNoiseFilter />
+        {children}
+      </LogContextProvider>
+    );
+  }
+
   return (
     <LogContextProvider>
       <PostHogProvider>
@@ -101,6 +139,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
                   {/* Suppress known-benign console noise globally in the client */}
                   <GatewaySocketBridge />
                   <LayoutModeSwitchBridge />
+                  <PersonalFeaturePackageHydrator />
                   <ConsoleNoiseFilter />
                   <AssistantSoundEffects />
                   {soundtrackEnabled ? (
@@ -121,4 +160,3 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     </LogContextProvider>
   );
 }
-

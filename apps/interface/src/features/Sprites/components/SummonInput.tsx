@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { SummonState } from '../types';
+
+import type { SummonOptions, SummonState } from '../types';
 
 interface SummonInputProps {
-  onSummon: (prompt: string) => void;
+  onSummon: (prompt: string, options?: SummonOptions) => void;
   summonState: SummonState;
 }
 
@@ -23,6 +24,9 @@ export const SummonInput: React.FC<SummonInputProps> = ({ onSummon, summonState 
 
   const handleSubmit = () => {
     if (value.trim() && !isDisabled) {
+      // Size/kind are auto-detected from the prompt by useSprites — we no
+      // longer expose mode buttons. Voice/event-driven summons can still pass
+      // explicit options through the spriteSummonRequest event if needed.
       onSummon(value.trim());
       setValue('');
     }

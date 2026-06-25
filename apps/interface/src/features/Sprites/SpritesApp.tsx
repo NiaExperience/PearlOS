@@ -67,7 +67,7 @@ const SpritesApp: React.FC = () => {
             <p className="text-center text-xs text-white/40 mb-3" style={{ fontFamily: 'Gohufont, monospace' }}>
               &quot;{selectedSprite.prompt}&quot;
             </p>
-            <div className="flex justify-center gap-3">
+            <div className="flex w-full justify-center">
               <button
                 type="button"
                 className="rounded-lg border border-cyan-400/30 px-4 py-1.5 text-xs text-cyan-400/80 hover:bg-cyan-400/10 transition-colors"
@@ -80,13 +80,6 @@ const SpritesApp: React.FC = () => {
                 }}
               >
                 Download
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-violet-400/30 px-4 py-1.5 text-xs text-violet-400/80 hover:bg-violet-400/10 transition-colors"
-                style={{ fontFamily: 'Gohufont, monospace' }}
-              >
-                Deploy
               </button>
             </div>
           </div>

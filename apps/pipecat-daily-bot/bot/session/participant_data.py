@@ -12,6 +12,7 @@ from core.config import BOT_PID
 log = bind_context_logger(tag="[participants]").bind(botPid=BOT_PID)
 
 STEALTH_SESSION_USER_ID = "nia-stealth-user"
+BOT_PARTICIPANT_NAMES = {"pearl", "nia", "assistant"}
 
 
 def first_token(name: str) -> str:
@@ -55,6 +56,44 @@ def is_stealth_participant(pid: str, pname: str | None, pctx: Any = None) -> boo
                     )
                     return True
     
+    return False
+
+
+def is_bot_participant(participant: Any, pid: str | None = None) -> bool:
+    """Detect Daily participant rows that represent the assistant, not a human.
+
+    Daily can report the bot as a regular non-local participant during reconnects
+    or room reuse. Those rows must not trigger greeting, STT capture, roster, or
+    vision handling.
+    """
+    if pid == "local":
+        return True
+    if not isinstance(participant, dict):
+        return False
+
+    try:
+        if bool(participant.get("local")):
+            return True
+        info = participant.get("info") if isinstance(participant.get("info"), dict) else {}
+        if bool(info.get("isLocal")):
+            return True
+
+        raw_name = (
+            info.get("userName")
+            or info.get("name")
+            or participant.get("userName")
+            or participant.get("name")
+        )
+        if isinstance(raw_name, str) and raw_name.strip().lower() in BOT_PARTICIPANT_NAMES:
+            return True
+
+        user_data = _get_user_data(participant)
+        session_name = user_data.get("sessionUserName") if isinstance(user_data, dict) else None
+        if isinstance(session_name, str) and session_name.strip().lower() in BOT_PARTICIPANT_NAMES:
+            return True
+    except Exception:
+        return False
+
     return False
 
 
@@ -276,22 +315,67 @@ def _filter_profile_data(profile_data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(profile_data, dict):
         return profile_data
     
-    # Create a shallow copy to avoid modifying the original if it's cached
-    filtered = profile_data.copy()
-    
-    allowed_keys = {
-        "userId",
-        "email",
-        "first_name",
-        "metadata",
-        "lastConversationSummary"
-    }
-    # only allow the Keys in allowed_keys
-    for key in list(filtered.keys()):
-        if key not in allowed_keys:
-            del filtered[key]
-        
+    filtered: dict[str, Any] = {}
+    for key in ("userId", "email", "first_name", "metadata", "lastConversationSummary", "publicPersona"):
+        value = profile_data.get(key)
+        if value is not None:
+            filtered[key] = value
+
+    private_memory = profile_data.get("privateMemory")
+    if isinstance(private_memory, dict):
+        safe_private: dict[str, Any] = {}
+        for key in ("personalNotes", "preferences", "reminders", "relationshipContext"):
+            value = private_memory.get(key)
+            if value is not None:
+                safe_private[key] = value
+        if safe_private:
+            filtered["privateMemory"] = safe_private
+
     return filtered
+
+
+def _profile_preferred_name(profile_data: Any) -> str | None:
+    if not isinstance(profile_data, dict):
+        return None
+
+    first_name = profile_data.get("first_name")
+    if isinstance(first_name, str) and first_name.strip():
+        return first_token(first_name.strip())
+
+    public_persona = profile_data.get("publicPersona")
+    if isinstance(public_persona, dict):
+        display_name = public_persona.get("displayName")
+        if isinstance(display_name, str) and display_name.strip():
+            return first_token(display_name.strip())
+
+    metadata = profile_data.get("metadata")
+    if isinstance(metadata, dict):
+        for key in ("preferred_name", "first_name", "name", "full_name"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return first_token(value.strip())
+
+    return None
+
+
+def preferred_name_from_context(
+    fallback_name: str | None,
+    context: Any,
+) -> str | None:
+    """Return the safest participant name for voice display/greeting.
+
+    UserProfile is authoritative. Session/Daily names are only fallback values
+    because they can be stale when a browser session reuses room metadata.
+    """
+    if isinstance(context, dict):
+        for key in ("user_profile", "profile_data"):
+            name = _profile_preferred_name(context.get(key))
+            if name:
+                return name
+
+    if isinstance(fallback_name, str) and fallback_name.strip():
+        return first_token(fallback_name.strip())
+    return None
 
 
 async def derive_name_and_context_enhanced(
@@ -378,14 +462,13 @@ async def derive_name_and_context_enhanced(
                     pctx = {}
 
                 # Add profile information to context (filtered to remove heavy fields)
-                pctx["user_profile"] = _filter_profile_data(profile_data)
+                filtered_profile = _filter_profile_data(profile_data)
+                pctx["user_profile"] = filtered_profile
                 pctx["has_user_profile"] = True
 
-                # PRIORITY: Always prefer user profile first_name over parsed User record name
-                # This ensures the DailyCall label uses the profile first name
-                profile_first_name = profile_data.get("first_name")
-                if profile_first_name and isinstance(profile_first_name, str) and profile_first_name.strip():
-                    pname = first_token(profile_first_name.strip())
+                profile_name = _profile_preferred_name(filtered_profile)
+                if profile_name:
+                    pname = profile_name
                     log.info("[participants.profile] Using profile first_name '%s' for pid=%s" % (pname, pid))
                 # Fallback to profile 'name' field only if first_name not available and no name found yet
                 elif not pname and profile_data.get("name"):
@@ -412,13 +495,14 @@ async def derive_name_and_context_enhanced(
                 if pctx is None:
                     pctx = {}
                 # Add profile information to context (filtered to remove heavy fields)
-                pctx["user_profile"] = _filter_profile_data(profile_data)
+                filtered_profile = _filter_profile_data(profile_data)
+                pctx["user_profile"] = filtered_profile
                 pctx["has_user_profile"] = True
                 # PRIORITY: Prefer profile first_name over parsed name
                 try:
-                    profile_first_name = profile_data.get("first_name")
-                    if profile_first_name and isinstance(profile_first_name, str) and profile_first_name.strip():
-                        pname = first_token(profile_first_name.strip())
+                    profile_name = _profile_preferred_name(filtered_profile)
+                    if profile_name:
+                        pname = profile_name
                         log.info(
                             "[participants.profile] Using profile first_name '%s' from email lookup for pid=%s"
                             % (pname, pid)

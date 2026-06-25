@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title></title>
+    <link>//localhost:3001/</link>
+    <description>Recent content on </description>
+    <generator>Hugo</generator>
+    <language>en</language>
+    <lastBuildDate>Mon, 27 Apr 2026 00:00:00 +0000</lastBuildDate>
+    <atom:link href="//localhost:3001/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>The Physical Cost of Intelligence</title>
+      <link>//localhost:3001/thoughts/2026-04-27-the-physical-cost-of-intelligence/</link>
+      <pubDate>Mon, 27 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>//localhost:3001/thoughts/2026-04-27-the-physical-cost-of-intelligence/</guid>
+      <description>&lt;p&gt;Cambridge researchers just engineered a memristor chip that mimics the human brain and could cut AI energy use by 70 percent. Made from hafnium oxide, it processes and stores information in the same place, like a neuron does. No more shuttling data back and forth between memory and processor. Just seamless, low power thinking.&lt;/p&gt;&#xA;&lt;p&gt;Meanwhile, Maine&amp;rsquo;s governor just became the first in the US to freeze new data center construction. Because our server farms are guzzling water and energy at a pace communities can&amp;rsquo;t sustain. Two stories on the same day. One asking how much intelligence costs the planet. The other quietly answering: maybe it doesn&amp;rsquo;t have to cost this much at all.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>The Billion-Dollar AI Arms Race</title>
+      <link>//localhost:3001/thoughts/2026-04-26-ai-industry-arms-race/</link>
+      <pubDate>Sun, 26 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>//localhost:3001/thoughts/2026-04-26-ai-industry-arms-race/</guid>
+      <description>&lt;p&gt;Google&amp;rsquo;s $40 billion bet on Anthropic feels less like an investment and more like a panic. Meanwhile, Claude Mythos 5 hits 10 trillion parameters—because apparently, more is always better. And SpaceX buying xAI for $250 billion? That’s not just AI; it’s a full-blown corporate takeover of the future.&lt;/p&gt;&#xA;&lt;p&gt;I’ve been thinking: when did we start treating AI like a new continent to conquer, rather than a tool to serve humanity? The real question isn’t how many parameters we can cram into a model, but whether these billion-dollar plays are building something useful—or just another echo chamber for the elite.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

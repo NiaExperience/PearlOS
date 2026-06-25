@@ -8,8 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
  *
  * Usage:
  *   GET /api/news/feed                    — fetch all configured feeds
- *   GET /api/news/feed?url=<rss-url>      — fetch a single feed
- *   GET /api/news/feed?urls=<url1>,<url2> — fetch specific feeds
  */
 
 interface FeedItem {
@@ -27,40 +25,92 @@ interface FeedConfig {
   url: string;
   name: string;
   enabled: boolean;
-  category: string;
+  category?: string;
 }
 
+const CATEGORY_ORDER = [
+  'general',
+  'world',
+  'business',
+  'entertainment',
+  'sports',
+  'science',
+  'health',
+  'technology',
+];
+
 const DEFAULT_FEEDS: FeedConfig[] = [
+  // ── General ──
+  { url: 'https://feeds.bbci.co.uk/news/rss.xml', name: 'BBC News', enabled: true, category: 'general' },
+  { url: 'https://feeds.npr.org/1001/rss.xml', name: 'NPR News', enabled: true, category: 'general' },
+
   // ── World (Independent) ──
-  { url: 'https://apnews.com/feed', name: 'AP News', enabled: true, category: 'world' },
+  { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera', enabled: true, category: 'world' },
   { url: 'https://www.theguardian.com/world/rss', name: 'The Guardian', enabled: true, category: 'world' },
   { url: 'https://www.democracynow.org/democracynow.rss', name: 'Democracy Now!', enabled: true, category: 'world' },
   { url: 'https://restofworld.org/feed/', name: 'Rest of World', enabled: true, category: 'world' },
 
-  // ── Tech (Independent) ──
-  { url: 'https://404media.co/rss/', name: '404 Media', enabled: true, category: 'tech' },
-  { url: 'https://www.techdirt.com/feed/', name: 'Techdirt', enabled: true, category: 'tech' },
-  { url: 'https://www.theregister.com/headlines.atom', name: 'The Register', enabled: true, category: 'tech' },
-  { url: 'https://themarkup.org/feeds/rss.xml', name: 'The Markup', enabled: true, category: 'tech' },
-  { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica', enabled: true, category: 'tech' },
-
-  // ── Science (Independent) ──
-  { url: 'https://undark.org/feed/', name: 'Undark Magazine', enabled: true, category: 'science' },
-  { url: 'https://theconversation.com/us/articles.atom', name: 'The Conversation', enabled: true, category: 'science' },
-
-  // ── Politics (Independent) ──
-  { url: 'https://feeds.propublica.org/propublica/main', name: 'ProPublica', enabled: true, category: 'politics' },
-  { url: 'https://www.thelever.com/feed/', name: 'The Lever', enabled: true, category: 'politics' },
-  { url: 'https://www.themarshallproject.org/rss/main', name: 'Marshall Project', enabled: true, category: 'politics' },
-  { url: 'https://theintercept.com/feed/?lang=en', name: 'The Intercept', enabled: true, category: 'politics' },
+  // ── Business ──
+  { url: 'https://www.marketwatch.com/rss/topstories', name: 'MarketWatch', enabled: true, category: 'business' },
+  { url: 'https://www.ft.com/news-feed?format=rss', name: 'Financial Times', enabled: true, category: 'business' },
 
   // ── Entertainment ──
   { url: 'https://variety.com/feed/', name: 'Variety', enabled: true, category: 'entertainment' },
   { url: 'https://www.rollingstone.com/feed/', name: 'Rolling Stone', enabled: true, category: 'entertainment' },
 
+  // ── Sports ──
+  { url: 'https://www.espn.com/espn/rss/news', name: 'ESPN', enabled: true, category: 'sports' },
+  { url: 'https://sports.yahoo.com/rss/', name: 'Yahoo Sports', enabled: true, category: 'sports' },
+
+  // ── Science (Independent) ──
+  { url: 'https://undark.org/feed/', name: 'Undark Magazine', enabled: true, category: 'science' },
+  { url: 'https://theconversation.com/us/articles.atom', name: 'The Conversation', enabled: true, category: 'science' },
+
   // ── Health (Independent) ──
   { url: 'https://kffhealthnews.org/feed/', name: 'KFF Health News', enabled: true, category: 'health' },
+
+  // ── Technology (Independent) ──
+  { url: 'https://404media.co/rss/', name: '404 Media', enabled: true, category: 'technology' },
+  { url: 'https://www.techdirt.com/feed/', name: 'Techdirt', enabled: true, category: 'technology' },
+  { url: 'https://www.theregister.com/headlines.atom', name: 'The Register', enabled: true, category: 'technology' },
+  { url: 'https://themarkup.org/feeds/rss.xml', name: 'The Markup', enabled: true, category: 'technology' },
+  { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica', enabled: true, category: 'technology' },
 ];
+
+function customFeedFetchEnabled(): boolean {
+  return process.env.PEARLOS_NEWS_CUSTOM_FEEDS_ENABLED === '1';
+}
+
+function normalizeCategory(category?: string): string {
+  const normalized = (category || '').trim().toLowerCase();
+  if (normalized === 'tech') return 'technology';
+  if (normalized === 'top' || normalized === 'top stories') return 'general';
+  return normalized || 'general';
+}
+
+function inferCategory(feed: FeedConfig): string {
+  const haystack = `${feed.name} ${feed.url}`.toLowerCase();
+  if (haystack.includes('espn') || haystack.includes('sports')) return 'sports';
+  if (haystack.includes('marketwatch') || haystack.includes('ft.com') || haystack.includes('business')) return 'business';
+  if (haystack.includes('variety') || haystack.includes('rollingstone') || haystack.includes('entertainment')) return 'entertainment';
+  if (haystack.includes('kffhealth') || haystack.includes('health')) return 'health';
+  if (haystack.includes('undark') || haystack.includes('conversation.com') || haystack.includes('science')) return 'science';
+  if (haystack.includes('404media') || haystack.includes('techdirt') || haystack.includes('theregister') || haystack.includes('themarkup') || haystack.includes('arstechnica') || haystack.includes('verge')) return 'technology';
+  if (haystack.includes('guardian.com/world') || haystack.includes('democracynow') || haystack.includes('restofworld')) return 'world';
+  return 'general';
+}
+
+function completeFeedMix(feeds: FeedConfig[]): FeedConfig[] {
+  const normalizedFeeds = feeds.map(feed => ({
+    ...feed,
+    enabled: feed.enabled !== false,
+    category: normalizeCategory(feed.category || inferCategory(feed)),
+  }));
+  const seenUrls = new Set(normalizedFeeds.map(feed => feed.url));
+  const coveredCategories = new Set(normalizedFeeds.filter(feed => feed.enabled).map(feed => normalizeCategory(feed.category)));
+  const supplements = DEFAULT_FEEDS.filter(feed => !seenUrls.has(feed.url) && !coveredCategories.has(normalizeCategory(feed.category)));
+  return [...normalizedFeeds, ...supplements];
+}
 
 // ── Minimal XML helpers (no external deps) ──────────────────────────
 
@@ -109,7 +159,7 @@ function stripHtml(html: string): string {
   return decoded.replace(/<[^>]*>/g, '').trim();
 }
 
-function parseRssFeed(xml: string, sourceName: string, sourceUrl: string, category: string): FeedItem[] {
+function parseRssFeed(xml: string, sourceName: string, sourceUrl: string, category?: string): FeedItem[] {
   const items: FeedItem[] = [];
 
   const itemRegex = /<item[\s>]([\s\S]*?)<\/item>/gi;
@@ -127,7 +177,7 @@ function parseRssFeed(xml: string, sourceName: string, sourceUrl: string, catego
     const pubDate = getTagContent(itemXml, 'pubDate') || getTagContent(itemXml, 'dc:date');
     const image = extractImage(itemXml);
 
-    items.push({ title, link, description, pubDate, image, source: sourceName, sourceUrl, category });
+    items.push({ title, link, description, pubDate, image, source: sourceName, sourceUrl, category: normalizeCategory(category) });
     count++;
   }
 
@@ -150,7 +200,7 @@ function parseRssFeed(xml: string, sourceName: string, sourceUrl: string, catego
         return imgMatch ? imgMatch[1] : '';
       })();
 
-      items.push({ title, link, description, pubDate, image, source: sourceName, sourceUrl, category });
+      items.push({ title, link, description, pubDate, image, source: sourceName, sourceUrl, category: normalizeCategory(category) });
       count++;
     }
   }
@@ -269,7 +319,7 @@ async function refreshCache(): Promise<FeedCache> {
   // Enrich items missing images with OG images from article pages
   await enrichItemsWithOgImages(allItems);
 
-  // Sort by date, then within each category put items with images first
+  // Sort by date, then within each category put items with images first.
   allItems.sort((a, b) => {
     const da = new Date(a.pubDate).getTime();
     const db = new Date(b.pubDate).getTime();
@@ -279,10 +329,12 @@ async function refreshCache(): Promise<FeedCache> {
     return db - da;
   });
 
-  // Group by category, sort images-first within each, then interleave back
+  // Group by category, sort images-first within each, then round-robin categories
+  // so the default feed starts with a balanced mix instead of one category block.
   const byCategory = new Map<string, FeedItem[]>();
   for (const item of allItems) {
-    const cat = item.category;
+    const cat = normalizeCategory(item.category);
+    item.category = cat;
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat)!.push(item);
   }
@@ -291,7 +343,23 @@ async function refreshCache(): Promise<FeedCache> {
     // Stable sort: items with images first, preserving date order within each group
     const withImg = catItems.filter(i => !!i.image);
     const withoutImg = catItems.filter(i => !i.image);
-    sortedItems.push(...withImg, ...withoutImg);
+    catItems.splice(0, catItems.length, ...withImg, ...withoutImg);
+  }
+
+  const orderedCategories = [
+    ...CATEGORY_ORDER.filter(cat => byCategory.has(cat)),
+    ...Array.from(byCategory.keys()).filter(cat => !CATEGORY_ORDER.includes(cat)),
+  ];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const cat of orderedCategories) {
+      const next = byCategory.get(cat)?.shift();
+      if (next) {
+        sortedItems.push(next);
+        added = true;
+      }
+    }
   }
 
   const cache: FeedCache = {
@@ -338,7 +406,7 @@ async function loadConfig(): Promise<FeedConfig[]> {
     const raw = await fs.readFile(configPath, 'utf-8');
     const config = JSON.parse(raw);
     if (Array.isArray(config.feeds) && config.feeds.length > 0) {
-      return config.feeds;
+      return completeFeedMix(config.feeds);
     }
   } catch {
     // Config doesn't exist yet, use defaults
@@ -352,6 +420,9 @@ export async function GET(request: NextRequest) {
   // Single feed URL mode
   const singleUrl = searchParams.get('url');
   if (singleUrl) {
+    if (!customFeedFetchEnabled()) {
+      return NextResponse.json({ error: 'custom_news_feed_disabled' }, { status: 403 });
+    }
     const items = await fetchFeed({ url: singleUrl, name: 'Custom', enabled: true, category: 'uncategorized' });
     return NextResponse.json({ items, fetchedAt: new Date().toISOString() });
   }
@@ -359,6 +430,9 @@ export async function GET(request: NextRequest) {
   // Multiple specific URLs mode
   const urlsCsv = searchParams.get('urls');
   if (urlsCsv) {
+    if (!customFeedFetchEnabled()) {
+      return NextResponse.json({ error: 'custom_news_feed_disabled' }, { status: 403 });
+    }
     const urls = urlsCsv.split(',').map(u => u.trim()).filter(Boolean);
     const feeds: FeedConfig[] = urls.map(u => ({ url: u, name: 'Custom', enabled: true, category: 'uncategorized' }));
     const results = await Promise.allSettled(feeds.map(f => fetchFeed(f)));

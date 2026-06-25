@@ -19,14 +19,10 @@ export function useAdminStatus(): AdminStatus {
 
   useEffect(() => {
     async function checkAdminStatus() {
-      const isLocalNoAuth =
-        typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' ||
-          window.location.hostname === '127.0.0.1' ||
-          window.location.hostname.includes('runpod.net')) &&
-        process.env.NODE_ENV !== 'production';
+      const isDashboardAuthDisabled =
+        process.env.NEXT_PUBLIC_DISABLE_DASHBOARD_AUTH === 'true';
 
-      if (isLocalNoAuth) {
+      if (isDashboardAuthDisabled) {
         setAdminStatus({
           isAdmin: true,
           adminTenants: ['local-dev'],
@@ -46,7 +42,7 @@ export function useAdminStatus(): AdminStatus {
 
       try {
         // Fetch user's tenant roles to check admin status
-        const response = await fetch('/api/users/me/tenant-roles');
+        const response = await fetch('/dashboard/api/users/me/tenant-roles');
         if (response.ok) {
           const data = await response.json();
           const adminTenants = data.roles

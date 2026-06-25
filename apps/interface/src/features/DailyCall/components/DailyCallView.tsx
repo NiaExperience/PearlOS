@@ -46,6 +46,7 @@ interface DailyCallViewProps {
   modePersonalityVoiceConfig?: Record<string, any>;
   dailyCallPersonalityVoiceConfig?: Record<string, any>;
   sessionOverride?: Record<string, any>;
+  visionMode?: boolean;
   onLeave: () => void;
   updateDailyProviderState: (username: string, joined: boolean) => void;
 }
@@ -124,6 +125,7 @@ function DailyCallView({
   modePersonalityVoiceConfig,
   dailyCallPersonalityVoiceConfig,
   sessionOverride,
+  visionMode = false,
   onLeave,
   updateDailyProviderState,
 }: DailyCallViewProps) {
@@ -138,6 +140,7 @@ function DailyCallView({
       tenantId,
       supportedFeaturesCount: Array.isArray(supportedFeatures) ? supportedFeatures.length : null,
       hasDailyCallFeature: Array.isArray(supportedFeatures) ? supportedFeatures.includes('dailyCall') : null,
+      visionMode,
       hasRequireUserProfile: Array.isArray(supportedFeatures) ? supportedFeatures.includes('requireUserProfile') : null,
       voiceId,
       voiceProvider,
@@ -147,9 +150,11 @@ function DailyCallView({
     logConn({ phase: 'init.view.mount' as any, roomUrl: initialRoomUrl, username: '' });
   }, []); // Only on mount
 
-  // In dev mode, fetch room URL async if not provided
-  const [roomUrl, setRoomUrl] = useState(initialRoomUrl);
+  // Vision calls need an authenticated per-user room so the bot and user join
+  // the same current session. Shared DailyCall links keep using the provided URL.
+  const [roomUrl, setRoomUrl] = useState(() => (visionMode ? '' : initialRoomUrl));
   const [roomUrlLoading, setRoomUrlLoading] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     log.info('🪟 [DailyCallView] Room URL effect triggered', {
@@ -160,11 +165,69 @@ function DailyCallView({
       roomUrlLoading,
     });
 
+    if (visionMode) {
+      let cancelled = false;
+      const fetchVisionRoom = async () => {
+        setRoomUrlLoading(true);
+        try {
+          const res = await fetch('/api/voice/room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenantId }),
+          });
+          if (!res.ok) {
+            const errorText = await res.text().catch(() => '');
+            log.error('🪟 [DailyCallView] Failed to resolve PearlVision room', {
+              event: 'daily_call_vision_room_failed',
+              status: res.status,
+              errorText: errorText.slice(0, 300),
+            });
+            if (!cancelled) {
+              setConnectionError(`Pearl Vision room setup failed (${res.status}).`);
+            }
+            return;
+          }
+          const data = await res.json().catch(() => ({}));
+          if (!data?.roomUrl) {
+            log.error('🪟 [DailyCallView] PearlVision room response missing roomUrl', {
+              event: 'daily_call_vision_room_missing_url',
+            });
+            if (!cancelled) {
+              setConnectionError('Pearl Vision room setup did not return a room URL.');
+            }
+            return;
+          }
+          if (!cancelled) {
+            setConnectionError(null);
+            setRoomUrl(current => (current === data.roomUrl ? current : data.roomUrl));
+          }
+        } catch (e) {
+          log.error('🪟 [DailyCallView] Error resolving PearlVision room', {
+            event: 'daily_call_vision_room_error',
+            error: e instanceof Error ? e.message : String(e),
+          });
+          if (!cancelled) {
+            setConnectionError(e instanceof Error ? e.message : 'Pearl Vision room setup failed.');
+          }
+        } finally {
+          if (!cancelled) {
+            setRoomUrlLoading(false);
+          }
+        }
+      };
+
+      fetchVisionRoom();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (initialRoomUrl) {
       log.info('🪟 [DailyCallView] Using provided initial room URL', {
         event: 'daily_call_using_initial_room_url',
         initialRoomUrl,
       });
+      setConnectionError(null);
       setRoomUrl(current => (current === initialRoomUrl ? current : initialRoomUrl));
       return;
     }
@@ -190,8 +253,10 @@ function DailyCallView({
             roomUrl: data.roomUrl,
           });
           if (data.roomUrl) {
+            setConnectionError(null);
             setRoomUrl(data.roomUrl);
           } else {
+            setConnectionError('Daily room setup did not return a room URL.');
             log.error('🪟 [DailyCallView] Dev room response missing roomUrl', {
               event: 'daily_call_fetch_dev_room_missing_url',
               data,
@@ -205,8 +270,10 @@ function DailyCallView({
             statusText: res.statusText,
             errorText,
           });
+          setConnectionError(`Daily room setup failed (${res.status}).`);
         }
       } catch (e) {
+        setConnectionError(e instanceof Error ? e.message : 'Daily room setup failed.');
         log.error('🪟 [DailyCallView] Error fetching dev room', {
           event: 'daily_call_fetch_dev_room_error',
           error: e instanceof Error ? e.message : String(e),
@@ -218,7 +285,7 @@ function DailyCallView({
     };
 
     fetchDevRoom();
-  }, [initialRoomUrl]);
+  }, [initialRoomUrl, tenantId, visionMode]);
 
   // Initialize state from persistent singleton state to survive component unmounts during minimize/restore
   const [localUsername, setLocalUsername] = useState(() => {
@@ -513,12 +580,18 @@ function DailyCallView({
   // Auto-join: always skip PreJoin screen and join immediately
   // (PreJoin / "Early Access" screen disabled for now — will revisit later)
   const autoJoinFiredRef = useRef(false);
+  const autoJoinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoJoinRoomRef = useRef<string | null>(null);
   useEffect(() => {
-    if (localJoined || autoJoinFiredRef.current) return;
+    if (autoJoinRoomRef.current !== roomUrl) {
+      autoJoinRoomRef.current = roomUrl || null;
+      autoJoinFiredRef.current = false;
+    }
+
+    if (localJoined || autoJoinFiredRef.current || autoJoinTimerRef.current || connectionError) return;
     // Use session username or fallback to 'anonymous'
     const name = localUsername || session?.user?.name || 'anonymous';
     if (!roomUrl) return;
-    autoJoinFiredRef.current = true;
     log.info('[DailyCallView] Auto-join triggered', {
       event: 'daily_call_auto_join',
       username: name,
@@ -526,11 +599,20 @@ function DailyCallView({
     });
     // Defer slightly to let other effects settle
     const timer = setTimeout(() => {
+      autoJoinTimerRef.current = null;
+      if (localJoined || autoJoinFiredRef.current || connectionError || !roomUrl) return;
+      autoJoinFiredRef.current = true;
       void handlePreJoin(String(name).trim());
     }, 100);
-    return () => clearTimeout(timer);
+    autoJoinTimerRef.current = timer;
+    return () => {
+      if (autoJoinTimerRef.current === timer) {
+        clearTimeout(timer);
+        autoJoinTimerRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localJoined, localUsername, session, roomUrl]);
+  }, [localJoined, localUsername, session, roomUrl, connectionError]);
 
   useEffect(() => {
     if (!roomUrl) return;
@@ -728,6 +810,7 @@ function DailyCallView({
         } else {
           logConn({ phase: 'init.callobject.create.error', roomUrl, error: msg });
           singletonCallObject = null;
+          setConnectionError(msg || 'Daily call setup failed.');
         }
       }
     }
@@ -851,9 +934,41 @@ function DailyCallView({
     stealthEnabled,
   });
 
-  // Show loading state while fetching dev room URL
-  if (process.env.NODE_ENV === 'development' && !initialRoomUrl && roomUrlLoading) {
-    return <div className="p-6 text-sm text-gray-500">Setting up dev room...</div>;
+  // Show loading state while fetching a room URL
+  if (!roomUrl && roomUrlLoading) {
+    return (
+      <div className="nia-daily-call-root" ref={rootRef} data-role="daily-call-root">
+        <div className="daily-call-view prejoin-align">
+          <div className="p-6 text-sm text-gray-500">
+            {visionMode ? 'Setting up Pearl Vision...' : 'Setting up Daily room...'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (connectionError) {
+    return (
+      <div className="nia-daily-call-root" ref={rootRef} data-role="daily-call-root">
+        <div className="daily-call-view prejoin-align">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#fca5a5', fontSize: '14px', padding: '24px', textAlign: 'center' }}>
+            Pearl Vision could not connect: {connectionError}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!roomUrl) {
+    return (
+      <div className="nia-daily-call-root" ref={rootRef} data-role="daily-call-root">
+        <div className="daily-call-view prejoin-align">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#fca5a5', fontSize: '14px', padding: '24px', textAlign: 'center' }}>
+            Pearl Vision could not connect: no Daily room URL is configured.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -880,6 +995,7 @@ function DailyCallView({
               modePersonalityVoiceConfig={modePersonalityVoiceConfig}
               dailyCallPersonalityVoiceConfig={dailyCallPersonalityVoiceConfig}
               sessionOverride={sessionOverride}
+              visionMode={visionMode}
             />
           ) : prejoin ? (
             /* PreJoin / "Early Access" screen disabled — auto-join handles entry.

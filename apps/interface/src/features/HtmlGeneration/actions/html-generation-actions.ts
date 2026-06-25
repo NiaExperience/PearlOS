@@ -614,7 +614,7 @@ function createFallbackHtml(title: string, description: string, aiError?: any): 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {

@@ -6,6 +6,131 @@ import { getLogger } from '@interface/lib/logger';
 
 const log = getLogger('[api_auth_signout]');
 
+const COOKIE_BASE_NAMES = [
+  'session-token',
+  'csrf-token',
+  'callback-url',
+  'pkce.code_verifier',
+  'state',
+  'nonce',
+];
+
+const COOKIE_PREFIXES = [
+  'interface-auth.',
+  '__Secure-interface-auth.',
+  '__Host-interface-auth.',
+  'next-auth.',
+  '__Secure-next-auth.',
+  '__Host-next-auth.',
+];
+
+const KNOWN_COOKIE_STARTS = [
+  ...COOKIE_PREFIXES,
+  'authjs.',
+];
+
+function buildAllCookieNames(): string[] {
+  const names: string[] = [];
+  for (const p of COOKIE_PREFIXES) {
+    for (const b of COOKIE_BASE_NAMES) {
+      names.push(`${p}${b}`);
+    }
+  }
+  return names;
+}
+
+/**
+ * Appends raw Set-Cookie headers to nuke a cookie at both Path=/ and Path=/api/auth.
+ *
+ * We cannot use the Next.js response.cookies API here because it deduplicates
+ * by cookie name: setting the same name twice (with different paths) causes the
+ * second call to overwrite the first. That left the Path=/ cookie alive, which
+ * is exactly the bug we are fixing.
+ */
+function appendDeleteHeaders(response: NextResponse, name: string) {
+  const expired = 'Thu, 01 Jan 1970 00:00:00 GMT';
+  // __Secure- and __Host- prefixed cookies REQUIRE the Secure attribute
+  // or the browser silently ignores the Set-Cookie header.
+  const needsSecure = name.startsWith('__Secure-') || name.startsWith('__Host-');
+  const secureSuffix = needsSecure ? '; Secure' : '';
+  response.headers.append(
+    'Set-Cookie',
+    `${name}=; Path=/; Expires=${expired}; Max-Age=0; HttpOnly; SameSite=Lax${secureSuffix}`,
+  );
+  response.headers.append(
+    'Set-Cookie',
+    `${name}=; Path=/api/auth; Expires=${expired}; Max-Age=0; HttpOnly; SameSite=Lax${secureSuffix}`,
+  );
+}
+
+function clearAllAuthCookies(response: NextResponse, request: NextRequest) {
+  const names = new Set(buildAllCookieNames());
+
+  try {
+    const incoming = request.cookies.getAll?.() ?? [];
+    for (const c of incoming) {
+      if (KNOWN_COOKIE_STARTS.some((p) => c.name.startsWith(p))) {
+        names.add(c.name);
+      }
+    }
+  } catch {
+    // best-effort
+  }
+
+  for (const name of names) {
+    appendDeleteHeaders(response, name);
+  }
+}
+
+function resolveRequestOrigin(request: NextRequest): string {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  if (forwardedHost) {
+    const proto = forwardedProto || request.nextUrl.protocol.replace(':', '') || 'https';
+    return `${proto}://${forwardedHost}`;
+  }
+  return request.nextUrl.origin;
+}
+
+function resolveAllowedOrigins(request: NextRequest): Set<string> {
+  const allowed = new Set<string>();
+  const candidates = [
+    process.env.NEXTAUTH_INTERFACE_URL,
+    process.env.NEXTAUTH_URL,
+    process.env.NEXT_PUBLIC_INTERFACE_URL,
+    resolveRequestOrigin(request),
+  ].filter(Boolean) as string[];
+
+  for (const value of candidates) {
+    try {
+      allowed.add(new URL(value).origin);
+    } catch {
+      // ignore malformed values
+    }
+  }
+  return allowed;
+}
+
+function resolveCallbackUrl(request: NextRequest): string {
+  try {
+    const url = new URL(request.url);
+    const cb = url.searchParams.get('callbackUrl');
+    if (!cb) return '/login';
+
+    // Allow relative callback paths directly.
+    if (cb.startsWith('/')) {
+      return cb;
+    }
+
+    const allowedOrigins = resolveAllowedOrigins(request);
+    const verified = new URL(cb);
+    if (allowedOrigins.has(verified.origin)) {
+      return verified.pathname + verified.search + verified.hash;
+    }
+  } catch { /* ignore */ }
+  return '/login';
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getSessionSafely(request, interfaceAuthOptions);
@@ -17,88 +142,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // Try to honor a provided callbackUrl (prefer same-origin)
-    let redirectUrl = '/login';
-    try {
-      const base = process.env.NEXTAUTH_INTERFACE_URL || process.env.NEXTAUTH_URL || '';
-      const url = new URL(request.url);
-      const cb = url.searchParams.get('callbackUrl');
-      if (cb && base) {
-        const verified = new URL(cb, base);
-        const baseUrl = new URL(base);
-        if (verified.origin === baseUrl.origin) {
-          redirectUrl = verified.pathname + verified.search + verified.hash;
-        }
-      }
-    } catch { /* ignore */ }
+    const redirectUrl = resolveCallbackUrl(request);
 
-    // Helper to clear cookies on a response object
-    const clearCookies = (res: NextResponse) => {
-      // Clear all NextAuth cookies comprehensively
-      // Include __Secure- and __Host- variants and conservative fallbacks to next-auth.*
-      const baseNames = [
-        'session-token',
-        'csrf-token',
-        'callback-url',
-        'pkce.code_verifier',
-        'state',
-        'nonce',
-      ];
-      const prefixes = [
-        'interface-auth.',
-        '__Secure-interface-auth.',
-        '__Host-interface-auth.',
-        // fallbacks in case defaults were used at any point
-        'next-auth.',
-        '__Secure-next-auth.',
-        '__Host-next-auth.',
-      ];
-
-      const names: string[] = [];
-      prefixes.forEach((p) => {
-        baseNames.forEach((b) => names.push(`${p}${b}`));
-      });
-
-      // Delete for both '/' and '/api/auth' paths to cover PKCE/state cookies
-      const deleteCookieEverywhere = (name: string) => {
-        // default path '/'
-        res.cookies.delete(name);
-        // explicit '/api/auth' path
-        res.cookies.set(name, '', {
-          value: '',
-          maxAge: 0,
-          expires: new Date(0),
-          path: '/api/auth',
-        });
-      };
-
-      names.forEach(deleteCookieEverywhere);
-
-      // Additionally, remove any chunked cookies (e.g., ".0", ".1") or unexpected variants
-      // by inspecting incoming request cookies and deleting anything starting with known prefixes.
-      const knownStarts = [
-        'interface-auth.',
-        '__Secure-interface-auth.',
-        '__Host-interface-auth.',
-        'next-auth.',
-        '__Secure-next-auth.',
-        '__Host-next-auth.',
-        // Future-proofing for Auth.js v5 naming
-        'authjs.'
-      ];
-      try {
-        const incoming = request.cookies.getAll?.() ?? [];
-        for (const c of incoming) {
-          if (knownStarts.some((p) => c.name.startsWith(p))) {
-            deleteCookieEverywhere(c.name);
-          }
-        }
-      } catch {
-        // best-effort cleanup only
-      }
-    };
-
-    // Create response that clears the session and always returns JSON
     const response = NextResponse.json({ success: true, redirect: redirectUrl }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -106,8 +151,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         Expires: '0',
       },
     });
-    
-    clearCookies(response);
+
+    clearAllAuthCookies(response, request);
 
     return response;
   } catch (error) {
@@ -117,52 +162,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 export async function GET(request: NextRequest) {
-  // Handle GET requests by redirecting to login (or callbackUrl) instead of returning JSON
-  // This allows server-side redirects to this route to effectively log the user out and send them to login.
   try {
-    let redirectUrl = '/login';
-    try {
-      const base = process.env.NEXTAUTH_INTERFACE_URL || process.env.NEXTAUTH_URL || '';
-      const url = new URL(request.url);
-      const cb = url.searchParams.get('callbackUrl');
-      if (cb && base) {
-        const verified = new URL(cb, base);
-        const baseUrl = new URL(base);
-        if (verified.origin === baseUrl.origin) {
-          redirectUrl = verified.pathname + verified.search + verified.hash;
-        }
-      }
-    } catch { /* ignore */ }
+    const redirectUrl = resolveCallbackUrl(request);
+    const response = NextResponse.redirect(new URL(redirectUrl, resolveRequestOrigin(request)));
 
-    const publicBase = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXTAUTH_INTERFACE_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_API_URL || request.url;
-    const response = NextResponse.redirect(new URL(redirectUrl, publicBase));
-    
-    // Duplicate cookie clearing logic for GET (since we can't easily share the inner function without refactoring the whole file)
-    // Ideally this should be a shared utility, but for now we inline it to match POST behavior.
-    const clearCookies = (res: NextResponse) => {
-      const baseNames = ['session-token', 'csrf-token', 'callback-url', 'pkce.code_verifier', 'state', 'nonce'];
-      const prefixes = ['interface-auth.', '__Secure-interface-auth.', '__Host-interface-auth.', 'next-auth.', '__Secure-next-auth.', '__Host-next-auth.'];
-      const names: string[] = [];
-      prefixes.forEach((p) => baseNames.forEach((b) => names.push(`${p}${b}`)));
-      const deleteCookieEverywhere = (name: string) => {
-        res.cookies.delete(name);
-        res.cookies.set(name, '', { value: '', maxAge: 0, expires: new Date(0), path: '/api/auth' });
-      };
-      names.forEach(deleteCookieEverywhere);
-      const knownStarts = ['interface-auth.', '__Secure-interface-auth.', '__Host-interface-auth.', 'next-auth.', '__Secure-next-auth.', '__Host-next-auth.', 'authjs.'];
-      try {
-        const incoming = request.cookies.getAll?.() ?? [];
-        for (const c of incoming) {
-          if (knownStarts.some((p) => c.name.startsWith(p))) deleteCookieEverywhere(c.name);
-        }
-      } catch { /* best-effort */ }
-    };
+    clearAllAuthCookies(response, request);
 
-    clearCookies(response);
     return response;
   } catch (error) {
     log.error('Error during sign-out (GET)', { error });
-    const publicBase = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXTAUTH_INTERFACE_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_API_URL || request.url;
-    return NextResponse.redirect(new URL('/login', publicBase));
+    return NextResponse.redirect(new URL('/login', resolveRequestOrigin(request)));
   }
 }

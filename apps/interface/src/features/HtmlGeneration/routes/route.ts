@@ -4,6 +4,7 @@ import { getAssistantByName } from '@nia/prism/core/actions/assistant-actions';
 import { getUserSharedResources } from '@nia/prism/core/actions/organization-actions';
 import { getUserById } from '@nia/prism/core/actions/user-actions';
 import { getSessionSafely } from '@nia/prism/core/auth';
+import { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -173,7 +174,13 @@ export async function GET_impl(request: NextRequest): Promise<NextResponse> {
     // Also fetch shared HTML generations
     let allHtmlGenerations = htmlGenerations;
     try {
-      const sharedResources = await getUserSharedResources(userId, tenantId, 'HtmlGeneration');
+      const [htmlSharedResources, appSharedResources] = await Promise.all([
+        getUserSharedResources(userId, tenantId, ResourceType.HtmlGeneration),
+        getUserSharedResources(userId, tenantId, ResourceType.Apps),
+      ]);
+      const sharedResources = [...htmlSharedResources, ...appSharedResources].filter((resource, index, all) =>
+        all.findIndex((candidate) => candidate.resourceId === resource.resourceId) === index
+      );
       log.debug(`${LOG_PREFIX}GET HtmlGeneration shared resources lookup`, { sharedCount: sharedResources.length, tenantId, userId });
 
       const sharedOrgSummaries = sharedResources.map((r) => ({

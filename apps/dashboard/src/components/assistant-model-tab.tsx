@@ -238,7 +238,7 @@ export default function AssistantModelTab({
       try {
         console.log(`Fetching personalities for tenant: ${selectedAssistant.tenantId} instance=${instanceId}`);
         setLoadingPersonalities(true);
-        const res = await fetch(`/api/personalities?tenantId=${selectedAssistant.tenantId}`);
+        const res = await fetch(`/dashboard/api/personalities?tenantId=${selectedAssistant.tenantId}`);
         if (!res.ok) {
           console.log(`Fetch failed with status: ${res.status} instance=${instanceId}`);
           setPersonalities([]);

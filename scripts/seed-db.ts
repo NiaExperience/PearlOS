@@ -6,7 +6,7 @@
  * - Pearl assistant (fully configured for local dev with Kokoro TTS)
  * - Pearl personality
  * - Demo user for Interface login (demo@local.dev / password123)
- * - Admin user for Dashboard login (admin@local.dev / admin123)
+ * - Dashboard developer users for dashboard login (@niaxp.com / harbour9)
  * - Sample notes and welcome content
  * 
  * Usage: npm run pg:seed
@@ -40,7 +40,14 @@ const PEARL_PERSONALITY_PAGE_ID = '00000000-0000-0000-0002-000000000001';
 
 // Users
 const DEMO_USER_ID = '00000000-0000-0000-0003-000000000001';
-const ADMIN_USER_ID = '00000000-0000-0000-0003-000000000002';
+const DASHBOARD_DEV_USERS = [
+  { id: '00000000-0000-0000-0003-000000000010', name: 'Prabudh', email: 'prabudh@niaxp.com', role: 'owner' as const },
+  { id: '00000000-0000-0000-0003-000000000011', name: 'Blair', email: 'blair@niaxp.com', role: 'owner' as const },
+  { id: '00000000-0000-0000-0003-000000000012', name: 'Himanshu', email: 'himanshu@niaxp.com', role: 'admin' as const },
+  { id: '00000000-0000-0000-0003-000000000013', name: 'Nitesh', email: 'nitesh@niaxp.com', role: 'admin' as const },
+  { id: '00000000-0000-0000-0003-000000000014', name: 'Dev', email: 'dev@niaxp.com', role: 'owner' as const },
+  { id: '00000000-0000-0000-0003-000000000015', name: 'Stephanie', email: 'stephanie@niaxp.com', role: 'admin' as const },
+];
 
 // Content
 const WELCOME_NOTE_ID = '00000000-0000-0000-0004-000000000001';
@@ -53,8 +60,7 @@ const FUNC_PROMPT_CREATE_APP_ID = '00000000-0000-0000-0005-000000000001';
 // ============================================================================
 const DEMO_USER_EMAIL = 'demo@local.dev';
 const DEMO_USER_PASSWORD = 'password123';
-const ADMIN_USER_EMAIL = 'admin@local.dev';
-const ADMIN_USER_PASSWORD = 'admin123';
+const DASHBOARD_DEV_PASSWORD = 'harbour9';
 
 interface SeedData {
   type: string;
@@ -73,7 +79,7 @@ async function createSeedData(): Promise<SeedData[]> {
   
   // Hash passwords using bcryptjs
   const demoPasswordHash = await hash(DEMO_USER_PASSWORD, 10);
-  const adminPasswordHash = await hash(ADMIN_USER_PASSWORD, 10);
+  const dashboardPasswordHash = await hash(DASHBOARD_DEV_PASSWORD, 10);
   
   return [
     // ========================================================================
@@ -329,56 +335,56 @@ Remember: You're here to help the user accomplish their goals while making the i
     },
     
     // ========================================================================
-    // ADMIN USER - For Dashboard login  
+    // DASHBOARD DEVELOPER USERS - Explicitly seeded dashboard logins
     // ========================================================================
-    {
+    ...DASHBOARD_DEV_USERS.map((user, index) => ({
       type: 'User',
-      page_id: ADMIN_USER_ID,
+      page_id: user.id,
       content: {
-        _id: ADMIN_USER_ID,
-        name: 'Admin User',
-        email: ADMIN_USER_EMAIL.toLowerCase(),
+        _id: user.id,
+        name: user.name,
+        email: user.email.toLowerCase(),
         emailVerified: now,
-        password_hash: adminPasswordHash,
+        password_hash: dashboardPasswordHash,
         image: null,
         chatHistory: [],
         eventHistory: [],
         metadata: {
-          role: 'admin',
+          role: user.role,
           source: 'seed-script'
         },
         createdAt: now,
         updatedAt: now
       },
       indexer: {
-        name: 'Admin User',
-        email: ADMIN_USER_EMAIL.toLowerCase()
+        name: user.name,
+        email: user.email.toLowerCase()
       },
-      order: 4
-    },
-    
+      order: 4 + index
+    })),
+
     // ========================================================================
-    // USER-TENANT ROLE - Link admin user to tenant as owner
+    // USER-TENANT ROLES - Grant dashboard access for seeded dev users
     // ========================================================================
-    {
+    ...DASHBOARD_DEV_USERS.map((user, index) => ({
       type: 'UserTenantRole',
-      page_id: uuidv4(),
+      page_id: `00000000-0000-0000-0006-0000000000${(10 + index).toString().padStart(2, '0')}`,
       content: {
-        _id: uuidv4(),
-        userId: ADMIN_USER_ID,
+        _id: `00000000-0000-0000-0006-0000000000${(10 + index).toString().padStart(2, '0')}`,
+        userId: user.id,
         tenantId: LOCAL_TENANT_ID,
-        role: 'owner',
-        assignedBy: ADMIN_USER_ID,
+        role: user.role,
+        assignedBy: DASHBOARD_DEV_USERS[0].id,
         createdAt: now,
         updatedAt: now
       },
       indexer: {
-        userId: ADMIN_USER_ID,
+        userId: user.id,
         tenantId: LOCAL_TENANT_ID,
-        role: 'owner'
+        role: user.role
       },
-      order: 5
-    },
+      order: 10 + index
+    })),
     
     // ========================================================================
     // WELCOME NOTE - Sample content showing the system works
@@ -408,8 +414,8 @@ This note was created by the database seeding script to demonstrate the platform
 - Password: \`password123\`
 
 ### Dashboard (localhost:4000)
-- Email: \`admin@local.dev\`
-- Password: \`admin123\`
+- Emails: \`prabudh@niaxp.com\`, \`blair@niaxp.com\`, \`himanshu@niaxp.com\`, \`nitesh@niaxp.com\`, \`dev@niaxp.com\`, \`stephanie@niaxp.com\`
+- Password: \`harbour9\`
 
 ## Voice Features
 
@@ -431,7 +437,7 @@ Happy building! 🚀`,
         tags: ['welcome', 'getting-started', 'documentation'],
         category: 'ideas',
         tenantId: LOCAL_TENANT_ID,
-        createdBy: ADMIN_USER_ID,
+        createdBy: DASHBOARD_DEV_USERS[0].id,
         createdAt: now,
         updatedAt: now
       },
@@ -471,7 +477,7 @@ Guidelines:
 - Use modern CSS (no frameworks needed)
 
 Return your response as a single HTML file that includes all CSS and JS inline.`,
-        userId: ADMIN_USER_ID,
+        userId: DASHBOARD_DEV_USERS[0].id,
         revisions: [],
         createdAt: now,
         updatedAt: now
@@ -595,8 +601,15 @@ async function seedDatabase() {
     
     // Clean up existing users with same emails
     await sequelize.query(
-      `DELETE FROM notion_blocks WHERE type = 'User' AND (indexer->>'email' = $1 OR indexer->>'email' = $2)`,
-      { bind: [DEMO_USER_EMAIL.toLowerCase(), ADMIN_USER_EMAIL.toLowerCase()] }
+      `DELETE FROM notion_blocks
+       WHERE type = 'User'
+         AND indexer->>'email' = ANY($1)`,
+      {
+        bind: [[
+          DEMO_USER_EMAIL.toLowerCase(),
+          ...DASHBOARD_DEV_USERS.map((u) => u.email.toLowerCase()),
+        ]],
+      }
     );
     
     // Clean up existing functional prompts
@@ -683,8 +696,10 @@ async function seedDatabase() {
     console.log(`   Password: ${DEMO_USER_PASSWORD}`);
     console.log('');
     console.log('⚙️  Dashboard (http://localhost:4000)');
-    console.log(`   Email:    ${ADMIN_USER_EMAIL}`);
-    console.log(`   Password: ${ADMIN_USER_PASSWORD}`);
+    console.log(`   Password: ${DASHBOARD_DEV_PASSWORD}`);
+    for (const seededUser of DASHBOARD_DEV_USERS) {
+      console.log(`   Email:    ${seededUser.email} (${seededUser.role})`);
+    }
     console.log('');
     console.log('───────────────────────────────────────────────────────────────');
     console.log('🚀 Start the platform: npm run start:all');

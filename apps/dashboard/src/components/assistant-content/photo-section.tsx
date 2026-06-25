@@ -22,7 +22,7 @@ export default function PhotoSection({ selectedAssistant: assistant, photoTool }
   useEffect(() => {
     if (!isSupported) return;
     setLoading(true);
-    fetch(`/api/contentList?type=Photo&assistantId=${assistant._id}`)
+    fetch(`/dashboard/api/contentList?type=Photo&assistantId=${assistant._id}`)
       .then(res => res.json())
       .then(data => {
         // Flatten all imageUrls from all Photo blocks

@@ -10,18 +10,14 @@ import { OpenClawBridgeClient } from './client';
 import { OPENCLAW_BRIDGE_EVENTS } from './events';
 import type { OpenClawTaskRequest, OpenClawStreamChunk } from './types';
 
-/** Environment-driven config with sensible defaults */
+/**
+ * Routes through the server-side /api/openclaw-bridge endpoint.
+ * SECURITY: API key is kept server-side only — never exposed to the browser.
+ */
 function getBridgeClient(): OpenClawBridgeClient {
-  const apiUrl =
-    process.env.NEXT_PUBLIC_OPENCLAW_API_URL ??
-    process.env.OPENCLAW_API_URL ??
-    'http://localhost:3100';
-  const apiKey =
-    process.env.NEXT_PUBLIC_OPENCLAW_API_KEY ??
-    process.env.OPENCLAW_API_KEY ??
-    '';
-
-  return new OpenClawBridgeClient({ apiUrl, apiKey });
+  // Use the Next.js API route as the proxy — the real API key lives server-side
+  const apiUrl = '/api/openclaw-bridge';
+  return new OpenClawBridgeClient({ apiUrl, apiKey: '' });
 }
 
 export interface TriggerOpenClawTaskParams {

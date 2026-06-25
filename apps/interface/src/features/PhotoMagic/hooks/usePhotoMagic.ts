@@ -10,8 +10,11 @@ export interface PhotoMagicResult {
   prompt: string;
 }
 
-// Use relative path through Next.js rewrite proxy (works via tunnel + localhost)
-const API_BASE = '/bot-api/photo-magic';
+// Same-origin Next.js routes (OpenRouter-backed). The previous ComfyUI flow at
+// /bot-api/photo-magic was retired — see /api/photo-magic/* in apps/interface.
+//
+const API_BASE = '/api/photo-magic';
+const RESULT_BASE = '/api/photo-magic/image';
 
 export function usePhotoMagic() {
   const [state, setState] = useState<PhotoMagicState>('idle');
@@ -47,9 +50,10 @@ export function usePhotoMagic() {
             setProgress(data.progress ?? 0);
             setProgressText(data.message ?? '');
           } else if (data.type === 'complete' || data.type === 'result') {
-            const imageUrl = data.imageUrl?.startsWith('http')
-              ? data.imageUrl
-              : `${API_BASE}/result/${data.filename || data.imageUrl}`;
+            const raw = data.imageUrl || data.image_url;
+            const imageUrl = raw?.startsWith('http') || raw?.startsWith('/')
+              ? raw
+              : `${RESULT_BASE}/${data.filename || raw}`;
             setResult({ imageUrl, originalImageUrl: originalUrl, prompt: userPrompt });
             setProgress(100);
             setState('result');
@@ -77,9 +81,10 @@ export function usePhotoMagic() {
         setProgress(data.progress ?? Math.min(90, (i / maxAttempts) * 100));
         setProgressText(data.message ?? 'Generating...');
       } else if (data.status === 'complete') {
-        const imageUrl = data.imageUrl?.startsWith('http')
-          ? data.imageUrl
-          : `${API_BASE}/result/${data.filename || data.imageUrl}`;
+        const raw = data.imageUrl || data.image_url;
+        const imageUrl = raw?.startsWith('http') || raw?.startsWith('/')
+          ? raw
+          : `${RESULT_BASE}/${data.filename || raw}`;
         setResult({ imageUrl, originalImageUrl: originalUrl, prompt: userPrompt });
         setProgress(100);
         setState('result');
@@ -94,7 +99,18 @@ export function usePhotoMagic() {
   const handleResponse = useCallback(async (response: Response, userPrompt: string, originalUrl?: string) => {
     if (!response.ok) {
       const errBody = await response.text();
-      throw new Error(errBody || `Server error ${response.status}`);
+      // OpenRouter-backed routes return JSON {detail: "..."}.  Fall back to the
+      // raw body text if the body wasn't JSON.
+      let message = errBody || `Server error ${response.status}`;
+      try {
+        const parsed = JSON.parse(errBody || '{}');
+        if (typeof parsed.detail === 'string' && parsed.detail) {
+          message = parsed.detail;
+        }
+      } catch {
+        /* errBody wasn't JSON — leave the raw text */
+      }
+      throw new Error(message);
     }
 
     const contentType = response.headers.get('content-type') || '';
@@ -105,9 +121,9 @@ export function usePhotoMagic() {
       const data = await response.json();
       if (data.imageUrl || data.filename || data.image_url) {
         const raw = data.imageUrl || data.image_url;
-        const imageUrl = raw?.startsWith('http')
+        const imageUrl = raw?.startsWith('http') || raw?.startsWith('/')
           ? raw
-          : `${API_BASE}/result/${data.filename || raw}`;
+          : `${RESULT_BASE}/${data.filename || raw}`;
         setResult({ imageUrl, originalImageUrl: originalUrl, prompt: userPrompt });
         setProgress(100);
         setState('result');

@@ -1,6 +1,7 @@
 'use client';
 
 import type { IOrganization } from '@nia/prism/core/blocks/organization.block';
+import type { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { X } from 'lucide-react';
 import { usePostHog } from 'posthog-js/react';
 import React, { useState } from 'react';
@@ -8,6 +9,8 @@ import React, { useState } from 'react';
 import { Button } from '@interface/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@interface/components/ui/card';
 import { getClientLogger } from '@interface/lib/client-logger';
+
+type ShareableResourceType = ResourceType | 'Notes' | 'HtmlGeneration' | 'Apps' | 'DailyCallRoom' | 'Sprite';
 
 /**
  * Role mapping for user-friendly display
@@ -30,7 +33,7 @@ interface SharingModalProps {
   /** Resource info */
   resource: {
     title: string;
-    type: 'Notes' | 'HtmlGeneration';
+    type: ShareableResourceType;
   };
   /** The assistant name (subDomain) to redirect to after redemption */
   assistantName?: string;

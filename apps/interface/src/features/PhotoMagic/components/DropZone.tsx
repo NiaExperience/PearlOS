@@ -106,7 +106,6 @@ export function DropZone({ onFile, file, onClear, previewUrl }: DropZoneProps) {
         ref={inputRef}
         type="file"
         accept="image/png,image/jpeg,image/webp,image/gif"
-        capture="environment"
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />

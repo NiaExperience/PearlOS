@@ -118,7 +118,12 @@ export function AcceptInvite() {
               variant="outline"
               onClick={() => {
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
-        const defaultBase = process.env.NEXT_PUBLIC_INTERFACE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        const defaultBase = process.env.NEXT_PUBLIC_INTERFACE_URL || '';
+        if (!origin && !defaultBase) {
+          // No safe base available in this runtime, use relative navigation fallback.
+          window.location.href = '/accept-invite/google-complete';
+          return;
+        }
         const nextUrl = origin ? new URL('/accept-invite/google-complete', origin) : new URL('/accept-invite/google-complete', defaultBase);
         if (token) nextUrl.searchParams.set('token', token);
         if (assistant) nextUrl.searchParams.set('assistant', assistant);

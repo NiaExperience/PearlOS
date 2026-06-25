@@ -11,6 +11,8 @@ import {
   validateResourceShareToken, 
   redeemResourceShareToken 
 } from '@nia/prism/core/actions/resourceShareToken-actions';
+import { createAppNotification } from '@nia/prism/core/actions/appNotification-actions';
+import { dispatchWebhookEvent } from '@nia/prism/core/actions/webhook-actions';
 import { requireAuth } from '@nia/prism/core/auth';
 import { getSessionSafely } from '@nia/prism/core/auth/getSessionSafely';
 import { IOrganization } from '@nia/prism/core/blocks/organization.block';
@@ -26,6 +28,50 @@ import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger } from '@interface/lib/logger';
 
 const log = getLogger('[api_share_redeem]');
+
+async function emitRedeemedEvent(params: {
+  tenantId: string;
+  ownerUserId: string;
+  redeemerUserId: string;
+  resourceId: string;
+  resourceType: ResourceType;
+  organizationId?: string;
+  role?: ResourceShareRole;
+}) {
+  try {
+    await createAppNotification({
+      tenantId: params.tenantId,
+      recipientUserId: params.ownerUserId,
+      actorUserId: params.redeemerUserId,
+      event: 'share.redeemed',
+      resourceId: params.resourceId,
+      resourceType: params.resourceType,
+      title: 'Share link redeemed',
+      body: 'Someone accepted access from a PearlOS share link.',
+      metadata: {
+        organizationId: params.organizationId,
+        role: params.role,
+      },
+    });
+  } catch (error) {
+    log.error('Failed to create redeemed notification', { error, resourceId: params.resourceId });
+  }
+
+  try {
+    await dispatchWebhookEvent({
+      event: 'share.redeemed',
+      tenantId: params.tenantId,
+      resourceId: params.resourceId,
+      resourceType: params.resourceType,
+      actorUserId: params.redeemerUserId,
+      recipientUserId: params.ownerUserId,
+      organizationId: params.organizationId,
+      role: params.role,
+    });
+  } catch (error) {
+    log.error('Failed to dispatch redeemed webhook', { error, resourceId: params.resourceId });
+  }
+}
 
 function mapOrgRole(role: ResourceShareRole): OrganizationRole {
   switch (role) {
@@ -117,6 +163,14 @@ async function redeemShareToken(
 
   if (resourceType === ResourceType.DailyCallRoom) {
     await redeemResourceShareToken(decryptedToken, userId);
+    await emitRedeemedEvent({
+      tenantId,
+      ownerUserId: createdBy,
+      redeemerUserId: userId,
+      resourceId,
+      resourceType,
+      role,
+    });
     log.info('DailyCall share token redeemed', { userId, resourceId, tenantId });
     return NextResponse.json({
       success: true,
@@ -131,6 +185,15 @@ async function redeemShareToken(
   const orgRole = mapOrgRole(role as ResourceShareRole);
   await ensureUserOrgMembership(userId, tenantId, sharingOrg._id!, orgRole);
   await redeemResourceShareToken(decryptedToken, userId);
+  await emitRedeemedEvent({
+    tenantId,
+    ownerUserId: createdBy,
+    redeemerUserId: userId,
+    resourceId,
+    resourceType,
+    organizationId: sharingOrg._id,
+    role,
+  });
   log.info('Token redeemed for user', { userId, resourceId, tenantId });
 
   return NextResponse.json({

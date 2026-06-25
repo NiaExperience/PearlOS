@@ -72,7 +72,7 @@ def filter_tools_by_sprite_config(
         return tools
     
     # Always allow these fundamental tools
-    always_allowed = {"bot_summon_sprite"}
+    always_allowed = {"bot_summon_sprite", "bot_customize_interface"}
     allowed = set(whitelist) | always_allowed
     
     filtered = {

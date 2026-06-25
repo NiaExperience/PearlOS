@@ -2,6 +2,7 @@
 
 import { isFeatureEnabled } from '@nia/features';
 import type { IOrganization } from '@nia/prism/core/blocks/organization.block';
+import { ResourceType } from '@nia/prism/core/blocks/resourceShareToken.block';
 import { Loader2, Share } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -63,21 +64,11 @@ export default function NoteShareControls({
       return;
     }
 
-    if (!currentNote.userId) {
-      log.error('Cannot share note: userId is missing', { noteId: currentNote._id });
-      toast({
-        title: 'Cannot Share',
-        description: 'This note is missing ownership information. Please reload and try again.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsCreatingSharingOrg(true);
     try {
       const org = await createSharingOrganization(
         currentNote._id,
-        'Notes',
+        ResourceType.Notes,
         currentNote.title || 'Untitled Note',
         effectiveTenantId,
         currentNote.userId
@@ -127,8 +118,8 @@ export default function NoteShareControls({
           isOpen={showSharingModal}
           onClose={() => setShowSharingModal(false)}
           organization={sharingOrganization}
-          tenantId={(currentNote.tenantId || fallbackTenantId) as string}
-          currentUserId={currentNote.userId as string}
+          tenantId={currentNote.tenantId}
+          currentUserId={currentNote.userId}
           resourceId={currentNote._id}
           resourceTitle={currentNote.title || 'Untitled Note'}
           onSharingUpdated={handleSharingUpdated}

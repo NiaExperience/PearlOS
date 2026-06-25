@@ -57,7 +57,7 @@ export default function AdminUserProfilePage() {
       setLoading(true);
       setError(undefined);
       try {
-        const res = await fetch(`/api/userProfile`);
+        const res = await fetch(`/dashboard/api/userProfile`);
         if (!res.ok) throw new Error((await res.text()) || 'Failed to load UserProfiles');
         const data = await res.json();
         if (!cancelled) setItems(Array.isArray(data.items) ? data.items : []);
@@ -186,7 +186,7 @@ export default function AdminUserProfilePage() {
                       setSavingId(r.id);
                       setError(undefined);
                       try {
-                        const res = await fetch('/api/userProfile', {
+                        const res = await fetch('/dashboard/api/userProfile', {
                           method: 'PUT',
                           headers: { 'content-type': 'application/json', 'x-remove-user-id': String(removeUserId) },
                           body: JSON.stringify({ id: r.id, first_name, email }),
@@ -361,7 +361,7 @@ export default function AdminUserProfilePage() {
                         setDeletingId(r.id);
                         setError(undefined);
                         try {
-                          const res = await fetch('/api/userProfile', {
+                          const res = await fetch('/dashboard/api/userProfile', {
                             method: 'DELETE',
                             headers: { 'content-type': 'application/json' },
                             body: JSON.stringify({ id: r.id }),

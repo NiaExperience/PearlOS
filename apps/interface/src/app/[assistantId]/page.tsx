@@ -15,25 +15,77 @@ import * as React from 'react';
 import { getAssistantConfig } from '@interface/actions/getAssistant';
 import FeaturesInitializer from '@interface/components/FeaturesInitializer';
 import InitializeDesktopMode from '@interface/components/InitializeDesktopMode';
+import InitializeOpenApp from '@interface/components/InitializeOpenApp';
 import AssistantWrapper from '@interface/components/assistant-canvas';
 // Heavy client components loaded via next/dynamic (ssr: false) to reduce initial JS bundle.
 // dynamic() is called in a 'use client' barrel so it works from this Server Component.
-import { LazyDailyCallClientManager as DailyCallClientManager, LazyBrowserWindow as BrowserWindow, LazyChatMode as ChatMode, LazyFileDropZone as FileDropZone } from './lazy-components';
+import { LazyDailyCallClientManager as DailyCallClientManager, LazyBrowserWindow as BrowserWindow, LazyChatMode as ChatMode, LazyFileDropZone as FileDropZone, LazySplitChatLayout as SplitChatLayout } from './lazy-components';
 import DesktopBackgroundSwitcher from '@interface/components/desktop-background-switcher';
+import InterfaceCustomizationController from '@interface/components/InterfaceCustomizationController';
 // ProfileDropdown removed — user menu now handled via PersistentNavButtons Settings
 import { getDailyRoomUrl } from '@interface/features/DailyCall/lib/config';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger, setLogContext } from '@interface/lib/logger';
+import {
+  DEFAULT_CARTESIA_VOICE_ID,
+  DEFAULT_VOICE_PROVIDER,
+  defaultVoiceIdForBotProvider,
+  getPearlOSPreferences,
+  MUSIC_ENABLED_KEY,
+  normalizeLaunchPref,
+  normalizeVoiceProvider,
+  scopedStorageKey,
+  toBotVoiceProvider,
+} from '@interface/lib/pearlos-user-preferences';
+import { AssistantPearlDeepLink } from '@interface/components/AssistantPearlDeepLink';
 import { PersistentNavButtons } from '@interface/components/PersistentNavButtons';
+import { TopBarTitle } from '@interface/components/TopBarTitle';
+import Authenticate from '@interface/components/auth';
 import { AssistantThemeProvider } from '@interface/theme/AssistantThemeContext';
 
-// Check if we're in test mode
+// REMOVED — security: test mode bypass disabled by Blair 2026-04-27.
+// Auth must always be enforced. See middleware.ts for the sibling change.
 function isTestMode(): boolean {
+  return false;
+}
+
+function applyVoiceProviderPreferenceToConfig(
+  config: Record<string, any> | undefined,
+  provider: string,
+): Record<string, any> | undefined {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return config;
+  return Object.fromEntries(
+    Object.entries(config).map(([key, value]) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return [key, value];
+      const voice = { ...((value as any).voice || {}) };
+      voice.provider = provider;
+      voice.voiceId = defaultVoiceIdForBotProvider(provider);
+      return [key, { ...(value as any), voice }];
+    }),
+  );
+}
+
+function firstSearchParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function SoundtrackPreferenceStorageSeed({
+  userId,
+  musicEnabled,
+}: {
+  userId: string | null | undefined;
+  musicEnabled: boolean | undefined;
+}) {
+  if (!userId || typeof musicEnabled !== 'boolean') return null;
+  const key = scopedStorageKey(MUSIC_ENABLED_KEY, userId);
+  const value = String(musicEnabled);
   return (
-    process.env.NODE_ENV === 'test' ||
-    process.env.CYPRESS === 'true' ||
-    process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true' ||
-    process.env.TEST_MODE === 'true'
+    <script
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{
+        __html: `try{localStorage.setItem(${JSON.stringify(key)},${JSON.stringify(value)});}catch(e){}`,
+      }}
+    />
   );
 }
 
@@ -46,7 +98,10 @@ export default async function AssistantPage({
 }) {
   const log = getLogger('AssistantPage');
   const headersList = await headers();
-  const isTest = isTestMode() || headersList.get('x-test-mode') === 'true';
+  // REMOVED — security: test mode auth bypass disabled 2026-04-27.
+  // Previously honored X-Test-Mode request header outside production.
+  // Auth must always be enforced regardless of environment.
+  const isTest = isTestMode();
 
   let session = null;
   // Resolve assistant name early so we can construct a proper callback URL if we need to redirect
@@ -60,6 +115,8 @@ export default async function AssistantPage({
   }
   const resolvedSearchParams = await searchParams;
   const shareSource = typeof resolvedSearchParams.source === 'string' ? resolvedSearchParams.source : undefined;
+  const desktopModeParam = firstSearchParam(resolvedSearchParams.desktopMode);
+  const openAppParam = firstSearchParam(resolvedSearchParams.openApp);
   // Welcome overlay disabled for now — will revisit in better form later
   const skipWelcomeOverlay = true;
   const sharedRoomUrl = typeof resolvedSearchParams.roomUrl === 'string'
@@ -83,18 +140,16 @@ export default async function AssistantPage({
   } else {
     session = await getSessionSafely(undefined, interfaceAuthOptions);
 
-    if (!session || !session.user) {
+    // Treat any session lacking a concrete user.id as unauthenticated. An empty
+    // `{ user: {} }` shell must NOT pass — falling through here lets the full
+    // PearlOS desktop render to anonymous visitors (auth bypass).
+    if (!session || !session.user || !session.user.id) {
       // Build callback to current assistant page, preserving original query params if present
       const path = `/${assistantName}`;
       const search = headersList.get('x-original-query') || '';
       const callbackUrl = `${path}${search ? `?${search}` : ''}`;
-      const host = headersList.get('host') || headersList.get('x-forwarded-host') || '';
-      const isLocalHost = host.includes('localhost') || host.includes('127.0.0.1');
-      // Local dev: auto-create a guest session so `/pearlos` works as a fully working entry point.
-      // The login page will only auto-guest if the assistant allows anonymous login.
-      const autoGuest = isLocalHost && process.env.NODE_ENV !== 'production';
-      log.warn('No session user found; redirecting to signin', { assistantName, callbackUrl, autoGuest });
-      redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}${autoGuest ? '&autoguest=1' : ''}`);
+      log.warn('No session user found; redirecting to signin', { assistantName, callbackUrl });
+      redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     } else {
       log.info('Session found', {
         userId: session.user.id,
@@ -155,7 +210,7 @@ export default async function AssistantPage({
       // Apply default configuration
       const updateData = {
         ...assistantRecord,
-        firstMessage: "Hey there! I'm Pearl, your AI companion. How can I help you today?",
+        firstMessage: "Hey, I'm Pearl. Tell me what we're working on.",
         allowAnonymousLogin: true,
         desktopMode: 'home',
         model: {
@@ -166,14 +221,20 @@ export default async function AssistantPage({
         },
         supportedFeatures: [
           'notes', 'htmlContent', 'miniBrowser', 'dailyCall', 'avatar',
+          'assistantSelfClose',
           'passwordLogin', 'guestLogin', 'onboarding', 'calculator',
           'youtube', 'soundtrack', 'terminal', 'openclawBridge', 'enhancedBrowser',
-          'news', 'weather', 'wonderCanvas', 'browserAutomation', 'sprites', 'vision',
+          'news', 'pulse', 'weather', 'wonderCanvas', 'browserAutomation', 'sprites', 'vision',
         ],
         modePersonalityVoiceConfig: {
           default: {
             personaName: 'Pearl',
-            voice: { provider: 'pocket', voiceId: 'azelma', speed: 1.0, model: 'pocket-v1' },
+            voice: {
+              provider: 'cartesia',
+              voiceId: DEFAULT_CARTESIA_VOICE_ID,
+              speed: 1.0,
+              model: 'sonic-3',
+            },
           },
         },
       };
@@ -226,7 +287,7 @@ export default async function AssistantPage({
     assistant: assistantRecord?.name || assistantName,
     themePresent: !!theme,
   });
-  const defaultDesktopMode = ((assistantRecord as any)?.desktopMode || 'work') as string;
+  const defaultDesktopMode = ((assistantRecord as any)?.desktopMode || 'home') as string;
   log.info('Assistant default desktop mode', { defaultDesktopMode });
 
   let modePersonalityVoiceConfig = (assistantRecord as any).modePersonalityVoiceConfig;
@@ -256,6 +317,16 @@ export default async function AssistantPage({
       dailyCallDefaultVoiceProvider: dailyCallDefault?.voice?.provider,
     });
 
+  // Prefer direct Prism query in server component to avoid SSR proxy/auth header issues
+  const email = session?.user && 'email' in session.user && session.user.email ? session.user.email : undefined;
+  const res = session.user.id ? await UserProfileActions.findByUser(session.user.id, email) : null;
+  const pearlOSPreferences = getPearlOSPreferences(res?.userProfile?.privateMemory);
+  const userVoiceProvider = normalizeVoiceProvider(pearlOSPreferences.voiceProvider);
+  const preferredVoiceProvider = userVoiceProvider ?? DEFAULT_VOICE_PROVIDER;
+  const preferredBotVoiceProvider = toBotVoiceProvider(preferredVoiceProvider);
+  modePersonalityVoiceConfig = applyVoiceProviderPreferenceToConfig(modePersonalityVoiceConfig, preferredBotVoiceProvider);
+  dailyCallPersonalityVoiceConfig = applyVoiceProviderPreferenceToConfig(dailyCallPersonalityVoiceConfig, preferredBotVoiceProvider);
+
   // Get default config
   const defaultConfig = modePersonalityVoiceConfig?.default;
   const defaultVoice = defaultConfig?.voice || {};
@@ -268,6 +339,11 @@ export default async function AssistantPage({
   let effectivePersonalityId = osPersonalityIdRaw;
   let effectiveVoiceId = defaultVoice.voiceId || legacyVoice.voiceId || '';
   let effectiveVoiceProvider = defaultVoice.provider || legacyVoice.provider || '';
+  if (!effectiveVoiceProvider) {
+    effectiveVoiceProvider = toBotVoiceProvider(DEFAULT_VOICE_PROVIDER);
+  }
+  effectiveVoiceProvider = preferredBotVoiceProvider;
+  effectiveVoiceId = defaultVoiceIdForBotProvider(effectiveVoiceProvider);
   
   const effectiveVoiceParameters = {
     speed: defaultVoice.speed ?? legacyVoice.speed,
@@ -286,16 +362,10 @@ export default async function AssistantPage({
 
   const persona = defaultConfig?.personaName || (assistantRecord as any).persona_name || 'pearl';
 
-  // Prefer direct Prism query in server component to avoid SSR proxy/auth header issues
-  const email = session?.user && 'email' in session.user && session.user.email ? session.user.email : undefined;
-  const res = session.user.id ? await UserProfileActions.findByUser(session.user.id, email) : null;
-  
-  // Fetch recent session history if available
+  // Session history can contain legacy cross-account summaries from before
+  // profile ownership was enforced. Keep it out of prompt context until it is
+  // re-keyed by stable user id and audited.
   let sessionHistory: Array<any> = [];
-  if (session.user.id && res?.userProfile?.sessionHistory) {
-    // Get last 20 entries
-    sessionHistory = res.userProfile.sessionHistory.slice(0, 20);
-  }
   
   // Prioritize profile first_name over session user.name
   let userName = '';
@@ -375,6 +445,8 @@ export default async function AssistantPage({
       effectivePersonalityId = cfg.personalityId || effectivePersonalityId;
       effectiveVoiceId = voice.voiceId || cfg.voiceId || effectiveVoiceId;
       effectiveVoiceProvider = voice.provider || cfg.voiceProvider || effectiveVoiceProvider;
+      effectiveVoiceProvider = preferredBotVoiceProvider;
+      effectiveVoiceId = defaultVoiceIdForBotProvider(effectiveVoiceProvider);
       
       // Merge parameters
       const overrideParams = {
@@ -395,7 +467,10 @@ export default async function AssistantPage({
 
   // Fetch OS personality for validation/logging and UI usage
   // (Moved here to ensure we fetch the effective personality after potential mode override)
-  const osPersonality = await PersonalityActions.getPersonalityById(effectivePersonalityId);
+  const osPersonality = await PersonalityActions.getPersonalityById(
+    effectivePersonalityId,
+    (assistantRecord as any).tenantId,
+  );
   if (!osPersonality) {
     log.error('Could not find OS personality', {
       effectivePersonalityId,
@@ -506,23 +581,48 @@ export default async function AssistantPage({
       ? assistantRecord.allowedPersonalities
       : undefined;
 
-  const effectiveInitialMode = sessionOverride?.mode || (assistantRecord as any)?.desktopMode || 'work';
+  const launchPreference = normalizeLaunchPref(pearlOSPreferences.launchModePreference);
+  const rememberedMode = normalizeLaunchPref(pearlOSPreferences.lastDesktopMode);
+  const configuredInitialMode = (assistantRecord as any)?.desktopMode || 'home';
+  const requestedInitialMode = normalizeLaunchPref(desktopModeParam);
+  const effectiveInitialMode = requestedInitialMode
+    || sessionOverride?.mode
+    || (launchPreference === 'home' || launchPreference === 'desktop'
+      ? launchPreference
+      : rememberedMode || configuredInitialMode);
 
   return (
     <AssistantThemeProvider theme={theme}>
       <FeaturesInitializer features={supportedFeatures as FeatureKey[]}>
         <main
           className={
-            'pointer-events-none relative flex h-dvh max-h-dvh flex-col items-center justify-center overflow-hidden p-4 text-white'
+            'pointer-events-none relative flex h-svh max-h-svh flex-col items-center justify-center overflow-hidden p-0 text-white'
           }
           style={
             {
+              touchAction: 'manipulation',
               // backgroundColor: theme?.theme_config?.colors?.background || '#000000',
             } as React.CSSProperties
           }
         >
           {/* Persistent top-left nav buttons (Desktop + Settings) */}
+          <SoundtrackPreferenceStorageSeed
+            userId={session.user.id}
+            musicEnabled={pearlOSPreferences.musicEnabled}
+          />
           <PersistentNavButtons tenantId={assistantRecord?.tenantId} />
+          <AssistantPearlDeepLink
+            assistantName={assistantName}
+            supportedFeatures={supportedFeatures}
+          />
+
+          {/* Centered app title in top bar (mirrors current view) */}
+          <TopBarTitle />
+
+          {/* Headless: handles auto anonymous sign-in + getCurrentUser tool responses */}
+          <Authenticate />
+          <InterfaceCustomizationController />
+          <InitializeOpenApp app={openAppParam} />
 
           {/* Legacy vs. new experience branching continues below */}
           {/* Pass supportedFeatures to the client via props and also gate on the server with explicit list when possible */}
@@ -555,8 +655,19 @@ export default async function AssistantPage({
               resourceId={resourceId}
               resourceType={contentType}
             />
-            <div className="pointer-events-auto">
-              <ChatMode />
+            {/* Chat bar wrapper — z-index forced above ChatModeDesktop (z-25) so the
+                Pearl chat bar stays visible in BOTH HOME and DESKTOP/WORK modes.
+                The wrapper is its own stacking context (position:fixed creates one);
+                without an explicit z-index it stacked at "auto" while ChatModeDesktop
+                sits at z-25, so the WORK desktop overlay painted on top of the chat
+                bar and Blair lost the ability to type to Pearl in Desktop mode. The
+                chat bar inside has z-100 within this 90 context so it floats above
+                anything else inside the chat pane. The wrapper itself is
+                pointer-events:none so clicks on empty space pass through to the
+                desktop icons / nav buttons beneath; the chat bar row re-enables
+                pointer events on itself (see ChatMode.tsx). */}
+            <div className="pointer-events-none fixed inset-0" style={{ zIndex: 90 }}>
+              <SplitChatLayout />
             </div>
             <FileDropZone />
             </React.Fragment>

@@ -8,7 +8,10 @@ DEFAULT_NOTE_TOOL_PROMPTS: dict[str, str] = {
         "Replace the ENTIRE contents of the note with new markdown. Use this when surgical bot_add_note_content/bot_replace_note_content/bot_remove_note_content is impractical. Ensure you preserve any content that should remain in the note."
     ),
     'bot_create_note': (
-        "Create a brand-new shared note with the provided title and optional initial markdown content."
+        "Create a brand-new note with the provided title and content. "
+        "When the user has dictated or spoken content to save, ALWAYS include it in the 'content' parameter. "
+        "Only omit content if the user explicitly asked for a blank note. "
+        "If you need to add content to an existing note, use bot_add_note_content instead."
     ),
     'bot_list_notes': (
         "List all available notes for the current tenant, providing titles, modes, and IDs (not full content)."

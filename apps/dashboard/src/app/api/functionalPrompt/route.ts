@@ -7,11 +7,8 @@ import { GET_impl, POST_impl, PUT_impl, DELETE_impl } from '@nia/prism/core/rout
 export const dynamic = 'force-dynamic';
 
 // Check if we should bypass auth for local development
-function shouldBypassAuth(req: NextRequest): boolean {
-  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true' &&
-    (req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1') &&
-    process.env.NODE_ENV !== 'production';
-  return disableAuth;
+function shouldBypassAuth(_req: NextRequest): boolean {
+  return process.env.DISABLE_DASHBOARD_AUTH === 'true';
 }
 
 export async function GET(req: NextRequest) {

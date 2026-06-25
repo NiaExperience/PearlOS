@@ -45,6 +45,9 @@ async def run_pipeline_session(
     isOnboarding: bool = False,
     headless: bool = False,
     session_id: str | None = None,
+    activeNoteId: str | None = None,
+    webChatContext: list[dict[str, Any]] | None = None,
+    activeNoteContext: dict[str, Any] | None = None,
 ):
     log = logger.bind(
         tag="[orchestrator]",
@@ -57,6 +60,8 @@ async def run_pipeline_session(
     
     # Clear any stale Redis state for this room
     await clear_room_state(room_url)
+    if activeNoteId:
+        await set_active_note_id(room_url, activeNoteId, owner=os.getenv("BOT_SESSION_USER_ID") or None)
 
     # Apply session override if present (Force mode/personality/voice)
     # We do this BEFORE initialization so we fetch the correct personality record
@@ -103,6 +108,10 @@ async def run_pipeline_session(
             supportedFeatures=supportedFeatures,
             sessionOverride=sessionOverride,
             isOnboarding=isOnboarding,
+            startupContext={
+                "webChatContext": webChatContext,
+                "activeNoteContext": activeNoteContext,
+            },
         )
     except TypeError:
         # Older builder signature without new prompt param or mode config
@@ -273,8 +282,10 @@ async def run_pipeline_session(
     if tts:
         log.info(f"[{BOT_PID}] Starting config listener")
         # Keep a reference to the task to prevent garbage collection
-        managers.config_listener_task = asyncio.create_task(
-            start_config_listener(tts, context, flow_manager, room_url, task, sessionOverride=sessionOverride, supported_features=supportedFeatures)
+        managers.config_listener_task = managers.track_task(
+            asyncio.create_task(
+                start_config_listener(tts, context, flow_manager, room_url, task, sessionOverride=sessionOverride, supported_features=supportedFeatures)
+            )
         )
     
     # Expose aggregator for callers (e.g., run_pipeline_session event handlers)
@@ -340,11 +351,12 @@ async def run_pipeline_session(
     # --- Pearl Vision: wire participant events to vision processor ---
     if vision_processor:
         log.info(f"[{BOT_PID}] [vision] Wiring vision processor to participant events")
+        from session.participant_data import is_bot_participant
         
         @transport.event_handler("on_first_participant_joined")
         async def _vision_on_first_join(transport_ref, participant):
             pid = participant.get('id') if isinstance(participant, dict) else None
-            is_local = bool(participant.get('local')) if isinstance(participant, dict) else False
+            is_local = is_bot_participant(participant, pid)
             if pid and not is_local:
                 log.info(f"[{BOT_PID}] [vision] Starting video capture for first participant {pid}")
                 await vision_processor.start_capture(pid)
@@ -352,7 +364,7 @@ async def run_pipeline_session(
         @transport.event_handler("on_participant_joined")
         async def _vision_on_join(transport_ref, participant):
             pid = participant.get('id') if isinstance(participant, dict) else None
-            is_local = bool(participant.get('local')) if isinstance(participant, dict) else False
+            is_local = is_bot_participant(participant, pid)
             if pid and not is_local:
                 log.info(f"[{BOT_PID}] [vision] Starting video capture for participant {pid}")
                 await vision_processor.start_capture(pid)

@@ -2,13 +2,21 @@
 
 import { useState, useEffect } from 'react';
 
+import { useResilientSession } from '@interface/hooks/use-resilient-session';
+
 const FONT = { fontFamily: 'Gohufont, monospace' } as const;
 
 export function LabModeBanner() {
   const [active, setActive] = useState(false);
   const [reverting, setReverting] = useState(false);
+  const { status } = useResilientSession();
 
   useEffect(() => {
+    if (status !== 'authenticated') {
+      setActive(false);
+      return;
+    }
+
     let mounted = true;
     const check = async () => {
       try {
@@ -22,7 +30,7 @@ export function LabModeBanner() {
     check();
     const interval = setInterval(check, 10000);
     return () => { mounted = false; clearInterval(interval); };
-  }, []);
+  }, [status]);
 
   const handleRevert = async () => {
     setReverting(true);

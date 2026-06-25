@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getClientLogger } from '@interface/lib/client-logger';
 
 const PUBLIC_ROUTES = [
-  '/',
   '/login',
+  '/signup',
   // Accept invite flow (and its subpaths like /accept-invite/google-complete)
   '/accept-invite',
   // Health check endpoints
@@ -16,6 +16,17 @@ const PUBLIC_ROUTES = [
   '/__tests-e2e__',
   // Shared resources
   '/share',
+  // Recovery shell must stay reachable when the main app is failing
+  '/recovery',
+  // Public compliance / consent pages
+  '/privacy-policy',
+  '/sms-opt-in',
+  // SMS webhook (Vonage inbound)
+  '/api/sms',
+  // Native Agency room view
+  '/the-agency',
+  // Native Council room view
+  '/council',
 ];
 
 const middleware = authMiddleware({
@@ -31,23 +42,12 @@ function getAssistantFromPath(pathname: string): string | null {
   return assistant ?? null;
 }
 
-// Check if we're in test mode
-function isTestMode(request: NextRequest): boolean {
-  const isProduction = process.env.NODE_ENV === 'production';
-  // In production, the X-Test-Mode header should never activate test mode.
-  // In non-production, any of the conditions can activate test mode.
-  if (isProduction) {
-    return process.env.NODE_ENV === 'test' ||
-           process.env.CYPRESS === 'true' ||
-           process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true' ||
-           process.env.TEST_MODE === 'true';
-  } else {
-    return process.env.NODE_ENV === 'test' ||
-           process.env.CYPRESS === 'true' ||
-           process.env.NEXT_PUBLIC_TEST_ANONYMOUS_USER === 'true' ||
-           process.env.TEST_MODE === 'true' ||
-           request.headers.get('X-Test-Mode') === 'true';
-  }
+// REMOVED — security: test mode bypass disabled by Blair 2026-04-27
+// Auth must always be enforced in production. This function previously
+// allowed TEST_MODE env vars or X-Test-Mode headers to bypass auth.
+// function isTestMode(request: NextRequest): boolean { ... }
+function isTestMode(_request: NextRequest): boolean {
+  return false;
 }
 
 function isPearlosOnlyEnabled(): boolean {
@@ -56,6 +56,17 @@ function isPearlosOnlyEnabled(): boolean {
 
 export default async function interfaceMiddleware(request: NextRequest): Promise<NextResponse> {
   const log = getClientLogger('Middleware');
+
+  // Force no-cache on all HTML page responses to prevent CDN stale content
+  // This overrides Next.js's internal s-maxage for static pages
+  const noCacheHeaders = {
+    'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0, s-maxage=0',
+    'CDN-Cache-Control': 'no-store',
+    'Surrogate-Control': 'no-store',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+  };
+
   // Ensure forwarded headers are present
   const newRequestHeaders = new Headers(request.headers);
   if (!newRequestHeaders.get('x-forwarded-host')) {
@@ -123,6 +134,18 @@ export default async function interfaceMiddleware(request: NextRequest): Promise
   }
 
   const originalPath = request.nextUrl.pathname;
+  if (
+    originalPath === '/pearls-house' ||
+    originalPath.startsWith('/pearls-house/') ||
+    originalPath === '/star-office' ||
+    originalPath.startsWith('/star-office/')
+  ) {
+    return new NextResponse('Gone', {
+      status: 410,
+      headers: noCacheHeaders,
+    });
+  }
+
   const pearlosOnly = isPearlosOnlyEnabled();
 
   const isGlobalRoute = pearlosOnly && PUBLIC_ROUTES.some(route => {
@@ -135,7 +158,11 @@ export default async function interfaceMiddleware(request: NextRequest): Promise
 
   if (pearlosOnly && !isGlobalRoute) {
     assistant = 'pearlos';
-    withoutAssistant = originalPath === '/' ? '' : originalPath;
+    withoutAssistant =
+      originalPath === '/' ? '' :
+      originalPath === '/pearlos' ? '' :
+      originalPath.startsWith('/pearlos/') ? originalPath.slice('/pearlos'.length) :
+      originalPath;
   } else {
     const assistantFromPath = getAssistantFromPath(originalPath);
     assistant = assistantFromPath ?? (pearlosOnly ? 'pearlos' : null);
@@ -177,35 +204,24 @@ export default async function interfaceMiddleware(request: NextRequest): Promise
     log.debug('Interface middleware result', { status: result?.status, location: result?.headers?.get('location') });
   }
 
-  // If auth middleware returned a redirect (e.g., to login), ensure we clear any stale cookies
+  // If auth middleware returned a redirect (e.g., to login), preserve it as-is.
+  // DO NOT clear cookies here — the auth middleware / login page manages cookie lifecycle.
+  // Aggressive cookie clearing was breaking NextAuth CSRF flow: the middleware would
+  // nuke the CSRF token cookie on every redirect, making the login page unable to
+  // complete the sign-in handshake.
+  //
+  // Stale cookie cleanup (if needed) should happen client-side after a successful
+  // sign-out, not server-side on redirect to the login page.
   if (result && (result.status === 302 || result.status === 307 || result.status === 308)) {
-    const location = result.headers?.get('location');
-    if (location && location.includes('/login')) {
-      // Create a new redirect response with cookie clearing
-      const response = NextResponse.redirect(new URL(location), { status: result.status });
-      const cookieNames = [
-        'interface-auth.session-token',
-        '__Secure-interface-auth.session-token',
-        'interface-auth.callback-url',
-        '__Secure-interface-auth.callback-url',
-        'interface-auth.csrf-token',
-        '__Secure-interface-auth.csrf-token',
-        'interface-auth.pkce.code_verifier',
-        '__Secure-interface-auth.pkce.code_verifier',
-        'interface-auth.state',
-        '__Secure-interface-auth.state',
-        'interface-auth.nonce',
-        '__Secure-interface-auth.nonce',
-      ];
-      cookieNames.forEach(cookieName => {
-        response.cookies.set(cookieName, '', { maxAge: 0, expires: new Date(0), path: '/' });
-      });
-      return response;
-    }
     return result;
   }
   // Otherwise, proceed with the rewrite
-  return NextResponse.rewrite(url, { request: { headers: newRequestHeaders } });
+  const response = NextResponse.rewrite(url, { request: { headers: newRequestHeaders } });
+  // Apply no-cache headers to prevent CDN from caching stale HTML
+  Object.entries(noCacheHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
 }
 
 export const config = {
@@ -220,6 +236,6 @@ export const config = {
      * - __tests-e2e__ (test routes)
      * - test-e2e (test routes)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|images|__tests-e2e__|test-e2e).*)',
+    '/((?!api|bot-api|gateway|gateway-ws|_next/static|_next/image|favicon.ico|images|__tests-e2e__|test-e2e).*)',
   ],
 };

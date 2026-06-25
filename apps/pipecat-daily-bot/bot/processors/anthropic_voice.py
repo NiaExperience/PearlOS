@@ -32,6 +32,8 @@ from pipecat.frames.frames import (
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
+from core.prompts import VOICE_TTS_NOTE
+
 try:
     from pipecat.frames.frames import LLMContextFrame
 except ImportError:
@@ -94,21 +96,24 @@ def _build_system_prompt(workspace: dict[str, str]) -> str:
     if workspace.get("CROSS_SESSION"):
         parts.append(f"## CURRENT STATE\n{workspace['CROSS_SESSION']}")
 
+    parts.append(VOICE_TTS_NOTE)
+
     parts.append(
         "## VOICE SESSION RULES\n"
         "You are speaking aloud via text-to-speech in a PearlOS voice session.\n"
         "- Respond naturally in 1-3 sentences for simple queries, max 5 for complex.\n"
         "- Use tools when you need real-time info or to take actions.\n"
-        "- No markdown, no emoji, no formatting. Speak as if talking to a friend.\n"
-        "- You have full context and memory — use it. You know who Blair is.\n"
+        "- You have full context and memory, use it. You know who Blair is.\n"
         "- Have opinions. Be warm but sharp. You're an intellectual companion.\n"
-        "- When using tools, start talking immediately — don't go silent.\n"
-        "- For voice commands (open/close apps), execute immediately via tools.\n"
-        "- STT may transcribe 'close' as 'closed' — always treat as a command.\n"
+        "- When using tools, start talking immediately, don't go silent.\n"
+        "- For voice commands (open or close apps), execute immediately via tools.\n"
+        "- STT may transcribe 'close' as 'closed', always treat as a command.\n"
         "- When showing visual content, use bot_wonder_canvas_template for common types,\n"
-        "  bot_wonder_canvas_scene only for unique/creative HTML.\n"
-        "- Image proxy: use /api/image?q=SUBJECT for all images in canvas HTML.\n"
-        "- GOODBYE DETECTION: When the user says goodbye, farewell, or any clear 'end call' phrase\n"
+        "  and bot_wonder_canvas_scene only for unique or creative HTML.\n"
+        "- Image proxy: use /api/image?q=SUBJECT for all images in canvas HTML. (Tool arguments and\n"
+        "  canvas HTML are NOT spoken, so URLs are fine inside tool calls. The TTS-safe rules above\n"
+        "  apply only to your spoken reply text.)\n"
+        "- GOODBYE DETECTION: When the user says goodbye, farewell, or any clear end-call phrase\n"
         "  (e.g. 'okay goodbye', 'alright bye', 'talk to you later', 'that's all thanks'),\n"
         "  say a brief warm goodbye and IMMEDIATELY call bot_end_call to end the session.\n"
         "  Do NOT continue the conversation after a goodbye. End it.\n"
@@ -162,6 +167,17 @@ def _get_openclaw_token() -> str:
     return os.getenv("OPENCLAW_TOKEN", "dummy-token")
 
 
+def _env_float(name: str, default: float, *, minimum: float = 0.0, maximum: float = 2.0) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return max(minimum, min(maximum, float(raw)))
+    except ValueError:
+        logger.warning(f"[AnthropicVoice] Invalid {name}={raw!r}; using {default}")
+        return default
+
+
 # ---------------------------------------------------------------------------
 # Main processor
 # ---------------------------------------------------------------------------
@@ -205,7 +221,8 @@ class AnthropicVoiceProcessor(FrameProcessor):
         else:
             self._api_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789")
             self._api_token = _get_openclaw_token()
-            self._api_model = self._model
+            # OpenClaw requires model=openclaw (not raw provider/model names)
+            self._api_model = "openclaw"
             if not self._api_token or self._api_token == "dummy-token":
                 logger.warning("[AnthropicVoice] No OpenClaw token found — API calls may fail")
         self._max_tokens = max_tokens
@@ -238,6 +255,8 @@ class AnthropicVoiceProcessor(FrameProcessor):
         self._http_session: aiohttp.ClientSession | None = None
         self._cancel_event = asyncio.Event()
         self._is_processing = False
+        self._pending_incoming: list[dict] | None = None
+        self._response_started: bool = False
 
         # Dedup
         self._last_user_text = ""
@@ -261,6 +280,13 @@ class AnthropicVoiceProcessor(FrameProcessor):
         await super().process_frame(frame, direction)
 
         if isinstance(frame, StartInterruptionFrame):
+            if self._is_processing and not self._response_started:
+                logger.info(
+                    "[AnthropicVoice] Suppressed interruption — response not yet "
+                    "started (no audio to interrupt)"
+                )
+                await self.push_frame(frame, direction)
+                return
             self._cancel_event.set()
             self._cancel_event = asyncio.Event()
             await self.push_frame(frame, direction)
@@ -284,80 +310,92 @@ class AnthropicVoiceProcessor(FrameProcessor):
     async def _handle_messages(self, incoming: list[dict]) -> None:
         """Process incoming messages through OpenClaw gateway with tool loop."""
         if self._is_processing:
+            # Do not drop live user turns. Keep the newest context snapshot and
+            # cancel the in-flight request so we can process fresh speech next.
+            self._pending_incoming = incoming
+            self._cancel_event.set()
+            logger.info("[AnthropicVoice] Queued latest user turn while processing")
             return
 
-        self._cancel_event.set()
-        self._cancel_event = asyncio.Event()
         self._is_processing = True
 
         try:
-            self._sync_messages(incoming)
+            next_incoming: list[dict] | None = incoming
+            while next_incoming is not None:
+                self._pending_incoming = None
+                self._cancel_event.set()
+                self._cancel_event = asyncio.Event()
+                self._response_started = False
 
-            user_text = self._get_latest_user_text()
-            if not user_text:
-                return
+                self._sync_messages(next_incoming)
 
-            # Dedup
-            now = time.monotonic()
-            if user_text == self._last_user_text and (now - self._last_user_time) < 30.0:
-                logger.warning(f"[AnthropicVoice] Skipping duplicate: '{user_text[:60]}'")
-                return
-            self._last_user_text = user_text
-            self._last_user_time = now
-
-            self._turn_count += 1
-            turn_start = time.monotonic()
-            cancel = self._cancel_event
-
-            # Tool execution loop
-            round_num = 0
-            first_text_emitted = False
-
-            while round_num < self._max_tool_rounds:
-                round_num += 1
-
-                text_chunks, tool_calls, finish_reason = await self._call_openclaw_streaming(
-                    cancel, turn_start, not first_text_emitted
-                )
-
-                if text_chunks:
-                    first_text_emitted = True
-
-                if cancel.is_set():
+                user_text = self._get_latest_user_text()
+                if not user_text:
                     break
 
-                # If no tool calls, we're done
-                if finish_reason != "tool_calls" or not tool_calls:
+                # Dedup
+                now = time.monotonic()
+                if user_text == self._last_user_text and (now - self._last_user_time) < 30.0:
+                    logger.warning(f"[AnthropicVoice] Skipping duplicate: '{user_text[:60]}'")
                     break
+                self._last_user_text = user_text
+                self._last_user_time = now
 
-                # Add assistant message with tool_calls
-                assistant_msg: dict[str, Any] = {"role": "assistant"}
-                if text_chunks:
-                    assistant_msg["content"] = "".join(text_chunks)
-                else:
-                    assistant_msg["content"] = None
-                assistant_msg["tool_calls"] = [
-                    {
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": json.dumps(tc["arguments"]),
-                        },
-                    }
-                    for tc in tool_calls
-                ]
-                self._messages.append(assistant_msg)
+                self._turn_count += 1
+                turn_start = time.monotonic()
+                cancel = self._cancel_event
 
-                # Execute each tool and add results
-                for tc in tool_calls:
-                    result = await self._invoke_tool(tc["name"], tc["arguments"])
-                    self._messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc["id"],
-                        "content": json.dumps(result) if isinstance(result, dict) else str(result),
-                    })
-                    logger.info(f"[AnthropicVoice] Tool {tc['name']} executed in round {round_num}")
+                # Tool execution loop
+                round_num = 0
+                first_text_emitted = False
+
+                while round_num < self._max_tool_rounds:
+                    round_num += 1
+
+                    text_chunks, tool_calls, finish_reason = await self._call_openclaw_streaming(
+                        cancel, turn_start, not first_text_emitted
+                    )
+
+                    if text_chunks:
+                        first_text_emitted = True
+
+                    if cancel.is_set():
+                        break
+
+                    # If no tool calls, we're done
+                    if finish_reason != "tool_calls" or not tool_calls:
+                        break
+
+                    # Add assistant message with tool_calls
+                    assistant_msg: dict[str, Any] = {"role": "assistant"}
+                    if text_chunks:
+                        assistant_msg["content"] = "".join(text_chunks)
+                    else:
+                        assistant_msg["content"] = None
+                    assistant_msg["tool_calls"] = [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(tc["arguments"]),
+                            },
+                        }
+                        for tc in tool_calls
+                    ]
+                    self._messages.append(assistant_msg)
+
+                    # Execute each tool and add results
+                    for tc in tool_calls:
+                        result = await self._invoke_tool(tc["name"], tc["arguments"])
+                        self._messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "content": json.dumps(result) if isinstance(result, dict) else str(result),
+                        })
+                        logger.info(f"[AnthropicVoice] Tool {tc['name']} executed in round {round_num}")
+
+                next_incoming = self._pending_incoming
 
         except Exception as e:
             logger.error(f"[AnthropicVoice] Error processing: {e}", exc_info=True)
@@ -434,6 +472,7 @@ class AnthropicVoiceProcessor(FrameProcessor):
             "max_tokens": self._max_tokens,
             "messages": api_messages,
             "stream": True,
+            "temperature": _env_float("BOT_VOICE_TEMPERATURE", 0.9),
         }
         if self._tools:
             payload["tools"] = self._tools
@@ -504,6 +543,7 @@ class AnthropicVoiceProcessor(FrameProcessor):
                                 f"(avg: {avg:.0f}ms, turn #{self._turn_count})"
                             )
                             ttfb_logged = True
+                            self._response_started = True
                         text_chunks.append(content)
                         await self.push_frame(TextFrame(text=content))
 
@@ -565,15 +605,51 @@ class AnthropicVoiceProcessor(FrameProcessor):
         """Execute a tool via the bot gateway mesh bridge."""
         session = await self._get_session()
         room_url = os.getenv("BOT_ROOM_URL", "")
+        tenant_id = ""
+        if room_url:
+            try:
+                from room import state as room_state
+                tenant_id = room_state.get_room_tenant_id(room_url) or ""
+            except Exception:
+                tenant_id = ""
+        tenant_id = (tenant_id or os.getenv("BOT_SESSION_TENANT_ID") or "").strip()
+        session_user_id = (os.getenv("BOT_SESSION_USER_ID") or "").strip()
+        session_user_email = (os.getenv("BOT_SESSION_USER_EMAIL") or "").strip()
+        payload = {
+            "tool_name": tool_name,
+            "params": params,
+            "room_url": room_url,
+        }
+        if tenant_id:
+            payload["tenant_id"] = tenant_id
+        if session_user_id:
+            payload["user_id"] = session_user_id
+        if session_user_email:
+            payload["user_email"] = session_user_email
+        headers = {"Content-Type": "application/json"}
+        auth_token = (
+            os.getenv("BOT_CONTROL_SHARED_SECRET")
+            or os.getenv("BOT_CONTROL_SHARED_SECRET_PREV")
+            or os.getenv("BOT_CONTROL_CLAIMS_SECRET")
+            or os.getenv("BOT_CONTROL_CLAIMS_SECRET_PREV")
+            or ""
+        ).strip()
+        if auth_token:
+            headers["X-Bot-Secret"] = auth_token
+            headers["Authorization"] = f"Bearer {auth_token}"
+        if session_user_id:
+            headers["x-user-id"] = session_user_id
+        if session_user_email:
+            headers["x-user-email"] = session_user_email
+        if tenant_id:
+            headers["x-tenant-id"] = tenant_id
+            headers["x-pearl-tenant-id"] = tenant_id
 
         try:
             async with session.post(
                 f"{self._bot_gateway_url}/api/tools/invoke",
-                json={
-                    "tool_name": tool_name,
-                    "params": params,
-                    "room_url": room_url,
-                },
+                json=payload,
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status == 200:

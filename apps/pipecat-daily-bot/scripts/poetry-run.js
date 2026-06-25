@@ -17,7 +17,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 
 // Get the bot directory (where pyproject.toml is)
 const scriptDir = __dirname;
@@ -41,40 +40,14 @@ if (args.length === 0) {
   process.exit(1);
 }
 
-function resolvePoetryBinary() {
-  const home = os.homedir();
-  if (home) {
-    const localPoetry = path.join(home, '.local', 'bin', 'poetry');
-    try {
-      if (fs.existsSync(localPoetry) && fs.statSync(localPoetry).isFile()) {
-        return localPoetry;
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return 'poetry';
-}
+// Check if poetry is available. Prefer PATH, then common install locations.
+const poetryCandidates = [
+  'poetry',
+  path.join(process.env.HOME || '', '.local', 'bin', 'poetry'),
+  path.join(process.env.HOME || '', 'Library', 'Application Support', 'pypoetry', 'venv', 'bin', 'poetry')
+].filter(Boolean);
 
-const poetryCommand = resolvePoetryBinary();
-
-// Check if poetry is available
-const checkPoetry = spawn(poetryCommand, ['--version'], { stdio: 'pipe' });
-checkPoetry.on('error', () => {
-  console.error('❌ Error: Poetry not found in PATH');
-  console.error('   Please install Poetry: https://python-poetry.org/docs/#installation');
-  console.error('   Or run: curl -sSL https://install.python-poetry.org | python3 -');
-  console.error('   If it is installed, ensure ~/.local/bin is on PATH (or use python3.11 for the installer on macOS).');
-  process.exit(1);
-});
-
-checkPoetry.on('close', (code) => {
-  if (code !== 0) {
-    console.error('❌ Error: Poetry command failed');
-    process.exit(1);
-  }
-
-  // Run the poetry command in the bot directory
+function runWithPoetry(poetryCommand) {
   const poetryProcess = spawn(poetryCommand, args, {
     cwd: botDir,
     stdio: 'inherit',
@@ -89,4 +62,26 @@ checkPoetry.on('close', (code) => {
   poetryProcess.on('close', (code) => {
     process.exit(code || 0);
   });
-});
+}
+
+function tryPoetry(index) {
+  if (index >= poetryCandidates.length) {
+    console.error('❌ Error: Poetry not found in PATH');
+    console.error('   Please install Poetry: https://python-poetry.org/docs/#installation');
+    console.error('   Or run: curl -sSL https://install.python-poetry.org | python3.11 -');
+    process.exit(1);
+  }
+
+  const poetryCommand = poetryCandidates[index];
+  const checkPoetry = spawn(poetryCommand, ['--version'], { stdio: 'pipe' });
+  checkPoetry.on('error', () => tryPoetry(index + 1));
+  checkPoetry.on('close', (code) => {
+    if (code !== 0) {
+      tryPoetry(index + 1);
+      return;
+    }
+    runWithPoetry(poetryCommand);
+  });
+}
+
+tryPoetry(0);

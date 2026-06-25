@@ -5,6 +5,10 @@ import { AnonymousUserDefinition } from "./AnonymousUser.definition";
 import { AssistantDefinition } from "./Assistant.definition";
 import { AssistantFeedbackDefinition } from "./AssistantFeedback.definition";
 import { AssistantThemeDefinition } from "./AssistantTheme.definition";
+import { AppNotificationDefinition } from './AppNotification.definition';
+import { DiscordDmLinkDefinition } from "./DiscordDmLink.definition";
+import { DiscordDmVerificationDefinition } from "./DiscordDmVerification.definition";
+import { EarlyAccessFeedbackDefinition } from './EarlyAccessFeedback.definition';
 import { FunctionalPromptDefinition } from "./FunctionalPrompt.definition";
 import { GlobalSettingsDefinition } from './GlobalSettings.definition';
 import { LinkMapDefinition } from './LinkMapDefinition';
@@ -14,12 +18,16 @@ import { ResetPasswordTokenDefinition } from "./ResetPasswordToken.definition";
 import { ResourceShareTokenDefinition } from "./ResourceShareToken.definition";
 import { SpriteDefinition } from "./Sprite.definition";
 import { TenantDefinition } from "./Tenant.definition";
+import { TelegramDmLinkDefinition } from "./TelegramDmLink.definition";
+import { TelegramDmVerificationDefinition } from "./TelegramDmVerification.definition";
 import { ToolDefinition } from "./Tool.definition";
 import { UserDefinition } from "./User.definition";
 import { UserOrganizationRoleDefinition } from "./UserOrganizationRole.definition";
 import { UserProfileDefinition } from './UserProfile.definition';
 import { UserTenantRoleDefinition } from "./UserTenantRole.definition";
 import { NotesDefinition } from "./Notes.definition";
+import { WebhookDeliveryDefinition } from './WebhookDelivery.definition';
+import { WebhookSubscriptionDefinition } from './WebhookSubscription.definition';
 
 // Export individual definitions
 export { FunctionalPromptDefinition } from './FunctionalPrompt.definition';
@@ -34,6 +42,10 @@ export const platformDefinitionsIndex: Record<string, IDynamicContent> = {
     Assistant: AssistantDefinition,
     AssistantFeedback: AssistantFeedbackDefinition,
     AssistantTheme: AssistantThemeDefinition,
+    AppNotification: AppNotificationDefinition,
+    DiscordDmLink: DiscordDmLinkDefinition,
+    DiscordDmVerification: DiscordDmVerificationDefinition,
+    EarlyAccessFeedback: EarlyAccessFeedbackDefinition,
     FunctionalPrompt: FunctionalPromptDefinition,
     Organization: OrganizationDefinition,
     Personality: PersonalityDefinition,
@@ -41,6 +53,8 @@ export const platformDefinitionsIndex: Record<string, IDynamicContent> = {
     ResourceShareToken: ResourceShareTokenDefinition,
     Sprite: SpriteDefinition,
     Tenant: TenantDefinition,
+    TelegramDmLink: TelegramDmLinkDefinition,
+    TelegramDmVerification: TelegramDmVerificationDefinition,
     Tool: ToolDefinition,
     User: UserDefinition,
     UserOrganizationRole: UserOrganizationRoleDefinition,
@@ -49,4 +63,6 @@ export const platformDefinitionsIndex: Record<string, IDynamicContent> = {
     GlobalSettings: GlobalSettingsDefinition,
     LinkMap: LinkMapDefinition,
     Notes: NotesDefinition,
+    WebhookDelivery: WebhookDeliveryDefinition,
+    WebhookSubscription: WebhookSubscriptionDefinition,
 };

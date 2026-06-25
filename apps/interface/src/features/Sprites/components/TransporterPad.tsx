@@ -36,9 +36,12 @@ export const TransporterPad: React.FC<TransporterPadProps> = ({ summonState, act
           50% { opacity: 0.7; }
         }
         @keyframes materialize {
-          0% { opacity: 0; transform: scale(0.5); filter: brightness(3) blur(8px); }
-          60% { opacity: 0.8; transform: scale(1.1); filter: brightness(1.5) blur(2px); }
-          100% { opacity: 1; transform: scale(1); filter: brightness(1) blur(0); }
+          /* Start fully invisible so the freshly-mounted <img> never paints
+             a half-decoded frame to the user. Avoid the high-brightness blur
+             intro that previously read like a "ghost" of a prior sprite. */
+          0%   { opacity: 0; transform: scale(0.92); }
+          50%  { opacity: 1; transform: scale(1.02); }
+          100% { opacity: 1; transform: scale(1); }
         }
         @keyframes ring-expand {
           0% { transform: scale(0.8); opacity: 0.6; }
@@ -136,21 +139,32 @@ export const TransporterPad: React.FC<TransporterPadProps> = ({ summonState, act
         />
       ))}
 
-      {/* Materialized sprite */}
-      {(isMaterializing || isComplete) && activeSprite && (
+      {/* Materialized sprite — persists on circle until next summon.
+          - key={activeSprite.id} forces React to discard the old DOM node
+            and mount a fresh one when the sprite changes; the previous
+            bitmap can never linger in a reused <img>.
+          - The materialize animation uses animation-fill-mode: both, so the
+            very first painted frame inherits the 0% keyframe (opacity 0).
+            That eliminates a one-frame flash where a fresh <img> could
+            otherwise paint at full opacity before the animation kicks in.
+          - decoding="sync" + the preloadImage call in useSprites means the
+            decoded bitmap is in cache before mount. */}
+      {!isSummoning && activeSprite && (
         <div
+          key={activeSprite.id}
           className="absolute flex items-center justify-center"
           style={{
             width: 140, height: 140,
-            animation: isMaterializing ? 'materialize 1.2s ease-out forwards' : undefined,
+            animation: isMaterializing ? 'materialize 0.5s ease-out both' : undefined,
           }}
         >
           <img
             src={activeSprite.imageUrl}
             alt={activeSprite.name}
+            decoding="sync"
             className="w-full h-full object-contain rounded-lg"
             style={{
-              filter: isComplete ? 'drop-shadow(0 0 12px rgba(6, 182, 212, 0.5))' : undefined,
+              filter: 'drop-shadow(0 0 12px rgba(6, 182, 212, 0.5))',
             }}
           />
         </div>
@@ -166,7 +180,7 @@ export const TransporterPad: React.FC<TransporterPadProps> = ({ summonState, act
         </div>
       )}
 
-      {/* Idle state — subtle pulse */}
+      {/* Idle state — subtle pulse, only when no sprite has been summoned yet */}
       {summonState === 'idle' && !activeSprite && (
         <div className="absolute flex items-center justify-center text-cyan-400/30 text-sm uppercase tracking-widest"
           style={{ fontFamily: 'Gohufont, monospace' }}

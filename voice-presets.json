@@ -1,0 +1,19 @@
+{
+  "default": {
+    "asr_model": "voxtral-mini:3b-q4",
+    "tts_model": "voxtral-tts:4b-tts",
+    "tts_voice": "casual_female_en",
+    "lang": "en",
+    "temperature": 0.6,
+    "top_p": 0.9
+  },
+  "voices": {
+    "casual_female_en": {
+      "name": "Casual Female (English)",
+      "pitch": 1.0,
+      "speed": 1.0,
+      "emotion": "neutral-friendly",
+      "description": "Natural conversational female voice, suitable for everyday interaction"
+    }
+  }
+}

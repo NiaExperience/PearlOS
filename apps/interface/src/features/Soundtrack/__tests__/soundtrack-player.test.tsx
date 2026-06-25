@@ -9,6 +9,19 @@ import { SoundtrackProvider, useSoundtrack } from '@interface/features/Soundtrac
 // Mock voice session context to respond to Daily audio level events
 let mockIsAssistantSpeaking = false;
 const mockIsUserSpeaking = false;
+let mockSessionStatus: 'loading' | 'authenticated' | 'unauthenticated' = 'authenticated';
+let mockSessionUserId: string | null = 'user-123';
+
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: mockSessionUserId ? { user: { id: mockSessionUserId } } : null,
+    status: mockSessionStatus,
+  }),
+}));
+
+jest.mock('posthog-js/react', () => ({
+  usePostHog: () => ({ capture: jest.fn() }),
+}));
 
 jest.mock('@interface/contexts/voice-session-context', () => ({
   VoiceSessionProvider: ({ children }: { children: React.ReactNode }) => children,
@@ -89,15 +102,81 @@ const setup = () => render(
 describe('Soundtrack Player', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as jest.Mock;
     mockIsAssistantSpeaking = false;
+    mockSessionStatus = 'authenticated';
+    mockSessionUserId = 'user-123';
   });
   it('should start with default state', () => {
+    window.localStorage.setItem('pearlos-music-enabled:user-123', 'false');
     const { getByTestId } = setup();
     
     expect(getByTestId('is-playing').textContent).toBe('false');
     expect(getByTestId('volume').textContent).toBe('0.35'); // DEFAULT_NORMAL_VOLUME
     expect(getByTestId('is-speaking').textContent).toBe('false');
     expect(getByTestId('current-track-index').textContent).toBe('0');
+  });
+
+  it('auto-starts when startup audio has not been disabled', async () => {
+    const { getByTestId } = setup();
+
+    await waitFor(() => {
+      expect(getByTestId('is-playing').textContent).toBe('true');
+    });
+  });
+
+  it('does not auto-start when the user-scoped startup audio setting is off', async () => {
+    window.localStorage.setItem('pearlos-music-enabled:user-123', 'false');
+
+    const { getByTestId } = setup();
+
+    await waitFor(() => {
+      expect(getByTestId('is-playing').textContent).toBe('false');
+    });
+  });
+
+  it('ignores bot and system play events when startup audio is off', async () => {
+    window.localStorage.setItem('pearlos-music-enabled:user-123', 'false');
+
+    const { getByTestId } = setup();
+
+    await waitFor(() => {
+      expect(getByTestId('is-playing').textContent).toBe('false');
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('soundtrackControl', {
+        detail: { action: 'play', source: 'bot' },
+      }));
+      window.dispatchEvent(new CustomEvent('soundtrackControl', {
+        detail: { action: 'play', source: 'system' },
+      }));
+    });
+
+    expect(getByTestId('is-playing').textContent).toBe('false');
+    expect(window.localStorage.getItem('pearlos-music-enabled:user-123')).toBe('false');
+  });
+
+  it('allows settings-originated play to update the saved preference', async () => {
+    window.localStorage.setItem('pearlos-music-enabled:user-123', 'false');
+
+    const { getByTestId } = setup();
+
+    await waitFor(() => {
+      expect(getByTestId('is-playing').textContent).toBe('false');
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('soundtrackControl', {
+        detail: { action: 'play', source: 'settings', persistPreference: true },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('is-playing').textContent).toBe('true');
+    });
+    expect(window.localStorage.getItem('pearlos-music-enabled:user-123')).toBe('true');
   });
 
   it('should start playing when play is called', () => {
@@ -124,6 +203,7 @@ describe('Soundtrack Player', () => {
     });
     
     expect(getByTestId('is-playing').textContent).toBe('false');
+    expect(window.localStorage.getItem('pearlos-music-enabled:user-123')).toBe('false');
   });
 
   it('should advance to next track when next is called', () => {
@@ -242,6 +322,3 @@ describe('Soundtrack Player', () => {
     });
   });
 });
-
-
-

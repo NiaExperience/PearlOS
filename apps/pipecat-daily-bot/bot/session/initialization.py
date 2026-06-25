@@ -38,6 +38,7 @@ async def initialize_session_config(
     
     # Use pre-fetched personality record from server startup cache (if available)
     personality_record: dict[str, Any] | None = None
+    stale_preloaded_personality_record: dict[str, Any] | None = None
     preloaded_personality_json = os.getenv("BOT_PERSONALITY_RECORD")
     if preloaded_personality_json:
         try:
@@ -50,8 +51,9 @@ async def initialize_session_config(
                     f"[{BOT_PID}] [personality] Using pre-fetched personality record: {personality_record.get('name')} (id={personality_record.get('_id')})"
                 )
             else:
+                stale_preloaded_personality_record = loaded_record
                 logger.info(
-                    f"[{BOT_PID}] [personality] Pre-fetched personality ({loaded_record.get('_id')}) does not match requested ({personality_id}). Ignoring."
+                    f"[{BOT_PID}] [personality] Pre-fetched personality ({loaded_record.get('_id')}) does not match requested ({personality_id}). Holding as fallback."
                 )
         except Exception as e:
             logger.error(f"[{BOT_PID}] [personality] Failed to parse pre-fetched personality record: {e}")
@@ -66,6 +68,14 @@ async def initialize_session_config(
                 )
         except Exception as e:
             logger.error(f"[{BOT_PID}] [personality] Failed to get personality from DB fallback: {e}")
+
+    if not personality_record and stale_preloaded_personality_record:
+        personality_record = stale_preloaded_personality_record
+        logger.warning(
+            f"[{BOT_PID}] [personality] Requested personality {personality_id} was unavailable; "
+            f"using pre-fetched fallback {personality_record.get('name')} "
+            f"(id={personality_record.get('_id')}) so voice can start."
+        )
     
     if not personality_record:
         error_msg = (

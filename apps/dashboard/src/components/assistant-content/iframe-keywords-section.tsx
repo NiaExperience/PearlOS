@@ -79,7 +79,7 @@ export default function IframeKeywordsSection({
     const fetchIframeKeywords = async () => {
       setIsLoading(true);
       try {
-        const result = await fetch(`/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`);
+        const result = await fetch(`/dashboard/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`);
         if (result.ok) {
           const data = await result.json();
           setIframeKeywords(data);
@@ -207,7 +207,7 @@ export default function IframeKeywordsSection({
       }
 
       if (editingIframeKeyword) {
-        result = await fetch(`/api/contentDetail/${editingIframeKeyword._id}`, {
+        result = await fetch(`/dashboard/api/contentDetail/${editingIframeKeyword._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -215,7 +215,7 @@ export default function IframeKeywordsSection({
           body: JSON.stringify(keywordData),
         });
       } else {
-        result = await fetch(`/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`, {
+        result = await fetch(`/dashboard/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -225,7 +225,7 @@ export default function IframeKeywordsSection({
       }
 
       if (result.ok) {
-        const updated = await fetch(`/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`);
+        const updated = await fetch(`/dashboard/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`);
         const data = await updated.json();
         setIframeKeywords(data);
         iframeKeywordForm.reset();
@@ -257,11 +257,11 @@ export default function IframeKeywordsSection({
 
   const handleDeleteIframeKeyword = async (keywordId: string) => {
     try {
-      const result = await fetch(`/api/contentDetail/${keywordId}`, {
+      const result = await fetch(`/dashboard/api/contentDetail/${keywordId}`, {
         method: 'DELETE',
       });
       if (result.ok) {
-        const updatedIframeKeywords = await fetch(`/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`);
+        const updatedIframeKeywords = await fetch(`/dashboard/api/contentList?type=iframeKeyword&assistantId=${selectedAssistant._id}`);
         const data = await updatedIframeKeywords.json();
         setIframeKeywords(data);
         setIframeKeywordToDelete(null);

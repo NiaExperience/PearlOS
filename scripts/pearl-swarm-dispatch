@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""Register a PearlOS swarm task and, when configured, run OpenRouter agents."""
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+
+DEFAULT_MODELS = [
+    "openai/gpt-5.5",
+    "anthropic/claude-opus-4.6",
+    "openai/gpt-5.3-codex",
+    "deepseek/deepseek-v4-pro",
+    "z-ai/glm-5.1",
+    "moonshotai/kimi-k2.7-code",
+    "google/gemini-3.5-flash",
+    "qwen/qwen3.7-max",
+]
+
+
+def _bot_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    secret = os.getenv("BOT_CONTROL_SHARED_SECRET", "").strip()
+    if secret:
+        headers["Authorization"] = f"Bearer {secret}"
+        headers["X-Bot-Secret"] = secret
+    return headers
+
+
+def _post_json(url: str, body: dict, headers: dict[str, str]) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        method="POST",
+        headers=headers,
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _patch_json(url: str, body: dict, headers: dict[str, str]) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        method="PATCH",
+        headers=headers,
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _get_json(url: str, headers: dict[str, str]) -> dict:
+    req = urllib.request.Request(url, method="GET", headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _tasks_api() -> str:
+    return os.getenv("PEARL_TASKS_API", "http://127.0.0.1:4444/api/tasks").rstrip("/")
+
+
+def _first_env(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _requester_scope(args: argparse.Namespace) -> tuple[str, str, str]:
+    tenant_id = args.tenant_id or _first_env(
+        "PEARL_SWARM_TENANT_ID",
+        "PEARLOS_SWARM_TENANT_ID",
+        "PEARL_TASK_REQUESTER_TENANT_ID",
+        "PEARLOS_TENANT_ID",
+    )
+    user_id = args.user_id or _first_env(
+        "PEARL_SWARM_USER_ID",
+        "PEARLOS_SWARM_USER_ID",
+        "PEARL_TASK_REQUESTER_USER_ID",
+        "PEARLOS_USER_ID",
+    )
+    user_email = args.user_email or _first_env(
+        "PEARL_SWARM_USER_EMAIL",
+        "PEARLOS_SWARM_USER_EMAIL",
+        "PEARL_TASK_REQUESTER_EMAIL",
+        "PEARLOS_USER_EMAIL",
+    )
+    return tenant_id.strip(), user_id.strip(), user_email.strip().lower()
+
+
+def _require_requester_scope(args: argparse.Namespace) -> tuple[str, str, str]:
+    tenant_id, user_id, user_email = _requester_scope(args)
+    if not tenant_id or not (user_id or user_email):
+        print(
+            "pearl-swarm-dispatch requires tenant scope. Set --tenant-id and "
+            "--user-id or --user-email, or configure PEARL_SWARM_TENANT_ID plus "
+            "PEARL_SWARM_USER_ID/PEARL_SWARM_USER_EMAIL.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    return tenant_id, user_id, user_email
+
+
+def _agent_count(difficulty: str, explicit: int | None) -> int:
+    if explicit:
+        return max(1, min(explicit, 8))
+    return {"easy": 1, "medium": 3, "hard": 5}.get(difficulty, 3)
+
+
+def _models(count: int) -> list[str]:
+    return DEFAULT_MODELS[:count]
+
+
+def _iso_now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
+
+
+def _model_label(model: str) -> str:
+    tail = model.split("/")[-1]
+    return tail.replace("-", " ").replace("_", " ").title()
+
+
+def _activity_update(tasks_url: str, task_id: str, agent: str, status: str, thought: str, headers: dict[str, str]) -> None:
+    try:
+        _patch_json(
+            f"{tasks_url}/{urllib.parse.quote(str(task_id), safe='')}",
+            {
+                "agent_activity_merge": {
+                    agent: {
+                        "status": status,
+                        "thought": thought[:140],
+                        "updated_at": _iso_now(),
+                    }
+                }
+            },
+            headers,
+        )
+    except Exception:
+        pass
+
+
+def _openrouter_call(model: str, task: str, category: str) -> str:
+    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        return f"{model}: skipped because OPENROUTER_API_KEY is not available."
+    body = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are one agent in a PearlOS swarm. Be concise, practical, "
+                    "and avoid mentioning internal process or identifiers."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Category: {category}\n\nTask:\n{task}",
+            },
+        ],
+    }
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://pearlos.org",
+        "X-Title": "PearlOS Swarm Dispatch",
+    }
+    try:
+        payload = _post_json("https://openrouter.ai/api/v1/chat/completions", body, headers)
+        return payload["choices"][0]["message"]["content"].strip()
+    except Exception as exc:  # noqa: BLE001 - report per-agent failure, keep swarm moving.
+        return f"{model}: failed to return a result ({exc})."
+
+
+def _show_rankings() -> int:
+    path = "/workspace/nia-universal/config/agency-swarm.json"
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            cfg = json.load(handle)
+    except OSError as exc:
+        print(f"Could not read swarm config: {exc}", file=sys.stderr)
+        return 1
+    prefs = cfg.get("rolePreferences", {})
+    for role, models in prefs.items():
+        print(f"{role}: {', '.join(models[:5])}")
+    return 0
+
+
+def _status(args: argparse.Namespace) -> int:
+    tenant_id, user_id, user_email = _require_requester_scope(args)
+    params = {
+        "requester_tenant_id": tenant_id,
+        "include_archived": "false",
+        "limit": "20",
+    }
+    if user_id:
+        params["requester_user_id"] = user_id
+    if user_email:
+        params["requester_email"] = user_email
+    url = f"{_tasks_api()}?{urllib.parse.urlencode(params)}"
+    try:
+        data = _get_json(url, _bot_headers())
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+        print(f"Failed to read swarm status: {exc}", file=sys.stderr)
+        return 1
+    tasks = [task for task in data.get("tasks", []) if task.get("kind") == "swarm"]
+    if not tasks:
+        print("No scoped swarm tasks found.")
+        return 0
+    for task in tasks[:10]:
+        title = str(task.get("title") or task.get("task") or "Untitled swarm").strip()
+        status = str(task.get("status") or "unknown")
+        category = str(task.get("swarm_category") or "swarm")
+        print(f"{status:12} {category:16} {title[:90]}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="pearl-swarm-dispatch")
+    parser.add_argument("task", nargs="?", help="Task description for the swarm")
+    parser.add_argument("--agents", type=int, default=None)
+    parser.add_argument("--category", default="research")
+    parser.add_argument("--difficulty", choices=["easy", "medium", "hard"], default="medium")
+    parser.add_argument("--tenant-id", default="")
+    parser.add_argument("--user-id", default="")
+    parser.add_argument("--user-email", default="")
+    parser.add_argument("--status", action="store_true", help="Show recent swarm tasks")
+    parser.add_argument("--show-rankings", nargs="?", const="all")
+    args = parser.parse_args(argv)
+
+    if args.show_rankings is not None:
+        return _show_rankings()
+    if args.status:
+        return _status(args)
+
+    task = (args.task or "").strip()
+    if not task:
+        parser.error("task description required")
+
+    count = _agent_count(args.difficulty, args.agents)
+    models = _models(count)
+    tenant_id, user_id, user_email = _require_requester_scope(args)
+    tasks_url = _tasks_api()
+    title = " ".join(task.split()[:8])
+
+    start_body = {
+        "task": task,
+        "title": title,
+        "kind": "swarm",
+        "agents": models,
+        "swarm_category": args.category,
+        "source": "manual",
+        "created_by": "pearl",
+        "assignee": "pearl",
+        "requester_tenant_id": tenant_id,
+        "requester_user_id": user_id or None,
+        "requester_email": user_email or None,
+        "max_retries": 0,
+        "execution_mode": "fast_draft",
+    }
+    headers = _bot_headers()
+    try:
+        created = _post_json(tasks_url, start_body, headers)
+        task_id = created.get("task", {}).get("id")
+        if not task_id:
+            print("Failed to register scoped swarm: missing task id.", file=sys.stderr)
+            return 1
+        _patch_json(
+            f"{tasks_url}/{urllib.parse.quote(str(task_id), safe='')}",
+            {"status": "in_progress", "note": "OpenRouter swarm started."},
+            headers,
+        )
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+        print(f"Failed to register swarm: {exc}", file=sys.stderr)
+        return 1
+
+    started = time.time()
+    for model in models:
+        _activity_update(tasks_url, task_id, model, "running", f"{_model_label(model)} is reviewing its part of the plan.", headers)
+    _activity_update(tasks_url, task_id, "DeepSeekFlashV4", "running", "Watching the swarm responses and preparing a concise synthesis.", headers)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=count) as pool:
+        futures = {pool.submit(_openrouter_call, model, task, args.category): model for model in models}
+        results = []
+        for index, future in enumerate(concurrent.futures.as_completed(futures), start=1):
+            model = futures[future]
+            results.append(future.result())
+            _activity_update(tasks_url, task_id, model, "done", f"{_model_label(model)} returned its recommendation.", headers)
+            _activity_update(
+                tasks_url,
+                task_id,
+                "DeepSeekFlashV4",
+                "running",
+                f"Synthesizing {index} of {count} Agency perspectives into one plan.",
+                headers,
+            )
+
+    summary = "\n\n".join(results)
+    _activity_update(tasks_url, task_id, "DeepSeekFlashV4", "done", "Synthesis complete; the plan is ready for review.", headers)
+    complete_body = {
+        "status": "completed",
+        "result": summary,
+        "note": f"Completed in {int(time.time() - started)} seconds.",
+    }
+    _patch_json(f"{tasks_url}/{urllib.parse.quote(str(task_id), safe='')}", complete_body, headers)
+    print("Swarm completed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

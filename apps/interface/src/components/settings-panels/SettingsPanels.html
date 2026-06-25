@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pearl Settings</title>
+<script src="/error-boundary.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface-hover: #1a1a24;
+  --border: rgba(150, 130, 255, 0.15);
+  --border-active: rgba(150, 130, 255, 0.5);
+  --accent: #9682ff;
+  --accent-dim: rgba(150, 130, 255, 0.2);
+  --text: #e8e8f0;
+  --text-dim: #8888a0;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --radius: 12px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+
+.settings-container {
+  max-width: 720px; margin: 0 auto; padding: 24px 20px;
+  min-height: 100vh;
+}
+
+/* === Tab Bar === */
+.tab-bar {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--surface); border-radius: var(--radius);
+  margin-bottom: 24px; overflow-x: auto;
+}
+.tab-btn {
+  flex: 1; padding: 10px 16px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-dim);
+  font: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface-hover); }
+.tab-btn.active {
+  color: var(--text); background: var(--accent-dim);
+  box-shadow: 0 0 0 1px var(--border-active);
+}
+
+/* === Panel === */
+.panel { display: none; animation: fadeIn 0.2s ease; }
+.panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* === Section === */
+.section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+}
+.section-title {
+  font-size: 13px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--accent); margin-bottom: 16px;
+}
+
+/* === Form Controls === */
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+.field-label {
+  display: block; font-size: 13px; font-weight: 500;
+  color: var(--text-dim); margin-bottom: 6px;
+}
+.field-hint {
+  font-size: 12px; color: var(--text-dim); margin-top: 4px; opacity: 0.7;
+}
+
+select, input[type="text"], input[type="password"] {
+  width: 100%; padding: 10px 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font: inherit; font-size: 14px;
+  transition: border-color 0.2s;
+  appearance: none; -webkit-appearance: none;
+}
+select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%238888a0' fill='none' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+select:focus, input:focus {
+  outline: none; border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+input[type="password"] { font-family: monospace; letter-spacing: 0.1em; }
+
+/* Toggle */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0;
+}
+.toggle-row + .toggle-row { border-top: 1px solid var(--border); }
+.toggle-label { font-size: 14px; }
+.toggle {
+  position: relative; width: 44px; height: 24px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 12px; cursor: pointer; transition: all 0.2s;
+}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--text); transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* === Apply Bar === */
+.apply-bar {
+  position: sticky; bottom: 0; padding: 16px 0;
+  background: linear-gradient(transparent, var(--bg) 30%);
+  display: flex; gap: 12px; justify-content: flex-end;
+}
+.btn {
+  padding: 10px 24px; border: none; border-radius: 8px;
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-primary {
+  background: var(--accent); color: #0a0a0f;
+}
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-secondary {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--border-active); }
+
+/* === Toast === */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+  padding: 12px 24px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); font-size: 14px; font-weight: 500;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transition: transform 0.3s ease, opacity 0.3s;
+  opacity: 0; z-index: 1000;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.success { border-color: var(--success); }
+.toast.warning { border-color: var(--warning); }
+
+/* === Responsive === */
+@media (max-width: 480px) {
+  .settings-container { padding: 16px 12px; }
+  .tab-btn { padding: 8px 12px; font-size: 13px; }
+}
+
+/* === Collapsible Sections === */
+.section.collapsible .section-title {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  margin-bottom: 0px;
+}
+.section.collapsible .section-title:hover {
+  color: var(--text);
+}
+.collapsible-content {
+  display: none; /* Hidden by default */
+  padding-top: 10px;
+  animation: fadeIn 0.3s ease-out;
+}
+.collapsible-icon {
+  margin-left: 10px;
+  transition: transform 0.2s ease;
+}
+.collapsible-icon.rotated {
+  transform: rotate(180deg);
+}
+</style>
+</head>
+<body>
+
+<div class="settings-container">
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="pearl-mind">🧠 Pearl Mind</button>
+    <button class="tab-btn" data-tab="connections">🔗 Connections</button>
+    <button class="tab-btn" data-tab="channels">💬 Channels</button>
+    <a href="/recovery.html" class="tab-btn" style="text-decoration:none;text-align:center;">🛠️ Recovery</a>
+  </div>
+
+  <!-- ===== PEARL MIND PANEL (default) ===== -->
+  <div id="pearl-mind" class="panel active">
+
+    <!-- Primary Model -->
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        Primary Model
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="field">
+          <label class="field-label">Default Model</label>
+          <select id="primary-model">
+            <option value="openclaw/openclaw-llm" selected>⭐ OpenClaw LLM (Recommended)</option>
+            <option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option>
+            <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
+            <option value="openrouter/z-ai/glm-5">GLM-5 (via OpenRouter)</option>
+            <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+            <option value="openrouter/auto">OpenRouter Auto</option>
+          </select>
+          <div class="field-hint">
+            Select the large language model Pearl will use for general conversations, quick answers, and standard tasks.
+            This model balances speed, intelligence, and cost for optimal everyday performance.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Specialized Models -->
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        Specialized Models
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="field">
+          <label class="field-label">Sub-agent / Heavy Tasks</label>
+          <select id="subagent-model">
+            <option value="openclaw/openclaw-llm">⭐ OpenClaw LLM</option>
+            <option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option>
+            <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
+            <option value="">Same as primary</option>
+          </select>
+          <div class="field-hint">
+            Choose a powerful model for resource-intensive tasks like multi-file code generation,
+            complex debugging, architectural analysis, and tasks delegated to sub-agents.
+            These models offer higher intelligence at a potentially higher cost and latency.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token/Credit Balance -->
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        Token Balance
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="field">
+          <label class="field-label">Remaining Tokens/Credits</label>
+          <input type="text" id="token-balance" placeholder="Loading..." disabled />
+          <div class="field-hint">
+            Monitor your usage. This displays the approximate remaining tokens or credits
+            from your configured LLM providers, if supported.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Keys -->
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        API Keys
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="field">
+          <label class="field-label">Anthropic API Key</label>
+          <input type="password" id="anthropic-key" placeholder="sk-ant-..." />
+        </div>
+        <div class="field">
+          <label class="field-label">OpenRouter API Key</label>
+          <input type="password" id="openrouter-key" placeholder="sk-or-..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- Launch Mode -->
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        Launch Mode
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="field">
+          <label class="field-label">Startup Screen</label>
+          <select id="launch-mode-pref">
+            <option value="auto">🔄 Auto (Remember last screen)</option>
+            <option value="home">🏠 Always Home</option>
+            <option value="work">💼 Always Desktop</option>
+          </select>
+          <div class="field-hint">
+            Choose which screen PearlOS launches into. Auto remembers the last mode you used.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Behavior -->
+    <div class="section-description" style="margin-bottom: 20px; font-size: 13px; color: var(--text-dim);">
+      Configure how Pearl manages conversational context and data to optimize performance and resource usage.
+    </div>
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        Behavior
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="toggle-row">
+          <span class="toggle-label">Prompt Caching</span>
+          <div class="field-hint" style="width: calc(100% - 60px);">
+            Enabling caching can speed up responses for recurring prompts but may use more memory.
+          </div>
+          <div class="toggle on" id="toggle-cache" data-key="cacheRetention"></div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Auto-compact at 75%</span>
+          <div class="field-hint" style="width: calc(100% - 60px);">
+            Automatically compacts conversation history when context usage reaches 75% to prevent token overflow.
+          </div>
+          <div class="toggle on" id="toggle-compact" data-key="autoCompact"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LLM Rankings -->
+    <div class="section collapsible">
+      <div class="section-title collapsible-header">
+        LLM Rankings
+        <span class="collapse-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <p class="field-hint" style="margin-bottom: 12px;">
+          Latest benchmarks for various LLMs across key metrics, sourced from industry reports and specialized benchmarks.
+        </p>
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 10px;">
+          <thead>
+            <tr style="background:#222; text-align: left;">
+              <th style="padding: 8px; border-bottom: 1px solid var(--border);">Model</th>
+              <th style="padding: 8px; border-bottom: 1px solid var(--border);">Intelligence</th>
+              <th style="padding: 8px; border-bottom: 1px solid var(--border);">Speed</th>
+              <th style="padding: 8px; border-bottom: 1px solid var(--border);">Cost</th>
+              <th style="padding: 8px; border-bottom: 1px solid var(--border);">Tool Calling</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">GPT-5.2 (xhigh)</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Top (Coder: 89%)</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Good</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Claude Opus 4.6</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Very High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Medium</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Excellent</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Gemini 2.5 Pro</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High (Reasoning: 82.1%)</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Medium</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Excellent</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">GLM-4.7 Thinking</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Low</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Low</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Good</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">DeepSeek V3.2</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Medium</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Low</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Good</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Llama 3.1 405b</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Very High</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Medium</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Low (Open Source)</td>
+              <td style="padding: 8px; border-bottom: 1px solid var(--border);">Dominant (81.1%)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="field-hint" style="font-size: 12px; opacity: 0.7;">
+          Sources: llm-stats.com, dev.to, whatllm.org, intuitionlabs.ai, siliconflow.com (as of Feb 2026).
+          Rankings are relative and based on various benchmarks; actual performance may vary with specific tasks and configurations.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONNECTIONS PANEL ===== -->
+  <div id="connections" class="panel">
+    <div class="section">
+      <div class="section-title">Auth Profiles</div>
+      <div id="auth-profiles-list"></div>
+      <div class="field-hint" style="margin-top:12px">Manage API authentication profiles. Edit openclaw.json directly for advanced changes.</div>
+    </div>
+  </div>
+
+  <!-- ===== CHANNELS PANEL ===== -->
+  <div id="channels" class="panel">
+    <div class="section">
+      <div class="section-title">Discord</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Enabled</span>
+        <div class="toggle" id="toggle-discord" data-key="discord.enabled"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Telegram</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Enabled</span>
+        <div class="toggle" id="toggle-telegram" data-key="telegram.enabled"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apply Bar -->
+  <div class="apply-bar">
+    <button class="btn btn-secondary" onclick="resetForm()">Reset</button>
+    <button class="btn btn-primary" onclick="applyChanges()">✨ Apply Changes</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- State ---
+  let config = null;
+  let dirty = false;
+
+  // --- Tab switching ---
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // --- Toggle switches ---
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => {
+      t.classList.toggle('on');
+      dirty = true;
+    });
+  });
+
+  // --- Track changes ---
+  document.querySelectorAll('select, input').forEach(el => {
+    el.addEventListener('change', () => { dirty = true; });
+    el.addEventListener('input', () => { dirty = true; });
+  });
+
+  // --- Toast ---
+  window.showToast = function(msg, type = 'success', duration = 3000) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast ' + type + ' show';
+    setTimeout(() => toast.classList.remove('show'), duration);
+  };
+
+  // --- Load token balance ---
+  async function loadTokenBalance() {
+    try {
+      const resp = await fetch('/api/tokens'); // Assume an API endpoint to fetch token balance
+      if (resp.ok) {
+        const { remainingTokens } = await resp.json();
+        document.getElementById('token-balance').value = remainingTokens + ' Tokens';
+      } else {
+        document.getElementById('token-balance').placeholder = 'Failed to load';
+      }
+    } catch (e) {
+      console.error('Error fetching token balance', e);
+      document.getElementById('token-balance').placeholder = 'Error';
+    }
+  }
+
+  // Load token balance
+  loadTokenBalance();
+
+
+  async function loadConfig() {
+    try {
+      const resp = await fetch('/api/config');
+      if (resp.ok) {
+        config = await resp.json();
+      }
+    } catch(e) {
+      // Fallback: try reading from embedded data or use defaults
+      console.log('Could not load config from API, using defaults');
+    }
+    populateForm();
+  }
+
+  function populateForm() {
+    if (!config) return;
+
+    // Primary model
+    const primary = config.agents?.defaults?.model?.primary;
+    if (primary) {
+      const sel = document.getElementById('primary-model');
+      // Add option if not in list
+      if (!sel.querySelector(`option[value="${primary}"]`)) {
+        const opt = document.createElement('option');
+        opt.value = primary; opt.textContent = primary;
+        sel.appendChild(opt);
+      }
+      sel.value = primary;
+    }
+
+    // Cache toggle
+    const cache = config.agents?.defaults?.models?.['anthropic/claude-sonnet-4-5']?.params?.cacheRetention;
+    document.getElementById('toggle-cache').classList.toggle('on', cache === 'long');
+
+    // Auto-compact
+    const compact = config.agents?.defaults?.compaction?.mode;
+    document.getElementById('toggle-compact').classList.toggle('on', compact === 'default');
+
+    // Channel toggles
+    const discordEnabled = config.channels?.discord?.enabled !== false;
+    document.getElementById('toggle-discord').classList.toggle('on', discordEnabled);
+    const telegramEnabled = config.plugins?.entries?.telegram?.enabled !== false;
+    document.getElementById('toggle-telegram').classList.toggle('on', telegramEnabled);
+
+    // Auth profiles
+    const profiles = config.auth?.profiles || {};
+    const list = document.getElementById('auth-profiles-list');
+    list.innerHTML = Object.entries(profiles).map(([name, p]) =>
+      `<div class="toggle-row"><span class="toggle-label">${name}</span><span style="color:var(--text-dim);font-size:13px">${p.provider} / ${p.mode}</span></div>`
+    ).join('');
+
+    dirty = false;
+  }
+
+  // --- Apply ---
+  window.applyChanges = async function() {
+    // Save launch mode preference to localStorage (read directly by PearlOS frontend)
+    const launchPref = document.getElementById('launch-mode-pref').value;
+    localStorage.setItem(LAUNCH_PREF_KEY, launchPref);
+
+    const changes = {
+      primaryModel: document.getElementById('primary-model').value,
+      subagentModel: document.getElementById('subagent-model').value, // Added
+      cacheRetention: document.getElementById('toggle-cache').classList.contains('on') ? 'long' : 'off',
+      autoCompact: document.getElementById('toggle-compact').classList.contains('on') ? 'default' : 'off', // Added
+      anthropicKey: document.getElementById('anthropic-key').value || undefined,
+      openrouterKey: document.getElementById('openrouter-key').value || undefined,
+      launchModePreference: launchPref,
+    };
+
+    // Try saving via API
+    try {
+      const resp = await fetch('/api/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(changes)
+      });
+      if (resp.ok) {
+        showToast('✅ Settings saved', 'success');
+        dirty = false;
+        // Check if model changed (needs restart)
+        if (config && changes.primaryModel !== config.agents?.defaults?.model?.primary) {
+          setTimeout(() => showToast('⚠️ Model change may require gateway restart', 'warning', 4000), 1500);
+        }
+        return;
+      }
+    } catch(e) {}
+
+    // Fallback: post to parent (Wonder Canvas mode)
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'wonder.interaction',
+        action: 'settings.apply',
+        data: changes
+      }, '*');
+      showToast('✅ Settings saved', 'success');
+      dirty = false;
+      return;
+    }
+
+    // Fallback: save via CLI instruction
+    showToast('⚠️ Save via: openclaw config set agents.defaults.model.primary ' + changes.primaryModel, 'warning', 5000);
+  };
+
+  // --- Reset ---
+  window.resetForm = function() {
+    populateForm();
+    document.getElementById('anthropic-key').value = '';
+    document.getElementById('openrouter-key').value = '';
+    showToast('Form reset', 'success', 1500);
+  };
+
+  // --- Collapsible Sections ---
+  document.querySelectorAll('.section.collapsible .collapsible-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.closest('.section.collapsible');
+      const content = section.querySelector('.collapsible-content');
+      const icon = header.querySelector('.collapse-icon');
+
+      if (content.style.display === 'block') {
+        content.style.display = 'none';
+        icon.classList.remove('rotated');
+      } else {
+        content.style.display = 'block';
+        icon.classList.add('rotated');
+      }
+    });
+  });
+
+  // --- Launch Mode Preference (localStorage) ---
+  const LAUNCH_PREF_KEY = 'pearlos-launch-mode-preference';
+  const launchPrefSelect = document.getElementById('launch-mode-pref');
+  
+  // Load current preference
+  const storedPref = localStorage.getItem(LAUNCH_PREF_KEY);
+  if (storedPref && ['auto', 'home', 'work'].includes(storedPref)) {
+    launchPrefSelect.value = storedPref;
+  }
+
+  // --- Init ---
+  loadConfig();
+
+  // Initialize all collapsible sections to be collapsed
+  document.querySelectorAll('.section.collapsible .collapsible-header').forEach(header => {
+    const section = header.closest('.section.collapsible');
+    const content = section.querySelector('.collapsible-content');
+    const icon = header.querySelector('.collapse-icon');
+
+    if (content) {
+      content.style.display = 'none';
+      icon.classList.remove('rotated');
+    }
+  });
+
+  // Also accept config pushed from parent
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'settings.config') {
+      config = e.data.config;
+      populateForm();
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -5,9 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
-    const disableAuth =
-      process.env.DISABLE_DASHBOARD_AUTH === 'true' &&
-      (req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1');
+    const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
 
     if (disableAuth) {
       // Local dev: treat caller as an owner so admin UI works.

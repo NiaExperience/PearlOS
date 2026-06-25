@@ -5,7 +5,9 @@ import { useDesktopMode } from '@interface/contexts/desktop-mode-context';
 import { DesktopMode, DesktopModeSwitchResponse } from '@interface/types/desktop-modes';
 import { NIA_EVENT_DESKTOP_MODE_SWITCH } from '@interface/features/DailyCall/events/niaEventRouter';
 import type { NiaEventDetail } from '@interface/features/DailyCall/events/niaEventRouter';
+import { useUserProfileOptional } from '@interface/contexts/user-profile-context';
 import { getClientLogger } from '@interface/lib/client-logger';
+import { LAST_MODE_KEY, writeLocalPreference } from '@interface/lib/pearlos-user-preferences';
 
 const logger = getClientLogger('useDesktopModeSwitchListener');
 
@@ -21,20 +23,18 @@ const logger = getClientLogger('useDesktopModeSwitchListener');
  */
 export function useDesktopModeSwitchListener() {
   const { setMode } = useDesktopMode();
+  const profile = useUserProfileOptional();
 
   const normalizeMode = useCallback((raw: string): DesktopMode => {
-    const key = String(raw).toUpperCase().trim();
+    let key = String(raw).toUpperCase().trim();
+    const aliases: Partial<Record<string, keyof typeof DesktopMode>> = {
+      CREATE: 'CREATIVE',
+      FULL: 'DESKTOP',
+    };
+    key = aliases[key] ?? key;
     if (key in DesktopMode) return DesktopMode[key as keyof typeof DesktopMode];
-    // Common aliases
-    switch (key) {
-      case 'DESKTOP':
-        return DesktopMode.WORK;
-      case 'CREATE':
-        return DesktopMode.CREATIVE;
-      default:
-        logger.warn(`Unknown desktop mode "${raw}", defaulting to HOME`);
-        return DesktopMode.HOME;
-    }
+    logger.warn(`Unknown desktop mode "${raw}", defaulting to HOME`);
+    return DesktopMode.HOME;
   }, []);
 
   useEffect(() => {
@@ -42,11 +42,13 @@ export function useDesktopModeSwitchListener() {
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = event.data;
-        if (data?.action === 'SWITCH_DESKTOP_MODE' && data?.payload?.targetMode) {
-          const targetMode = normalizeMode(data.payload.targetMode);
-          logger.info(`[postMessage] Switching desktop mode to ${targetMode}`);
-          setMode(targetMode);
-        }
+      if (data?.action === 'SWITCH_DESKTOP_MODE' && data?.payload?.targetMode) {
+        const targetMode = normalizeMode(data.payload.targetMode);
+        logger.info(`[postMessage] Switching desktop mode to ${targetMode}`);
+        setMode(targetMode);
+        writeLocalPreference(LAST_MODE_KEY, targetMode);
+        profile?.updatePearlOSPreferences({ lastDesktopMode: targetMode });
+      }
       } catch (error) {
         logger.error('Error handling message event', {
           error: error instanceof Error ? error.message : String(error),
@@ -54,15 +56,25 @@ export function useDesktopModeSwitchListener() {
       }
     };
 
-    // Handle NIA event router CustomEvent (nia.event.desktopModeSwitch)
+    // Handle NIA event router CustomEvent (nia:desktop.mode.switch).
+    // The router dispatches `{ mode, timestamp }` directly as event.detail.
+    // Older callers wrap it as `{ payload: { mode } }`. Accept both shapes so
+    // bot voice tools, chat-mode tool handlers, and legacy code paths all
+    // succeed in flipping the desktop mode.
     const handleNiaEvent = (event: CustomEvent<NiaEventDetail>) => {
-      console.log('[DesktopModeSwitchBridge] Received NIA event:', event.type, event.detail);
-      const payload = event.detail?.payload as Record<string, unknown> | undefined;
-      const rawMode = payload?.mode ?? payload?.targetMode;
+      const detail = event.detail as Record<string, unknown> | undefined;
+      const wrapped = (detail?.payload ?? {}) as Record<string, unknown>;
+      const rawMode =
+        (detail?.mode as string | undefined) ??
+        (detail?.targetMode as string | undefined) ??
+        (wrapped.mode as string | undefined) ??
+        (wrapped.targetMode as string | undefined);
       if (rawMode && typeof rawMode === 'string') {
         const targetMode = normalizeMode(rawMode);
         logger.info(`[NiaEvent] Switching desktop mode to ${targetMode}`);
         setMode(targetMode);
+        writeLocalPreference(LAST_MODE_KEY, targetMode);
+        profile?.updatePearlOSPreferences({ lastDesktopMode: targetMode });
       }
     };
 
@@ -72,6 +84,8 @@ export function useDesktopModeSwitchListener() {
         const targetMode = normalizeMode(event.detail.payload.targetMode);
         logger.info(`[CustomEvent] Switching desktop mode to ${targetMode}`);
         setMode(targetMode);
+        writeLocalPreference(LAST_MODE_KEY, targetMode);
+        profile?.updatePearlOSPreferences({ lastDesktopMode: targetMode });
       }
     };
 
@@ -84,5 +98,5 @@ export function useDesktopModeSwitchListener() {
       window.removeEventListener(NIA_EVENT_DESKTOP_MODE_SWITCH, handleNiaEvent as EventListener);
       window.removeEventListener('desktopModeSwitch', handleLegacyCustomEvent as EventListener);
     };
-  }, [setMode, normalizeMode]);
+  }, [setMode, normalizeMode, profile]);
 }

@@ -31,7 +31,7 @@ export default function AddTenantUserForm({ tenantId, onSuccess, defaultEmail }:
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(`/api/assistants?tenantId=${tenantId}`);
+        const res = await fetch(`/dashboard/api/assistants?tenantId=${tenantId}`);
         const data = await res.json();
         if (!cancelled && res.ok && Array.isArray(data.assistants)) {
           setAssistants(data.assistants);
@@ -52,7 +52,7 @@ export default function AddTenantUserForm({ tenantId, onSuccess, defaultEmail }:
       if (!assistant) {
         throw new Error('Please select an assistant');
       }
-      const res = await fetch(`/api/tenants/${tenantId}/roles`, {
+      const res = await fetch(`/dashboard/api/tenants/${tenantId}/roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, role, assistantSubDomain: assistant })

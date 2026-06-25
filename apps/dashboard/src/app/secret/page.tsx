@@ -16,12 +16,12 @@ const SecretPage = async () => {
   const session = await getSessionSafely(undefined, dashboardAuthOptions);
   
   if (!session || !session.user) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Deny access to anonymous users
   if (session.user.is_anonymous) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   // Check if user has admin access to any tenant
@@ -31,7 +31,7 @@ const SecretPage = async () => {
   ) || false;
 
   if (!hasAdminAccess) {
-    redirect('/login');
+    redirect('/dashboard/login');
   }
 
   return (

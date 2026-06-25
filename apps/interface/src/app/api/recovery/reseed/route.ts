@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AssistantActions, TenantActions, PersonalityActions } from '@nia/prism/core/actions';
+import { TenantRole } from '@nia/prism/core/blocks/userTenantRole.block';
 import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('recovery-reseed');
 
@@ -21,6 +23,7 @@ Keep responses concise but helpful. Use a friendly, conversational tone.`,
   },
   supportedFeatures: [
     'notes', 'htmlContent', 'miniBrowser', 'dailyCall', 'avatar',
+    'assistantSelfClose',
     'passwordLogin', 'guestLogin', 'onboarding', 'calculator',
     'youtube', 'soundtrack', 'terminal', 'openclawBridge', 'enhancedBrowser',
     'news', 'weather', 'wonderCanvas', 'browserAutomation', 'sprites', 'vision',
@@ -40,17 +43,44 @@ Keep responses concise but helpful. Use a friendly, conversational tone.`,
   },
 };
 
+function cleanAssistantName(value: unknown): string | null {
+  const raw = typeof value === 'string' && value.trim() ? value.trim() : 'pearlos';
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(raw)) return null;
+  return raw.toLowerCase();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const assistantName = body.assistantName || 'pearlos';
+    const assistantName = cleanAssistantName(body?.assistantName);
+    if (!assistantName) {
+      return NextResponse.json({ success: false, error: 'invalid_assistant_name' }, { status: 400 });
+    }
+    const requestedTenantId = body?.tenantId || body?.tenant_id;
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId,
+      minimumRole: TenantRole.ADMIN,
+    });
+    if (!actorResult.ok) return actorResult.response;
+    const actor = actorResult.actor;
 
-    log.info('Recovery reseed requested', { assistantName });
+    log.info('Recovery reseed requested', {
+      assistantName,
+      actorUserId: actor.userId,
+      actorTenantId: actor.tenantId,
+    });
 
     // Check if assistant already exists
     let assistant = await AssistantActions.getAssistantBySubDomain(assistantName);
     
     if (assistant) {
+      if (assistant.tenantId && assistant.tenantId !== actor.tenantId) {
+        const assistantTenantActor = await resolveInterfaceActorContext({
+          requestedTenantId: assistant.tenantId,
+          minimumRole: TenantRole.ADMIN,
+        });
+        if (!assistantTenantActor.ok) return assistantTenantActor.response;
+      }
       log.info('Assistant already exists, skipping creation', { assistantName, id: assistant._id });
       return NextResponse.json({ success: true, message: 'Assistant already exists', id: assistant._id });
     }

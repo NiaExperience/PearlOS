@@ -1,0 +1,330 @@
+/**
+ * interfaceMode.css
+ * 
+ * CSS class overrides for different interface modes (desktop, mobile, tablet).
+ * These classes are applied by DesktopBackgroundSwitcher component to force
+ * layout modes regardless of physical viewport size.
+ */
+
+/* ===================== APP SHELL — BACKGROUND ===================== */
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #0a0614;
+  background-image: var(--pearl-home-background-image, url('/backgrounds/pearl-sunset.png'));
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  overflow: hidden;
+  box-sizing: border-box;
+  /* Push content below the Dynamic Island / notch in standalone PWA mode.
+     env(safe-area-inset-top) is 0px in regular Safari, 47-59px on home-screen
+     PWAs — no effect during normal browsing, only when launched from the iOS
+     home screen where viewportFit:cover extends content under the status bar. */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ===================== DESKTOP MODE ===================== */
+.interface-mode-desktop {
+  --interface-mode: desktop;
+  --sidebar-width: 280px;
+  --mobile-nav-height: 0;
+  --main-content-margin-left: 280px;
+  --main-content-margin-bottom: 0;
+  --sidebar-visible: 1;
+  --mobile-nav-visible: 0;
+}
+
+.interface-mode-desktop .sidebar,
+.interface-mode-desktop [data-component="sidebar"] {
+  display: flex !important;
+  width: var(--sidebar-width, 280px) !important;
+  min-width: var(--sidebar-width, 280px) !important;
+  position: static !important;
+  height: auto !important;
+  opacity: 1 !important;
+}
+
+.interface-mode-desktop .mobile-nav-bar,
+.interface-mode-desktop [data-component="mobile-nav"] {
+  display: none !important;
+  height: 0 !important;
+  opacity: 0 !important;
+}
+
+.interface-mode-desktop .main-content,
+.interface-mode-desktop [data-component="main-content"] {
+  flex: 1 !important;
+  margin-left: var(--main-content-margin-left, 280px) !important;
+  margin-bottom: 0 !important;
+  margin-right: 0 !important;
+  width: auto !important;
+}
+
+.interface-mode-desktop .mobile-drawer,
+.interface-mode-desktop [data-component="mobile-drawer"] {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* Hide mobile-only components in desktop mode */
+.interface-mode-desktop .mobile-only {
+  display: none !important;
+}
+
+/* Show desktop-only components */
+.interface-mode-desktop .desktop-only {
+  display: block !important;
+}
+
+
+/* ===================== MOBILE MODE ===================== */
+.interface-mode-mobile {
+  --interface-mode: mobile;
+  --sidebar-width: 0;
+  --mobile-nav-height: 56px;
+  --main-content-margin-left: 0;
+  --main-content-margin-bottom: 56px;
+  --sidebar-visible: 0;
+  --mobile-nav-visible: 1;
+}
+
+.interface-mode-mobile .sidebar,
+.interface-mode-mobile [data-component="sidebar"] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  opacity: 0 !important;
+}
+
+.interface-mode-mobile .mobile-nav-bar,
+.interface-mode-mobile [data-component="mobile-nav"] {
+  display: flex !important;
+  height: var(--mobile-nav-height, 56px) !important;
+  width: 100% !important;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+  background: var(--mobile-nav-bg, #ffffff) !important;
+  border-top: 1px solid var(--mobile-nav-border, #e5e5e5) !important;
+  opacity: 1 !important;
+}
+
+.interface-mode-mobile .main-content,
+.interface-mode-mobile [data-component="main-content"] {
+  flex: 1 !important;
+  margin-left: 0 !important;
+  margin-bottom: var(--main-content-margin-bottom, 56px) !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+}
+
+.interface-mode-mobile .mobile-drawer,
+.interface-mode-mobile [data-component="mobile-drawer"] {
+  display: flex !important;
+  opacity: 1 !important;
+}
+
+/* Hide desktop-only components in mobile mode */
+.interface-mode-mobile .desktop-only {
+  display: none !important;
+}
+
+/* Show mobile-only components */
+.interface-mode-mobile .mobile-only {
+  display: block !important;
+}
+
+
+/* ===================== TABLET MODE ===================== */
+.interface-mode-tablet {
+  --interface-mode: tablet;
+  --sidebar-width: 200px;
+  --mobile-nav-height: 0;
+  --main-content-margin-left: 200px;
+  --main-content-margin-bottom: 0;
+  --sidebar-visible: 1;
+  --mobile-nav-visible: 0;
+}
+
+.interface-mode-tablet .sidebar,
+.interface-mode-tablet [data-component="sidebar"] {
+  display: flex !important;
+  width: var(--sidebar-width, 200px) !important;
+  min-width: var(--sidebar-width, 200px) !important;
+  position: static !important;
+  height: auto !important;
+  opacity: 1 !important;
+}
+
+.interface-mode-tablet .mobile-nav-bar,
+.interface-mode-tablet [data-component="mobile-nav"] {
+  display: none !important;
+  height: 0 !important;
+  opacity: 0 !important;
+}
+
+.interface-mode-tablet .main-content,
+.interface-mode-tablet [data-component="main-content"] {
+  flex: 1 !important;
+  margin-left: var(--main-content-margin-left, 200px) !important;
+  margin-bottom: 0 !important;
+  margin-right: 0 !important;
+  width: auto !important;
+}
+
+.interface-mode-tablet .mobile-drawer,
+.interface-mode-tablet [data-component="mobile-drawer"] {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* Hide mobile-only components in tablet mode */
+.interface-mode-tablet .mobile-only {
+  display: none !important;
+}
+
+/* Show desktop-only components */
+.interface-mode-tablet .desktop-only {
+  display: block !important;
+}
+
+
+/* ===================== RESPONSIVE OVERRIDES ===================== */
+
+/* On physical mobile viewport (< 768px), still allow mode override to desktop/tablet */
+@media (max-width: 768px) {
+  .interface-mode-desktop .sidebar,
+  .interface-mode-desktop [data-component="sidebar"] {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    z-index: 200 !important;
+    overflow-y: auto !important;
+  }
+
+  .interface-mode-desktop .main-content,
+  .interface-mode-desktop [data-component="main-content"] {
+    margin-left: var(--sidebar-width, 280px) !important;
+    width: calc(100vw - var(--sidebar-width, 280px)) !important;
+  }
+
+  /* Add close button for sidebar on small viewport in desktop mode */
+  .interface-mode-desktop .sidebar-close,
+  .interface-mode-desktop [data-component="sidebar-close"] {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  /* Tablet adjustments */
+  .interface-mode-tablet .sidebar,
+  .interface-mode-tablet [data-component="sidebar"] {
+    width: var(--sidebar-width, 200px) !important;
+  }
+
+  .interface-mode-tablet .main-content,
+  .interface-mode-tablet [data-component="main-content"] {
+    margin-left: var(--sidebar-width, 200px) !important;
+  }
+}
+
+
+/* ===================== ANIMATION & TRANSITIONS ===================== */
+
+/* Smooth transition when mode changes */
+.interface-mode-desktop,
+.interface-mode-mobile,
+.interface-mode-tablet {
+  transition: margin-left 0.3s ease, margin-bottom 0.3s ease, width 0.3s ease;
+}
+
+.interface-mode-desktop .sidebar,
+.interface-mode-desktop [data-component="sidebar"],
+.interface-mode-mobile .mobile-nav-bar,
+.interface-mode-mobile [data-component="mobile-nav"],
+.interface-mode-tablet .sidebar,
+.interface-mode-tablet [data-component="sidebar"] {
+  transition: opacity 0.2s ease, display 0.2s ease;
+}
+
+
+/* ===================== UTILITY CLASSES ===================== */
+
+/* For components that should only show in specific modes */
+.show-in-desktop-mode {
+  display: none;
+}
+
+.interface-mode-desktop .show-in-desktop-mode {
+  display: block;
+}
+
+.show-in-mobile-mode {
+  display: none;
+}
+
+.interface-mode-mobile .show-in-mobile-mode {
+  display: block;
+}
+
+.show-in-tablet-mode {
+  display: none;
+}
+
+.interface-mode-tablet .show-in-tablet-mode {
+  display: block;
+}
+
+.hide-in-desktop-mode {
+  display: block;
+}
+
+.interface-mode-desktop .hide-in-desktop-mode {
+  display: none;
+}
+
+.hide-in-mobile-mode {
+  display: block;
+}
+
+.interface-mode-mobile .hide-in-mobile-mode {
+  display: none;
+}
+
+.hide-in-tablet-mode {
+  display: block;
+}
+
+.interface-mode-tablet .hide-in-tablet-mode {
+  display: none;
+}
+
+
+/* ===================== COMPACT CHAT BAR ===================== */
+
+/* Reduce avatar, button, and font sizes in the assistant chat bar */
+.assistant-chat-bar img,
+.assistant-chat-bar [data-avatar],
+.assistant-chat-bar .avatar {
+  width: 26px !important;
+  height: 26px !important;
+}
+
+.assistant-chat-bar button {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 14px !important;
+}
+
+.assistant-chat-bar span,
+.assistant-chat-bar p,
+.assistant-chat-bar label {
+  font-size: 14px !important;
+}

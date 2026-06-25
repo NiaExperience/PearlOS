@@ -202,19 +202,41 @@ class IdentityManager:
                         % (pid, session_user_id)
                     )
 
-        if not mapped and self.pending_identity:
-            mapped = self.pending_identity.copy()
-            log.info("[identity] Using room-scoped pending identity for pid=%s" % pid)
-
         if not mapped:
             mapped = await self.scan_identity(pid)
             if mapped:
                 log.info("[identity] matched pid=%s via Redis" % pid)
 
+        if not mapped and self.pending_identity and self._can_use_pending_identity(pid):
+            mapped = self.pending_identity.copy()
+            log.info("[identity] Using room-scoped pending identity for pid=%s" % pid)
+
         if mapped:
             self.participant_identity_map[pid] = mapped
 
         return mapped
+
+    def _can_use_pending_identity(self, pid: str) -> bool:
+        """Return true when room-scoped identity is safe to attach.
+
+        Pending identity comes from launch/env data before Daily has a concrete
+        participant id. It is useful for single-user voice joins where Daily
+        metadata is missing, but unsafe to reuse once another human participant
+        is already active in the room.
+        """
+        try:
+            if not self.pending_identity.get("sessionUserId") and not self.pending_identity.get("sessionUserEmail"):
+                return False
+            active = self.participant_manager.get_active_participants()
+            local_bot_id = getattr(self.participant_manager, "local_bot_id", None)
+            human_active = {
+                active_pid
+                for active_pid in active
+                if active_pid and active_pid != "local" and active_pid != local_bot_id
+            }
+            return not human_active or pid in human_active
+        except Exception:
+            return False
 
     def _apply_identity(
         self, participant_id: str, identity: Dict, existing_meta: Dict | None
@@ -274,7 +296,7 @@ class IdentityManager:
                         % pid
                     )
                     emit_participant_join(
-                        room, pid, pname or display_name, enhanced_context
+                        room, pid, display_name or pname, enhanced_context
                     )
             except Exception as e:
                 log.warning(

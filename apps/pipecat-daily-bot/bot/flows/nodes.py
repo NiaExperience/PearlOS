@@ -11,7 +11,8 @@ from .messages import (
     _build_participant_context_message,
     _build_participant_summary_message,
     _build_greeting_policy_message,
-    _build_role_messages
+    _build_role_messages,
+    _has_greeted_participants,
 )
 from .utils import (
     _wrapup_prompt,
@@ -90,21 +91,7 @@ def create_conversation_node(
     # Only add opening prompt if no one has been greeted yet (first interaction)
     # Append to task_messages to keep it ephemeral rather than persistent in role_messages
     try:
-        greeted_any = False
-        rooms = state_snapshot.get("greeting_rooms")
-        if isinstance(rooms, dict):
-            for state in rooms.values():
-                if isinstance(state, dict):
-                    greeted = state.get("greeted_ids", set())
-                    if isinstance(greeted, (set, list, tuple)) and len(greeted) > 0:
-                        greeted_any = True
-                        break
-        if not greeted_any:
-            greeted_ids = state_snapshot.get("greeted_ids")
-            if isinstance(greeted_ids, (set, list, tuple)) and len(greeted_ids) > 0:
-                greeted_any = True
-
-        if not greeted_any and isinstance(opening_prompt, str):
+        if not _has_greeted_participants(state_snapshot) and isinstance(opening_prompt, str):
             trimmed_opening = opening_prompt.strip()
             if trimmed_opening:
                 # Append to task_messages (ephemeral) not role_messages (persistent)
@@ -217,21 +204,7 @@ def create_admin_instruction_node(
     opening_prompt = None
     # Suppress opening prompt if participants have already been greeted
     try:
-        greeted_any = False
-        rooms = flow_state.get("greeting_rooms")
-        if isinstance(rooms, dict):
-            for state in rooms.values():
-                if isinstance(state, dict):
-                    greeted = state.get("greeted_ids", set())
-                    if isinstance(greeted, (set, list, tuple)) and len(greeted) > 0:
-                        greeted_any = True
-                        break
-        if not greeted_any:
-            greeted_ids = flow_state.get("greeted_ids")
-            if isinstance(greeted_ids, (set, list, tuple)) and len(greeted_ids) > 0:
-                greeted_any = True
-
-        if not greeted_any and isinstance(opening_prompt_value, str):
+        if not _has_greeted_participants(flow_state) and isinstance(opening_prompt_value, str):
             stripped = opening_prompt_value.strip()
             if stripped:
                 opening_prompt = stripped

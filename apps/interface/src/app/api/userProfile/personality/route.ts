@@ -1,37 +1,52 @@
 import type { IPersonalityVoiceConfig } from '@nia/prism/core';
 import { createOrUpdateUserProfile } from '@nia/prism/core/actions/userProfile-actions';
+import { getPersonalityById } from '@nia/prism/core/actions/personality.actions';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
 import { getLogger } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('[api_user_profile_personality]');
 
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(interfaceAuthOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { personalityVoiceConfig } = await request.json() as { 
-      personalityVoiceConfig: IPersonalityVoiceConfig 
+    const body = await request.json() as {
+      tenantId?: string;
+      tenant_id?: string;
+      personalityVoiceConfig: IPersonalityVoiceConfig;
     };
+    const { personalityVoiceConfig } = body;
     
     // Validate required fields
-    if (!personalityVoiceConfig?.personalityId || !personalityVoiceConfig?.voiceId) {
+    if (
+      !personalityVoiceConfig?.personalityId ||
+      !personalityVoiceConfig?.name ||
+      !personalityVoiceConfig?.voiceId ||
+      !personalityVoiceConfig?.voiceProvider
+    ) {
       return NextResponse.json(
-        { error: 'Invalid personality config - personalityId and voiceId required' }, 
+        { error: 'Invalid personality config - personalityId, name, voiceId, and voiceProvider required' },
         { status: 400 }
       );
     }
 
-    // Store as top-level personalityVoiceConfig field
+    const actorResult = await resolveInterfaceActorContext({
+      requestedTenantId: body.tenantId ?? body.tenant_id,
+    });
+    if (!actorResult.ok) return actorResult.response;
+
+    const { tenantId, userId, userEmail } = actorResult.actor;
+    const personality = await getPersonalityById(personalityVoiceConfig.personalityId, tenantId);
+    if (!personality) {
+      return NextResponse.json({ error: 'personality_forbidden' }, { status: 403 });
+    }
+
     const result = await createOrUpdateUserProfile({
-      email: session.user.email,
+      email: userEmail,
+      userId,
       personalityVoiceConfig: {
         ...personalityVoiceConfig,
+        name: personality.name || personalityVoiceConfig.name,
         lastUpdated: new Date().toISOString()
       }
     }, false);

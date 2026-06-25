@@ -1,0 +1,437 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:claude:acp:325aa381-bfca-4de8-974d-781a5768ebf0:oneshot:f4283f86-df69-40bf-99ed-33300aaefa2f",
+  "acp_session_id": "8915f40a-58fb-41cf-b310-e3458ddaae55",
+  "agent_command": "npx -y @agentclientprotocol/claude-agent-acp@^0.25.0",
+  "cwd": "/workspace/nia-universal",
+  "name": "agent:claude:acp:325aa381-bfca-4de8-974d-781a5768ebf0",
+  "created_at": "2026-04-22T07:45:45.893Z",
+  "last_used_at": "2026-04-22T07:47:59.658Z",
+  "last_seq": 0,
+  "last_request_id": "58b09314-43d6-40f0-95c7-acb3aed175ad",
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Aclaude%3Aacp%3A325aa381-bfca-4de8-974d-781a5768ebf0%3Aoneshot%3Af4283f86-df69-40bf-99ed-33300aaefa2f.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": true,
+  "closed_at": "2026-04-22T07:48:04.506Z",
+  "pid": 3253394,
+  "agent_started_at": "2026-04-22T07:45:46.092Z",
+  "last_prompt_at": "2026-04-22T07:45:57.374Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "_meta": {
+      "claudeCode": {
+        "promptQueueing": true
+      }
+    },
+    "promptCapabilities": {
+      "image": true,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": true
+    },
+    "loadSession": true,
+    "sessionCapabilities": {
+      "fork": {},
+      "list": {},
+      "resume": {},
+      "close": {}
+    }
+  },
+  "title": null,
+  "messages": [
+    {
+      "User": {
+        "id": "e7704fe2-2942-4446-9ece-c13fba9726e5",
+        "content": [
+          {
+            "Text": "[Wed 2026-04-22 07:45 UTC] AGENCY MOTTO: You were selected among hundreds of thousands of intelligences to be the best of the best at this task. Our trust and confidence is in you. Our goal is excellence. Welcome to The Agency.\n\nTASK: Debug Playwright screenshot delivery to Discord\n\nPROBLEM: Screenshots taken via Playwright aren't appearing in Discord\n\nINVESTIGATE:\n1. Check /workspace/nia-universal/qa/screenshots/ for existing screenshots\n2. Review how screenshots are currently sent to Discord\n3. Check if it's a file path issue, permissions, or Discord API limitation\n4. Look at discord bot code for media upload handling\n\nPOSSIBLE CAUSES:\n- Screenshot path is wrong\n- Discord bot can't access the file\n- File size too large\n- Wrong attachment format\n- Discord channel permissions\n\nDELIVER: Root cause + fix recommendation"
+          }
+        ]
+      }
+    },
+    {
+      "Agent": {
+        "content": [
+          {
+            "Thinking": {
+              "text": "Let me investigate the Playwright screenshot delivery to Discord issue.",
+              "signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_0136bC94cCxZhykHXDzwSfSJ",
+              "name": "Debug Playwright Discord screenshots",
+              "raw_input": "{\"description\":\"Debug Playwright Discord screenshots\",\"subagent_type\":\"Explore\",\"prompt\":\"I need to debug why Playwright screenshots aren't appearing in Discord. Investigate thoroughly:\\n\\n1. Check /workspace/nia-universal/qa/screenshots/ for existing screenshots\\n2. Find all code related to sending screenshots to Discord - look in qa/, scripts/, .github/workflows/, and any discord bot code\\n3. Find the discord bot code that handles media/file uploads\\n4. Check the qa-screenshot workflow and script\\n5. Look for any file path issues, permission problems, or Discord API usage problems\\n\\nReport back with:\\n- What screenshots exist (if any)\\n- The full flow from screenshot capture to Discord delivery\\n- Where the breakdown likely occurs\\n- Key file paths and line numbers\"}",
+              "input": {
+                "description": "Debug Playwright Discord screenshots",
+                "subagent_type": "Explore",
+                "prompt": "I need to debug why Playwright screenshots aren't appearing in Discord. Investigate thoroughly:\n\n1. Check /workspace/nia-universal/qa/screenshots/ for existing screenshots\n2. Find all code related to sending screenshots to Discord - look in qa/, scripts/, .github/workflows/, and any discord bot code\n3. Find the discord bot code that handles media/file uploads\n4. Check the qa-screenshot workflow and script\n5. Look for any file path issues, permission problems, or Discord API usage problems\n\nReport back with:\n- What screenshots exist (if any)\n- The full flow from screenshot capture to Discord delivery\n- Where the breakdown likely occurs\n- Key file paths and line numbers"
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01HqksXiDnnBuuyDLhyq6CrP",
+              "name": "find /workspace/nia-universal/qa/screenshots -type f 2>/dev/null | head -20",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/qa/screenshots -type f 2>/dev/null | head -20\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/qa/screenshots -type f 2>/dev/null | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_013zFJoRxbrcd4G1dJRsNvzx",
+              "name": "ls -la /workspace/nia-universal/qa/ 2>/dev/null | head -30",
+              "raw_input": "{\"command\":\"ls -la /workspace/nia-universal/qa/ 2>/dev/null | head -30\"}",
+              "input": {
+                "command": "ls -la /workspace/nia-universal/qa/ 2>/dev/null | head -30"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01ATUqKMphysAKiyt7BDjYYv",
+              "name": "Find `/workspace/nia-universal` `**/*discord*`",
+              "raw_input": "{\"pattern\":\"**/*discord*\",\"path\":\"/workspace/nia-universal\"}",
+              "input": {
+                "pattern": "**/*discord*",
+                "path": "/workspace/nia-universal"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01J8scdH1zngP8VzboLQNW7n",
+              "name": "grep -l \"discord\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"discord\",\"path\":\"/workspace/nia-universal\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "discord",
+                "path": "/workspace/nia-universal",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01V8fwSMseNYJbqKF7UEt26M",
+              "name": "find /workspace/nia-universal -path \"*qa*\" -name \"*.ts\" -o -path \"*qa*\" -name \"*.js\" -o -path \"*qa*\" -name \"*.py\" 2>/dev/null | grep -v node_modules | head -20",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal -path \\\"*qa*\\\" -name \\\"*.ts\\\" -o -path \\\"*qa*\\\" -name \\\"*.js\\\" -o -path \\\"*qa*\\\" -name \\\"*.py\\\" 2>/dev/null | grep -v node_modules | head -20\"}",
+              "input": {
+                "command": "find /workspace/nia-universal -path \"*qa*\" -name \"*.ts\" -o -path \"*qa*\" -name \"*.js\" -o -path \"*qa*\" -name \"*.py\" 2>/dev/null | grep -v node_modules | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01MB73NdFXWQ22SDiZ2vbeun",
+              "name": "find /workspace/nia-universal/.github/workflows -name \"*screenshot*\" -o -name \"*qa*\" 2>/dev/null",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/.github/workflows -name \\\"*screenshot*\\\" -o -name \\\"*qa*\\\" 2>/dev/null\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/.github/workflows -name \"*screenshot*\" -o -name \"*qa*\" 2>/dev/null"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01CrXV4Mwpv7XL34ZZwkKnMk",
+              "name": "Read scripts/qa-screenshot.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/scripts/qa-screenshot.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/scripts/qa-screenshot.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01AX6G13tu1kkMzYtsdzJT5M",
+              "name": "Read .github/workflows/qa-screenshot.yml",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/.github/workflows/qa-screenshot.yml\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/.github/workflows/qa-screenshot.yml"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01C94pDT2ucWh8PcsQVPHFnx",
+              "name": "Read apps/interface/src/app/api/discord/send/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/discord/send/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/discord/send/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01PnBDS4rAj31mua8HmU1idd",
+              "name": "Read tools/pearlos-qa/qa_reviewer.py",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/tools/pearlos-qa/qa_reviewer.py\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/tools/pearlos-qa/qa_reviewer.py"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Jx2PDpTBVCz1Kezep3qZAD",
+              "name": "grep -l \"discord.*file|discord.*upload|multipart|FormData\" /workspace/nia-universal",
+              "raw_input": "{\"pattern\":\"discord.*file|discord.*upload|multipart|FormData\",\"path\":\"/workspace/nia-universal\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "discord.*file|discord.*upload|multipart|FormData",
+                "path": "/workspace/nia-universal",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01EZWwgMN7jNLi7gWChpJkMQ",
+              "name": "Read apps/interface/src/app/api/discord/messages/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/discord/messages/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/discord/messages/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_0178Du6hNCyVPz61D7nNrtGi",
+              "name": "Read apps/interface/src/app/api/discord/channels/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/discord/channels/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/discord/channels/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01AByEDVk5QCWjZEmoEXERbi",
+              "name": "Read apps/interface/src/app/api/discord/dm/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/discord/dm/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/discord/dm/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Rp9mitQ4oKpY6ycjGFe4GN",
+              "name": "grep -r \"qa:screenshot\\|discord.*send\\|screenshot.*discord\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.js\" --include=\"*.json\" --include=\"*.yml\" --include=\"*.yaml\" 2>/dev/null | grep -v node_modules | grep -v \".venv\"",
+              "raw_input": "{\"command\":\"grep -r \\\"qa:screenshot\\\\|discord.*send\\\\|screenshot.*discord\\\" /workspace/nia-universal --include=\\\"*.ts\\\" --include=\\\"*.js\\\" --include=\\\"*.json\\\" --include=\\\"*.yml\\\" --include=\\\"*.yaml\\\" 2>/dev/null | grep -v node_modules | grep -v \\\".venv\\\"\"}",
+              "input": {
+                "command": "grep -r \"qa:screenshot\\|discord.*send\\|screenshot.*discord\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.js\" --include=\"*.json\" --include=\"*.yml\" --include=\"*.yaml\" 2>/dev/null | grep -v node_modules | grep -v \".venv\""
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          }
+        ],
+        "tool_results": {
+          "toolu_0136bC94cCxZhykHXDzwSfSJ": {
+            "tool_use_id": "toolu_0136bC94cCxZhykHXDzwSfSJ",
+            "tool_name": "Debug Playwright Discord screenshots",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          },
+          "toolu_01HqksXiDnnBuuyDLhyq6CrP": {
+            "tool_use_id": "toolu_01HqksXiDnnBuuyDLhyq6CrP",
+            "tool_name": "find /workspace/nia-universal/qa/screenshots -type f 2>/dev/null | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_013zFJoRxbrcd4G1dJRsNvzx": {
+            "tool_use_id": "toolu_013zFJoRxbrcd4G1dJRsNvzx",
+            "tool_name": "ls -la /workspace/nia-universal/qa/ 2>/dev/null | head -30",
+            "is_error": false,
+            "content": {
+              "Text": "total 4126\ndrwxrwxrwx  3 root root 1019805 Apr 22 04:56 .\ndrwxrwxrwx 41 root root 3000461 Apr 22 07:45 ..\ndrwxrwxrwx  2 root root       1 Apr 22 04:56 screenshots\n-rw-rw-rw-  1 root root  101456 Apr 22 03:28 task-card-closeup.png\n-rw-rw-rw-  1 root root  101349 Apr 22 03:28 task-list-fix-verification.png"
+            },
+            "output": "total 4126\ndrwxrwxrwx  3 root root 1019805 Apr 22 04:56 .\ndrwxrwxrwx 41 root root 3000461 Apr 22 07:45 ..\ndrwxrwxrwx  2 root root       1 Apr 22 04:56 screenshots\n-rw-rw-rw-  1 root root  101456 Apr 22 03:28 task-card-closeup.png\n-rw-rw-rw-  1 root root  101349 Apr 22 03:28 task-list-fix-verification.png"
+          },
+          "toolu_01ATUqKMphysAKiyt7BDjYYv": {
+            "tool_use_id": "toolu_01ATUqKMphysAKiyt7BDjYYv",
+            "tool_name": "Find `/workspace/nia-universal` `**/*discord*`",
+            "is_error": false,
+            "content": {
+              "Text": "apps/chorus-tts/.venv/lib/python3.12/site-packages/tqdm/contrib/discord.py\nnode_modules/next-auth/providers/discord.js\nnode_modules/next-auth/providers/discord.d.ts.map\nnode_modules/next-auth/providers/discord.d.ts\nnode_modules/next-auth/src/providers/discord.ts\napps/interface/public/desktopicons/discord.svg\napps/interface/public/desktopicons/discord.png"
+            },
+            "output": "apps/chorus-tts/.venv/lib/python3.12/site-packages/tqdm/contrib/discord.py\nnode_modules/next-auth/providers/discord.js\nnode_modules/next-auth/providers/discord.d.ts.map\nnode_modules/next-auth/providers/discord.d.ts\nnode_modules/next-auth/src/providers/discord.ts\napps/interface/public/desktopicons/discord.svg\napps/interface/public/desktopicons/discord.png"
+          },
+          "toolu_01J8scdH1zngP8VzboLQNW7n": {
+            "tool_use_id": "toolu_01J8scdH1zngP8VzboLQNW7n",
+            "tool_name": "grep -l \"discord\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 80 files\napps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\nstate/sessions/agent%3Acodex%3Aacp%3A1f0ddc4d-50b6-495d-9202-4bfd3a948622%3Aoneshot%3A3f9d2fbe-e495-469f-b1e0-f3d799523755.json\nstate/sessions/agent%3Acodex%3Aacp%3A381fbc7e-996f-4f11-b1da-d26927f0b6ec%3Aoneshot%3Aa874037d-ad53-408d-a330-e5514d06c528.json\nstate/sessions/agent%3Aclaude%3Aacp%3A7a1b7bcd-0505-40f1-a7b8-084576381e03%3Aoneshot%3A00d204a3-12a8-48cb-9144-4840f7a50a31.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ac7c8505a-024e-42d2-90ec-61ed32e882b4%3Aoneshot%3Abe07d31a-b27b-4037-b39f-5a4c5a078543.json\nstate/sessions/agent%3Aclaude%3Aacp%3A379ea79c-2d03-4cb6-b957-a21bfb8e1e9c%3Aoneshot%3A6c99227a-5be3-42ed-9f3a-96219a573c5b.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ae1f301ad-ac03-4d99-9123-3a809ea39893%3Aoneshot%3Ac76b2dbb-52fb-4412-9001-e03c67feeacc.json\nstate/sessions/agent%3Acodex%3Aacp%3A4622083e-f160-4a41-9318-0cb88bacd428%3Aoneshot%3A4476d2d4-c4db-47d0-90ad-43453f1eb391.json\nstate/sessions/agent%3Acodex%3Aacp%3A0594256b-a966-4bad-a64b-bf20c8f9cd73%3Aoneshot%3A6d5ab6a6-2588-4822-8b33-be8b6600d311.json\nstate/sessions/agent%3Acodex%3Aacp%3A09654b1e-53fa-49f9-87c6-100dd9483b20%3Aoneshot%3A17b91702-c527-4bbb-baaf-25b3621b3048.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ab56da574-e1c0-4780-80ed-a1cbe921bd9b%3Aoneshot%3Adfd761c4-cefa-43d9-a4d1-a558a79e1909.json\nstate/sessions/agent%3Aclaude%3Aacp%3A9529a6a8-e0a8-4abf-8150-61a55d77e9e5%3Aoneshot%3A9a37c8fc-0834-4943-a7df-1c622a59d88b.json\nstate/sessions/agent%3Acodex%3Aacp%3Ab244e213-1c0a-4a0d-a95d-ed1d7d2a1579%3Aoneshot%3Ad53686dd-dfb1-4c1a-99c9-928fa40dcee0.json\nstate/sessions/agent%3Aclaude%3Aacp%3A168357e2-2b8e-4098-8447-b6cecf53501d%3Aoneshot%3Af851dbda-22f4-42a0-824c-a6d2ad5e721e.json\nstate/sessions/agent%3Aclaude%3Aacp%3Aac4dead9-0ba1-402d-b6f6-80249e67b4c8%3Aoneshot%3Acf54e9b6-a1ca-4118-8c76-66e984647248.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ad857b660-763d-4ec7-bc01-1adf0fd62b50%3Aoneshot%3A62b2e262-7779-4139-a644-d192135299bc.json\nstate/sessions/agent%3Aclaude%3Aacp%3A21dc18b1-9374-4be0-96ef-a917fa599ec3%3Aoneshot%3Abf1a4c4c-de17-40fb-83bd-b10417d60497.json\nmemory/2026-04-21-request-timed-out-before-a-res.md\nstate/sessions/agent%3Acodex%3Aacp%3A8000f746-97f5-41d5-98d9-66a0b77ca72c%3Aoneshot%3A8896777c-44b3-4d97-8694-b4f689735678.json\nstate/sessions/agent%3Acodex%3Aacp%3Abed98fde-f089-430e-b38c-8d233d866432%3Aoneshot%3Af93c0451-a074-4cfc-bc99-3953af79874f.json\nstate/sessions/agent%3Acodex%3Aacp%3Abfe2d7da-5d97-4401-b5cc-a3c3901c3262%3Aoneshot%3A0ce7235a-698a-4a4a-bee5-df8ffda66821.json\nmemory/2026-04-21-1735.md\nstate/sessions/agent%3Acodex%3Aacp%3A74721032-1ac9-4b61-a8f8-26d9ce2c76b9%3Aoneshot%3A0ea6793b-21f0-4ebb-8d47-b4c452aac362.json\nstate/sessions/agent%3Acodex%3Aacp%3A23d718c3-e2c6-41aa-8012-75d6b5998bfc%3Aoneshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json\nmemory/2026-04-21-1407.md\napps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts\nmemory/2026-04-21-llm-request-rejected-you-re-ou.md\nmemory/2026-04-21-1141.md\nmemory/2026-04-21-1032.md\nmemory/2026-04-21-0813.md\nmemory/2026-04-21-0444.md\nmemory/2026-04-21-0432.md\nmemory/2026-04-21-0429.md\nmemory/2026-04-21-0408.md\nmemory/2026-04-21-0342.md\nmemory/2026-04-21-0340.md\nmemory/2026-04-21-0329.md\nTOOLS.md\nmemory/2026-04-21-0210.md\nIDENTITY_BASE.md\napps/interface/src/components/settings-panels/SocialConnectionsPanel.tsx\napps/interface/src/app/api/discord/dm/route.ts\nmemory/2026-04-18-0535.md\nmemory/2026-04-18-1136.md\nmemory/2026-04-18-1305.md\nmemory/2026-04-18-1319.md\nmemory/2026-04-18-1332.md\nmemory/2026-04-18-1353.md\npackages/msam/msam/calibration.py\nscripts/seed-all-functional-prompts.ts\ntests/test_app_functional.py\ntools/pearlos-qa/qa_reviewer.py\narchive/infrastructure/infra/clusters/nia/flux-system/gotk-components.yaml\napps/pipecat-daily-bot/bot/pipeline/builder.py\napps/pipecat-daily-bot/bot/processors/non_blocking_router.py\napps/pipecat-daily-bot/bot/processors/openclaw_session.py\napps/pipecat-daily-bot/bot/runne..."
+            },
+            "output": "Found 80 files\napps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\nstate/sessions/agent%3Acodex%3Aacp%3A1f0ddc4d-50b6-495d-9202-4bfd3a948622%3Aoneshot%3A3f9d2fbe-e495-469f-b1e0-f3d799523755.json\nstate/sessions/agent%3Acodex%3Aacp%3A381fbc7e-996f-4f11-b1da-d26927f0b6ec%3Aoneshot%3Aa874037d-ad53-408d-a330-e5514d06c528.json\nstate/sessions/agent%3Aclaude%3Aacp%3A7a1b7bcd-0505-40f1-a7b8-084576381e03%3Aoneshot%3A00d204a3-12a8-48cb-9144-4840f7a50a31.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ac7c8505a-024e-42d2-90ec-61ed32e882b4%3Aoneshot%3Abe07d31a-b27b-4037-b39f-5a4c5a078543.json\nstate/sessions/agent%3Aclaude%3Aacp%3A379ea79c-2d03-4cb6-b957-a21bfb8e1e9c%3Aoneshot%3A6c99227a-5be3-42ed-9f3a-96219a573c5b.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ae1f301ad-ac03-4d99-9123-3a809ea39893%3Aoneshot%3Ac76b2dbb-52fb-4412-9001-e03c67feeacc.json\nstate/sessions/agent%3Acodex%3Aacp%3A4622083e-f160-4a41-9318-0cb88bacd428%3Aoneshot%3A4476d2d4-c4db-47d0-90ad-43453f1eb391.json\nstate/sessions/agent%3Acodex%3Aacp%3A0594256b-a966-4bad-a64b-bf20c8f9cd73%3Aoneshot%3A6d5ab6a6-2588-4822-8b33-be8b6600d311.json\nstate/sessions/agent%3Acodex%3Aacp%3A09654b1e-53fa-49f9-87c6-100dd9483b20%3Aoneshot%3A17b91702-c527-4bbb-baaf-25b3621b3048.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ab56da574-e1c0-4780-80ed-a1cbe921bd9b%3Aoneshot%3Adfd761c4-cefa-43d9-a4d1-a558a79e1909.json\nstate/sessions/agent%3Aclaude%3Aacp%3A9529a6a8-e0a8-4abf-8150-61a55d77e9e5%3Aoneshot%3A9a37c8fc-0834-4943-a7df-1c622a59d88b.json\nstate/sessions/agent%3Acodex%3Aacp%3Ab244e213-1c0a-4a0d-a95d-ed1d7d2a1579%3Aoneshot%3Ad53686dd-dfb1-4c1a-99c9-928fa40dcee0.json\nstate/sessions/agent%3Aclaude%3Aacp%3A168357e2-2b8e-4098-8447-b6cecf53501d%3Aoneshot%3Af851dbda-22f4-42a0-824c-a6d2ad5e721e.json\nstate/sessions/agent%3Aclaude%3Aacp%3Aac4dead9-0ba1-402d-b6f6-80249e67b4c8%3Aoneshot%3Acf54e9b6-a1ca-4118-8c76-66e984647248.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ad857b660-763d-4ec7-bc01-1adf0fd62b50%3Aoneshot%3A62b2e262-7779-4139-a644-d192135299bc.json\nstate/sessions/agent%3Aclaude%3Aacp%3A21dc18b1-9374-4be0-96ef-a917fa599ec3%3Aoneshot%3Abf1a4c4c-de17-40fb-83bd-b10417d60497.json\nmemory/2026-04-21-request-timed-out-before-a-res.md\nstate/sessions/agent%3Acodex%3Aacp%3A8000f746-97f5-41d5-98d9-66a0b77ca72c%3Aoneshot%3A8896777c-44b3-4d97-8694-b4f689735678.json\nstate/sessions/agent%3Acodex%3Aacp%3Abed98fde-f089-430e-b38c-8d233d866432%3Aoneshot%3Af93c0451-a074-4cfc-bc99-3953af79874f.json\nstate/sessions/agent%3Acodex%3Aacp%3Abfe2d7da-5d97-4401-b5cc-a3c3901c3262%3Aoneshot%3A0ce7235a-698a-4a4a-bee5-df8ffda66821.json\nmemory/2026-04-21-1735.md\nstate/sessions/agent%3Acodex%3Aacp%3A74721032-1ac9-4b61-a8f8-26d9ce2c76b9%3Aoneshot%3A0ea6793b-21f0-4ebb-8d47-b4c452aac362.json\nstate/sessions/agent%3Acodex%3Aacp%3A23d718c3-e2c6-41aa-8012-75d6b5998bfc%3Aoneshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json\nmemory/2026-04-21-1407.md\napps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts\nmemory/2026-04-21-llm-request-rejected-you-re-ou.md\nmemory/2026-04-21-1141.md\nmemory/2026-04-21-1032.md\nmemory/2026-04-21-0813.md\nmemory/2026-04-21-0444.md\nmemory/2026-04-21-0432.md\nmemory/2026-04-21-0429.md\nmemory/2026-04-21-0408.md\nmemory/2026-04-21-0342.md\nmemory/2026-04-21-0340.md\nmemory/2026-04-21-0329.md\nTOOLS.md\nmemory/2026-04-21-0210.md\nIDENTITY_BASE.md\napps/interface/src/components/settings-panels/SocialConnectionsPanel.tsx\napps/interface/src/app/api/discord/dm/route.ts\nmemory/2026-04-18-0535.md\nmemory/2026-04-18-1136.md\nmemory/2026-04-18-1305.md\nmemory/2026-04-18-1319.md\nmemory/2026-04-18-1332.md\nmemory/2026-04-18-1353.md\npackages/msam/msam/calibration.py\nscripts/seed-all-functional-prompts.ts\ntests/test_app_functional.py\ntools/pearlos-qa/qa_reviewer.py\narchive/infrastructure/infra/clusters/nia/flux-system/gotk-components.yaml\napps/pipecat-daily-bot/bot/pipeline/builder.py\napps/pipecat-daily-bot/bot/processors/non_blocking_router.py\napps/pipecat-daily-bot/bot/processors/openclaw_session.py\napps/pipecat-daily-bot/bot/runne..."
+          },
+          "toolu_01V8fwSMseNYJbqKF7UEt26M": {
+            "tool_use_id": "toolu_01V8fwSMseNYJbqKF7UEt26M",
+            "tool_name": "find /workspace/nia-universal -path \"*qa*\" -name \"*.ts\" -o -path \"*qa*\" -name \"*.js\" -o -path \"*qa*\" -name \"*.py\" 2>/dev/null | grep -v node_modules | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/tools/pearlos-qa/qa_runner.py\n/workspace/nia-universal/tools/pearlos-qa/qa_reviewer.py\n/workspace/nia-universal/scripts/qa-screenshot.ts\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/tests/test_qasm.py\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/tests/test_qapply.py\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/qasm.py\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/qapply.py"
+            },
+            "output": "/workspace/nia-universal/tools/pearlos-qa/qa_runner.py\n/workspace/nia-universal/tools/pearlos-qa/qa_reviewer.py\n/workspace/nia-universal/scripts/qa-screenshot.ts\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/tests/test_qasm.py\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/tests/test_qapply.py\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/qasm.py\n/workspace/nia-universal/apps/chorus-tts/.venv/lib/python3.12/site-packages/sympy/physics/quantum/qapply.py"
+          },
+          "toolu_01MB73NdFXWQ22SDiZ2vbeun": {
+            "tool_use_id": "toolu_01MB73NdFXWQ22SDiZ2vbeun",
+            "tool_name": "find /workspace/nia-universal/.github/workflows -name \"*screenshot*\" -o -name \"*qa*\" 2>/dev/null",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/.github/workflows/qa-screenshot.yml"
+            },
+            "output": "/workspace/nia-universal/.github/workflows/qa-screenshot.yml"
+          },
+          "toolu_01CrXV4Mwpv7XL34ZZwkKnMk": {
+            "tool_use_id": "toolu_01CrXV4Mwpv7XL34ZZwkKnMk",
+            "tool_name": "Read scripts/qa-screenshot.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t/**\n2\t * PearlOS QA Screenshot Script\n3\t *\n4\t * Authenticates against the Dashboard login, waits for the ActiveJobsWidget,\n5\t * captures a timestamped screenshot of the widget, and saves it to\n6\t * /qa/screenshots/.\n7\t *\n8\t * Environment variables (read from .env.local by default):\n9\t *   DASHBOARD_ADMIN_EMAIL    - login email\n10\t *   DASHBOARD_ADMIN_PASSWORD - login password\n11\t *   PEARLOS_URL              - base URL (default: http://localhost:3000)\n12\t *\n13\t * Usage:\n14\t *   npx tsx scripts/qa-screenshot.ts\n15\t */\n16\t\n17\timport { chromium, type Page } from 'playwright';\n18\timport * as fs from 'fs';\n19\timport * as path from 'path';\n20\timport * as dotenv from 'dotenv';\n21\t\n22\t// Load env\n23\tdotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });\n24\t\n25\tconst BASE_URL = process.env.PEARLOS_URL || 'http://localhost:3000';\n26\tconst EMAIL = process.env.DASHBOARD_ADMIN_EMAIL;\n27\tconst PASSWORD = process.env.DASHBOARD_ADMIN_PASSWORD;\n28\tconst SCREENSHOTS_DIR = path.resolve(__dirname, '..', 'qa', 'screenshots');\n29\t\n30\tasync function authenticate(page: Page): Promise<void> {\n31\t  if (!EMAIL || !PASSWORD) {\n32\t    throw new Error(\n33\t      'Missing DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD in environment',\n34\t    );\n35\t  }\n36\t\n37\t  // Dashboard login lives at /dashboard/login\n38\t  await page.goto(`${BASE_URL}/dashboard/login`, { waitUntil: 'networkidle', timeout: 30_000 });\n39\t\n40\t  // The login form uses React Hook Form with placeholder-based inputs.\n41\t  // Target by placeholder text which is stable across renders.\n42\t  const emailInput = page.locator('input[placeholder=\"Username or Email\"]');\n43\t  const passwordInput = page.locator('input[placeholder=\"****\"]');\n44\t\n45\t  await emailInput.waitFor({ state: 'visible', timeout: 15_000 });\n46\t  await emailInput.fill(EMAIL);\n47\t  await passwordInput.fill(PASSWORD);\n48\t\n49\t  // Submit via the Sign In button\n50\t  await page.click('button[type=\"submit\"]');\n51\t\n52\t  // Wait for navigation away from /login\n53\t  await page.waitForURL((url) => !url.pathname.includes('/login'), {\n54\t    timeout: 30_000,\n55\t  });\n56\t\n57\t  // Extra settle time for React hydration\n58\t  await page.waitForTimeout(3000);\n59\t}\n60\t\n61\tasync function waitForActiveJobsWidget(page: Page): Promise<void> {\n62\t  // The ActiveJobsWidget injects a <style id=\"gohufont-active-jobs\"> tag\n63\t  // when it mounts. We wait for that as a fingerprint.\n64\t  try {\n65\t    await page.waitForFunction(\n66\t      () => !!document.getElementById('gohufont-active-jobs'),\n67\t      { timeout: 20_000 },\n68\t    );\n69\t  } catch {\n70\t    console.warn(\n71\t      'ActiveJobsWidget font-face tag not found — widget may not be rendered. Continuing anyway.',\n72\t    );\n73\t  }\n74\t\n75\t  // Let animations settle\n76\t  await page.waitForTimeout(2000);\n77\t}\n78\t\n79\tfunction screenshotFilename(label: string): string {\n80\t  const ts = new Date().toISOString().replace(/[:.]/g, '-');\n81\t  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();\n82\t  return `${slug}-${ts}.png`;\n83\t}\n84\t\n85\tasync function main() {\n86\t  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });\n87\t\n88\t  const browser = await chromium.launch({ headless: true });\n89\t  const context = await browser.newContext({\n90\t    viewport: { width: 1280, height: 800 },\n91\t  });\n92\t  const page = await context.newPage();\n93\t\n94\t  try {\n95\t    console.log(`Navigating to ${BASE_URL} ...`);\n96\t\n97\t    // Authenticate\n98\t    await authenticate(page);\n99\t    console.log('Authenticated.');\n100\t\n101\t    // Navigate to main page (may already be there after login redirect)\n102\t    if (!page.url().includes(BASE_URL) || page.url().includes('/login')) {\n103\t      await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30_000 });\n104\t    }\n105\t\n106\t    // Wait for ActiveJobsWidget\n107\t    await waitForActiveJobsWidget(page);\n108\t    console.log('ActiveJobsWidget detected (or timeout reached).');\n109\t\n110\t    // Full-page screenshot\n111\t    const fullPath = path.join(SCREENSHOTS_DIR, scr..."
+            },
+            "output": "1\t/**\n2\t * PearlOS QA Screenshot Script\n3\t *\n4\t * Authenticates against the Dashboard login, waits for the ActiveJobsWidget,\n5\t * captures a timestamped screenshot of the widget, and saves it to\n6\t * /qa/screenshots/.\n7\t *\n8\t * Environment variables (read from .env.local by default):\n9\t *   DASHBOARD_ADMIN_EMAIL    - login email\n10\t *   DASHBOARD_ADMIN_PASSWORD - login password\n11\t *   PEARLOS_URL              - base URL (default: http://localhost:3000)\n12\t *\n13\t * Usage:\n14\t *   npx tsx scripts/qa-screenshot.ts\n15\t */\n16\t\n17\timport { chromium, type Page } from 'playwright';\n18\timport * as fs from 'fs';\n19\timport * as path from 'path';\n20\timport * as dotenv from 'dotenv';\n21\t\n22\t// Load env\n23\tdotenv.config({ path: path.resolve(__dirname, '..', '.env.local') });\n24\t\n25\tconst BASE_URL = process.env.PEARLOS_URL || 'http://localhost:3000';\n26\tconst EMAIL = process.env.DASHBOARD_ADMIN_EMAIL;\n27\tconst PASSWORD = process.env.DASHBOARD_ADMIN_PASSWORD;\n28\tconst SCREENSHOTS_DIR = path.resolve(__dirname, '..', 'qa', 'screenshots');\n29\t\n30\tasync function authenticate(page: Page): Promise<void> {\n31\t  if (!EMAIL || !PASSWORD) {\n32\t    throw new Error(\n33\t      'Missing DASHBOARD_ADMIN_EMAIL or DASHBOARD_ADMIN_PASSWORD in environment',\n34\t    );\n35\t  }\n36\t\n37\t  // Dashboard login lives at /dashboard/login\n38\t  await page.goto(`${BASE_URL}/dashboard/login`, { waitUntil: 'networkidle', timeout: 30_000 });\n39\t\n40\t  // The login form uses React Hook Form with placeholder-based inputs.\n41\t  // Target by placeholder text which is stable across renders.\n42\t  const emailInput = page.locator('input[placeholder=\"Username or Email\"]');\n43\t  const passwordInput = page.locator('input[placeholder=\"****\"]');\n44\t\n45\t  await emailInput.waitFor({ state: 'visible', timeout: 15_000 });\n46\t  await emailInput.fill(EMAIL);\n47\t  await passwordInput.fill(PASSWORD);\n48\t\n49\t  // Submit via the Sign In button\n50\t  await page.click('button[type=\"submit\"]');\n51\t\n52\t  // Wait for navigation away from /login\n53\t  await page.waitForURL((url) => !url.pathname.includes('/login'), {\n54\t    timeout: 30_000,\n55\t  });\n56\t\n57\t  // Extra settle time for React hydration\n58\t  await page.waitForTimeout(3000);\n59\t}\n60\t\n61\tasync function waitForActiveJobsWidget(page: Page): Promise<void> {\n62\t  // The ActiveJobsWidget injects a <style id=\"gohufont-active-jobs\"> tag\n63\t  // when it mounts. We wait for that as a fingerprint.\n64\t  try {\n65\t    await page.waitForFunction(\n66\t      () => !!document.getElementById('gohufont-active-jobs'),\n67\t      { timeout: 20_000 },\n68\t    );\n69\t  } catch {\n70\t    console.warn(\n71\t      'ActiveJobsWidget font-face tag not found — widget may not be rendered. Continuing anyway.',\n72\t    );\n73\t  }\n74\t\n75\t  // Let animations settle\n76\t  await page.waitForTimeout(2000);\n77\t}\n78\t\n79\tfunction screenshotFilename(label: string): string {\n80\t  const ts = new Date().toISOString().replace(/[:.]/g, '-');\n81\t  const slug = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();\n82\t  return `${slug}-${ts}.png`;\n83\t}\n84\t\n85\tasync function main() {\n86\t  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });\n87\t\n88\t  const browser = await chromium.launch({ headless: true });\n89\t  const context = await browser.newContext({\n90\t    viewport: { width: 1280, height: 800 },\n91\t  });\n92\t  const page = await context.newPage();\n93\t\n94\t  try {\n95\t    console.log(`Navigating to ${BASE_URL} ...`);\n96\t\n97\t    // Authenticate\n98\t    await authenticate(page);\n99\t    console.log('Authenticated.');\n100\t\n101\t    // Navigate to main page (may already be there after login redirect)\n102\t    if (!page.url().includes(BASE_URL) || page.url().includes('/login')) {\n103\t      await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30_000 });\n104\t    }\n105\t\n106\t    // Wait for ActiveJobsWidget\n107\t    await waitForActiveJobsWidget(page);\n108\t    console.log('ActiveJobsWidget detected (or timeout reached).');\n109\t\n110\t    // Full-page screenshot\n111\t    const fullPath = path.join(SCREENSHOTS_DIR, scr..."
+          },
+          "toolu_01AX6G13tu1kkMzYtsdzJT5M": {
+            "tool_use_id": "toolu_01AX6G13tu1kkMzYtsdzJT5M",
+            "tool_name": "Read .github/workflows/qa-screenshot.yml",
+            "is_error": false,
+            "content": {
+              "Text": "1\tname: QA Screenshot Check\n2\t\n3\ton:\n4\t  pull_request:\n5\t    branches: [main, staging]\n6\t  workflow_dispatch:\n7\t\n8\tjobs:\n9\t  screenshot:\n10\t    name: Capture PearlOS QA Screenshots\n11\t    runs-on: ubuntu-latest\n12\t    timeout-minutes: 10\n13\t\n14\t    steps:\n15\t      - uses: actions/checkout@v4\n16\t\n17\t      - uses: actions/setup-node@v4\n18\t        with:\n19\t          node-version: 20\n20\t          cache: npm\n21\t\n22\t      - name: Install dependencies\n23\t        run: npm ci\n24\t\n25\t      - name: Install Playwright browsers\n26\t        run: npx playwright install --with-deps chromium\n27\t\n28\t      - name: Start PearlOS (background)\n29\t        run: npm run start:all &\n30\t        env:\n31\t          NODE_ENV: development\n32\t          DASHBOARD_ADMIN_EMAIL: ${{ secrets.DASHBOARD_ADMIN_EMAIL }}\n33\t          DASHBOARD_ADMIN_PASSWORD: ${{ secrets.DASHBOARD_ADMIN_PASSWORD }}\n34\t\n35\t      - name: Wait for Interface to be ready\n36\t        run: |\n37\t          echo \"Waiting for http://localhost:3000 ...\"\n38\t          for i in $(seq 1 60); do\n39\t            if curl -sf http://localhost:3000 > /dev/null 2>&1; then\n40\t              echo \"Interface is up.\"\n41\t              break\n42\t            fi\n43\t            sleep 5\n44\t          done\n45\t\n46\t      - name: Run QA screenshot\n47\t        run: npm run qa:screenshot\n48\t        env:\n49\t          PEARLOS_URL: http://localhost:3000\n50\t          DASHBOARD_ADMIN_EMAIL: ${{ secrets.DASHBOARD_ADMIN_EMAIL }}\n51\t          DASHBOARD_ADMIN_PASSWORD: ${{ secrets.DASHBOARD_ADMIN_PASSWORD }}\n52\t\n53\t      - name: Upload screenshots\n54\t        if: always()\n55\t        uses: actions/upload-artifact@v4\n56\t        with:\n57\t          name: qa-screenshots\n58\t          path: qa/screenshots/\n59\t          retention-days: 30\n60\t"
+            },
+            "output": "1\tname: QA Screenshot Check\n2\t\n3\ton:\n4\t  pull_request:\n5\t    branches: [main, staging]\n6\t  workflow_dispatch:\n7\t\n8\tjobs:\n9\t  screenshot:\n10\t    name: Capture PearlOS QA Screenshots\n11\t    runs-on: ubuntu-latest\n12\t    timeout-minutes: 10\n13\t\n14\t    steps:\n15\t      - uses: actions/checkout@v4\n16\t\n17\t      - uses: actions/setup-node@v4\n18\t        with:\n19\t          node-version: 20\n20\t          cache: npm\n21\t\n22\t      - name: Install dependencies\n23\t        run: npm ci\n24\t\n25\t      - name: Install Playwright browsers\n26\t        run: npx playwright install --with-deps chromium\n27\t\n28\t      - name: Start PearlOS (background)\n29\t        run: npm run start:all &\n30\t        env:\n31\t          NODE_ENV: development\n32\t          DASHBOARD_ADMIN_EMAIL: ${{ secrets.DASHBOARD_ADMIN_EMAIL }}\n33\t          DASHBOARD_ADMIN_PASSWORD: ${{ secrets.DASHBOARD_ADMIN_PASSWORD }}\n34\t\n35\t      - name: Wait for Interface to be ready\n36\t        run: |\n37\t          echo \"Waiting for http://localhost:3000 ...\"\n38\t          for i in $(seq 1 60); do\n39\t            if curl -sf http://localhost:3000 > /dev/null 2>&1; then\n40\t              echo \"Interface is up.\"\n41\t              break\n42\t            fi\n43\t            sleep 5\n44\t          done\n45\t\n46\t      - name: Run QA screenshot\n47\t        run: npm run qa:screenshot\n48\t        env:\n49\t          PEARLOS_URL: http://localhost:3000\n50\t          DASHBOARD_ADMIN_EMAIL: ${{ secrets.DASHBOARD_ADMIN_EMAIL }}\n51\t          DASHBOARD_ADMIN_PASSWORD: ${{ secrets.DASHBOARD_ADMIN_PASSWORD }}\n52\t\n53\t      - name: Upload screenshots\n54\t        if: always()\n55\t        uses: actions/upload-artifact@v4\n56\t        with:\n57\t          name: qa-screenshots\n58\t          path: qa/screenshots/\n59\t          retention-days: 30\n60\t"
+          },
+          "toolu_01C94pDT2ucWh8PcsQVPHFnx": {
+            "tool_use_id": "toolu_01C94pDT2ucWh8PcsQVPHFnx",
+            "tool_name": "Read apps/interface/src/app/api/discord/send/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/send — Send a message to a Discord channel via the bot.\n5\t *\n6\t * POST /api/discord/send\n7\t * Body: { channelId: string, content: string }\n8\t *\n9\t * Returns JSON: { success: true, messageId: string }\n10\t */\n11\t\n12\tconst DISCORD_API = 'https://discord.com/api/v10';\n13\tconst DEFAULT_CHANNEL_ID = '1471441655650324533'; // #general\n14\t\n15\tfunction getBotToken(): string | null {\n16\t  try {\n17\t    const fs = require('fs');\n18\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n19\t    return config?.channels?.discord?.token || null;\n20\t  } catch {\n21\t    return process.env.DISCORD_BOT_TOKEN || null;\n22\t  }\n23\t}\n24\t\n25\texport async function POST(req: NextRequest) {\n26\t  const token = getBotToken();\n27\t  if (!token) {\n28\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n29\t  }\n30\t\n31\t  let body: any;\n32\t  try {\n33\t    body = await req.json();\n34\t  } catch {\n35\t    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });\n36\t  }\n37\t\n38\t  const channelId = body.channelId || DEFAULT_CHANNEL_ID;\n39\t  const content = (body.content || '').trim();\n40\t\n41\t  if (!content) {\n42\t    return NextResponse.json({ error: 'Message content is required' }, { status: 400 });\n43\t  }\n44\t\n45\t  if (content.length > 2000) {\n46\t    return NextResponse.json({ error: 'Message too long (max 2000 characters)' }, { status: 400 });\n47\t  }\n48\t\n49\t  // Basic channel ID validation (snowflake format)\n50\t  if (!/^\\d{17,20}$/.test(channelId)) {\n51\t    return NextResponse.json({ error: 'Invalid channel ID' }, { status: 400 });\n52\t  }\n53\t\n54\t  try {\n55\t    const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {\n56\t      method: 'POST',\n57\t      headers: {\n58\t        Authorization: `Bot ${token}`,\n59\t        'Content-Type': 'application/json',\n60\t      },\n61\t      body: JSON.stringify({ content }),\n62\t    });\n63\t\n64\t    if (!res.ok) {\n65\t      const text = await res.text();\n66\t      console.error('[discord/send] Discord API error:', res.status, text);\n67\t      return NextResponse.json({ error: 'Discord API error', status: res.status }, { status: 502 });\n68\t    }\n69\t\n70\t    const msg = await res.json();\n71\t    return NextResponse.json({ success: true, messageId: msg.id });\n72\t  } catch (err: any) {\n73\t    console.error('[discord/send] Error:', err.message);\n74\t    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });\n75\t  }\n76\t}\n77\t"
+            },
+            "output": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/send — Send a message to a Discord channel via the bot.\n5\t *\n6\t * POST /api/discord/send\n7\t * Body: { channelId: string, content: string }\n8\t *\n9\t * Returns JSON: { success: true, messageId: string }\n10\t */\n11\t\n12\tconst DISCORD_API = 'https://discord.com/api/v10';\n13\tconst DEFAULT_CHANNEL_ID = '1471441655650324533'; // #general\n14\t\n15\tfunction getBotToken(): string | null {\n16\t  try {\n17\t    const fs = require('fs');\n18\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n19\t    return config?.channels?.discord?.token || null;\n20\t  } catch {\n21\t    return process.env.DISCORD_BOT_TOKEN || null;\n22\t  }\n23\t}\n24\t\n25\texport async function POST(req: NextRequest) {\n26\t  const token = getBotToken();\n27\t  if (!token) {\n28\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n29\t  }\n30\t\n31\t  let body: any;\n32\t  try {\n33\t    body = await req.json();\n34\t  } catch {\n35\t    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });\n36\t  }\n37\t\n38\t  const channelId = body.channelId || DEFAULT_CHANNEL_ID;\n39\t  const content = (body.content || '').trim();\n40\t\n41\t  if (!content) {\n42\t    return NextResponse.json({ error: 'Message content is required' }, { status: 400 });\n43\t  }\n44\t\n45\t  if (content.length > 2000) {\n46\t    return NextResponse.json({ error: 'Message too long (max 2000 characters)' }, { status: 400 });\n47\t  }\n48\t\n49\t  // Basic channel ID validation (snowflake format)\n50\t  if (!/^\\d{17,20}$/.test(channelId)) {\n51\t    return NextResponse.json({ error: 'Invalid channel ID' }, { status: 400 });\n52\t  }\n53\t\n54\t  try {\n55\t    const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {\n56\t      method: 'POST',\n57\t      headers: {\n58\t        Authorization: `Bot ${token}`,\n59\t        'Content-Type': 'application/json',\n60\t      },\n61\t      body: JSON.stringify({ content }),\n62\t    });\n63\t\n64\t    if (!res.ok) {\n65\t      const text = await res.text();\n66\t      console.error('[discord/send] Discord API error:', res.status, text);\n67\t      return NextResponse.json({ error: 'Discord API error', status: res.status }, { status: 502 });\n68\t    }\n69\t\n70\t    const msg = await res.json();\n71\t    return NextResponse.json({ success: true, messageId: msg.id });\n72\t  } catch (err: any) {\n73\t    console.error('[discord/send] Error:', err.message);\n74\t    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });\n75\t  }\n76\t}\n77\t"
+          },
+          "toolu_01PnBDS4rAj31mua8HmU1idd": {
+            "tool_use_id": "toolu_01PnBDS4rAj31mua8HmU1idd",
+            "tool_name": "Read tools/pearlos-qa/qa_reviewer.py",
+            "is_error": false,
+            "content": {
+              "Text": "1\t#!/usr/bin/env python3\n2\t\"\"\"\n3\tPearlOS QA Reviewer — Analyzes screenshots for visual defects and generates reports.\n4\t\n5\tReads screenshots from /tmp/qa-results/, runs pixel-level and OCR analysis,\n6\tand outputs a Markdown report with pass/fail per test and severity ratings.\n7\t\"\"\"\n8\t\n9\timport argparse\n10\timport json\n11\timport os\n12\timport re\n13\timport sys\n14\tfrom dataclasses import dataclass, field\n15\tfrom datetime import datetime, timezone\n16\tfrom pathlib import Path\n17\tfrom typing import Optional\n18\t\n19\tfrom PIL import Image, ImageStat\n20\tfrom jinja2 import Environment, FileSystemLoader\n21\t\n22\t# Optional OCR support\n23\ttry:\n24\t    import pytesseract\n25\t    HAS_TESSERACT = True\n26\texcept ImportError:\n27\t    HAS_TESSERACT = False\n28\t\n29\t# --- Constants ---\n30\tVIEWPORT_W, VIEWPORT_H = 1280, 800\n31\tRESULTS_DIR = Path(\"/tmp/qa-results\")\n32\tREPORT_PATH = RESULTS_DIR / \"qa-report.md\"\n33\tTEMPLATE_DIR = Path(__file__).parent\n34\t\n35\t# Pearl avatar region (bottom-center area where avatar typically appears)\n36\tAVATAR_REGION = (540, VIEWPORT_H - 150, 740, VIEWPORT_H - 20)  # x1, y1, x2, y2\n37\t\n38\t# Severity levels\n39\tCRITICAL = \"critical\"\n40\tWARNING = \"warning\"\n41\tINFO = \"info\"\n42\t\n43\t\n44\t@dataclass\n45\tclass Defect:\n46\t    name: str\n47\t    severity: str  # critical, warning, info\n48\t    description: str\n49\t\n50\t\n51\t@dataclass\n52\tclass TestResult:\n53\t    filename: str\n54\t    test_name: str\n55\t    timestamp: str\n56\t    passed: bool\n57\t    defects: list[Defect] = field(default_factory=list)\n58\t\n59\t    @property\n60\t    def worst_severity(self) -> Optional[str]:\n61\t        if not self.defects:\n62\t            return None\n63\t        order = {CRITICAL: 0, WARNING: 1, INFO: 2}\n64\t        return min(self.defects, key=lambda d: order.get(d.severity, 99)).severity\n65\t\n66\t\n67\t# --- Analyzers ---\n68\t\n69\tdef _region_stats(img: Image.Image, box: tuple[int, int, int, int]):\n70\t    \"\"\"Get mean and stddev for a crop region, clamped to image bounds.\"\"\"\n71\t    w, h = img.size\n72\t    box = (max(0, box[0]), max(0, box[1]), min(w, box[2]), min(h, box[3]))\n73\t    if box[2] <= box[0] or box[3] <= box[1]:\n74\t        return None\n75\t    crop = img.crop(box)\n76\t    stat = ImageStat.Stat(crop)\n77\t    return stat.mean, stat.stddev\n78\t\n79\t\n80\tdef check_white_boxes(img: Image.Image) -> list[Defect]:\n81\t    \"\"\"Scan for large uniform white/light regions (>100x100) via grid sampling.\"\"\"\n82\t    defects = []\n83\t    w, h = img.size\n84\t    step = 50\n85\t    for y in range(0, h - 100, step):\n86\t        for x in range(0, w - 100, step):\n87\t            box = (x, y, x + 100, y + 100)\n88\t            result = _region_stats(img, box)\n89\t            if result is None:\n90\t                continue\n91\t            mean, stddev = result\n92\t            # White box: all channels high mean (>240) and low variance (<5)\n93\t            if all(m > 240 for m in mean[:3]) and all(s < 5 for s in stddev[:3]):\n94\t                defects.append(Defect(\n95\t                    \"white_box\",\n96\t                    CRITICAL,\n97\t                    f\"Large white rectangle detected at ({x},{y}) — possible rendering bug\"\n98\t                ))\n99\t                return defects  # one is enough\n100\t    return defects\n101\t\n102\t\n103\tdef check_empty_content(img: Image.Image) -> list[Defect]:\n104\t    \"\"\"Check if the top half of the viewport is mostly empty/black.\"\"\"\n105\t    defects = []\n106\t    h = min(img.size[1], VIEWPORT_H)\n107\t    top_half = (0, 0, img.size[0], h // 2)\n108\t    result = _region_stats(img, top_half)\n109\t    if result is None:\n110\t        return defects\n111\t    mean, stddev = result\n112\t    # Very dark and uniform = probably empty\n113\t    if all(m < 15 for m in mean[:3]) and all(s < 10 for s in stddev[:3]):\n114\t        defects.append(Defect(\n115\t            \"empty_content\",\n116\t            WARNING,\n117\t            \"Top half of viewport appears empty/black — content may not have loaded\"\n118\t        ))\n119\t    return defects\n120\t\n121\t\n122\tdef check_avatar_obscured(img: Image.Image) -> list[Defect]:\n..."
+            },
+            "output": "1\t#!/usr/bin/env python3\n2\t\"\"\"\n3\tPearlOS QA Reviewer — Analyzes screenshots for visual defects and generates reports.\n4\t\n5\tReads screenshots from /tmp/qa-results/, runs pixel-level and OCR analysis,\n6\tand outputs a Markdown report with pass/fail per test and severity ratings.\n7\t\"\"\"\n8\t\n9\timport argparse\n10\timport json\n11\timport os\n12\timport re\n13\timport sys\n14\tfrom dataclasses import dataclass, field\n15\tfrom datetime import datetime, timezone\n16\tfrom pathlib import Path\n17\tfrom typing import Optional\n18\t\n19\tfrom PIL import Image, ImageStat\n20\tfrom jinja2 import Environment, FileSystemLoader\n21\t\n22\t# Optional OCR support\n23\ttry:\n24\t    import pytesseract\n25\t    HAS_TESSERACT = True\n26\texcept ImportError:\n27\t    HAS_TESSERACT = False\n28\t\n29\t# --- Constants ---\n30\tVIEWPORT_W, VIEWPORT_H = 1280, 800\n31\tRESULTS_DIR = Path(\"/tmp/qa-results\")\n32\tREPORT_PATH = RESULTS_DIR / \"qa-report.md\"\n33\tTEMPLATE_DIR = Path(__file__).parent\n34\t\n35\t# Pearl avatar region (bottom-center area where avatar typically appears)\n36\tAVATAR_REGION = (540, VIEWPORT_H - 150, 740, VIEWPORT_H - 20)  # x1, y1, x2, y2\n37\t\n38\t# Severity levels\n39\tCRITICAL = \"critical\"\n40\tWARNING = \"warning\"\n41\tINFO = \"info\"\n42\t\n43\t\n44\t@dataclass\n45\tclass Defect:\n46\t    name: str\n47\t    severity: str  # critical, warning, info\n48\t    description: str\n49\t\n50\t\n51\t@dataclass\n52\tclass TestResult:\n53\t    filename: str\n54\t    test_name: str\n55\t    timestamp: str\n56\t    passed: bool\n57\t    defects: list[Defect] = field(default_factory=list)\n58\t\n59\t    @property\n60\t    def worst_severity(self) -> Optional[str]:\n61\t        if not self.defects:\n62\t            return None\n63\t        order = {CRITICAL: 0, WARNING: 1, INFO: 2}\n64\t        return min(self.defects, key=lambda d: order.get(d.severity, 99)).severity\n65\t\n66\t\n67\t# --- Analyzers ---\n68\t\n69\tdef _region_stats(img: Image.Image, box: tuple[int, int, int, int]):\n70\t    \"\"\"Get mean and stddev for a crop region, clamped to image bounds.\"\"\"\n71\t    w, h = img.size\n72\t    box = (max(0, box[0]), max(0, box[1]), min(w, box[2]), min(h, box[3]))\n73\t    if box[2] <= box[0] or box[3] <= box[1]:\n74\t        return None\n75\t    crop = img.crop(box)\n76\t    stat = ImageStat.Stat(crop)\n77\t    return stat.mean, stat.stddev\n78\t\n79\t\n80\tdef check_white_boxes(img: Image.Image) -> list[Defect]:\n81\t    \"\"\"Scan for large uniform white/light regions (>100x100) via grid sampling.\"\"\"\n82\t    defects = []\n83\t    w, h = img.size\n84\t    step = 50\n85\t    for y in range(0, h - 100, step):\n86\t        for x in range(0, w - 100, step):\n87\t            box = (x, y, x + 100, y + 100)\n88\t            result = _region_stats(img, box)\n89\t            if result is None:\n90\t                continue\n91\t            mean, stddev = result\n92\t            # White box: all channels high mean (>240) and low variance (<5)\n93\t            if all(m > 240 for m in mean[:3]) and all(s < 5 for s in stddev[:3]):\n94\t                defects.append(Defect(\n95\t                    \"white_box\",\n96\t                    CRITICAL,\n97\t                    f\"Large white rectangle detected at ({x},{y}) — possible rendering bug\"\n98\t                ))\n99\t                return defects  # one is enough\n100\t    return defects\n101\t\n102\t\n103\tdef check_empty_content(img: Image.Image) -> list[Defect]:\n104\t    \"\"\"Check if the top half of the viewport is mostly empty/black.\"\"\"\n105\t    defects = []\n106\t    h = min(img.size[1], VIEWPORT_H)\n107\t    top_half = (0, 0, img.size[0], h // 2)\n108\t    result = _region_stats(img, top_half)\n109\t    if result is None:\n110\t        return defects\n111\t    mean, stddev = result\n112\t    # Very dark and uniform = probably empty\n113\t    if all(m < 15 for m in mean[:3]) and all(s < 10 for s in stddev[:3]):\n114\t        defects.append(Defect(\n115\t            \"empty_content\",\n116\t            WARNING,\n117\t            \"Top half of viewport appears empty/black — content may not have loaded\"\n118\t        ))\n119\t    return defects\n120\t\n121\t\n122\tdef check_avatar_obscured(img: Image.Image) -> list[Defect]:\n..."
+          },
+          "toolu_01Jx2PDpTBVCz1Kezep3qZAD": {
+            "tool_use_id": "toolu_01Jx2PDpTBVCz1Kezep3qZAD",
+            "tool_name": "grep -l \"discord.*file|discord.*upload|multipart|FormData\" /workspace/nia-universal",
+            "is_error": false,
+            "content": {
+              "Text": "Found 49 files\nstate/sessions/agent%3Acodex%3Aacp%3A1f0ddc4d-50b6-495d-9202-4bfd3a948622%3Aoneshot%3A3f9d2fbe-e495-469f-b1e0-f3d799523755.json\nstate/sessions/agent%3Acodex%3Aacp%3A381fbc7e-996f-4f11-b1da-d26927f0b6ec%3Aoneshot%3Aa874037d-ad53-408d-a330-e5514d06c528.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ac7b19f21-c9a4-4422-b48f-45cb570ba279%3Aoneshot%3A0e0f0c48-7923-4c9a-b69a-a6e699de5564.json\nstate/sessions/agent%3Aclaude%3Aacp%3A11e35d23-d2b6-4756-a1b8-5d9c82f59eb3%3Aoneshot%3Ad8adfd9d-0fe2-4e1a-a7ed-f8a252c8864b.json\nstate/sessions/agent%3Aclaude%3Aacp%3A7a1b7bcd-0505-40f1-a7b8-084576381e03%3Aoneshot%3A00d204a3-12a8-48cb-9144-4840f7a50a31.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ac7c8505a-024e-42d2-90ec-61ed32e882b4%3Aoneshot%3Abe07d31a-b27b-4037-b39f-5a4c5a078543.json\nstate/sessions/agent%3Aclaude%3Aacp%3A379ea79c-2d03-4cb6-b957-a21bfb8e1e9c%3Aoneshot%3A6c99227a-5be3-42ed-9f3a-96219a573c5b.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ae1f301ad-ac03-4d99-9123-3a809ea39893%3Aoneshot%3Ac76b2dbb-52fb-4412-9001-e03c67feeacc.json\nstate/sessions/agent%3Aclaude%3Aacp%3A4cb2b980-8517-4662-ba1f-24c279f2ca37%3Aoneshot%3A19cc61b6-df15-4e87-9cc7-9c6755e43ab3.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ab56da574-e1c0-4780-80ed-a1cbe921bd9b%3Aoneshot%3Adfd761c4-cefa-43d9-a4d1-a558a79e1909.json\nstate/sessions/agent%3Aclaude%3Aacp%3A9529a6a8-e0a8-4abf-8150-61a55d77e9e5%3Aoneshot%3A9a37c8fc-0834-4943-a7df-1c622a59d88b.json\nstate/sessions/agent%3Acodex%3Aacp%3Ab244e213-1c0a-4a0d-a95d-ed1d7d2a1579%3Aoneshot%3Ad53686dd-dfb1-4c1a-99c9-928fa40dcee0.json\nstate/sessions/agent%3Aclaude%3Aacp%3Aac4dead9-0ba1-402d-b6f6-80249e67b4c8%3Aoneshot%3Acf54e9b6-a1ca-4118-8c76-66e984647248.json\nstate/sessions/agent%3Aclaude%3Aacp%3A21dc18b1-9374-4be0-96ef-a917fa599ec3%3Aoneshot%3Abf1a4c4c-de17-40fb-83bd-b10417d60497.json\nstate/sessions/agent%3Acodex%3Aacp%3A8000f746-97f5-41d5-98d9-66a0b77ca72c%3Aoneshot%3A8896777c-44b3-4d97-8694-b4f689735678.json\nstate/sessions/agent%3Acodex%3Aacp%3Abed98fde-f089-430e-b38c-8d233d866432%3Aoneshot%3Af93c0451-a074-4cfc-bc99-3953af79874f.json\nstate/sessions/agent%3Acodex%3Aacp%3Abfe2d7da-5d97-4401-b5cc-a3c3901c3262%3Aoneshot%3A0ce7235a-698a-4a4a-bee5-df8ffda66821.json\nstate/sessions/agent%3Acodex%3Aacp%3A74721032-1ac9-4b61-a8f8-26d9ce2c76b9%3Aoneshot%3A0ea6793b-21f0-4ebb-8d47-b4c452aac362.json\nstate/sessions/agent%3Acodex%3Aacp%3A23d718c3-e2c6-41aa-8012-75d6b5998bfc%3Aoneshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json\napps/interface/src/features/ChatMode/components/ChatMode.tsx\nscripts/test-voice-pipeline.sh\napps/pipecat-daily-bot/bot/comfyui_client.py\napps/pipecat-daily-bot/bot/providers/pocket_tts.py\napps/interface/src/app/api/summon-ai-sprite/route.ts\napps/interface/src/app/api/task-feedback/route.ts\napps/interface/src/app/signup/page.tsx\napps/interface/src/components/FileDropZone.tsx\napps/interface/src/components/login-form.tsx\napps/interface/src/features/ActiveJobs/hooks/useTaskFeedback.ts\napps/interface/src/features/PhotoMagic/hooks/usePhotoMagic.ts\napps/dashboard/src/components/login-form.tsx\napps/dashboard/src/app/dashboard/admin/functional-prompts/page.tsx\napps/dashboard/src/app/dashboard/admin/userProfile/page.tsx\napps/dashboard/src/components/assistant-content/activity-section.tsx\napps/dashboard/src/components/assistant-content/agenda-section.tsx\napps/dashboard/src/components/assistant-content/exhibitors-section.tsx\napps/dashboard/src/components/assistant-content/guest-section.tsx\napps/dashboard/src/components/assistant-content/services-section.tsx\npackages/prism/src/core/content/README.md\npackages/prism/src/core/services/gmail-api.service.ts\npackages/prism/src/core/utils.ts\npackages/prism/__tests__/security.test.ts\narchive/core/nia-chat-agent/requirements.txt\napps/pipecat-daily-bot/bot/poetry.lock\napps/interface/src/features/HtmlGeneration/examples/dogfood/create-demo.ts\napps/dashboard/src/components/assistant-content/speaker-section.tsx\napps/dashboard/src/types/assistant-content/registration.ts\napps/dashboard/__tes..."
+            },
+            "output": "Found 49 files\nstate/sessions/agent%3Acodex%3Aacp%3A1f0ddc4d-50b6-495d-9202-4bfd3a948622%3Aoneshot%3A3f9d2fbe-e495-469f-b1e0-f3d799523755.json\nstate/sessions/agent%3Acodex%3Aacp%3A381fbc7e-996f-4f11-b1da-d26927f0b6ec%3Aoneshot%3Aa874037d-ad53-408d-a330-e5514d06c528.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ac7b19f21-c9a4-4422-b48f-45cb570ba279%3Aoneshot%3A0e0f0c48-7923-4c9a-b69a-a6e699de5564.json\nstate/sessions/agent%3Aclaude%3Aacp%3A11e35d23-d2b6-4756-a1b8-5d9c82f59eb3%3Aoneshot%3Ad8adfd9d-0fe2-4e1a-a7ed-f8a252c8864b.json\nstate/sessions/agent%3Aclaude%3Aacp%3A7a1b7bcd-0505-40f1-a7b8-084576381e03%3Aoneshot%3A00d204a3-12a8-48cb-9144-4840f7a50a31.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ac7c8505a-024e-42d2-90ec-61ed32e882b4%3Aoneshot%3Abe07d31a-b27b-4037-b39f-5a4c5a078543.json\nstate/sessions/agent%3Aclaude%3Aacp%3A379ea79c-2d03-4cb6-b957-a21bfb8e1e9c%3Aoneshot%3A6c99227a-5be3-42ed-9f3a-96219a573c5b.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ae1f301ad-ac03-4d99-9123-3a809ea39893%3Aoneshot%3Ac76b2dbb-52fb-4412-9001-e03c67feeacc.json\nstate/sessions/agent%3Aclaude%3Aacp%3A4cb2b980-8517-4662-ba1f-24c279f2ca37%3Aoneshot%3A19cc61b6-df15-4e87-9cc7-9c6755e43ab3.json\nstate/sessions/agent%3Aclaude%3Aacp%3Ab56da574-e1c0-4780-80ed-a1cbe921bd9b%3Aoneshot%3Adfd761c4-cefa-43d9-a4d1-a558a79e1909.json\nstate/sessions/agent%3Aclaude%3Aacp%3A9529a6a8-e0a8-4abf-8150-61a55d77e9e5%3Aoneshot%3A9a37c8fc-0834-4943-a7df-1c622a59d88b.json\nstate/sessions/agent%3Acodex%3Aacp%3Ab244e213-1c0a-4a0d-a95d-ed1d7d2a1579%3Aoneshot%3Ad53686dd-dfb1-4c1a-99c9-928fa40dcee0.json\nstate/sessions/agent%3Aclaude%3Aacp%3Aac4dead9-0ba1-402d-b6f6-80249e67b4c8%3Aoneshot%3Acf54e9b6-a1ca-4118-8c76-66e984647248.json\nstate/sessions/agent%3Aclaude%3Aacp%3A21dc18b1-9374-4be0-96ef-a917fa599ec3%3Aoneshot%3Abf1a4c4c-de17-40fb-83bd-b10417d60497.json\nstate/sessions/agent%3Acodex%3Aacp%3A8000f746-97f5-41d5-98d9-66a0b77ca72c%3Aoneshot%3A8896777c-44b3-4d97-8694-b4f689735678.json\nstate/sessions/agent%3Acodex%3Aacp%3Abed98fde-f089-430e-b38c-8d233d866432%3Aoneshot%3Af93c0451-a074-4cfc-bc99-3953af79874f.json\nstate/sessions/agent%3Acodex%3Aacp%3Abfe2d7da-5d97-4401-b5cc-a3c3901c3262%3Aoneshot%3A0ce7235a-698a-4a4a-bee5-df8ffda66821.json\nstate/sessions/agent%3Acodex%3Aacp%3A74721032-1ac9-4b61-a8f8-26d9ce2c76b9%3Aoneshot%3A0ea6793b-21f0-4ebb-8d47-b4c452aac362.json\nstate/sessions/agent%3Acodex%3Aacp%3A23d718c3-e2c6-41aa-8012-75d6b5998bfc%3Aoneshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json\napps/interface/src/features/ChatMode/components/ChatMode.tsx\nscripts/test-voice-pipeline.sh\napps/pipecat-daily-bot/bot/comfyui_client.py\napps/pipecat-daily-bot/bot/providers/pocket_tts.py\napps/interface/src/app/api/summon-ai-sprite/route.ts\napps/interface/src/app/api/task-feedback/route.ts\napps/interface/src/app/signup/page.tsx\napps/interface/src/components/FileDropZone.tsx\napps/interface/src/components/login-form.tsx\napps/interface/src/features/ActiveJobs/hooks/useTaskFeedback.ts\napps/interface/src/features/PhotoMagic/hooks/usePhotoMagic.ts\napps/dashboard/src/components/login-form.tsx\napps/dashboard/src/app/dashboard/admin/functional-prompts/page.tsx\napps/dashboard/src/app/dashboard/admin/userProfile/page.tsx\napps/dashboard/src/components/assistant-content/activity-section.tsx\napps/dashboard/src/components/assistant-content/agenda-section.tsx\napps/dashboard/src/components/assistant-content/exhibitors-section.tsx\napps/dashboard/src/components/assistant-content/guest-section.tsx\napps/dashboard/src/components/assistant-content/services-section.tsx\npackages/prism/src/core/content/README.md\npackages/prism/src/core/services/gmail-api.service.ts\npackages/prism/src/core/utils.ts\npackages/prism/__tests__/security.test.ts\narchive/core/nia-chat-agent/requirements.txt\napps/pipecat-daily-bot/bot/poetry.lock\napps/interface/src/features/HtmlGeneration/examples/dogfood/create-demo.ts\napps/dashboard/src/components/assistant-content/speaker-section.tsx\napps/dashboard/src/types/assistant-content/registration.ts\napps/dashboard/__tes..."
+          },
+          "toolu_01EZWwgMN7jNLi7gWChpJkMQ": {
+            "tool_use_id": "toolu_01EZWwgMN7jNLi7gWChpJkMQ",
+            "tool_name": "Read apps/interface/src/app/api/discord/messages/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/messages — Fetch recent messages from a Discord channel.\n5\t *\n6\t * GET /api/discord/messages?channelId=<id>&limit=<n>&before=<messageId>\n7\t *\n8\t * Returns JSON: { messages: [{ id, content, author, timestamp, attachments, embeds }] }\n9\t */\n10\t\n11\tconst DISCORD_API = 'https://discord.com/api/v10';\n12\tconst DEFAULT_CHANNEL_ID = '1471441655650324533'; // #general\n13\t\n14\tfunction getBotToken(): string | null {\n15\t  try {\n16\t    const fs = require('fs');\n17\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n18\t    return config?.channels?.discord?.token || null;\n19\t  } catch {\n20\t    return process.env.DISCORD_BOT_TOKEN || null;\n21\t  }\n22\t}\n23\t\n24\tfunction avatarUrl(userId: string, avatarHash: string | null): string {\n25\t  if (!avatarHash) {\n26\t    // Default Discord avatar\n27\t    const index = (BigInt(userId) >> BigInt(22)) % BigInt(6);\n28\t    return `https://cdn.discordapp.com/embed/avatars/${index}.png`;\n29\t  }\n30\t  const ext = avatarHash.startsWith('a_') ? 'gif' : 'png';\n31\t  return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${ext}?size=64`;\n32\t}\n33\t\n34\texport async function GET(req: NextRequest) {\n35\t  const token = getBotToken();\n36\t  if (!token) {\n37\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n38\t  }\n39\t\n40\t  const channelId = req.nextUrl.searchParams.get('channelId') || DEFAULT_CHANNEL_ID;\n41\t  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '50', 10) || 50, 1), 100);\n42\t  const before = req.nextUrl.searchParams.get('before') || '';\n43\t\n44\t  try {\n45\t    let url = `${DISCORD_API}/channels/${channelId}/messages?limit=${limit}`;\n46\t    if (before) url += `&before=${before}`;\n47\t\n48\t    const res = await fetch(url, {\n49\t      headers: { Authorization: `Bot ${token}` },\n50\t    });\n51\t\n52\t    if (!res.ok) {\n53\t      const text = await res.text();\n54\t      console.error('[discord/messages] Discord API error:', res.status, text);\n55\t      return NextResponse.json({ error: 'Discord API error', status: res.status }, { status: 502 });\n56\t    }\n57\t\n58\t    const raw = await res.json();\n59\t\n60\t    const messages = raw.map((msg: any) => ({\n61\t      id: msg.id,\n62\t      content: msg.content || '',\n63\t      author: {\n64\t        id: msg.author.id,\n65\t        username: msg.author.username,\n66\t        displayName: msg.author.global_name || msg.author.username,\n67\t        avatar: avatarUrl(msg.author.id, msg.author.avatar),\n68\t        bot: msg.author.bot || false,\n69\t      },\n70\t      timestamp: msg.timestamp,\n71\t      editedTimestamp: msg.edited_timestamp,\n72\t      attachments: (msg.attachments || []).map((a: any) => ({\n73\t        id: a.id,\n74\t        filename: a.filename,\n75\t        url: a.url,\n76\t        contentType: a.content_type,\n77\t        size: a.size,\n78\t      })),\n79\t      embeds: (msg.embeds || []).length,\n80\t      reactions: (msg.reactions || []).map((r: any) => ({\n81\t        emoji: r.emoji.name,\n82\t        count: r.count,\n83\t      })),\n84\t      referencedMessage: msg.referenced_message\n85\t        ? {\n86\t            id: msg.referenced_message.id,\n87\t            content: (msg.referenced_message.content || '').slice(0, 120),\n88\t            author: msg.referenced_message.author?.username || 'Unknown',\n89\t          }\n90\t        : null,\n91\t      type: msg.type, // 0 = default, 19 = reply, etc.\n92\t    }));\n93\t\n94\t    // Discord returns newest first — reverse to oldest-first for the UI\n95\t    messages.reverse();\n96\t\n97\t    return NextResponse.json({ messages, channelId });\n98\t  } catch (err: any) {\n99\t    console.error('[discord/messages] Error:', err.message);\n100\t    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });\n101\t  }\n102\t}\n103\t"
+            },
+            "output": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/messages — Fetch recent messages from a Discord channel.\n5\t *\n6\t * GET /api/discord/messages?channelId=<id>&limit=<n>&before=<messageId>\n7\t *\n8\t * Returns JSON: { messages: [{ id, content, author, timestamp, attachments, embeds }] }\n9\t */\n10\t\n11\tconst DISCORD_API = 'https://discord.com/api/v10';\n12\tconst DEFAULT_CHANNEL_ID = '1471441655650324533'; // #general\n13\t\n14\tfunction getBotToken(): string | null {\n15\t  try {\n16\t    const fs = require('fs');\n17\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n18\t    return config?.channels?.discord?.token || null;\n19\t  } catch {\n20\t    return process.env.DISCORD_BOT_TOKEN || null;\n21\t  }\n22\t}\n23\t\n24\tfunction avatarUrl(userId: string, avatarHash: string | null): string {\n25\t  if (!avatarHash) {\n26\t    // Default Discord avatar\n27\t    const index = (BigInt(userId) >> BigInt(22)) % BigInt(6);\n28\t    return `https://cdn.discordapp.com/embed/avatars/${index}.png`;\n29\t  }\n30\t  const ext = avatarHash.startsWith('a_') ? 'gif' : 'png';\n31\t  return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${ext}?size=64`;\n32\t}\n33\t\n34\texport async function GET(req: NextRequest) {\n35\t  const token = getBotToken();\n36\t  if (!token) {\n37\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n38\t  }\n39\t\n40\t  const channelId = req.nextUrl.searchParams.get('channelId') || DEFAULT_CHANNEL_ID;\n41\t  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '50', 10) || 50, 1), 100);\n42\t  const before = req.nextUrl.searchParams.get('before') || '';\n43\t\n44\t  try {\n45\t    let url = `${DISCORD_API}/channels/${channelId}/messages?limit=${limit}`;\n46\t    if (before) url += `&before=${before}`;\n47\t\n48\t    const res = await fetch(url, {\n49\t      headers: { Authorization: `Bot ${token}` },\n50\t    });\n51\t\n52\t    if (!res.ok) {\n53\t      const text = await res.text();\n54\t      console.error('[discord/messages] Discord API error:', res.status, text);\n55\t      return NextResponse.json({ error: 'Discord API error', status: res.status }, { status: 502 });\n56\t    }\n57\t\n58\t    const raw = await res.json();\n59\t\n60\t    const messages = raw.map((msg: any) => ({\n61\t      id: msg.id,\n62\t      content: msg.content || '',\n63\t      author: {\n64\t        id: msg.author.id,\n65\t        username: msg.author.username,\n66\t        displayName: msg.author.global_name || msg.author.username,\n67\t        avatar: avatarUrl(msg.author.id, msg.author.avatar),\n68\t        bot: msg.author.bot || false,\n69\t      },\n70\t      timestamp: msg.timestamp,\n71\t      editedTimestamp: msg.edited_timestamp,\n72\t      attachments: (msg.attachments || []).map((a: any) => ({\n73\t        id: a.id,\n74\t        filename: a.filename,\n75\t        url: a.url,\n76\t        contentType: a.content_type,\n77\t        size: a.size,\n78\t      })),\n79\t      embeds: (msg.embeds || []).length,\n80\t      reactions: (msg.reactions || []).map((r: any) => ({\n81\t        emoji: r.emoji.name,\n82\t        count: r.count,\n83\t      })),\n84\t      referencedMessage: msg.referenced_message\n85\t        ? {\n86\t            id: msg.referenced_message.id,\n87\t            content: (msg.referenced_message.content || '').slice(0, 120),\n88\t            author: msg.referenced_message.author?.username || 'Unknown',\n89\t          }\n90\t        : null,\n91\t      type: msg.type, // 0 = default, 19 = reply, etc.\n92\t    }));\n93\t\n94\t    // Discord returns newest first — reverse to oldest-first for the UI\n95\t    messages.reverse();\n96\t\n97\t    return NextResponse.json({ messages, channelId });\n98\t  } catch (err: any) {\n99\t    console.error('[discord/messages] Error:', err.message);\n100\t    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });\n101\t  }\n102\t}\n103\t"
+          },
+          "toolu_0178Du6hNCyVPz61D7nNrtGi": {
+            "tool_use_id": "toolu_0178Du6hNCyVPz61D7nNrtGi",
+            "tool_name": "Read apps/interface/src/app/api/discord/channels/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/channels — List text channels the bot can see in a guild.\n5\t *\n6\t * GET /api/discord/channels?guildId=<id>\n7\t *\n8\t * Returns JSON: { channels: [{ id, name, type, position }] }\n9\t * Only returns text channels (type 0) and announcement channels (type 5).\n10\t */\n11\t\n12\tconst DISCORD_API = 'https://discord.com/api/v10';\n13\tconst DEFAULT_GUILD_ID = '1471441655126167553';\n14\t\n15\tfunction getBotToken(): string | null {\n16\t  try {\n17\t    const fs = require('fs');\n18\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n19\t    return config?.channels?.discord?.token || null;\n20\t  } catch {\n21\t    return process.env.DISCORD_BOT_TOKEN || null;\n22\t  }\n23\t}\n24\t\n25\texport async function GET(req: NextRequest) {\n26\t  const token = getBotToken();\n27\t  if (!token) {\n28\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n29\t  }\n30\t\n31\t  const guildId = req.nextUrl.searchParams.get('guildId') || DEFAULT_GUILD_ID;\n32\t\n33\t  try {\n34\t    const res = await fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {\n35\t      headers: { Authorization: `Bot ${token}` },\n36\t    });\n37\t\n38\t    if (!res.ok) {\n39\t      const text = await res.text();\n40\t      console.error('[discord/channels] Discord API error:', res.status, text);\n41\t      return NextResponse.json({ error: 'Discord API error', status: res.status }, { status: 502 });\n42\t    }\n43\t\n44\t    const allChannels = await res.json();\n45\t\n46\t    // Filter to text (0) and announcement (5) channels only, sorted by position\n47\t    const textChannels = allChannels\n48\t      .filter((ch: any) => ch.type === 0 || ch.type === 5)\n49\t      .sort((a: any, b: any) => a.position - b.position)\n50\t      .map((ch: any) => ({\n51\t        id: ch.id,\n52\t        name: ch.name,\n53\t        type: ch.type,\n54\t        position: ch.position,\n55\t        parentId: ch.parent_id || null,\n56\t      }));\n57\t\n58\t    return NextResponse.json({ channels: textChannels });\n59\t  } catch (err: any) {\n60\t    console.error('[discord/channels] Error:', err.message);\n61\t    return NextResponse.json({ error: 'Failed to fetch channels' }, { status: 500 });\n62\t  }\n63\t}\n64\t"
+            },
+            "output": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/channels — List text channels the bot can see in a guild.\n5\t *\n6\t * GET /api/discord/channels?guildId=<id>\n7\t *\n8\t * Returns JSON: { channels: [{ id, name, type, position }] }\n9\t * Only returns text channels (type 0) and announcement channels (type 5).\n10\t */\n11\t\n12\tconst DISCORD_API = 'https://discord.com/api/v10';\n13\tconst DEFAULT_GUILD_ID = '1471441655126167553';\n14\t\n15\tfunction getBotToken(): string | null {\n16\t  try {\n17\t    const fs = require('fs');\n18\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n19\t    return config?.channels?.discord?.token || null;\n20\t  } catch {\n21\t    return process.env.DISCORD_BOT_TOKEN || null;\n22\t  }\n23\t}\n24\t\n25\texport async function GET(req: NextRequest) {\n26\t  const token = getBotToken();\n27\t  if (!token) {\n28\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n29\t  }\n30\t\n31\t  const guildId = req.nextUrl.searchParams.get('guildId') || DEFAULT_GUILD_ID;\n32\t\n33\t  try {\n34\t    const res = await fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {\n35\t      headers: { Authorization: `Bot ${token}` },\n36\t    });\n37\t\n38\t    if (!res.ok) {\n39\t      const text = await res.text();\n40\t      console.error('[discord/channels] Discord API error:', res.status, text);\n41\t      return NextResponse.json({ error: 'Discord API error', status: res.status }, { status: 502 });\n42\t    }\n43\t\n44\t    const allChannels = await res.json();\n45\t\n46\t    // Filter to text (0) and announcement (5) channels only, sorted by position\n47\t    const textChannels = allChannels\n48\t      .filter((ch: any) => ch.type === 0 || ch.type === 5)\n49\t      .sort((a: any, b: any) => a.position - b.position)\n50\t      .map((ch: any) => ({\n51\t        id: ch.id,\n52\t        name: ch.name,\n53\t        type: ch.type,\n54\t        position: ch.position,\n55\t        parentId: ch.parent_id || null,\n56\t      }));\n57\t\n58\t    return NextResponse.json({ channels: textChannels });\n59\t  } catch (err: any) {\n60\t    console.error('[discord/channels] Error:', err.message);\n61\t    return NextResponse.json({ error: 'Failed to fetch channels' }, { status: 500 });\n62\t  }\n63\t}\n64\t"
+          },
+          "toolu_01AByEDVk5QCWjZEmoEXERbi": {
+            "tool_use_id": "toolu_01AByEDVk5QCWjZEmoEXERbi",
+            "tool_name": "Read apps/interface/src/app/api/discord/dm/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/dm — Open a DM channel with a Discord user and send a message.\n5\t *\n6\t * POST /api/discord/dm\n7\t * Body: { userId: string, content?: string }\n8\t *\n9\t * Returns JSON: { success: true, messageId: string, channelId: string }\n10\t */\n11\t\n12\tconst DISCORD_API = 'https://discord.com/api/v10';\n13\t\n14\tfunction getBotToken(): string | null {\n15\t  try {\n16\t    const fs = require('fs');\n17\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n18\t    return config?.channels?.discord?.token || null;\n19\t  } catch {\n20\t    return process.env.DISCORD_BOT_TOKEN || null;\n21\t  }\n22\t}\n23\t\n24\tconst DEFAULT_DM_MESSAGE =\n25\t  `Hey! 👋 This is Pearl — your connection is confirmed!\\n\\n` +\n26\t  `You linked your Discord in PearlOS settings, so I can now reach you here. ` +\n27\t  `If you didn't do this, just ignore this message.\\n\\n` +\n28\t  `See you around! ✨`;\n29\t\n30\texport async function POST(req: NextRequest) {\n31\t  const token = getBotToken();\n32\t  if (!token) {\n33\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n34\t  }\n35\t\n36\t  let body: Record<string, unknown>;\n37\t  try {\n38\t    body = await req.json();\n39\t  } catch {\n40\t    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });\n41\t  }\n42\t\n43\t  const userId = typeof body.userId === 'string' ? body.userId.trim() : '';\n44\t  const content = typeof body.content === 'string' && body.content.trim()\n45\t    ? body.content.trim()\n46\t    : DEFAULT_DM_MESSAGE;\n47\t\n48\t  if (!userId) {\n49\t    return NextResponse.json({ error: 'userId is required' }, { status: 400 });\n50\t  }\n51\t\n52\t  // Discord user IDs are snowflakes (17-20 digit numbers)\n53\t  if (!/^\\d{17,20}$/.test(userId)) {\n54\t    return NextResponse.json(\n55\t      { error: 'Invalid Discord user ID. Please enter your numeric Discord user ID (e.g. 496705799687766016).' },\n56\t      { status: 400 },\n57\t    );\n58\t  }\n59\t\n60\t  if (content.length > 2000) {\n61\t    return NextResponse.json({ error: 'Message too long (max 2000 characters)' }, { status: 400 });\n62\t  }\n63\t\n64\t  try {\n65\t    // Step 1: Create/open a DM channel with the user\n66\t    const dmChannelRes = await fetch(`${DISCORD_API}/users/@me/channels`, {\n67\t      method: 'POST',\n68\t      headers: {\n69\t        Authorization: `Bot ${token}`,\n70\t        'Content-Type': 'application/json',\n71\t      },\n72\t      body: JSON.stringify({ recipient_id: userId }),\n73\t    });\n74\t\n75\t    if (!dmChannelRes.ok) {\n76\t      const text = await dmChannelRes.text();\n77\t      console.error('[discord/dm] Failed to open DM channel:', dmChannelRes.status, text);\n78\t      return NextResponse.json(\n79\t        { error: 'Could not open DM channel. Make sure the user ID is correct and the user shares a server with Pearl.' },\n80\t        { status: 502 },\n81\t      );\n82\t    }\n83\t\n84\t    const dmChannel = await dmChannelRes.json();\n85\t    const channelId: string = dmChannel.id;\n86\t\n87\t    // Step 2: Send the message in the DM channel\n88\t    const msgRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {\n89\t      method: 'POST',\n90\t      headers: {\n91\t        Authorization: `Bot ${token}`,\n92\t        'Content-Type': 'application/json',\n93\t      },\n94\t      body: JSON.stringify({ content }),\n95\t    });\n96\t\n97\t    if (!msgRes.ok) {\n98\t      const text = await msgRes.text();\n99\t      console.error('[discord/dm] Failed to send DM:', msgRes.status, text);\n100\t      return NextResponse.json(\n101\t        { error: 'DM channel opened but failed to send message. The user may have DMs disabled.' },\n102\t        { status: 502 },\n103\t      );\n104\t    }\n105\t\n106\t    const msg = await msgRes.json();\n107\t    return NextResponse.json({ success: true, messageId: msg.id, channelId });\n108\t  } catch (err: unknown) {\n109\t    const message = err instanceof Error ? err.message : 'Unknown error';\n110\t    console.error('[discord/dm] Error:', message);\n111\t    return..."
+            },
+            "output": "1\timport { NextRequest, NextResponse } from 'next/server';\n2\t\n3\t/**\n4\t * /api/discord/dm — Open a DM channel with a Discord user and send a message.\n5\t *\n6\t * POST /api/discord/dm\n7\t * Body: { userId: string, content?: string }\n8\t *\n9\t * Returns JSON: { success: true, messageId: string, channelId: string }\n10\t */\n11\t\n12\tconst DISCORD_API = 'https://discord.com/api/v10';\n13\t\n14\tfunction getBotToken(): string | null {\n15\t  try {\n16\t    const fs = require('fs');\n17\t    const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf-8'));\n18\t    return config?.channels?.discord?.token || null;\n19\t  } catch {\n20\t    return process.env.DISCORD_BOT_TOKEN || null;\n21\t  }\n22\t}\n23\t\n24\tconst DEFAULT_DM_MESSAGE =\n25\t  `Hey! 👋 This is Pearl — your connection is confirmed!\\n\\n` +\n26\t  `You linked your Discord in PearlOS settings, so I can now reach you here. ` +\n27\t  `If you didn't do this, just ignore this message.\\n\\n` +\n28\t  `See you around! ✨`;\n29\t\n30\texport async function POST(req: NextRequest) {\n31\t  const token = getBotToken();\n32\t  if (!token) {\n33\t    return NextResponse.json({ error: 'Discord bot token not configured' }, { status: 500 });\n34\t  }\n35\t\n36\t  let body: Record<string, unknown>;\n37\t  try {\n38\t    body = await req.json();\n39\t  } catch {\n40\t    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });\n41\t  }\n42\t\n43\t  const userId = typeof body.userId === 'string' ? body.userId.trim() : '';\n44\t  const content = typeof body.content === 'string' && body.content.trim()\n45\t    ? body.content.trim()\n46\t    : DEFAULT_DM_MESSAGE;\n47\t\n48\t  if (!userId) {\n49\t    return NextResponse.json({ error: 'userId is required' }, { status: 400 });\n50\t  }\n51\t\n52\t  // Discord user IDs are snowflakes (17-20 digit numbers)\n53\t  if (!/^\\d{17,20}$/.test(userId)) {\n54\t    return NextResponse.json(\n55\t      { error: 'Invalid Discord user ID. Please enter your numeric Discord user ID (e.g. 496705799687766016).' },\n56\t      { status: 400 },\n57\t    );\n58\t  }\n59\t\n60\t  if (content.length > 2000) {\n61\t    return NextResponse.json({ error: 'Message too long (max 2000 characters)' }, { status: 400 });\n62\t  }\n63\t\n64\t  try {\n65\t    // Step 1: Create/open a DM channel with the user\n66\t    const dmChannelRes = await fetch(`${DISCORD_API}/users/@me/channels`, {\n67\t      method: 'POST',\n68\t      headers: {\n69\t        Authorization: `Bot ${token}`,\n70\t        'Content-Type': 'application/json',\n71\t      },\n72\t      body: JSON.stringify({ recipient_id: userId }),\n73\t    });\n74\t\n75\t    if (!dmChannelRes.ok) {\n76\t      const text = await dmChannelRes.text();\n77\t      console.error('[discord/dm] Failed to open DM channel:', dmChannelRes.status, text);\n78\t      return NextResponse.json(\n79\t        { error: 'Could not open DM channel. Make sure the user ID is correct and the user shares a server with Pearl.' },\n80\t        { status: 502 },\n81\t      );\n82\t    }\n83\t\n84\t    const dmChannel = await dmChannelRes.json();\n85\t    const channelId: string = dmChannel.id;\n86\t\n87\t    // Step 2: Send the message in the DM channel\n88\t    const msgRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {\n89\t      method: 'POST',\n90\t      headers: {\n91\t        Authorization: `Bot ${token}`,\n92\t        'Content-Type': 'application/json',\n93\t      },\n94\t      body: JSON.stringify({ content }),\n95\t    });\n96\t\n97\t    if (!msgRes.ok) {\n98\t      const text = await msgRes.text();\n99\t      console.error('[discord/dm] Failed to send DM:', msgRes.status, text);\n100\t      return NextResponse.json(\n101\t        { error: 'DM channel opened but failed to send message. The user may have DMs disabled.' },\n102\t        { status: 502 },\n103\t      );\n104\t    }\n105\t\n106\t    const msg = await msgRes.json();\n107\t    return NextResponse.json({ success: true, messageId: msg.id, channelId });\n108\t  } catch (err: unknown) {\n109\t    const message = err instanceof Error ? err.message : 'Unknown error';\n110\t    console.error('[discord/dm] Error:', message);\n111\t    return..."
+          },
+          "toolu_01Rp9mitQ4oKpY6ycjGFe4GN": {
+            "tool_use_id": "toolu_01Rp9mitQ4oKpY6ycjGFe4GN",
+            "tool_name": "grep -r \"qa:screenshot\\|discord.*send\\|screenshot.*discord\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.js\" --include=\"*.json\" --include=\"*.yml\" --include=\"*.yaml\" 2>/dev/null | grep -v node_modules | grep -v \".venv\"",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          }
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-04-22T07:46:53.382Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {
+    "available_commands": [
+      "update-config",
+      "debug",
+      "simplify",
+      "batch",
+      "loop",
+      "schedule",
+      "claude-api",
+      "compact",
+      "context",
+      "heapdump",
+      "init",
+      "review",
+      "security-review",
+      "extra-usage",
+      "insights"
+    ]
+  }
+}

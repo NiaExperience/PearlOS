@@ -99,7 +99,7 @@ export default function FunctionalPromptsAdminPage() {
     async function loadPrompts() {
       setLoading(true);
       try {
-        const res = await fetch('/api/functionalPrompt');
+        const res = await fetch('/dashboard/api/functionalPrompt');
         if (!res.ok) throw new Error('Failed to load functional prompts');
         const data = await res.json();
         if (!cancelled) {
@@ -144,7 +144,7 @@ export default function FunctionalPromptsAdminPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/functionalPrompt', {
+      const res = await fetch('/dashboard/api/functionalPrompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -190,7 +190,7 @@ export default function FunctionalPromptsAdminPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/functionalPrompt', {
+      const res = await fetch('/dashboard/api/functionalPrompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -224,7 +224,7 @@ export default function FunctionalPromptsAdminPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/functionalPrompt?featureKey=${encodeURIComponent(prompt.featureKey)}`, {
+      const res = await fetch(`/dashboard/api/functionalPrompt?featureKey=${encodeURIComponent(prompt.featureKey)}`, {
         method: 'DELETE',
       });
 
@@ -264,7 +264,7 @@ export default function FunctionalPromptsAdminPage() {
       if (uncachedUserIds.length > 0) {
         try {
           // Fetch all users at once (superadmin endpoint)
-          const res = await fetch(`/api/users/all`);
+          const res = await fetch(`/dashboard/api/users/all`);
           if (res.ok) {
             const data = await res.json();
             const userMap = new Map<string, { _id: string; name?: string; email?: string }>();

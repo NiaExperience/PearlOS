@@ -123,7 +123,7 @@ export const AssistantTabs = ({ assistant }: { assistant: IAssistant }) => {
     }
     try {
       setIsLoading(true);
-      const response = await fetch('/api/assistant/update', {
+      const response = await fetch('/dashboard/api/assistant/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assistantId: assistant._id, ...values }),
@@ -199,7 +199,7 @@ export const AssistantTabs = ({ assistant }: { assistant: IAssistant }) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { personalityId: _pid, persona_name: _pname, voice: _voice, ...payload } = anyValues;
 
-      const response = await fetch('/api/assistant/update', {
+      const response = await fetch('/dashboard/api/assistant/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assistantId: assistant._id, ...payload }),

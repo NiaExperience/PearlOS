@@ -13,8 +13,6 @@ Do not delete.
 
 from __future__ import annotations
 
-import uuid
-
 from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
 
@@ -24,6 +22,209 @@ import asyncio
 import json
 import os
 import aiohttp
+from typing import Any
+
+
+SPECIALTY_SWARMS_UPDATED_AT = "2026-05-14"
+SPECIALTY_SWARMS = (
+    ("Legal", ("legal", "contract", "compliance", "gdpr", "lawsuit", "nda", "policy"), ("Legal analyst", "Risk reviewer", "Policy researcher")),
+    ("Medical", ("medical", "clinical", "diagnos", "patient", "pharma", "health"), ("Medical researcher", "Clinical safety reviewer", "Evidence analyst")),
+    ("Design", ("design", "brand", "visual", "ui", "ux", "logo", "sprite", "creative"), ("Design lead", "Interaction reviewer", "Visual QA")),
+    ("Code", ("code", "bug", "fix", "refactor", "api", "component", "deploy", "build"), ("Code implementer", "Regression reviewer", "Release verifier")),
+    ("Science", ("science", "scientific", "biology", "chemistry", "physics", "experiment"), ("Science researcher", "Methods reviewer", "Evidence analyst")),
+    ("Research", ("research", "investigate", "analyze", "audit", "compare", "survey"), ("Research lead", "Source checker", "Synthesis writer")),
+    ("Writing", ("write", "draft", "edit", "copy", "essay", "story", "article"), ("Writer", "Editor", "Tone reviewer")),
+    ("Marketing", ("marketing", "campaign", "positioning", "audience", "launch", "sales"), ("Marketing strategist", "Audience researcher", "Copy reviewer")),
+)
+
+MULTI_ORB_SWARM_AGENTS = ("Codex", "Claude CLI", "Kimi 2.6", "Gemini", "DeepSeek4Pro")
+
+SWARM_INTENT_TERMS = (
+    "agency",
+    "agent team",
+    "agents",
+    "multi agent",
+    "multi-agent",
+    "openrouter",
+    "swarm",
+)
+
+SWARM_WORK_TERMS = (
+    "accounting database",
+    "build a site",
+    "build a website",
+    "create a site",
+    "create a website",
+    "deploy a site",
+    "deploy a website",
+    "full build",
+    "make a site",
+    "make a website",
+)
+
+
+def _merged_swarm_agents(agents: tuple[str, ...] = ()) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for agent in (*agents, *MULTI_ORB_SWARM_AGENTS):
+        key = agent.lower()
+        if key not in seen:
+            merged.append(agent)
+            seen.add(key)
+    return merged[:8]
+
+
+def _choose_task_agents(task: str) -> tuple[str, list[str], str]:
+    text = (task or "").lower()
+    for category, keywords, agents in SPECIALTY_SWARMS:
+        if any(keyword in text for keyword in keywords):
+            return "swarm", _merged_swarm_agents(agents), category
+    if any(term in text for term in SWARM_INTENT_TERMS) or any(term in text for term in SWARM_WORK_TERMS):
+        return "swarm", list(MULTI_ORB_SWARM_AGENTS), "The Agency"
+    return "task", ["Pearl agent"], "The Agency"
+
+
+def _usable_identity(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    cleaned = value.strip()
+    if not cleaned or cleaned.lower() in {"anonymous", "null", "none", "undefined"}:
+        return ""
+    return cleaned
+
+
+def _normalize_mapping(raw: Any) -> dict[str, Any] | None:
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return None
+    return None
+
+
+def _identity_from_participant_meta(meta: Any) -> dict[str, str]:
+    if not isinstance(meta, dict):
+        return {}
+
+    candidates: list[dict[str, Any]] = []
+    info = _normalize_mapping(meta.get("info"))
+    user_data = _normalize_mapping(meta.get("userData"))
+    client_data = _normalize_mapping(meta.get("clientData"))
+    if info:
+        candidates.append(info)
+        info_user_data = _normalize_mapping(info.get("userData"))
+        if info_user_data:
+            candidates.append(info_user_data)
+        info_client_data = _normalize_mapping(info.get("clientData"))
+        if info_client_data:
+            candidates.append(info_client_data)
+    if user_data:
+        candidates.append(user_data)
+    if client_data:
+        candidates.append(client_data)
+    candidates.append(meta)
+
+    identity: dict[str, str] = {}
+    for candidate in candidates:
+        user_id = _usable_identity(
+            candidate.get("sessionUserId")
+            or candidate.get("userId")
+            or candidate.get("user_id")
+        )
+        email = _usable_identity(
+            candidate.get("sessionUserEmail")
+            or candidate.get("email")
+            or candidate.get("userEmail")
+        )
+        tenant_id = _usable_identity(candidate.get("tenantId") or candidate.get("tenant_id"))
+        if user_id and not identity.get("sessionUserId"):
+            identity["sessionUserId"] = user_id
+        if email and not identity.get("sessionUserEmail"):
+            identity["sessionUserEmail"] = email
+        if tenant_id and not identity.get("tenantId"):
+            identity["tenantId"] = tenant_id
+        if identity.get("sessionUserId") and identity.get("sessionUserEmail"):
+            break
+    return identity
+
+
+def _identity_from_daily_participants() -> dict[str, str]:
+    """Last-resort identity lookup from live Daily participant metadata."""
+    try:
+        try:
+            from core.transport import get_managers, get_participants_from_transport
+        except ImportError:
+            from bot.core.transport import get_managers, get_participants_from_transport
+
+        identities: list[dict[str, str]] = []
+        participants = get_participants_from_transport()
+        if isinstance(participants, dict):
+            for pid, meta in participants.items():
+                if pid == "local":
+                    continue
+                identity = _identity_from_participant_meta(meta)
+                if identity:
+                    identities.append(identity)
+
+        managers = get_managers()
+        identity_manager = getattr(managers, "identity_manager", None) if managers else None
+        participant_map = getattr(identity_manager, "participant_identity_map", None)
+        if isinstance(participant_map, dict):
+            for pid, mapped in participant_map.items():
+                if pid == "local":
+                    continue
+                identity = _identity_from_participant_meta(mapped)
+                if identity:
+                    identities.append(identity)
+
+        for identity in identities:
+            if _usable_identity(identity.get("sessionUserId")) or _usable_identity(identity.get("sessionUserEmail")):
+                return identity
+    except Exception:
+        return {}
+    return {}
+
+
+async def _queue_llm_messages(
+    room_url: str | None,
+    messages: list[dict],
+    *,
+    run_after: bool = True,
+) -> bool:
+    """Append messages to the active LLM context and (optionally) trigger a run.
+
+    Background tools (bot_think_deeply, task_feedback list, etc.) need to push
+    their async result back into the live voice conversation after their
+    synchronous result_callback has already returned. The right hook is the
+    flow_manager's pipeline task — the same path session/managers.py uses for
+    REST tool-result injection. `params.context` is unreliable here because the
+    toolbox wrapper substitutes a HandlerContext (no add_message) when pipecat
+    doesn't pass an LLM context through.
+    """
+    if not room_url or not messages:
+        return False
+    try:
+        from flows.registry import get_flow_manager
+        from pipecat.frames.frames import LLMMessagesAppendFrame, LLMRunFrame
+
+        flow_manager = get_flow_manager(room_url)
+        if not flow_manager:
+            return False
+        task = getattr(flow_manager, "task", None)
+        if not task or not hasattr(task, "queue_frames"):
+            return False
+
+        frames: list = [LLMMessagesAppendFrame(messages=list(messages))]
+        if run_after:
+            frames.append(LLMRunFrame())
+        await task.queue_frames(frames)
+        return True
+    except Exception:
+        return False
 
 
 
@@ -53,7 +254,12 @@ import aiohttp
     }
 )
 async def bot_openclaw_task(params: FunctionCallParams):
-    """Fire-and-forget background task via direct HTTP to OpenClaw Gateway."""
+    """Queue background work through PearlOS /api/tasks.
+
+    This keeps voice on the same agent path as web chat and Discord. The old
+    implementation streamed directly to OpenClaw, which bypassed pearl-worker
+    and could not reliably send cross-channel messages.
+    """
     arguments = params.arguments or {}
     task = arguments.get("task", "").strip()
     urgency = arguments.get("urgency", "normal")
@@ -80,134 +286,90 @@ async def bot_openclaw_task(params: FunctionCallParams):
         )
         return
 
-    session_key = f"oclaw-{uuid.uuid4().hex[:12]}"
-
-    openclaw_url = os.getenv("OPENCLAW_API_URL", "http://localhost:18789/v1")
-    openclaw_key = os.getenv("OPENCLAW_API_KEY", "openclaw-local")
-
-    log.info("Sending openclaw task via direct HTTP (fire-and-forget)")
-
+    control_base = os.getenv("BOT_CONTROL_BASE_URL", "http://127.0.0.1:4444").rstrip("/")
+    token = (
+        os.getenv("BOT_CONTROL_SHARED_SECRET")
+        or os.getenv("OPENCLAW_GATEWAY_TOKEN")
+        or os.getenv("OPENCLAW_API_KEY")
+        or ""
+    )
     payload = {
-        "model": os.getenv("BOT_ESCALATION_MODEL", "anthropic/claude-opus-4.6"),
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a sub-agent spawned by Voice Pearl to handle a background task. "
-                    "Complete it thoroughly. Results will appear in the PearlOS interface. "
-                    "Write in clean natural language — no markdown formatting, no bullet lists.\n\n"
-                    "CROSS-SESSION AWARENESS:\n"
-                    "You have access to sessions_history. ALWAYS check recent conversation history from other sessions "
-                    "before answering questions about what was discussed, what decisions were made, or anything that "
-                    "might have happened in another channel.\n\n"
-                    "Key sessions to check:\n"
-                    "- Discord #general: sessions_history(sessionKey=\"agent:main:discord:channel:1471441655650324533\", limit=30)\n"
-                    "- Main/Telegram: sessions_history(sessionKey=\"agent:main:main\", limit=20)\n\n"
-                    "When the user asks 'what did we talk about', 'do you remember', 'what's the secret word', "
-                    "or anything referencing prior conversation — ALWAYS pull session history first. "
-                    "Don't guess or say you don't know.\n\n"
-                    "CRITICAL CONSTRAINTS:\n"
-                    "- Only use the message tool if the user explicitly asked you to send a message.\n"
-                    "- NEVER send your own internal reasoning, confusion, or tool discovery questions to any channel.\n"
-                    "- Return your results directly. You are a sub-agent, not an independent agent.\n"
-                    "- If you need information about what other sessions have done, read memory/activity-log.md."
-                ),
-            },
-            {"role": "user", "content": f"[urgency={urgency}] {task}"},
-        ],
-        "stream": True,
-        "max_tokens": 4096,
+        "task": task,
+        "source": "voice",
+        "created_by": "pearl",
+        "assignee": "claude_cli",
+        "urgency": "urgent" if urgency == "high" else "normal",
     }
+    session_user_id = _usable_identity(os.getenv("BOT_SESSION_USER_ID"))
+    session_user_email = _usable_identity(os.getenv("BOT_SESSION_USER_EMAIL"))
+    session_tenant_id = _usable_identity(os.getenv("BOT_SESSION_TENANT_ID") or os.getenv("DEFAULT_TENANT_ID"))
+    if not session_user_id or not session_user_email:
+        fallback_identity = _identity_from_daily_participants()
+        session_user_id = session_user_id or _usable_identity(fallback_identity.get("sessionUserId"))
+        session_user_email = session_user_email or _usable_identity(fallback_identity.get("sessionUserEmail"))
+        session_tenant_id = session_tenant_id or _usable_identity(fallback_identity.get("tenantId"))
+        if session_user_id or session_user_email:
+            log.info(
+                "Resolved voice task requester from Daily participant metadata",
+                hasUserId=bool(session_user_id),
+                hasEmail=bool(session_user_email),
+            )
+    if session_user_id:
+        payload["requester_user_id"] = session_user_id
+    if session_user_email:
+        payload["requester_email"] = session_user_email
+    if session_tenant_id:
+        payload["requester_tenant_id"] = session_tenant_id
+    kind, agents, swarm_category = _choose_task_agents(task)
+    payload.update({
+        "kind": kind,
+        "agents": agents,
+        "swarm_category": swarm_category,
+    })
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        headers["x-bot-secret"] = token
 
-    async def _stream_and_track():
-        """Consume SSE stream to completion and emit events via ws_broadcast."""
-        result_chunks: list[str] = []
-        got_done = False
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{openclaw_url}/chat/completions",
-                    json=payload,
-                    headers={"Authorization": f"Bearer {openclaw_key}"},
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    if resp.status != 200:
-                        error_text = await resp.text()
-                        log.error(
-                            "OpenClaw background task failed",
-                            status=resp.status,
-                            error=error_text[:200],
-                            session_key=session_key,
-                        )
-                        await _emit_task_event(session_key, "error", error=f"HTTP {resp.status}")
-                        return
-
-                    async for raw_line in resp.content:
-                        line = raw_line.decode("utf-8", errors="replace").strip()
-                        if not line.startswith("data:"):
-                            continue
-                        data_str = line[len("data:"):].strip()
-                        if data_str == "[DONE]":
-                            got_done = True
-                            break
-                        try:
-                            chunk = json.loads(data_str)
-                            delta = (
-                                chunk.get("choices", [{}])[0]
-                                .get("delta", {})
-                                .get("content")
-                            )
-                            if delta:
-                                result_chunks.append(delta)
-                        except (json.JSONDecodeError, IndexError, KeyError):
-                            continue
-
-                    if not got_done:
-                        log.warning("OpenClaw stream ended without [DONE]", session_key=session_key)
-
-                    result_text = "".join(result_chunks).strip()
-                    log.info(
-                        "OpenClaw background task completed",
-                        session_key=session_key,
-                        chunks=len(result_chunks),
-                        chars=len(result_text),
-                        got_done=got_done,
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{control_base}/api/tasks",
+                json=payload,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                body = await resp.text()
+                if resp.status >= 300:
+                    log.error("PearlOS task queue rejected voice task", status=resp.status, error=body[:200])
+                    await params.result_callback(
+                        {
+                            "success": False,
+                            "error": f"task_queue_http_{resp.status}",
+                            "user_message": "I cannot reach the task queue right now.",
+                        },
+                        properties=FunctionCallResultProperties(run_llm=True),
                     )
-                    await _emit_task_event(
-                        session_key, "complete",
-                        result=result_text[:2000] if result_text else None,
-                    )
-        except Exception as e:
-            log.exception(f"OpenClaw background task error: {e}", session_key=session_key)
-            await _emit_task_event(session_key, "error", error=str(e)[:200])
-
-    async def _emit_task_event(sk: str, status: str, **kwargs):
-        """Emit a nia.event via bot gateway ws_broadcast if available."""
-        try:
-            from bot_gateway import ws_broadcast
-            import time as _t
-            envelope = {
-                "v": 1,
-                "kind": "nia.event",
-                "event": "openclaw_task",
-                "ts": int(_t.time() * 1000),
-                "seq": 0,
-                "payload": {"sessionKey": sk, "status": status, **kwargs},
-            }
-            await ws_broadcast(envelope)
-        except Exception:
-            log.debug(f"Could not emit task event (broadcast unavailable): {status}")
-
-    # Launch in background — don't await
-    asyncio.create_task(_stream_and_track())
+                    return
+                data = json.loads(body)
+                task_record = data.get("task") or {}
+    except Exception as e:
+        log.exception(f"PearlOS task queue error: {e}")
+        await params.result_callback(
+            {
+                "success": False,
+                "error": "task_queue_error",
+                "user_message": "I cannot reach the task queue right now.",
+            },
+            properties=FunctionCallResultProperties(run_llm=True),
+        )
+        return
 
     _task_result = {
         "success": True,
-        "sessionKey": session_key,
-        "user_message": (
-            f"I've sent that task to OpenClaw. You'll see the results appear in the interface. "
-            f"Session: {session_key}"
-        ),
+        "task_id": task_record.get("id"),
+        "task": task_record,
+        "user_message": "The Agency task is queued.",
     }
     # Cache for dedup
     _think_deeply_cache[dedup_key_task] = (_time.time(), _task_result)
@@ -217,6 +379,77 @@ async def bot_openclaw_task(params: FunctionCallParams):
         properties=FunctionCallResultProperties(run_llm=True),
     )
 
+    task_id = task_record.get("id")
+    room_url = getattr(params, "room_url", None)
+    if task_id and room_url and task_id not in _monitored_task_ids:
+        _monitored_task_ids.add(task_id)
+
+        async def _watch_task_result():
+            try:
+                try:
+                    followup_seconds = max(5, int(os.getenv("VOICE_TASK_FOLLOWUP_SECONDS", "15")))
+                except ValueError:
+                    followup_seconds = 15
+                async with aiohttp.ClientSession() as session:
+                    for _ in range(120):
+                        await asyncio.sleep(followup_seconds)
+                        async with session.get(
+                            f"{control_base}/api/tasks/{task_id}",
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            if resp.status >= 300:
+                                continue
+                            data = await resp.json()
+                            watched = data.get("task") or {}
+                        status = watched.get("status")
+                        result = (watched.get("result") or "").strip()
+                        if status in {"completed", "failed", "cancelled"}:
+                            if not result:
+                                result = f"The task finished with status {status}."
+                            ok = await _queue_llm_messages(
+                                room_url,
+                                [{
+                                    "role": "system",
+                                    "content": (
+                                        "A background task you delegated during this voice call has finished. "
+                                        f"Task: {task}\n"
+                                        f"Status: {status}\n"
+                                        f"Result: {result}\n\n"
+                                        "Tell the user the result naturally and briefly. If it failed, say what failed "
+                                        "and what the next concrete recovery step is."
+                                    ),
+                                }],
+                                run_after=True,
+                            )
+                            if not ok:
+                                log.warning("Task result completed but could not be injected into voice call", task_id=task_id)
+                            return
+                        status_word = "running" if status == "in_progress" else "queued" if status == "pending" else (status or "still active")
+                        ok = await _queue_llm_messages(
+                            room_url,
+                            [{
+                                "role": "system",
+                                "content": (
+                                    "A background task you delegated during this voice call is not finished yet. "
+                                    f"Task: {task}\n"
+                                    f"Status: {status_word}\n\n"
+                                    "Give the user a very brief natural update only if it is useful in the conversation. "
+                                    "Do not mention task IDs, run IDs, hashes, or internal system identifiers. "
+                                    "If you update them, say you are still watching it and will bring back the result."
+                                ),
+                            }],
+                            run_after=True,
+                        )
+                        if not ok:
+                            log.warning("Task progress checkpoint could not be injected into voice call", task_id=task_id)
+            except Exception as e:
+                log.warning(f"Task result watcher failed: {e}", task_id=task_id)
+            finally:
+                _monitored_task_ids.discard(task_id)
+
+        asyncio.create_task(_watch_task_result())
+
 
 # ---------------------------------------------------------------------------
 # Dedup cache for bot_think_deeply to prevent duplicate Discord messages
@@ -225,6 +458,7 @@ async def bot_openclaw_task(params: FunctionCallParams):
 # ---------------------------------------------------------------------------
 _think_deeply_cache: dict[str, tuple[float, dict]] = {}
 _THINK_DEEPLY_DEDUP_WINDOW = 30  # seconds
+_monitored_task_ids: set[str] = set()
 
 
 def _normalize_for_dedup(text: str) -> str:
@@ -266,13 +500,13 @@ def _clean_dedup_cache():
 )
 async def bot_think_deeply(params: FunctionCallParams):
     """Non-blocking call to OpenClaw for deeper reasoning.
-    
+
     Returns an immediate acknowledgment to Pipecat so the voice pipeline isn't
     blocked, then runs the actual OpenClaw call in a background task.  When the
     result arrives it is injected into the conversation context and a new LLM
     turn is triggered so the bot speaks the answer.
     """
-    from pipecat.frames.frames import LLMMessagesFrame
+    from pipecat.frames.frames import LLMMessagesAppendFrame, LLMRunFrame
 
     arguments = params.arguments or {}
     question = arguments.get("question", "").strip()
@@ -313,7 +547,7 @@ async def bot_think_deeply(params: FunctionCallParams):
     prompt = f"Context: {context}\n\nQuestion: {question}" if context else question
 
     payload = {
-        "model": escalation_model,
+        "model": "openclaw",
         "messages": [
             {
                 "role": "system",
@@ -348,20 +582,23 @@ async def bot_think_deeply(params: FunctionCallParams):
         "max_tokens": 2048
     }
 
-    # Capture references we need in the background task
-    llm = params.llm
-    llm_context = params.context
+    # Capture references we need in the background task. We use the
+    # flow_manager's pipeline task to queue frames rather than relying on
+    # `params.context`, because the toolbox wrapper sometimes substitutes a
+    # HandlerContext (which has no add_message). The flow_manager path is the
+    # same one session/managers.py uses for REST tool result injection.
+    room_url = getattr(params, "room_url", None)
 
-    log.info(f"Returning immediate ack; launching background OpenClaw call (model={escalation_model})")
+    log.info(f"Launching background OpenClaw call without spoken filler (model={escalation_model})")
 
     # Return immediately so Pipecat's tool timeout is satisfied
     await params.result_callback(
         {
             "success": True,
-            "analysis": "Let me think about that for a moment...",
+            "analysis": "deep_analysis_pending",
             "_async_pending": True,
         },
-        properties=FunctionCallResultProperties(run_llm=True),
+        properties=FunctionCallResultProperties(run_llm=False),
     )
 
     # ---- Background task: call OpenClaw and inject result ----
@@ -389,19 +626,11 @@ async def bot_think_deeply(params: FunctionCallParams):
                             if data_str == "[DONE]":
                                 break
 
-                            # Send a status update if > 30s elapsed
+                            # Do not inject generic spoken status while waiting.
                             elapsed = _time.time() - _start
                             if elapsed > 30 and not _status_sent:
                                 _status_sent = True
-                                log.info("OpenClaw call > 30s, injecting status update")
-                                try:
-                                    llm_context.add_message({
-                                        "role": "assistant",
-                                        "content": "Still working on that, one more moment..."
-                                    })
-                                    await llm.push_frame(LLMMessagesFrame(llm_context.get_messages()))
-                                except Exception as _se:
-                                    log.warning(f"Failed to push status frame: {_se}")
+                                log.info("OpenClaw call > 30s; staying silent until concrete result")
 
                             try:
                                 chunk = json.loads(data_str)
@@ -442,16 +671,26 @@ async def bot_think_deeply(params: FunctionCallParams):
             _think_deeply_cache[dedup_key] = (_time.time(), {"success": True, "analysis": result_text})
 
         try:
-            # Add the result as a system message so the LLM can speak it
-            llm_context.add_message({
-                "role": "user",
-                "content": (
-                    f"[DEEP THINKING RESULT — speak this to the user naturally, "
-                    f"do not say 'here are the results' just convey the information]: {answer}"
-                )
-            })
-            await llm.push_frame(LLMMessagesFrame(llm_context.get_messages()))
-            log.info("Injected deep thinking result into pipeline")
+            # Inject the result as a system message and trigger an LLM run so
+            # the bot speaks the answer. We queue frames on the pipeline task
+            # rather than mutating an LLM context object, because the params
+            # object passed to background tools doesn't reliably expose the
+            # active OpenAILLMContext.
+            ok = await _queue_llm_messages(
+                room_url,
+                [{
+                    "role": "user",
+                    "content": (
+                        f"[DEEP THINKING RESULT — speak this to the user naturally, "
+                        f"do not say 'here are the results' just convey the information]: {answer}"
+                    ),
+                }],
+                run_after=True,
+            )
+            if ok:
+                log.info("Injected deep thinking result into pipeline")
+            else:
+                log.error("Failed to inject deep thinking result: no flow_manager/task for room")
         except Exception as _inj_err:
             log.error(f"Failed to inject deep thinking result: {_inj_err}")
 

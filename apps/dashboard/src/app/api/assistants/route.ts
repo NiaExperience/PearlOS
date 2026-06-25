@@ -7,9 +7,7 @@ import { getTenantsForUser } from '@nia/prism/core/actions/tenant-actions';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const disableAuth =
-    process.env.DISABLE_DASHBOARD_AUTH === 'true' &&
-    (req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1');
+  const disableAuth = process.env.DISABLE_DASHBOARD_AUTH === 'true';
 
   const session = disableAuth ? null : await getSessionSafely(req, dashboardAuthOptions);
   if (!disableAuth) {

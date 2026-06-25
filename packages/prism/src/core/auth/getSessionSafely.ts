@@ -8,7 +8,19 @@ const log = getLogger('prism:auth');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getSessionSafely(req: NextRequest | undefined, authOptions?: NextAuthOptions) {
   // Hard override: allow forcing a superadmin session for profiling / tooling without creating a DB user
+  // 🔒 MULTITENANCY GATE: requires secondary env var AND blocked in production
   if (process.env.FORCE_SUPERADMIN_SESSION === 'true') {
+    if (process.env.NODE_ENV === 'production') {
+      const msg = 'FORCE_SUPERADMIN_SESSION is forbidden in production';
+      log.error(msg);
+      throw new Error(msg);
+    }
+    if (process.env.PEARL_ALLOW_SUPERADMIN_BYPASS !== '1') {
+      const msg = 'FORCE_SUPERADMIN_SESSION requires PEARL_ALLOW_SUPERADMIN_BYPASS=1';
+      log.error(msg);
+      throw new Error(msg);
+    }
+    log.warn('FORCE_SUPERADMIN_SESSION active — all requests authenticated as superadmin');
     return {
       user: {
         id: SUPERADMIN_USER_ID,
@@ -55,7 +67,15 @@ export async function getSessionSafely(req: NextRequest | undefined, authOptions
       log.error('No auth options provided to getSessionSafely');
       throw new Error('No auth options provided to getSessionSafely');
     }
-    return await getServerSession(authOptions);
+    const session = await getServerSession(authOptions);
+    // Hard guard: a session is only valid when it carries an authenticated user id.
+    // next-auth can return half-formed session objects (e.g. `{ user: {} }` or
+    // `{ expires: ... }` with no user) in some edge cases; treat those as
+    // unauthenticated so callers that do `if (!session)` still redirect to /login.
+    if (!session || !session.user || !(session.user as { id?: string }).id) {
+      return null;
+    }
+    return session;
   } catch (error) {
     log.error('Error getting session', { error });
     return null;

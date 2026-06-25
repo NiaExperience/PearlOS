@@ -11,13 +11,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function TenantUsersPage({ params, searchParams }: { params: { tenantId: string }, searchParams?: Record<string, undefined | string | string[]> }) {
   const session = await getSessionSafely(undefined, dashboardAuthOptions);
-  if (!session?.user || session.user.is_anonymous) redirect('/login');
+  if (!session?.user || session.user.is_anonymous) redirect('/dashboard/login');
   const { tenantId } = params;
   const tenant = await TenantActions.getTenantById(tenantId);
   if (!tenant) return notFound();
   const roles = await TenantActions.getTenantRolesForTenant(tenantId) as any[];
   const isAdmin = roles.some(r => r.userId === session.user.id && (r.role === TenantRole.ADMIN || r.role === TenantRole.OWNER));
-  if (!isAdmin) redirect('/login');
+  if (!isAdmin) redirect('/dashboard/login');
   // Resolve users
   const userIds = Array.from(new Set(roles.map(r => r.userId)));
   const users = await Promise.all(userIds.map(async uid => ({ uid, user: await UserActions.getUserById(uid) })));

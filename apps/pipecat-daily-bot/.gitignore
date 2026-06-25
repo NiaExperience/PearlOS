@@ -1,14 +1,8 @@
 .env
-.env.local
-.env.backup*
 ui/dist
 node_modules
 .parcel-cache
-coverage/
-bot/coverage/
 bot/__pycache__
 __pycache__
 bot/.pytest_cache
-*.log
-gateway.log
 

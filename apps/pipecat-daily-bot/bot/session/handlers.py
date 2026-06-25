@@ -27,7 +27,7 @@ from utils.async_utils import (
 )
 from utils.flow_utils import schedule_flow_llm_run as _schedule_flow_llm_run
 from pipecat.frames.frames import LLMMessagesAppendFrame, TTSSpeakFrame
-from session.participant_data import is_stealth_participant
+from session.participant_data import is_stealth_participant, preferred_name_from_context
 
 
 class SessionEventHandler:
@@ -72,7 +72,7 @@ class SessionEventHandler:
             key = f"room_authoritative_bot:{self.room_url}"
             current = await client.get(key)
             await client.aclose()
-            if current and current != _pid:
+            if current and str(current).strip() != str(_pid):
                 logger.info(f"[{_pid}] [handlers] Bot superseded by {current}")
                 return False
             return True
@@ -283,7 +283,16 @@ class SessionEventHandler:
     def _emit_greeting(self, st, mode: str, trigger_pid: str):
         pmap = st['grace_participants']
         ids = list(pmap.keys())
-        names = [n for n in pmap.values() if n]
+        participant_contexts = st.get('participant_contexts', {})
+        names = []
+        for pid in ids:
+            resolved = preferred_name_from_context(
+                pmap.get(pid),
+                participant_contexts.get(pid) if isinstance(participant_contexts, dict) else None,
+            )
+            if resolved:
+                pmap[pid] = resolved
+                names.append(resolved)
         
         if not ids:
             return
@@ -380,33 +389,8 @@ class SessionEventHandler:
                         # Mark greeting speech as started so tool gate lifts
                         st['greeting_speech_started'] = True
                         
-                        # Check if workspace context has a QA checklist to surface
-                        try:
-                            from pipeline.builder import load_workspace_context, detect_startup_checklist
-                            _ws_ctx = load_workspace_context()
-                            _checklist = detect_startup_checklist(_ws_ctx)
-                            if _checklist:
-                                logger.info(f'[greeting] QA checklist detected ({len(_checklist)} chars), queuing LLM turn to present it')
-                                checklist_instruction = (
-                                    "[SYSTEM] You just said a quick greeting. Now you need to walk through the QA checklist "
-                                    "that's in your workspace context. Present it conversationally — like a producer going through "
-                                    "a pre-flight checklist with the talent. Be natural and concise. Hit each item briefly. "
-                                    "Start with something like 'Alright, I've got our checklist ready. Here's what we're testing today...' "
-                                    "Keep it voice-friendly — no walls of text, just hit the key points.\n\n"
-                                    f"Here's the checklist:\n{_checklist}"
-                                )
-                                await task.queue_frames([
-                                    LLMMessagesAppendFrame(messages=[{"role": "system", "content": checklist_instruction}]),
-                                ])
-                                # Trigger an LLM run to process the injected checklist message
-                                async def _checklist_llm_run() -> None:
-                                    try:
-                                        self.refresh_llm_context()
-                                    except Exception:
-                                        pass
-                                _schedule_flow_llm_run(self.flow_manager, before_queue=_checklist_llm_run)
-                        except Exception:
-                            logger.exception('[greeting] Failed to check for QA checklist (non-fatal)')
+                        # QA checklist injection disabled — was causing Pearl to read checklists aloud
+                        pass
                     else:
                         # Fallback: do the normal LLM greeting if we can't queue frames after retries
                         logger.warning('[greeting] Cannot queue TTSSpeakFrame after 2s retry, falling back to LLM greeting')
@@ -488,10 +472,11 @@ class SessionEventHandler:
                 return
 
         is_stealth = is_stealth_participant(pid, pname, pctx)
+        resolved_pname = preferred_name_from_context(pname, pctx)
         self.dispatcher.handle_join(
             room=self.room_url,
             participant_id=pid,
-            display_name=pname,
+            display_name=resolved_pname,
             context=pctx,
             stealth=is_stealth,
         )
@@ -564,10 +549,15 @@ class SessionEventHandler:
             self._emit_immediate_participant_context()
             
             async def _queue_welcome_back():
-                welcome_msg = f"Welcome back, {pname}!" if pname and pname != pid else "Welcome back!"
+                welcome_msg = f"Welcome back, {resolved_pname}!" if resolved_pname and resolved_pname != pid else "Welcome back!"
+                example = (
+                    f'"Hey {resolved_pname}, good to see you again!"'
+                    if resolved_pname and resolved_pname != pid
+                    else '"Good to see you again."'
+                )
                 welcome_content = (
                     f'{welcome_msg} Briefly acknowledge their return '
-                    f'(e.g., "Hey {pname}, good to see you again!") and continue naturally.'
+                    f'(e.g., {example}) and continue naturally.'
                 )
                 await self._enqueue_transient_system_message(welcome_content, log_context='participant.rejoin')
             
@@ -575,7 +565,7 @@ class SessionEventHandler:
             return
 
         if pid not in st['grace_participants']:
-            st['grace_participants'][pid] = pname
+            st['grace_participants'][pid] = resolved_pname
         
         if 'pair_task' not in st:
             st['pair_task'] = None
@@ -846,4 +836,3 @@ class SessionEventHandler:
                 except Exception:
                     pass
             st['pair_task'] = None
-

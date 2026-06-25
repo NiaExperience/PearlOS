@@ -1,0 +1,945 @@
+{
+  "schema": "acpx.session.v1",
+  "acpx_record_id": "agent:claude:acp:168357e2-2b8e-4098-8447-b6cecf53501d:oneshot:f851dbda-22f4-42a0-824c-a6d2ad5e721e",
+  "acp_session_id": "0f91eef3-6a38-4046-8ffb-42a7f7df4f10",
+  "agent_command": "npx -y @agentclientprotocol/claude-agent-acp@^0.25.0",
+  "cwd": "/workspace/nia-universal/claude",
+  "name": "agent:claude:acp:168357e2-2b8e-4098-8447-b6cecf53501d",
+  "created_at": "2026-04-22T02:03:33.768Z",
+  "last_used_at": "2026-04-22T02:05:50.162Z",
+  "last_seq": 0,
+  "last_request_id": "44ab1033-c9a7-475c-8b33-ae35c663fd05",
+  "event_log": {
+    "active_path": "/root/.acpx/sessions/agent%3Aclaude%3Aacp%3A168357e2-2b8e-4098-8447-b6cecf53501d%3Aoneshot%3Af851dbda-22f4-42a0-824c-a6d2ad5e721e.stream.ndjson",
+    "segment_count": 5,
+    "max_segment_bytes": 67108864,
+    "max_segments": 5,
+    "last_write_error": null
+  },
+  "closed": true,
+  "closed_at": "2026-04-22T02:05:54.472Z",
+  "pid": 3132274,
+  "agent_started_at": "2026-04-22T02:03:36.254Z",
+  "last_prompt_at": "2026-04-22T02:03:47.281Z",
+  "protocol_version": 1,
+  "agent_capabilities": {
+    "_meta": {
+      "claudeCode": {
+        "promptQueueing": true
+      }
+    },
+    "promptCapabilities": {
+      "image": true,
+      "embeddedContext": true
+    },
+    "mcpCapabilities": {
+      "http": true,
+      "sse": true
+    },
+    "loadSession": true,
+    "sessionCapabilities": {
+      "fork": {},
+      "list": {},
+      "resume": {},
+      "close": {}
+    }
+  },
+  "title": null,
+  "messages": [
+    {
+      "User": {
+        "id": "1539e1f2-c078-4cf6-a6b3-d9e5bbdedd5e",
+        "content": [
+          {
+            "Text": "[Wed 2026-04-22 02:03 UTC] Task: Audit PearlOS task list - task names not displaying\n\nUser reports: The task list UI was showing proper task names this morning, but now shows generic \"Background task\" labels.\n\nINVESTIGATE:\n1. Find the task list UI component in apps/interface/src\n2. Look for where task titles/labels are rendered\n3. Check if task metadata (name, description) is being passed from backend to frontend\n4. Look for recent changes that might have broken task name display\n5. Check the WebSocket or API response that delivers task updates\n6. The \"Background task\" text suggests a fallback/default being shown instead of actual task.name\n\nFiles to check:\n- Task list components\n- Task store/state management\n- WebSocket message handlers\n- API types/interfaces for tasks\n\nOUTPUT:\n- Root cause of why task names stopped displaying\n- The exact file and code that needs fixing\n- Whether it's a frontend display issue or backend data issue"
+          }
+        ]
+      }
+    },
+    {
+      "Agent": {
+        "content": [
+          {
+            "Thinking": {
+              "text": "Let me investigate the task list UI issue where task names are showing \"Background task\" instead of actual task names.",
+              "signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Mt7AkPyqug21zgsAJGzaJB",
+              "name": "Investigate task list UI bug",
+              "raw_input": "{\"description\":\"Investigate task list UI bug\",\"subagent_type\":\"Explore\",\"prompt\":\"I need to find the root cause of a bug in a Next.js app where task names in a task list UI are showing \\\"Background task\\\" (a fallback/default) instead of actual task names. This was working earlier today.\\n\\nSearch in apps/interface/src for:\\n1. Task list UI components - search for files related to \\\"task list\\\", \\\"TaskList\\\", \\\"task-list\\\"\\n2. Where \\\"Background task\\\" text appears as a fallback string\\n3. Task-related stores, state management, or context providers\\n4. WebSocket handlers that deliver task updates\\n5. API types/interfaces for tasks (look for task name/title/label fields)\\n6. Recent patterns where task metadata (name, description) might not be passed through\\n\\nBe very thorough - check components/, features/, hooks/, stores/, lib/, actions/ directories. Search for strings like \\\"Background task\\\", \\\"task.name\\\", \\\"taskName\\\", \\\"task_name\\\", \\\"task.title\\\", \\\"task.label\\\".\"}",
+              "input": {
+                "description": "Investigate task list UI bug",
+                "subagent_type": "Explore",
+                "prompt": "I need to find the root cause of a bug in a Next.js app where task names in a task list UI are showing \"Background task\" (a fallback/default) instead of actual task names. This was working earlier today.\n\nSearch in apps/interface/src for:\n1. Task list UI components - search for files related to \"task list\", \"TaskList\", \"task-list\"\n2. Where \"Background task\" text appears as a fallback string\n3. Task-related stores, state management, or context providers\n4. WebSocket handlers that deliver task updates\n5. API types/interfaces for tasks (look for task name/title/label fields)\n6. Recent patterns where task metadata (name, description) might not be passed through\n\nBe very thorough - check components/, features/, hooks/, stores/, lib/, actions/ directories. Search for strings like \"Background task\", \"task.name\", \"taskName\", \"task_name\", \"task.title\", \"task.label\"."
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Bihh3trFbatxsuf5c9ocpc",
+              "name": "Find `apps/interface/src/**/task*.tsx`",
+              "raw_input": "{\"pattern\":\"apps/interface/src/**/task*.tsx\"}",
+              "input": {
+                "pattern": "apps/interface/src/**/task*.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Ap2NsQU5hao4aEdDiSB9hP",
+              "name": "Find `apps/interface/src/**/task*.ts`",
+              "raw_input": "{\"pattern\":\"apps/interface/src/**/task*.ts\"}",
+              "input": {
+                "pattern": "apps/interface/src/**/task*.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01ViTK99EHbyCrSd4Kkua5GP",
+              "name": "Find `apps/interface/src/**/task-list*`",
+              "raw_input": "{\"pattern\":\"apps/interface/src/**/task-list*\"}",
+              "input": {
+                "pattern": "apps/interface/src/**/task-list*"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_018veLgHJzJmiZEtsM4wkEk5",
+              "name": "Find `apps/interface/src/components/**/*task*`",
+              "raw_input": "{\"pattern\":\"apps/interface/src/components/**/*task*\"}",
+              "input": {
+                "pattern": "apps/interface/src/components/**/*task*"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01T4TpbEbrr2FqyLfEzvv4Nz",
+              "name": "grep \"Background task\" /workspace/nia-universal/claude/apps/interface/src",
+              "raw_input": "{\"pattern\":\"Background task\",\"path\":\"/workspace/nia-universal/claude/apps/interface/src\"}",
+              "input": {
+                "pattern": "Background task",
+                "path": "/workspace/nia-universal/claude/apps/interface/src"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01P1v5QdofJxebZjhLsWwYqz",
+              "name": "find /workspace/nia-universal/claude -type d -name \"apps\" 2>/dev/null | head -5",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/claude -type d -name \\\"apps\\\" 2>/dev/null | head -5\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/claude -type d -name \"apps\" 2>/dev/null | head -5"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01N712FbGok8a6uRBzrPN4rj",
+              "name": "ls -la /workspace/nia-universal/claude/ 2>/dev/null | head -20",
+              "raw_input": "{\"command\":\"ls -la /workspace/nia-universal/claude/ 2>/dev/null | head -20\"}",
+              "input": {
+                "command": "ls -la /workspace/nia-universal/claude/ 2>/dev/null | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_017m3HVEhn8w52sm6y4it14W",
+              "name": "find /workspace/nia-universal/claude -name \"interface\" -type d 2>/dev/null",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/claude -name \\\"interface\\\" -type d 2>/dev/null\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/claude -name \"interface\" -type d 2>/dev/null"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_019uS4VNrxpLYTJFMU9Xpb7L",
+              "name": "find /workspace/nia-universal/claude -type f -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | grep -i task | head -20",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/claude -type f -name \\\"*.tsx\\\" -o -name \\\"*.ts\\\" 2>/dev/null | grep -i task | head -20\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/claude -type f -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | grep -i task | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Tfo18dNPGC1UKzTLEiJAw2",
+              "name": "find /workspace/nia-universal/claude -type f \\( -name \"*.tsx\" -o -name \"*.ts\" \\) 2>/dev/null | head -30",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/claude -type f \\\\( -name \\\"*.tsx\\\" -o -name \\\"*.ts\\\" \\\\) 2>/dev/null | head -30\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/claude -type f \\( -name \"*.tsx\" -o -name \"*.ts\" \\) 2>/dev/null | head -30"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Cj4Ury7XH9UAbRD5WXQqGc",
+              "name": "ls -la /workspace/nia-universal/claude/.git/config",
+              "raw_input": "{\"command\":\"ls -la /workspace/nia-universal/claude/.git/config\"}",
+              "input": {
+                "command": "ls -la /workspace/nia-universal/claude/.git/config"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01TgK5QrfEKbjjR75LXoDvVP",
+              "name": "git log --oneline | head -5",
+              "raw_input": "{\"command\":\"git log --oneline | head -5\"}",
+              "input": {
+                "command": "git log --oneline | head -5"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_0138M5iWgKM7dSbmk2rAidgq",
+              "name": "find /workspace/nia-universal/claude -type f 2>/dev/null | head -50",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/claude -type f 2>/dev/null | head -50\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/claude -type f 2>/dev/null | head -50"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01CE8KQEd6eRPSSJz3NE6m2y",
+              "name": "find /workspace -type d -name \"interface\" 2>/dev/null",
+              "raw_input": "{\"command\":\"find /workspace -type d -name \\\"interface\\\" 2>/dev/null\"}",
+              "input": {
+                "command": "find /workspace -type d -name \"interface\" 2>/dev/null"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_015T96WS25n1KkQYrtnmqBA2",
+              "name": "grep \"Background task\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"Background task\",\"path\":\"/workspace/nia-universal/apps/interface/src\"}",
+              "input": {
+                "pattern": "Background task",
+                "path": "/workspace/nia-universal/apps/interface/src"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01CrvSQRvsURuYNrXK2E2Ndg",
+              "name": "Find `/workspace/nia-universal/apps/interface/src/**/*task*.tsx`",
+              "raw_input": "{\"pattern\":\"/workspace/nia-universal/apps/interface/src/**/*task*.tsx\"}",
+              "input": {
+                "pattern": "/workspace/nia-universal/apps/interface/src/**/*task*.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01V3G2n5VVP2A7eu9EoeTioF",
+              "name": "Find `/workspace/nia-universal/apps/interface/src/**/*task*.ts`",
+              "raw_input": "{\"pattern\":\"/workspace/nia-universal/apps/interface/src/**/*task*.ts\"}",
+              "input": {
+                "pattern": "/workspace/nia-universal/apps/interface/src/**/*task*.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01MwPVED9DAwtUFVP15EZ1rY",
+              "name": "Find `/workspace/nia-universal/apps/interface/src/components/**/*[Tt]ask*`",
+              "raw_input": "{\"pattern\":\"/workspace/nia-universal/apps/interface/src/components/**/*[Tt]ask*\"}",
+              "input": {
+                "pattern": "/workspace/nia-universal/apps/interface/src/components/**/*[Tt]ask*"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01RqDyijFq5RWM2CFBqJYdTj",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01KNLTk2CDhxhzGfwA28E15a",
+              "name": "grep -l \"taskName|task\\.name|task_name|task\\.title|task\\.label\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"taskName|task\\\\.name|task_name|task\\\\.title|task\\\\.label\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "taskName|task\\.name|task_name|task\\.title|task\\.label",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01YDKyrMDwk2JCfv5EoZn3qz",
+              "name": "Find `/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.tsx`",
+              "raw_input": "{\"pattern\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.tsx\"}",
+              "input": {
+                "pattern": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.tsx"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_018SK1whQ46EexXy4Ldm4JZ1",
+              "name": "Find `/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.ts`",
+              "raw_input": "{\"pattern\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.ts\"}",
+              "input": {
+                "pattern": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01YKsBWuLMGZK8cvCmfSWLdw",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01LauVgKzx5cFrgDv4SUAK4D",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/types.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/types.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/types.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_013k5KuieTbJ8ydd9XbwZhEQ",
+              "name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_011wkHx9bkVxBmb8wTnJrpko",
+              "name": "find /workspace/nia-universal/apps/interface/src/app/api -type f \\( -name \"*session*\" -o -name \"*job*\" -o -name \"*task*\" \\) 2>/dev/null",
+              "raw_input": "{\"command\":\"find /workspace/nia-universal/apps/interface/src/app/api -type f \\\\( -name \\\"*session*\\\" -o -name \\\"*job*\\\" -o -name \\\"*task*\\\" \\\\) 2>/dev/null\"}",
+              "input": {
+                "command": "find /workspace/nia-universal/apps/interface/src/app/api -type f \\( -name \"*session*\" -o -name \"*job*\" -o -name \"*task*\" \\) 2>/dev/null"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01NxbGfECvASMZ7bQevKkGim",
+              "name": "grep -l \"label|displayName\" /workspace/nia-universal/apps/interface/src/app/api",
+              "raw_input": "{\"pattern\":\"label|displayName\",\"path\":\"/workspace/nia-universal/apps/interface/src/app/api\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "label|displayName",
+                "path": "/workspace/nia-universal/apps/interface/src/app/api",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Q3HQA3EQR4CxEPnxDd39cS",
+              "name": "Read /workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01CophH7VZuMm5ovM4uF3A7C",
+              "name": "Read /workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01RfuA7keEUUkJSjtzLknstz",
+              "name": "grep -l \"WebSocket|websocket|socket|ws://\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"WebSocket|websocket|socket|ws://\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "WebSocket|websocket|socket|ws://",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_012RNTjmCnBhQKhjuCpWr9Tn",
+              "name": "grep -l \"label.*displayName|displayName.*label\" /workspace/nia-universal/apps/interface/src",
+              "raw_input": "{\"pattern\":\"label.*displayName|displayName.*label\",\"path\":\"/workspace/nia-universal/apps/interface/src\",\"output_mode\":\"files_with_matches\"}",
+              "input": {
+                "pattern": "label.*displayName|displayName.*label",
+                "path": "/workspace/nia-universal/apps/interface/src",
+                "output_mode": "files_with_matches"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01GHB7ThiM3s8e4gtAzvrHJW",
+              "name": "cd /workspace/nia-universal && git log --all --oneline --since=\"today\" -- apps/interface/src/features/ActiveJobs/ | head -20",
+              "raw_input": "{\"command\":\"cd /workspace/nia-universal && git log --all --oneline --since=\\\"today\\\" -- apps/interface/src/features/ActiveJobs/ | head -20\"}",
+              "input": {
+                "command": "cd /workspace/nia-universal && git log --all --oneline --since=\"today\" -- apps/interface/src/features/ActiveJobs/ | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01UfwVTkeFvyBYLDYUfKw6JC",
+              "name": "cd /workspace/nia-universal && git log --all --oneline --since=\"1 day ago\" -- apps/interface/src/app/api/openclaw/sessions/route.ts | head -20",
+              "raw_input": "{\"command\":\"cd /workspace/nia-universal && git log --all --oneline --since=\\\"1 day ago\\\" -- apps/interface/src/app/api/openclaw/sessions/route.ts | head -20\"}",
+              "input": {
+                "command": "cd /workspace/nia-universal && git log --all --oneline --since=\"1 day ago\" -- apps/interface/src/app/api/openclaw/sessions/route.ts | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01Xmusdwdrc76vnTDy4AQwzt",
+              "name": "cd /workspace/nia-universal && git log --all --oneline apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -20",
+              "raw_input": "{\"command\":\"cd /workspace/nia-universal && git log --all --oneline apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -20\"}",
+              "input": {
+                "command": "cd /workspace/nia-universal && git log --all --oneline apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -20"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_012tX9SXVxRabwHEer3Z79Ub",
+              "name": "cd /workspace/nia-universal && git show 341ebad4 --stat 2>/dev/null | head -50",
+              "raw_input": "{\"command\":\"cd /workspace/nia-universal && git show 341ebad4 --stat 2>/dev/null | head -50\"}",
+              "input": {
+                "command": "cd /workspace/nia-universal && git show 341ebad4 --stat 2>/dev/null | head -50"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01ETQ4fgSWrnkV5KrQThFaLJ",
+              "name": "cd /workspace/nia-universal && git diff 415828e9..341ebad4 -- apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -200",
+              "raw_input": "{\"command\":\"cd /workspace/nia-universal && git diff 415828e9..341ebad4 -- apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -200\"}",
+              "input": {
+                "command": "cd /workspace/nia-universal && git diff 415828e9..341ebad4 -- apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -200"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01FCekjMYLS252SbBndo2FAf",
+              "name": "Read /workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts",
+              "raw_input": "{\"file_path\":\"/workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts\"}",
+              "input": {
+                "file_path": "/workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts"
+              },
+              "is_input_complete": true,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01JJLyJ8pnfANnL6agQJsJRo",
+              "name": "grep -r \"pearlos-tasks.json\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" 2>/dev/null | head -20",
+              "raw_input": "{\"command\":\"grep -r \\\"pearlos-tasks.json\\\" /workspace/nia-universal --include=\\\"*.ts\\\" --include=\\\"*.tsx\\\" --include=\\\"*.js\\\" 2>/dev/null | head -20\"}",
+              "input": {
+                "command": "grep -r \"pearlos-tasks.json\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" 2>/dev/null | head -20"
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          },
+          {
+            "ToolUse": {
+              "id": "toolu_01SKMF7Lwdk33ynZd6nT3PFM",
+              "name": "grep -r \"api/tasks\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" -B 2 -A 2 2>/dev/null | head -50",
+              "raw_input": "{\"command\":\"grep -r \\\"api/tasks\\\" /workspace/nia-universal --include=\\\"*.ts\\\" --include=\\\"*.tsx\\\" --include=\\\"*.js\\\" -B 2 -A 2 2>/dev/null | head -50\"}",
+              "input": {
+                "command": "grep -r \"api/tasks\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" -B 2 -A 2 2>/dev/null | head -50"
+              },
+              "is_input_complete": false,
+              "thought_signature": null
+            }
+          }
+        ],
+        "tool_results": {
+          "toolu_01Mt7AkPyqug21zgsAJGzaJB": {
+            "tool_use_id": "toolu_01Mt7AkPyqug21zgsAJGzaJB",
+            "tool_name": "Investigate task list UI bug",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          },
+          "toolu_01Bihh3trFbatxsuf5c9ocpc": {
+            "tool_use_id": "toolu_01Bihh3trFbatxsuf5c9ocpc",
+            "tool_name": "Find `apps/interface/src/**/task*.tsx`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01Ap2NsQU5hao4aEdDiSB9hP": {
+            "tool_use_id": "toolu_01Ap2NsQU5hao4aEdDiSB9hP",
+            "tool_name": "Find `apps/interface/src/**/task*.ts`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01ViTK99EHbyCrSd4Kkua5GP": {
+            "tool_use_id": "toolu_01ViTK99EHbyCrSd4Kkua5GP",
+            "tool_name": "Find `apps/interface/src/**/task-list*`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_018veLgHJzJmiZEtsM4wkEk5": {
+            "tool_use_id": "toolu_018veLgHJzJmiZEtsM4wkEk5",
+            "tool_name": "Find `apps/interface/src/components/**/*task*`",
+            "is_error": false,
+            "content": {
+              "Text": "No files found"
+            },
+            "output": "No files found"
+          },
+          "toolu_01T4TpbEbrr2FqyLfEzvv4Nz": {
+            "tool_use_id": "toolu_01T4TpbEbrr2FqyLfEzvv4Nz",
+            "tool_name": "grep \"Background task\" /workspace/nia-universal/claude/apps/interface/src",
+            "is_error": true,
+            "content": {
+              "Text": "<tool_use_error>Path does not exist: /workspace/nia-universal/claude/apps/interface/src. Note: your current working directory is /workspace/nia-universal/claude.</tool_use_error>"
+            },
+            "output": "<tool_use_error>Path does not exist: /workspace/nia-universal/claude/apps/interface/src. Note: your current working directory is /workspace/nia-universal/claude.</tool_use_error>"
+          },
+          "toolu_01P1v5QdofJxebZjhLsWwYqz": {
+            "tool_use_id": "toolu_01P1v5QdofJxebZjhLsWwYqz",
+            "tool_name": "find /workspace/nia-universal/claude -type d -name \"apps\" 2>/dev/null | head -5",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_01N712FbGok8a6uRBzrPN4rj": {
+            "tool_use_id": "toolu_01N712FbGok8a6uRBzrPN4rj",
+            "tool_name": "ls -la /workspace/nia-universal/claude/ 2>/dev/null | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "total 4912\ndrwxrwxrwx  4 root root 1003624 Apr 21 18:27 .\ndrwxrwxrwx 39 root root 3000460 Apr 21 18:27 ..\ndrwxrwxrwx  7 root root 1002331 Apr 21 18:27 .git\ndrwxrwxrwx  2 root root    7000 Apr 21 18:27 .openclaw\n-rw-rw-rw-  1 root root    7788 Apr 21 18:27 AGENTS.md\n-rw-rw-rw-  1 root root    1471 Apr 21 18:27 BOOTSTRAP.md\n-rw-rw-rw-  1 root root     193 Apr 21 18:27 HEARTBEAT.md\n-rw-rw-rw-  1 root root     636 Apr 21 18:27 IDENTITY.md\n-rw-rw-rw-  1 root root    1747 Apr 21 18:27 SOUL.md\n-rw-rw-rw-  1 root root     860 Apr 21 18:27 TOOLS.md\n-rw-rw-rw-  1 root root     477 Apr 21 18:27 USER.md"
+            },
+            "output": "total 4912\ndrwxrwxrwx  4 root root 1003624 Apr 21 18:27 .\ndrwxrwxrwx 39 root root 3000460 Apr 21 18:27 ..\ndrwxrwxrwx  7 root root 1002331 Apr 21 18:27 .git\ndrwxrwxrwx  2 root root    7000 Apr 21 18:27 .openclaw\n-rw-rw-rw-  1 root root    7788 Apr 21 18:27 AGENTS.md\n-rw-rw-rw-  1 root root    1471 Apr 21 18:27 BOOTSTRAP.md\n-rw-rw-rw-  1 root root     193 Apr 21 18:27 HEARTBEAT.md\n-rw-rw-rw-  1 root root     636 Apr 21 18:27 IDENTITY.md\n-rw-rw-rw-  1 root root    1747 Apr 21 18:27 SOUL.md\n-rw-rw-rw-  1 root root     860 Apr 21 18:27 TOOLS.md\n-rw-rw-rw-  1 root root     477 Apr 21 18:27 USER.md"
+          },
+          "toolu_017m3HVEhn8w52sm6y4it14W": {
+            "tool_use_id": "toolu_017m3HVEhn8w52sm6y4it14W",
+            "tool_name": "find /workspace/nia-universal/claude -name \"interface\" -type d 2>/dev/null",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_019uS4VNrxpLYTJFMU9Xpb7L": {
+            "tool_use_id": "toolu_019uS4VNrxpLYTJFMU9Xpb7L",
+            "tool_name": "find /workspace/nia-universal/claude -type f -name \"*.tsx\" -o -name \"*.ts\" 2>/dev/null | grep -i task | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_01Tfo18dNPGC1UKzTLEiJAw2": {
+            "tool_use_id": "toolu_01Tfo18dNPGC1UKzTLEiJAw2",
+            "tool_name": "find /workspace/nia-universal/claude -type f \\( -name \"*.tsx\" -o -name \"*.ts\" \\) 2>/dev/null | head -30",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_01Cj4Ury7XH9UAbRD5WXQqGc": {
+            "tool_use_id": "toolu_01Cj4Ury7XH9UAbRD5WXQqGc",
+            "tool_name": "ls -la /workspace/nia-universal/claude/.git/config",
+            "is_error": false,
+            "content": {
+              "Text": "-rw-rw-rw- 1 root root 92 Apr 21 18:27 /workspace/nia-universal/claude/.git/config"
+            },
+            "output": "-rw-rw-rw- 1 root root 92 Apr 21 18:27 /workspace/nia-universal/claude/.git/config"
+          },
+          "toolu_01TgK5QrfEKbjjR75LXoDvVP": {
+            "tool_use_id": "toolu_01TgK5QrfEKbjjR75LXoDvVP",
+            "tool_name": "git log --oneline | head -5",
+            "is_error": false,
+            "content": {
+              "Text": "fatal: your current branch 'master' does not have any commits yet"
+            },
+            "output": "fatal: your current branch 'master' does not have any commits yet"
+          },
+          "toolu_0138M5iWgKM7dSbmk2rAidgq": {
+            "tool_use_id": "toolu_0138M5iWgKM7dSbmk2rAidgq",
+            "tool_name": "find /workspace/nia-universal/claude -type f 2>/dev/null | head -50",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/claude/.git/config\n/workspace/nia-universal/claude/.git/HEAD\n/workspace/nia-universal/claude/.git/info/exclude\n/workspace/nia-universal/claude/.git/hooks/update.sample\n/workspace/nia-universal/claude/.git/hooks/push-to-checkout.sample\n/workspace/nia-universal/claude/.git/hooks/prepare-commit-msg.sample\n/workspace/nia-universal/claude/.git/hooks/pre-receive.sample\n/workspace/nia-universal/claude/.git/hooks/pre-rebase.sample\n/workspace/nia-universal/claude/.git/hooks/pre-push.sample\n/workspace/nia-universal/claude/.git/hooks/pre-merge-commit.sample\n/workspace/nia-universal/claude/.git/hooks/pre-commit.sample\n/workspace/nia-universal/claude/.git/hooks/pre-applypatch.sample\n/workspace/nia-universal/claude/.git/hooks/post-update.sample\n/workspace/nia-universal/claude/.git/hooks/fsmonitor-watchman.sample\n/workspace/nia-universal/claude/.git/hooks/commit-msg.sample\n/workspace/nia-universal/claude/.git/hooks/applypatch-msg.sample\n/workspace/nia-universal/claude/.git/description\n/workspace/nia-universal/claude/.openclaw/workspace-state.json\n/workspace/nia-universal/claude/BOOTSTRAP.md\n/workspace/nia-universal/claude/HEARTBEAT.md\n/workspace/nia-universal/claude/USER.md\n/workspace/nia-universal/claude/IDENTITY.md\n/workspace/nia-universal/claude/TOOLS.md\n/workspace/nia-universal/claude/SOUL.md\n/workspace/nia-universal/claude/AGENTS.md"
+            },
+            "output": "/workspace/nia-universal/claude/.git/config\n/workspace/nia-universal/claude/.git/HEAD\n/workspace/nia-universal/claude/.git/info/exclude\n/workspace/nia-universal/claude/.git/hooks/update.sample\n/workspace/nia-universal/claude/.git/hooks/push-to-checkout.sample\n/workspace/nia-universal/claude/.git/hooks/prepare-commit-msg.sample\n/workspace/nia-universal/claude/.git/hooks/pre-receive.sample\n/workspace/nia-universal/claude/.git/hooks/pre-rebase.sample\n/workspace/nia-universal/claude/.git/hooks/pre-push.sample\n/workspace/nia-universal/claude/.git/hooks/pre-merge-commit.sample\n/workspace/nia-universal/claude/.git/hooks/pre-commit.sample\n/workspace/nia-universal/claude/.git/hooks/pre-applypatch.sample\n/workspace/nia-universal/claude/.git/hooks/post-update.sample\n/workspace/nia-universal/claude/.git/hooks/fsmonitor-watchman.sample\n/workspace/nia-universal/claude/.git/hooks/commit-msg.sample\n/workspace/nia-universal/claude/.git/hooks/applypatch-msg.sample\n/workspace/nia-universal/claude/.git/description\n/workspace/nia-universal/claude/.openclaw/workspace-state.json\n/workspace/nia-universal/claude/BOOTSTRAP.md\n/workspace/nia-universal/claude/HEARTBEAT.md\n/workspace/nia-universal/claude/USER.md\n/workspace/nia-universal/claude/IDENTITY.md\n/workspace/nia-universal/claude/TOOLS.md\n/workspace/nia-universal/claude/SOUL.md\n/workspace/nia-universal/claude/AGENTS.md"
+          },
+          "toolu_01CE8KQEd6eRPSSJz3NE6m2y": {
+            "tool_use_id": "toolu_01CE8KQEd6eRPSSJz3NE6m2y",
+            "tool_name": "find /workspace -type d -name \"interface\" 2>/dev/null",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/PearlOS/archive/infrastructure/charts/interface\n/workspace/PearlOS/apps/interface\n/workspace/nia-experimental/archive/infrastructure/charts/interface\n/workspace/nia-experimental/apps/interface\n/workspace/user/Documents/config-snapshot-2026-04-17/env/apps/interface\n/workspace/PearlOS_GitPublic/PearlOS/archive/infrastructure/charts/interface\n/workspace/PearlOS_GitPublic/PearlOS/apps/interface\n/workspace/pearlos-work/archive/infrastructure/charts/interface\n/workspace/pearlos-work/apps/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/esm/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/cjs/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/types/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/types/esm/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@microsoft/teams.apps/node_modules/@azure/msal-common/src/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@microsoft/teams.apps/node_modules/@azure/msal-common/dist/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@microsoft/teams.apps/node_modules/@azure/msal-common/lib/types/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/src/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/dist/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/dist-browser/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/lib/types/cache/interface\n/workspace/OpenClaw/node_modules/linkedom/esm/interface\n/workspace/OpenClaw/node_modules/linkedom/cjs/interface\n/workspace/OpenClaw/node_modules/linkedom/types/interface\n/workspace/OpenClaw/node_modules/linkedom/types/esm/interface\n/workspace/OpenClaw/workspace/apps/interface\n/workspace/OpenClaw/workspace/nia-universal/apps/interface\n/workspace/nia-universal/coverage/apps/interface\n/workspace/nia-universal/coverage/lcov-report/apps/interface\n/workspace/nia-universal/archive/infrastructure/charts/interface\n/workspace/nia-universal/apps/interface\n/workspace/nia-universal/apps/interface/dist/apps/interface"
+            },
+            "output": "/workspace/PearlOS/archive/infrastructure/charts/interface\n/workspace/PearlOS/apps/interface\n/workspace/nia-experimental/archive/infrastructure/charts/interface\n/workspace/nia-experimental/apps/interface\n/workspace/user/Documents/config-snapshot-2026-04-17/env/apps/interface\n/workspace/PearlOS_GitPublic/PearlOS/archive/infrastructure/charts/interface\n/workspace/PearlOS_GitPublic/PearlOS/apps/interface\n/workspace/pearlos-work/archive/infrastructure/charts/interface\n/workspace/pearlos-work/apps/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/esm/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/cjs/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/types/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/linkedom/types/esm/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@microsoft/teams.apps/node_modules/@azure/msal-common/src/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@microsoft/teams.apps/node_modules/@azure/msal-common/dist/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@microsoft/teams.apps/node_modules/@azure/msal-common/lib/types/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/src/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/dist/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/dist-browser/cache/interface\n/workspace/OpenClaw/node_modules/openclaw/node_modules/@azure/msal-common/lib/types/cache/interface\n/workspace/OpenClaw/node_modules/linkedom/esm/interface\n/workspace/OpenClaw/node_modules/linkedom/cjs/interface\n/workspace/OpenClaw/node_modules/linkedom/types/interface\n/workspace/OpenClaw/node_modules/linkedom/types/esm/interface\n/workspace/OpenClaw/workspace/apps/interface\n/workspace/OpenClaw/workspace/nia-universal/apps/interface\n/workspace/nia-universal/coverage/apps/interface\n/workspace/nia-universal/coverage/lcov-report/apps/interface\n/workspace/nia-universal/archive/infrastructure/charts/interface\n/workspace/nia-universal/apps/interface\n/workspace/nia-universal/apps/interface/dist/apps/interface"
+          },
+          "toolu_015T96WS25n1KkQYrtnmqBA2": {
+            "tool_use_id": "toolu_015T96WS25n1KkQYrtnmqBA2",
+            "tool_name": "grep \"Background task\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "Found 1 file\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+            },
+            "output": "Found 1 file\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+          },
+          "toolu_01CrvSQRvsURuYNrXK2E2Ndg": {
+            "tool_use_id": "toolu_01CrvSQRvsURuYNrXK2E2Ndg",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src/**/*task*.tsx`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/components/taskbar-model-selector.tsx\n/workspace/nia-universal/apps/interface/src/components/desktop-taskbar.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/components/taskbar-model-selector.tsx\n/workspace/nia-universal/apps/interface/src/components/desktop-taskbar.tsx"
+          },
+          "toolu_01V3G2n5VVP2A7eu9EoeTioF": {
+            "tool_use_id": "toolu_01V3G2n5VVP2A7eu9EoeTioF",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src/**/*task*.ts`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/__tests__/exec-task-registry.test.ts"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/__tests__/exec-task-registry.test.ts"
+          },
+          "toolu_01MwPVED9DAwtUFVP15EZ1rY": {
+            "tool_use_id": "toolu_01MwPVED9DAwtUFVP15EZ1rY",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src/components/**/*[Tt]ask*`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/components/taskbar-model-selector.tsx\n/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts\n/workspace/nia-universal/apps/interface/src/components/desktop-taskbar.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/components/taskbar-model-selector.tsx\n/workspace/nia-universal/apps/interface/src/components/fluent-task-manager-example.ts\n/workspace/nia-universal/apps/interface/src/components/desktop-taskbar.tsx"
+          },
+          "toolu_01RqDyijFq5RWM2CFBqJYdTj": {
+            "tool_use_id": "toolu_01RqDyijFq5RWM2CFBqJYdTj",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport React, { useState, useEffect, useRef, useCallback } from 'react';\n4\timport { useActiveJobs, type ActiveJob, type CompletedJob } from '../hooks/useActiveJobs';\n5\timport { useLayoutMode } from '@interface/contexts/layout-mode-context';\n6\timport { useDesktopMode } from '@interface/contexts/desktop-mode-context';\n7\timport { useUI } from '@interface/contexts/ui-context';\n8\timport { useTaskFeedback } from '../hooks/useTaskFeedback';\n9\t\n10\tconst GOHUFONT_FONT_FACE = `\n11\t@font-face {\n12\t  font-family: 'Gohufont';\n13\t  src: url('/fonts/Gohu/GohuFontuni14NerdFontMono-Regular.ttf') format('truetype');\n14\t  font-weight: normal;\n15\t  font-style: normal;\n16\t  font-display: swap;\n17\t}\n18\t`;\n19\t\n20\tconst ensureGohufont = () => {\n21\t  if (typeof document === 'undefined') return;\n22\t  if (document.getElementById('gohufont-active-jobs')) return;\n23\t  const style = document.createElement('style');\n24\t  style.id = 'gohufont-active-jobs';\n25\t  style.textContent = GOHUFONT_FONT_FACE;\n26\t  document.head.appendChild(style);\n27\t};\n28\t\n29\tfunction formatElapsed(ms: number): string {\n30\t  const seconds = Math.floor(ms / 1000);\n31\t  if (seconds < 60) return `${seconds}s`;\n32\t  const minutes = Math.floor(seconds / 60);\n33\t  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;\n34\t  const hours = Math.floor(minutes / 60);\n35\t  return `${hours}h ${minutes % 60}m`;\n36\t}\n37\t\n38\t/** Friendly display name for an ACP-style agent kind */\n39\tfunction acpKindDisplay(kind: string): string {\n40\t  switch (kind) {\n41\t    case 'claude-code': return 'Claude Code';\n42\t    case 'codex': return 'Codex';\n43\t    case 'gemma': return 'Gemma';\n44\t    case 'qwen': return 'Qwen';\n45\t    default: return kind.replace(/-/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase());\n46\t  }\n47\t}\n48\t\n49\t/** Strip a key like agent:claude-code:<uuid> down to just the id */\n50\tfunction stripAgentKey(raw: string, kind: string): string {\n51\t  return raw\n52\t    .replace(new RegExp(`^agent:${kind}:`), '')\n53\t    .replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'Coding session');\n54\t}\n55\t\n56\tconst ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n57\t\n58\t/** Shape returned by /api/tasks */\n59\tinterface PolledTask {\n60\t  taskId: string;\n61\t  title: string;\n62\t  description?: string;\n63\t  status: 'pending' | 'running' | 'complete' | 'failed';\n64\t  screenshotUrl?: string | null;\n65\t  approvalStatus?: string;\n66\t  createdAt?: string;\n67\t  updatedAt?: string;\n68\t}\n69\t\n70\t/** Returns true if a string looks like a raw hex ID / UUID / hash rather than a human name */\n71\tfunction looksLikeHexId(s: string): boolean {\n72\t  // Strip dashes, spaces, dots, and ellipsis — UUIDs can arrive formatted many ways\n73\t  const stripped = s.replace(/[-\\s.…]+/g, '');\n74\t  return /^[0-9a-f]{6,}$/i.test(stripped);\n75\t}\n76\t\n77\t/** Shared name lookup for subagent tasks */\n78\tconst SUBAGENT_NAMES: Record<string, string> = {\n79\t  'active-jobs-descriptions': 'Making task names human-friendly',\n80\t  'active-jobs-widget': 'Building jobs dashboard',\n81\t  'widget-test': 'Testing widget components',\n82\t  'pipeline-timing': 'Analyzing voice latency',\n83\t  'fix-fast-voice': 'Fixing voice pipeline',\n84\t  'fix-duplicate-messages': 'Fixing duplicate messages',\n85\t  'fix-simple-silence': 'Fixing voice silence',\n86\t  'fix-canvas-leak': 'Fixing canvas memory leak',\n87\t  'canvas-zindex': 'Fixing avatar visibility',\n88\t  'context-audit': 'Optimizing response speed',\n89\t  'swarm-architecture': 'Designing multi-agent system',\n90\t  'regression-analysis': 'Running regression analysis',\n91\t  'investigate-duplicates': 'Investigating duplicate events',\n92\t  'mobile-widget-fix': 'Fixing mobile layout',\n93\t  'tasklist-ui': 'Redesigning task list',\n94\t  'pearlos-bridge-rewrite': 'Rewriting PearlOS event bridge',\n95\t  'desktop-icon-overhaul': 'Redesigning desktop icons',\n96\t  'home-desktop-toggle': 'Building home/desktop toggle',\n97\t  'desktop-nav-buttons': 'Adding desktop navigation button..."
+          },
+          "toolu_01KNLTk2CDhxhzGfwA28E15a": {
+            "tool_use_id": "toolu_01KNLTk2CDhxhzGfwA28E15a",
+            "tool_name": "grep -l \"taskName|task\\.name|task_name|task\\.title|task\\.label\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "Found 7 files\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/CanvasTaskProgress.tsx\n/workspace/nia-universal/apps/interface/src/app/api/task-feedback/route.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskFeedbackModal.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useTaskFeedback.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts"
+            },
+            "output": "Found 7 files\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/CanvasTaskProgress.tsx\n/workspace/nia-universal/apps/interface/src/app/api/task-feedback/route.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskFeedbackModal.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useTaskFeedback.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts"
+          },
+          "toolu_01YDKyrMDwk2JCfv5EoZn3qz": {
+            "tool_use_id": "toolu_01YDKyrMDwk2JCfv5EoZn3qz",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.tsx`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskFeedbackModal.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskFeedbackModal.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/TaskCard.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidgetGate.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx"
+          },
+          "toolu_018SK1whQ46EexXy4Ldm4JZ1": {
+            "tool_use_id": "toolu_018SK1whQ46EexXy4Ldm4JZ1",
+            "tool_name": "Find `/workspace/nia-universal/apps/interface/src/features/ActiveJobs/**/*.ts`",
+            "is_error": false,
+            "content": {
+              "Text": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useActiveJobs.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/types.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/index.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useTaskFeedback.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/__tests__/exec-task-registry.test.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts"
+            },
+            "output": "/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/useActiveJobs.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/types.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/index.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useTaskFeedback.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/__tests__/exec-task-registry.test.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts"
+          },
+          "toolu_01YKsBWuLMGZK8cvCmfSWLdw": {
+            "tool_use_id": "toolu_01YKsBWuLMGZK8cvCmfSWLdw",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t'use client';\n2\t\n3\timport { useState, useEffect, useCallback } from 'react';\n4\t\n5\texport interface ActiveJob {\n6\t  id: string;\n7\t  key: string;\n8\t  label: string;\n9\t  description: string;\n10\t  status: 'running' | 'complete' | 'idle' | 'failed';\n11\t  channel: string;\n12\t  model: string;\n13\t  startedAt: number;\n14\t  updatedAt: number;\n15\t  elapsedMs: number;\n16\t  spawnedBy: string;\n17\t  displayName: string;\n18\t  totalTokens: number;\n19\t  kind: string;\n20\t  agents: string[];\n21\t  fadingOut?: boolean;\n22\t}\n23\t\n24\texport interface CompletedJob extends Omit<ActiveJob, 'status' | 'fadingOut'> {\n25\t  status: 'complete';\n26\t  completedAt: number;\n27\t}\n28\t\n29\tconst POLL_INTERVAL = 5000;\n30\tconst MAX_COMPLETED_HISTORY = 25;\n31\t\n32\t/**\n33\t * Internal/system jobs that shouldn't appear in the user-facing widget.\n34\t * These are OpenClaw cron heartbeats, scheduled checks, and other\n35\t * infrastructure tasks that would confuse end users.\n36\t */\n37\tconst INTERNAL_JOB_PATTERNS = [\n38\t  /heartbeat/i,\n39\t  /scheduled.?check/i,\n40\t  /health.?check/i,\n41\t  /healthcheck/i,\n42\t  /health.?monitor/i,\n43\t  /discord.?progress/i,\n44\t  /progress.?update/i,\n45\t  /sync.?protocol/i,\n46\t  /memory.?maintenance/i,\n47\t  /activity.?log/i,\n48\t  /cron.?run/i,\n49\t  /inbox.?check/i,\n50\t  /email.?check/i,\n51\t  /calendar.?check/i,\n52\t  /weather.?check/i,\n53\t];\n54\t\n55\tfunction isInternalSystemJob(job: ActiveJob): boolean {\n56\t  // All cron jobs are internal system tasks — users don't need to see scheduled checks\n57\t  if (job.kind === 'cron') return true;\n58\t\n59\t  // Check label and description against known internal patterns\n60\t  const text = `${job.label} ${job.displayName} ${job.description}`.toLowerCase();\n61\t  return INTERNAL_JOB_PATTERNS.some((pattern) => pattern.test(text));\n62\t}\n63\t\n64\texport function useActiveJobs() {\n65\t  const [jobs, setJobs] = useState<ActiveJob[]>([]);\n66\t  const [completedHistory, setCompletedHistory] = useState<CompletedJob[]>([]);\n67\t  const [error, setError] = useState<string | null>(null);\n68\t\n69\t  // Dismiss a job from the active list (called after user confirms via thumbs up/down)\n70\t  const dismissJob = useCallback((jobId: string) => {\n71\t    setJobs((cur) => cur.filter((c) => c.id !== jobId));\n72\t  }, []);\n73\t\n74\t  const fetchJobs = useCallback(async () => {\n75\t    try {\n76\t      const res = await fetch('/api/openclaw/sessions');\n77\t      if (!res.ok) {\n78\t        setError('Failed to fetch');\n79\t        return;\n80\t      }\n81\t      const data = await res.json();\n82\t      setError(null);\n83\t\n84\t      // Filter out internal system jobs that shouldn't be user-facing\n85\t      const incoming: ActiveJob[] = (Array.isArray(data.jobs) ? data.jobs : []).filter(\n86\t        (job: ActiveJob) => !isInternalSystemJob(job)\n87\t      );\n88\t\n89\t      setJobs((prev) => {\n90\t        const map = new Map<string, ActiveJob>();\n91\t\n92\t        // Keep previously completed jobs that haven't been dismissed\n93\t        for (const j of prev) {\n94\t          if (j.status === 'complete') map.set(j.id, j);\n95\t        }\n96\t\n97\t        // Update with incoming\n98\t        for (const j of incoming) {\n99\t          const existing = prev.find((p) => p.id === j.id);\n100\t          const wasRunning = existing?.status === 'running';\n101\t          const nowComplete = j.status === 'complete';\n102\t\n103\t          if (nowComplete && wasRunning) {\n104\t            // Job just completed — mark it but keep it visible (no auto-removal)\n105\t            map.set(j.id, { ...j, fadingOut: false });\n106\t            \n107\t            // Add to completed history for reference\n108\t            setCompletedHistory((history) => {\n109\t              const completedJob: CompletedJob = {\n110\t                ...j,\n111\t                status: 'complete',\n112\t                completedAt: Date.now(),\n113\t              };\n114\t              const filtered = history.filter((h) => h.id !== j.id);\n115\t              return [completedJob, ...filtered].slice(0, MAX_COMPLETED_HISTORY);\n116\t            });\n117\t   ..."
+            },
+            "output": "1\t'use client';\n2\t\n3\timport { useState, useEffect, useCallback } from 'react';\n4\t\n5\texport interface ActiveJob {\n6\t  id: string;\n7\t  key: string;\n8\t  label: string;\n9\t  description: string;\n10\t  status: 'running' | 'complete' | 'idle' | 'failed';\n11\t  channel: string;\n12\t  model: string;\n13\t  startedAt: number;\n14\t  updatedAt: number;\n15\t  elapsedMs: number;\n16\t  spawnedBy: string;\n17\t  displayName: string;\n18\t  totalTokens: number;\n19\t  kind: string;\n20\t  agents: string[];\n21\t  fadingOut?: boolean;\n22\t}\n23\t\n24\texport interface CompletedJob extends Omit<ActiveJob, 'status' | 'fadingOut'> {\n25\t  status: 'complete';\n26\t  completedAt: number;\n27\t}\n28\t\n29\tconst POLL_INTERVAL = 5000;\n30\tconst MAX_COMPLETED_HISTORY = 25;\n31\t\n32\t/**\n33\t * Internal/system jobs that shouldn't appear in the user-facing widget.\n34\t * These are OpenClaw cron heartbeats, scheduled checks, and other\n35\t * infrastructure tasks that would confuse end users.\n36\t */\n37\tconst INTERNAL_JOB_PATTERNS = [\n38\t  /heartbeat/i,\n39\t  /scheduled.?check/i,\n40\t  /health.?check/i,\n41\t  /healthcheck/i,\n42\t  /health.?monitor/i,\n43\t  /discord.?progress/i,\n44\t  /progress.?update/i,\n45\t  /sync.?protocol/i,\n46\t  /memory.?maintenance/i,\n47\t  /activity.?log/i,\n48\t  /cron.?run/i,\n49\t  /inbox.?check/i,\n50\t  /email.?check/i,\n51\t  /calendar.?check/i,\n52\t  /weather.?check/i,\n53\t];\n54\t\n55\tfunction isInternalSystemJob(job: ActiveJob): boolean {\n56\t  // All cron jobs are internal system tasks — users don't need to see scheduled checks\n57\t  if (job.kind === 'cron') return true;\n58\t\n59\t  // Check label and description against known internal patterns\n60\t  const text = `${job.label} ${job.displayName} ${job.description}`.toLowerCase();\n61\t  return INTERNAL_JOB_PATTERNS.some((pattern) => pattern.test(text));\n62\t}\n63\t\n64\texport function useActiveJobs() {\n65\t  const [jobs, setJobs] = useState<ActiveJob[]>([]);\n66\t  const [completedHistory, setCompletedHistory] = useState<CompletedJob[]>([]);\n67\t  const [error, setError] = useState<string | null>(null);\n68\t\n69\t  // Dismiss a job from the active list (called after user confirms via thumbs up/down)\n70\t  const dismissJob = useCallback((jobId: string) => {\n71\t    setJobs((cur) => cur.filter((c) => c.id !== jobId));\n72\t  }, []);\n73\t\n74\t  const fetchJobs = useCallback(async () => {\n75\t    try {\n76\t      const res = await fetch('/api/openclaw/sessions');\n77\t      if (!res.ok) {\n78\t        setError('Failed to fetch');\n79\t        return;\n80\t      }\n81\t      const data = await res.json();\n82\t      setError(null);\n83\t\n84\t      // Filter out internal system jobs that shouldn't be user-facing\n85\t      const incoming: ActiveJob[] = (Array.isArray(data.jobs) ? data.jobs : []).filter(\n86\t        (job: ActiveJob) => !isInternalSystemJob(job)\n87\t      );\n88\t\n89\t      setJobs((prev) => {\n90\t        const map = new Map<string, ActiveJob>();\n91\t\n92\t        // Keep previously completed jobs that haven't been dismissed\n93\t        for (const j of prev) {\n94\t          if (j.status === 'complete') map.set(j.id, j);\n95\t        }\n96\t\n97\t        // Update with incoming\n98\t        for (const j of incoming) {\n99\t          const existing = prev.find((p) => p.id === j.id);\n100\t          const wasRunning = existing?.status === 'running';\n101\t          const nowComplete = j.status === 'complete';\n102\t\n103\t          if (nowComplete && wasRunning) {\n104\t            // Job just completed — mark it but keep it visible (no auto-removal)\n105\t            map.set(j.id, { ...j, fadingOut: false });\n106\t            \n107\t            // Add to completed history for reference\n108\t            setCompletedHistory((history) => {\n109\t              const completedJob: CompletedJob = {\n110\t                ...j,\n111\t                status: 'complete',\n112\t                completedAt: Date.now(),\n113\t              };\n114\t              const filtered = history.filter((h) => h.id !== j.id);\n115\t              return [completedJob, ...filtered].slice(0, MAX_COMPLETED_HISTORY);\n116\t            });\n117\t   ..."
+          },
+          "toolu_01LauVgKzx5cFrgDv4SUAK4D": {
+            "tool_use_id": "toolu_01LauVgKzx5cFrgDv4SUAK4D",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/types.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t/**\n2\t * ActiveJobs Feature — Type Definitions\n3\t *\n4\t * Tasks can require acknowledgment (agent-decided). Tasks that require it\n5\t * persist in the UI until manually dismissed. Others auto-dismiss.\n6\t */\n7\t\n8\texport type TaskStatus = \"running\" | \"done\" | \"failed\";\n9\t\n10\texport interface Task {\n11\t  id: string;\n12\t  /** Display name shown in the clean card view */\n13\t  name: string;\n14\t  /** Two-sentence description: what the agent is doing + what it's investigating/building */\n15\t  description?: string;\n16\t  status: TaskStatus;\n17\t  /**\n18\t   * Agent decides whether the task needs human review.\n19\t   *\n20\t   * true  → task persists until user manually dismisses (code changes, UI work, bug fixes, config)\n21\t   * false → task auto-dismisses after completion (reads, searches, status checks, info retrieval)\n22\t   *\n23\t   * Default: true (safer — assume review needed unless explicitly marked otherwise)\n24\t   */\n25\t  requiresAcknowledgment: boolean;\n26\t\n27\t  // ── Metadata (shown behind ℹ️ info panel) ──\n28\t  model?: string;\n29\t  startedAt: string; // ISO timestamp\n30\t  source?: string; // e.g. \"Discord\", \"Voice\", \"Web\"\n31\t  tokens?: number;\n32\t  sessionId?: string;\n33\t  /** Any extra key-value metadata the agent wants to surface */\n34\t  meta?: Record<string, string>;\n35\t}\n36\t\n37\t/** Duration helper — returns human-readable duration from ISO start time */\n38\texport function formatDuration(startedAt: string): string {\n39\t  const ms = Date.now() - new Date(startedAt).getTime();\n40\t  if (ms < 0) return \"0s\";\n41\t  const seconds = Math.floor(ms / 1000);\n42\t  if (seconds < 60) return `${seconds}s`;\n43\t  const minutes = Math.floor(seconds / 60);\n44\t  const remainingSeconds = seconds % 60;\n45\t  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;\n46\t  const hours = Math.floor(minutes / 60);\n47\t  const remainingMinutes = minutes % 60;\n48\t  return `${hours}h ${remainingMinutes}m`;\n49\t}\n50\t\n51\t/** Format token count with commas */\n52\texport function formatTokens(tokens: number): string {\n53\t  return tokens.toLocaleString();\n54\t}\n55\t"
+            },
+            "output": "1\t/**\n2\t * ActiveJobs Feature — Type Definitions\n3\t *\n4\t * Tasks can require acknowledgment (agent-decided). Tasks that require it\n5\t * persist in the UI until manually dismissed. Others auto-dismiss.\n6\t */\n7\t\n8\texport type TaskStatus = \"running\" | \"done\" | \"failed\";\n9\t\n10\texport interface Task {\n11\t  id: string;\n12\t  /** Display name shown in the clean card view */\n13\t  name: string;\n14\t  /** Two-sentence description: what the agent is doing + what it's investigating/building */\n15\t  description?: string;\n16\t  status: TaskStatus;\n17\t  /**\n18\t   * Agent decides whether the task needs human review.\n19\t   *\n20\t   * true  → task persists until user manually dismisses (code changes, UI work, bug fixes, config)\n21\t   * false → task auto-dismisses after completion (reads, searches, status checks, info retrieval)\n22\t   *\n23\t   * Default: true (safer — assume review needed unless explicitly marked otherwise)\n24\t   */\n25\t  requiresAcknowledgment: boolean;\n26\t\n27\t  // ── Metadata (shown behind ℹ️ info panel) ──\n28\t  model?: string;\n29\t  startedAt: string; // ISO timestamp\n30\t  source?: string; // e.g. \"Discord\", \"Voice\", \"Web\"\n31\t  tokens?: number;\n32\t  sessionId?: string;\n33\t  /** Any extra key-value metadata the agent wants to surface */\n34\t  meta?: Record<string, string>;\n35\t}\n36\t\n37\t/** Duration helper — returns human-readable duration from ISO start time */\n38\texport function formatDuration(startedAt: string): string {\n39\t  const ms = Date.now() - new Date(startedAt).getTime();\n40\t  if (ms < 0) return \"0s\";\n41\t  const seconds = Math.floor(ms / 1000);\n42\t  if (seconds < 60) return `${seconds}s`;\n43\t  const minutes = Math.floor(seconds / 60);\n44\t  const remainingSeconds = seconds % 60;\n45\t  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;\n46\t  const hours = Math.floor(minutes / 60);\n47\t  const remainingMinutes = minutes % 60;\n48\t  return `${hours}h ${remainingMinutes}m`;\n49\t}\n50\t\n51\t/** Format token count with commas */\n52\texport function formatTokens(tokens: number): string {\n53\t  return tokens.toLocaleString();\n54\t}\n55\t"
+          },
+          "toolu_013k5KuieTbJ8ydd9XbwZhEQ": {
+            "tool_use_id": "toolu_013k5KuieTbJ8ydd9XbwZhEQ",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/features/ActiveJobs/useSessionPolling.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\t\"use client\";\n2\t\n3\timport { useState, useEffect, useCallback, useRef } from \"react\";\n4\timport type { Task } from \"./types\";\n5\t\n6\tinterface SessionInfo {\n7\t  sessionId: string;\n8\t  agent: string;\n9\t  label?: string;\n10\t  description?: string;\n11\t  startedAt?: string;\n12\t  isSubagent: boolean;\n13\t}\n14\t\n15\tinterface SessionsResponse {\n16\t  sessions: SessionInfo[];\n17\t}\n18\t\n19\t/**\n20\t * Poll the /api/sessions endpoint and convert sessions to Tasks.\n21\t *\n22\t * Only sub-agent sessions become tasks — main sessions are ignored.\n23\t * Polling interval: 2 seconds (adjustable).\n24\t */\n25\texport function useSessionPolling(enabled: boolean = true) {\n26\t  const [tasks, setTasks] = useState<Map<string, Task>>(new Map());\n27\t  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);\n28\t  const [isPolling, setIsPolling] = useState(false);\n29\t  const tasksRef = useRef(tasks);\n30\t  tasksRef.current = tasks;\n31\t\n32\t  const fetchSessions = useCallback(async () => {\n33\t    if (!enabled) return;\n34\t\n35\t    try {\n36\t      const response = await fetch(\"/api/sessions\");\n37\t      if (!response.ok) {\n38\t        console.warn(\"Failed to fetch sessions:\", response.statusText);\n39\t        return;\n40\t      }\n41\t\n42\t      const data: SessionsResponse = await response.json();\n43\t      const prevTasks = tasksRef.current;\n44\t\n45\t      // Convert sub-agent sessions to tasks\n46\t      const newTasks = new Map<string, Task>();\n47\t\n48\t      for (const session of data.sessions) {\n49\t        // Only track sub-agents\n50\t        if (!session.isSubagent) continue;\n51\t\n52\t        const existingTask = prevTasks.get(session.sessionId);\n53\t\n54\t        // If task already exists and is completed, don't overwrite\n55\t        if (existingTask && existingTask.status !== \"running\") {\n56\t          newTasks.set(session.sessionId, existingTask);\n57\t          continue;\n58\t        }\n59\t\n60\t        // Create or update task\n61\t        const rawLabel = session.label || '';\n62\t        const isHexId = /^[0-9a-f]{6,}(-[0-9a-f]+)*$/i.test(rawLabel.replace(/^agent:main:subagent:/, ''));\n63\t        const taskName = (rawLabel && !isHexId) ? rawLabel : `Task (${session.agent})`;\n64\t        newTasks.set(session.sessionId, {\n65\t          id: session.sessionId,\n66\t          name: taskName,\n67\t          description: session.description,\n68\t          status: \"running\",\n69\t          requiresAcknowledgment: true, // Safe default — assume review needed\n70\t          startedAt: session.startedAt || new Date().toISOString(),\n71\t          model: session.agent,\n72\t          source: \"Sub-agent\",\n73\t          sessionId: session.sessionId,\n74\t        });\n75\t      }\n76\t\n77\t      // Mark tasks as completed if they're no longer in the sessions list\n78\t      prevTasks.forEach((task, id) => {\n79\t        if (!newTasks.has(id) && task.status === \"running\") {\n80\t          newTasks.set(id, {\n81\t            ...task,\n82\t            status: \"done\",\n83\t          });\n84\t        }\n85\t      });\n86\t\n87\t      setTasks(newTasks);\n88\t    } catch (error) {\n89\t      console.error(\"Session polling error:\", error);\n90\t    }\n91\t  }, [enabled]);\n92\t\n93\t  useEffect(() => {\n94\t    if (!enabled) {\n95\t      if (pollIntervalRef.current) {\n96\t        clearInterval(pollIntervalRef.current);\n97\t        pollIntervalRef.current = null;\n98\t      }\n99\t      setIsPolling(false);\n100\t      return;\n101\t    }\n102\t\n103\t    // Initial fetch\n104\t    fetchSessions();\n105\t    setIsPolling(true);\n106\t\n107\t    // Poll every 2 seconds\n108\t    pollIntervalRef.current = setInterval(fetchSessions, 2000);\n109\t\n110\t    return () => {\n111\t      if (pollIntervalRef.current) {\n112\t        clearInterval(pollIntervalRef.current);\n113\t        pollIntervalRef.current = null;\n114\t      }\n115\t    };\n116\t  }, [enabled, fetchSessions]);\n117\t\n118\t  return {\n119\t    tasks: Array.from(tasks.values()),\n120\t    isPolling,\n121\t  };\n122\t}\n123\t"
+            },
+            "output": "1\t\"use client\";\n2\t\n3\timport { useState, useEffect, useCallback, useRef } from \"react\";\n4\timport type { Task } from \"./types\";\n5\t\n6\tinterface SessionInfo {\n7\t  sessionId: string;\n8\t  agent: string;\n9\t  label?: string;\n10\t  description?: string;\n11\t  startedAt?: string;\n12\t  isSubagent: boolean;\n13\t}\n14\t\n15\tinterface SessionsResponse {\n16\t  sessions: SessionInfo[];\n17\t}\n18\t\n19\t/**\n20\t * Poll the /api/sessions endpoint and convert sessions to Tasks.\n21\t *\n22\t * Only sub-agent sessions become tasks — main sessions are ignored.\n23\t * Polling interval: 2 seconds (adjustable).\n24\t */\n25\texport function useSessionPolling(enabled: boolean = true) {\n26\t  const [tasks, setTasks] = useState<Map<string, Task>>(new Map());\n27\t  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);\n28\t  const [isPolling, setIsPolling] = useState(false);\n29\t  const tasksRef = useRef(tasks);\n30\t  tasksRef.current = tasks;\n31\t\n32\t  const fetchSessions = useCallback(async () => {\n33\t    if (!enabled) return;\n34\t\n35\t    try {\n36\t      const response = await fetch(\"/api/sessions\");\n37\t      if (!response.ok) {\n38\t        console.warn(\"Failed to fetch sessions:\", response.statusText);\n39\t        return;\n40\t      }\n41\t\n42\t      const data: SessionsResponse = await response.json();\n43\t      const prevTasks = tasksRef.current;\n44\t\n45\t      // Convert sub-agent sessions to tasks\n46\t      const newTasks = new Map<string, Task>();\n47\t\n48\t      for (const session of data.sessions) {\n49\t        // Only track sub-agents\n50\t        if (!session.isSubagent) continue;\n51\t\n52\t        const existingTask = prevTasks.get(session.sessionId);\n53\t\n54\t        // If task already exists and is completed, don't overwrite\n55\t        if (existingTask && existingTask.status !== \"running\") {\n56\t          newTasks.set(session.sessionId, existingTask);\n57\t          continue;\n58\t        }\n59\t\n60\t        // Create or update task\n61\t        const rawLabel = session.label || '';\n62\t        const isHexId = /^[0-9a-f]{6,}(-[0-9a-f]+)*$/i.test(rawLabel.replace(/^agent:main:subagent:/, ''));\n63\t        const taskName = (rawLabel && !isHexId) ? rawLabel : `Task (${session.agent})`;\n64\t        newTasks.set(session.sessionId, {\n65\t          id: session.sessionId,\n66\t          name: taskName,\n67\t          description: session.description,\n68\t          status: \"running\",\n69\t          requiresAcknowledgment: true, // Safe default — assume review needed\n70\t          startedAt: session.startedAt || new Date().toISOString(),\n71\t          model: session.agent,\n72\t          source: \"Sub-agent\",\n73\t          sessionId: session.sessionId,\n74\t        });\n75\t      }\n76\t\n77\t      // Mark tasks as completed if they're no longer in the sessions list\n78\t      prevTasks.forEach((task, id) => {\n79\t        if (!newTasks.has(id) && task.status === \"running\") {\n80\t          newTasks.set(id, {\n81\t            ...task,\n82\t            status: \"done\",\n83\t          });\n84\t        }\n85\t      });\n86\t\n87\t      setTasks(newTasks);\n88\t    } catch (error) {\n89\t      console.error(\"Session polling error:\", error);\n90\t    }\n91\t  }, [enabled]);\n92\t\n93\t  useEffect(() => {\n94\t    if (!enabled) {\n95\t      if (pollIntervalRef.current) {\n96\t        clearInterval(pollIntervalRef.current);\n97\t        pollIntervalRef.current = null;\n98\t      }\n99\t      setIsPolling(false);\n100\t      return;\n101\t    }\n102\t\n103\t    // Initial fetch\n104\t    fetchSessions();\n105\t    setIsPolling(true);\n106\t\n107\t    // Poll every 2 seconds\n108\t    pollIntervalRef.current = setInterval(fetchSessions, 2000);\n109\t\n110\t    return () => {\n111\t      if (pollIntervalRef.current) {\n112\t        clearInterval(pollIntervalRef.current);\n113\t        pollIntervalRef.current = null;\n114\t      }\n115\t    };\n116\t  }, [enabled, fetchSessions]);\n117\t\n118\t  return {\n119\t    tasks: Array.from(tasks.values()),\n120\t    isPolling,\n121\t  };\n122\t}\n123\t"
+          },
+          "toolu_011wkHx9bkVxBmb8wTnJrpko": {
+            "tool_use_id": "toolu_011wkHx9bkVxBmb8wTnJrpko",
+            "tool_name": "find /workspace/nia-universal/apps/interface/src/app/api -type f \\( -name \"*session*\" -o -name \"*job*\" -o -name \"*task*\" \\) 2>/dev/null",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_01NxbGfECvASMZ7bQevKkGim": {
+            "tool_use_id": "toolu_01NxbGfECvASMZ7bQevKkGim",
+            "tool_name": "grep -l \"label|displayName\" /workspace/nia-universal/apps/interface/src/app/api",
+            "is_error": false,
+            "content": {
+              "Text": "Found 5 files\n/workspace/nia-universal/apps/interface/src/app/api/summon-ai-sprite/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/bot/model-settings/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/discord/messages/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts"
+            },
+            "output": "Found 5 files\n/workspace/nia-universal/apps/interface/src/app/api/summon-ai-sprite/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/bot/model-settings/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/discord/messages/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts\n/workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts"
+          },
+          "toolu_01Q3HQA3EQR4CxEPnxDd39cS": {
+            "tool_use_id": "toolu_01Q3HQA3EQR4CxEPnxDd39cS",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextResponse } from 'next/server';\n2\timport { readFile, readdir } from 'fs/promises';\n3\timport path from 'path';\n4\t\n5\texport const dynamic = 'force-dynamic';\n6\texport const revalidate = 0;\n7\t\n8\tinterface ActiveJob {\n9\t  id: string;\n10\t  key: string;\n11\t  label: string;\n12\t  description: string;\n13\t  status: 'running' | 'complete' | 'idle';\n14\t  channel: string;\n15\t  model: string;\n16\t  startedAt: number;\n17\t  updatedAt: number;\n18\t  elapsedMs: number;\n19\t  displayName: string;\n20\t  totalTokens: number;\n21\t  kind: string;\n22\t  agents: string[];\n23\t}\n24\t\n25\t// Dynamically discover all agent session stores\n26\tconst AGENTS_DIR = path.join(process.env.HOME || '/root', '.openclaw/agents');\n27\t\n28\tasync function getSessionStorePaths(): Promise<string[]> {\n29\t  try {\n30\t    const agents = await readdir(AGENTS_DIR);\n31\t    return agents.map((agent) =>\n32\t      path.join(AGENTS_DIR, agent, 'sessions/sessions.json')\n33\t    );\n34\t  } catch {\n35\t    // Fallback to known paths if readdir fails\n36\t    return [\n37\t      path.join(AGENTS_DIR, 'main/sessions/sessions.json'),\n38\t      path.join(AGENTS_DIR, 'voice/sessions/sessions.json'),\n39\t      path.join(AGENTS_DIR, 'opus/sessions/sessions.json'),\n40\t      path.join(AGENTS_DIR, 'sonnet/sessions/sessions.json'),\n41\t      path.join(AGENTS_DIR, 'haiku/sessions/sessions.json'),\n42\t    ];\n43\t  }\n44\t}\n45\t\n46\t// Sidecar file with human-readable task descriptions keyed by label\n47\tconst DESCRIPTIONS_FILE = path.join(process.env.HOME || '/root', '.openclaw/workspace/job-descriptions.json');\n48\t\n49\t// Only show sessions active in the last N minutes\n50\tconst ACTIVE_MINUTES = 60;\n51\t\n52\t/** Extract a short 1-line summary from a potentially huge task prompt */\n53\tfunction extractTaskSummary(task: string): string {\n54\t  if (!task) return '';\n55\t  const lines = task.split('\\n');\n56\t  for (const line of lines) {\n57\t    const trimmed = line.trim();\n58\t    if (!trimmed) continue;\n59\t    if (trimmed.startsWith('#')) continue;\n60\t    if (trimmed.startsWith('---')) continue;\n61\t    if (trimmed.startsWith('```')) continue;\n62\t    // Found a meaningful line — truncate to 100 chars\n63\t    return trimmed.length > 100 ? trimmed.slice(0, 97) + '...' : trimmed;\n64\t  }\n65\t  return '';\n66\t}\n67\t\n68\tasync function loadDescriptions(): Promise<Record<string, string>> {\n69\t  try {\n70\t    const raw = await readFile(DESCRIPTIONS_FILE, 'utf-8');\n71\t    return JSON.parse(raw);\n72\t  } catch {\n73\t    return {};\n74\t  }\n75\t}\n76\t\n77\texport async function GET() {\n78\t  try {\n79\t    // Dynamically discover and read all agent session stores\n80\t    const sessionStorePaths = await getSessionStorePaths();\n81\t    const allSessions: Record<string, Record<string, unknown>> = {};\n82\t    for (const storePath of sessionStorePaths) {\n83\t      try {\n84\t        const raw = await readFile(storePath, 'utf-8');\n85\t        const store = JSON.parse(raw) as Record<string, Record<string, unknown>>;\n86\t        Object.assign(allSessions, store);\n87\t      } catch {\n88\t        // File might not exist, skip\n89\t      }\n90\t    }\n91\t\n92\t    const descriptions = await loadDescriptions();\n93\t    const now = Date.now();\n94\t    const cutoff = now - ACTIVE_MINUTES * 60 * 1000;\n95\t\n96\t    const jobs: ActiveJob[] = [];\n97\t\n98\t    // Recognised job kinds — extensible. Each entry maps a key substring to the\n99\t    // \"kind\" label exposed to the widget. Order matters: the first match wins.\n100\t    const KIND_MATCHERS: Array<{ match: string; kind: string }> = [\n101\t      { match: 'subagent', kind: 'subagent' },\n102\t      { match: 'cron', kind: 'cron' },\n103\t      { match: 'agent:claude-code:', kind: 'claude-code' },\n104\t      { match: 'agent:codex:', kind: 'codex' },\n105\t      { match: 'agent:gemma:', kind: 'gemma' },\n106\t      { match: 'agent:qwen:', kind: 'qwen' },\n107\t      { match: 'agent:pearl-omega:', kind: 'agent' },\n108\t      { match: 'agent:pearl-exec:', kind: 'agent' },\n109\t      { match: 'agent:main:', kind: 'agent' },\n110\t      { match: 'agent:voice:'..."
+            },
+            "output": "1\timport { NextResponse } from 'next/server';\n2\timport { readFile, readdir } from 'fs/promises';\n3\timport path from 'path';\n4\t\n5\texport const dynamic = 'force-dynamic';\n6\texport const revalidate = 0;\n7\t\n8\tinterface ActiveJob {\n9\t  id: string;\n10\t  key: string;\n11\t  label: string;\n12\t  description: string;\n13\t  status: 'running' | 'complete' | 'idle';\n14\t  channel: string;\n15\t  model: string;\n16\t  startedAt: number;\n17\t  updatedAt: number;\n18\t  elapsedMs: number;\n19\t  displayName: string;\n20\t  totalTokens: number;\n21\t  kind: string;\n22\t  agents: string[];\n23\t}\n24\t\n25\t// Dynamically discover all agent session stores\n26\tconst AGENTS_DIR = path.join(process.env.HOME || '/root', '.openclaw/agents');\n27\t\n28\tasync function getSessionStorePaths(): Promise<string[]> {\n29\t  try {\n30\t    const agents = await readdir(AGENTS_DIR);\n31\t    return agents.map((agent) =>\n32\t      path.join(AGENTS_DIR, agent, 'sessions/sessions.json')\n33\t    );\n34\t  } catch {\n35\t    // Fallback to known paths if readdir fails\n36\t    return [\n37\t      path.join(AGENTS_DIR, 'main/sessions/sessions.json'),\n38\t      path.join(AGENTS_DIR, 'voice/sessions/sessions.json'),\n39\t      path.join(AGENTS_DIR, 'opus/sessions/sessions.json'),\n40\t      path.join(AGENTS_DIR, 'sonnet/sessions/sessions.json'),\n41\t      path.join(AGENTS_DIR, 'haiku/sessions/sessions.json'),\n42\t    ];\n43\t  }\n44\t}\n45\t\n46\t// Sidecar file with human-readable task descriptions keyed by label\n47\tconst DESCRIPTIONS_FILE = path.join(process.env.HOME || '/root', '.openclaw/workspace/job-descriptions.json');\n48\t\n49\t// Only show sessions active in the last N minutes\n50\tconst ACTIVE_MINUTES = 60;\n51\t\n52\t/** Extract a short 1-line summary from a potentially huge task prompt */\n53\tfunction extractTaskSummary(task: string): string {\n54\t  if (!task) return '';\n55\t  const lines = task.split('\\n');\n56\t  for (const line of lines) {\n57\t    const trimmed = line.trim();\n58\t    if (!trimmed) continue;\n59\t    if (trimmed.startsWith('#')) continue;\n60\t    if (trimmed.startsWith('---')) continue;\n61\t    if (trimmed.startsWith('```')) continue;\n62\t    // Found a meaningful line — truncate to 100 chars\n63\t    return trimmed.length > 100 ? trimmed.slice(0, 97) + '...' : trimmed;\n64\t  }\n65\t  return '';\n66\t}\n67\t\n68\tasync function loadDescriptions(): Promise<Record<string, string>> {\n69\t  try {\n70\t    const raw = await readFile(DESCRIPTIONS_FILE, 'utf-8');\n71\t    return JSON.parse(raw);\n72\t  } catch {\n73\t    return {};\n74\t  }\n75\t}\n76\t\n77\texport async function GET() {\n78\t  try {\n79\t    // Dynamically discover and read all agent session stores\n80\t    const sessionStorePaths = await getSessionStorePaths();\n81\t    const allSessions: Record<string, Record<string, unknown>> = {};\n82\t    for (const storePath of sessionStorePaths) {\n83\t      try {\n84\t        const raw = await readFile(storePath, 'utf-8');\n85\t        const store = JSON.parse(raw) as Record<string, Record<string, unknown>>;\n86\t        Object.assign(allSessions, store);\n87\t      } catch {\n88\t        // File might not exist, skip\n89\t      }\n90\t    }\n91\t\n92\t    const descriptions = await loadDescriptions();\n93\t    const now = Date.now();\n94\t    const cutoff = now - ACTIVE_MINUTES * 60 * 1000;\n95\t\n96\t    const jobs: ActiveJob[] = [];\n97\t\n98\t    // Recognised job kinds — extensible. Each entry maps a key substring to the\n99\t    // \"kind\" label exposed to the widget. Order matters: the first match wins.\n100\t    const KIND_MATCHERS: Array<{ match: string; kind: string }> = [\n101\t      { match: 'subagent', kind: 'subagent' },\n102\t      { match: 'cron', kind: 'cron' },\n103\t      { match: 'agent:claude-code:', kind: 'claude-code' },\n104\t      { match: 'agent:codex:', kind: 'codex' },\n105\t      { match: 'agent:gemma:', kind: 'gemma' },\n106\t      { match: 'agent:qwen:', kind: 'qwen' },\n107\t      { match: 'agent:pearl-omega:', kind: 'agent' },\n108\t      { match: 'agent:pearl-exec:', kind: 'agent' },\n109\t      { match: 'agent:main:', kind: 'agent' },\n110\t      { match: 'agent:voice:'..."
+          },
+          "toolu_01CophH7VZuMm5ovM4uF3A7C": {
+            "tool_use_id": "toolu_01CophH7VZuMm5ovM4uF3A7C",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/app/api/sessions/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextResponse } from \"next/server\";\n2\t\n3\t/**\n4\t * /api/sessions - Query active OpenClaw sessions (including sub-agents)\n5\t *\n6\t * This endpoint reads from OpenClaw's session lock files to discover\n7\t * running sessions and sub-agents.\n8\t */\n9\t\n10\tinterface SessionInfo {\n11\t  sessionId: string;\n12\t  agent: string;\n13\t  label?: string;\n14\t  description?: string;\n15\t  startedAt?: string;\n16\t  isSubagent: boolean;\n17\t}\n18\t\n19\t/**\n20\t * Extract a two-sentence description from the session JSONL content.\n21\t * Looks for the first user message and generates a readable summary.\n22\t */\n23\tfunction extractDescription(content: string, label?: string): string | undefined {\n24\t  try {\n25\t    const lines = content.split(\"\\n\");\n26\t    \n27\t    // Find the first user message (contains the task instructions)\n28\t    for (const line of lines) {\n29\t      if (!line.trim()) continue;\n30\t      try {\n31\t        const entry = JSON.parse(line);\n32\t        if (entry.type === \"message\" && entry.message?.role === \"user\") {\n33\t          const text = typeof entry.message.content === \"string\"\n34\t            ? entry.message.content\n35\t            : Array.isArray(entry.message.content)\n36\t              ? entry.message.content\n37\t                  .filter((c: { type: string }) => c.type === \"text\")\n38\t                  .map((c: { text: string }) => c.text)\n39\t                  .join(\" \")\n40\t              : \"\";\n41\t          \n42\t          if (!text) continue;\n43\t          \n44\t          return generateTwoSentenceSummary(text, label);\n45\t        }\n46\t      } catch {\n47\t        continue;\n48\t      }\n49\t    }\n50\t  } catch {\n51\t    // Ignore extraction errors\n52\t  }\n53\t  return undefined;\n54\t}\n55\t\n56\t/**\n57\t * Generate a clean two-sentence summary from task instructions.\n58\t * First sentence: What the agent is doing.\n59\t * Second sentence: What it's investigating or building.\n60\t */\n61\tfunction generateTwoSentenceSummary(taskText: string, label?: string): string {\n62\t  // Clean up the text — remove markdown, code blocks, excessive whitespace\n63\t  const cleaned = taskText\n64\t    .replace(/```[\\s\\S]*?```/g, \"\")\n65\t    .replace(/\\*\\*([^*]+)\\*\\*/g, \"$1\")\n66\t    .replace(/#{1,6}\\s+/g, \"\")\n67\t    .replace(/\\n+/g, \" \")\n68\t    .replace(/\\s+/g, \" \")\n69\t    .trim();\n70\t\n71\t  // Try to extract key phrases\n72\t  const actionLabel = label\n73\t    ? label.replace(/[-_]/g, \" \").replace(/\\b\\w/g, (c) => c.toUpperCase())\n74\t    : null;\n75\t\n76\t  // Look for problem/requirement patterns\n77\t  const problemMatch = cleaned.match(/(?:Problem:|Issue:|Bug:|Fix:)\\s*([^.!?]+[.!?]?)/i);\n78\t  const requirementMatch = cleaned.match(/(?:Requirement|Goal|Task|Implement|Build|Create|Add|Update|Fix)[\\s:]+([^.!?]+[.!?]?)/i);\n79\t  const investigateMatch = cleaned.match(/(?:Investigat|Check|Debug|Analyz|Review|Audit)[\\w]*[\\s:]+([^.!?]+[.!?]?)/i);\n80\t\n81\t  // Build first sentence (what the agent is doing)\n82\t  let sentence1: string;\n83\t  if (actionLabel) {\n84\t    sentence1 = `Working on ${actionLabel.toLowerCase()}.`;\n85\t  } else if (requirementMatch) {\n86\t    const action = requirementMatch[1].trim().replace(/[.!?]$/, \"\");\n87\t    sentence1 = `${action.charAt(0).toUpperCase() + action.slice(1)}.`;\n88\t  } else {\n89\t    // Fallback: extract first meaningful sentence from the text\n90\t    const firstSentence = cleaned.match(/^[^.!?]{10,120}[.!?]/);\n91\t    sentence1 = firstSentence ? firstSentence[0] : `Processing a background task.`;\n92\t  }\n93\t\n94\t  // Build second sentence (what it's investigating/building)\n95\t  let sentence2: string;\n96\t  if (problemMatch) {\n97\t    const problem = problemMatch[1].trim().replace(/[.!?]$/, \"\");\n98\t    sentence2 = `Investigating: ${problem.toLowerCase()}.`;\n99\t  } else if (investigateMatch) {\n100\t    const investigation = investigateMatch[1].trim().replace(/[.!?]$/, \"\");\n101\t    sentence2 = `Looking into ${investigation.toLowerCase()}.`;\n102\t  } else if (requirementMatch && actionLabel) {\n103\t    const req = requirementMatch[1].trim().replace(/[.!?]$/, \"\");\n104\t    sent..."
+            },
+            "output": "1\timport { NextResponse } from \"next/server\";\n2\t\n3\t/**\n4\t * /api/sessions - Query active OpenClaw sessions (including sub-agents)\n5\t *\n6\t * This endpoint reads from OpenClaw's session lock files to discover\n7\t * running sessions and sub-agents.\n8\t */\n9\t\n10\tinterface SessionInfo {\n11\t  sessionId: string;\n12\t  agent: string;\n13\t  label?: string;\n14\t  description?: string;\n15\t  startedAt?: string;\n16\t  isSubagent: boolean;\n17\t}\n18\t\n19\t/**\n20\t * Extract a two-sentence description from the session JSONL content.\n21\t * Looks for the first user message and generates a readable summary.\n22\t */\n23\tfunction extractDescription(content: string, label?: string): string | undefined {\n24\t  try {\n25\t    const lines = content.split(\"\\n\");\n26\t    \n27\t    // Find the first user message (contains the task instructions)\n28\t    for (const line of lines) {\n29\t      if (!line.trim()) continue;\n30\t      try {\n31\t        const entry = JSON.parse(line);\n32\t        if (entry.type === \"message\" && entry.message?.role === \"user\") {\n33\t          const text = typeof entry.message.content === \"string\"\n34\t            ? entry.message.content\n35\t            : Array.isArray(entry.message.content)\n36\t              ? entry.message.content\n37\t                  .filter((c: { type: string }) => c.type === \"text\")\n38\t                  .map((c: { text: string }) => c.text)\n39\t                  .join(\" \")\n40\t              : \"\";\n41\t          \n42\t          if (!text) continue;\n43\t          \n44\t          return generateTwoSentenceSummary(text, label);\n45\t        }\n46\t      } catch {\n47\t        continue;\n48\t      }\n49\t    }\n50\t  } catch {\n51\t    // Ignore extraction errors\n52\t  }\n53\t  return undefined;\n54\t}\n55\t\n56\t/**\n57\t * Generate a clean two-sentence summary from task instructions.\n58\t * First sentence: What the agent is doing.\n59\t * Second sentence: What it's investigating or building.\n60\t */\n61\tfunction generateTwoSentenceSummary(taskText: string, label?: string): string {\n62\t  // Clean up the text — remove markdown, code blocks, excessive whitespace\n63\t  const cleaned = taskText\n64\t    .replace(/```[\\s\\S]*?```/g, \"\")\n65\t    .replace(/\\*\\*([^*]+)\\*\\*/g, \"$1\")\n66\t    .replace(/#{1,6}\\s+/g, \"\")\n67\t    .replace(/\\n+/g, \" \")\n68\t    .replace(/\\s+/g, \" \")\n69\t    .trim();\n70\t\n71\t  // Try to extract key phrases\n72\t  const actionLabel = label\n73\t    ? label.replace(/[-_]/g, \" \").replace(/\\b\\w/g, (c) => c.toUpperCase())\n74\t    : null;\n75\t\n76\t  // Look for problem/requirement patterns\n77\t  const problemMatch = cleaned.match(/(?:Problem:|Issue:|Bug:|Fix:)\\s*([^.!?]+[.!?]?)/i);\n78\t  const requirementMatch = cleaned.match(/(?:Requirement|Goal|Task|Implement|Build|Create|Add|Update|Fix)[\\s:]+([^.!?]+[.!?]?)/i);\n79\t  const investigateMatch = cleaned.match(/(?:Investigat|Check|Debug|Analyz|Review|Audit)[\\w]*[\\s:]+([^.!?]+[.!?]?)/i);\n80\t\n81\t  // Build first sentence (what the agent is doing)\n82\t  let sentence1: string;\n83\t  if (actionLabel) {\n84\t    sentence1 = `Working on ${actionLabel.toLowerCase()}.`;\n85\t  } else if (requirementMatch) {\n86\t    const action = requirementMatch[1].trim().replace(/[.!?]$/, \"\");\n87\t    sentence1 = `${action.charAt(0).toUpperCase() + action.slice(1)}.`;\n88\t  } else {\n89\t    // Fallback: extract first meaningful sentence from the text\n90\t    const firstSentence = cleaned.match(/^[^.!?]{10,120}[.!?]/);\n91\t    sentence1 = firstSentence ? firstSentence[0] : `Processing a background task.`;\n92\t  }\n93\t\n94\t  // Build second sentence (what it's investigating/building)\n95\t  let sentence2: string;\n96\t  if (problemMatch) {\n97\t    const problem = problemMatch[1].trim().replace(/[.!?]$/, \"\");\n98\t    sentence2 = `Investigating: ${problem.toLowerCase()}.`;\n99\t  } else if (investigateMatch) {\n100\t    const investigation = investigateMatch[1].trim().replace(/[.!?]$/, \"\");\n101\t    sentence2 = `Looking into ${investigation.toLowerCase()}.`;\n102\t  } else if (requirementMatch && actionLabel) {\n103\t    const req = requirementMatch[1].trim().replace(/[.!?]$/, \"\");\n104\t    sent..."
+          },
+          "toolu_01RfuA7keEUUkJSjtzLknstz": {
+            "tool_use_id": "toolu_01RfuA7keEUUkJSjtzLknstz",
+            "tool_name": "grep -l \"WebSocket|websocket|socket|ws://\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "Found 17 files\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/WonderCanvasRenderer.tsx\n/workspace/nia-universal/apps/interface/src/hooks/useGatewayWebSocket.ts\n/workspace/nia-universal/apps/interface/src/lib/daily/event-bridge.ts\n/workspace/nia-universal/apps/interface/src/lib/event-dedup.ts\n/workspace/nia-universal/apps/interface/src/providers/client-providers.tsx\n/workspace/nia-universal/apps/interface/src/app/api/terminal/execute/route.ts\n/workspace/nia-universal/apps/interface/src/components/assistant-canvas.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Call.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/ClientManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/WsEventBridgeManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/hooks/useGatewaySocket.ts\n/workspace/nia-universal/apps/interface/src/features/MiniBrowser/routes/enhanced-proxy/[...url]/route.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/scripts/start-browser-automation.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/service.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/README.md"
+            },
+            "output": "Found 17 files\n/workspace/nia-universal/apps/interface/src/features/Stage/WonderCanvas/WonderCanvasRenderer.tsx\n/workspace/nia-universal/apps/interface/src/hooks/useGatewayWebSocket.ts\n/workspace/nia-universal/apps/interface/src/lib/daily/event-bridge.ts\n/workspace/nia-universal/apps/interface/src/lib/event-dedup.ts\n/workspace/nia-universal/apps/interface/src/providers/client-providers.tsx\n/workspace/nia-universal/apps/interface/src/app/api/terminal/execute/route.ts\n/workspace/nia-universal/apps/interface/src/components/assistant-canvas.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/Call.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/ClientManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/components/WsEventBridgeManager.tsx\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/niaEventRouter.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/wsEventBridge.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/hooks/useGatewaySocket.ts\n/workspace/nia-universal/apps/interface/src/features/MiniBrowser/routes/enhanced-proxy/[...url]/route.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/scripts/start-browser-automation.ts\n/workspace/nia-universal/apps/interface/src/features/BrowserAutomation/service.ts\n/workspace/nia-universal/apps/interface/src/features/DailyCall/events/README.md"
+          },
+          "toolu_012RNTjmCnBhQKhjuCpWr9Tn": {
+            "tool_use_id": "toolu_012RNTjmCnBhQKhjuCpWr9Tn",
+            "tool_name": "grep -l \"label.*displayName|displayName.*label\" /workspace/nia-universal/apps/interface/src",
+            "is_error": false,
+            "content": {
+              "Text": "Found 4 files\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts"
+            },
+            "output": "Found 4 files\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/hooks/useActiveJobs.ts\n/workspace/nia-universal/apps/interface/src/features/ActiveJobs/lib/exec-task-registry.ts\n/workspace/nia-universal/apps/interface/src/app/api/openclaw/sessions/route.ts"
+          },
+          "toolu_01GHB7ThiM3s8e4gtAzvrHJW": {
+            "tool_use_id": "toolu_01GHB7ThiM3s8e4gtAzvrHJW",
+            "tool_name": "cd /workspace/nia-universal && git log --all --oneline --since=\"today\" -- apps/interface/src/features/ActiveJobs/ | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_01UfwVTkeFvyBYLDYUfKw6JC": {
+            "tool_use_id": "toolu_01UfwVTkeFvyBYLDYUfKw6JC",
+            "tool_name": "cd /workspace/nia-universal && git log --all --oneline --since=\"1 day ago\" -- apps/interface/src/app/api/openclaw/sessions/route.ts | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "(Bash completed with no output)"
+            },
+            "output": "(Bash completed with no output)"
+          },
+          "toolu_01Xmusdwdrc76vnTDy4AQwzt": {
+            "tool_use_id": "toolu_01Xmusdwdrc76vnTDy4AQwzt",
+            "tool_name": "cd /workspace/nia-universal && git log --all --oneline apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -20",
+            "is_error": false,
+            "content": {
+              "Text": "341ebad4 feat(ui): task card improvements - uniform width, wrap up button, eye flip, visual front, fade dismissal\n415828e9 🥈 Silver Candidate: PearlOS Omega Stage — full UI restoration + bug fixes\nb751b675 build(bronze): stable bronze snapshot — Launchpad, ActiveJobs, backgrounds, recovery\nc6783dbb PearlOS Omega Stage — restored staging with critical fixes\n3daf8665 config snapshot 2026-04-17\nca770326 Addidng DO local changes to branch\n4991a397 feat: iOS URL bar hide, embedded Creation Lab, browser icon, chat bar compact\nd1539119 ui(interface): right-flush task list (10px) + visible version badge in Settings\n65030e2e Tasks widget: surface ACP coding-agent sessions (claude-code, codex, …)\nfcdde1a3 Follow up UI\naec6bc1c UI Bugs Fixes\naf30b1d5 Revert \"cherry-pick: Nitesh UI fixes (25baa929) onto pearl/next-gen-ui\"\n7a7e5f16 cherry-pick: Nitesh UI fixes (25baa929) onto pearl/next-gen-ui\n4ddbd992 testing purpose\n25baa929 New UI changes fixed\ncdd47395 Fixes for Wonder Canvas\nc6414cda deploy: audio 24kHz, bridge restore, wonder canvas fixes, notes unification, task dedup\nf0bb7f94 fix: chat auth + pill bar stability\nbd041ce9 fix: replace black loading flash with themed gradient + preload backgrounds\nc5f773c1 Fix: bump ActiveJobsWidget z-index to 150 (was hidden behind ChatMode z-100 on desktop)"
+            },
+            "output": "341ebad4 feat(ui): task card improvements - uniform width, wrap up button, eye flip, visual front, fade dismissal\n415828e9 🥈 Silver Candidate: PearlOS Omega Stage — full UI restoration + bug fixes\nb751b675 build(bronze): stable bronze snapshot — Launchpad, ActiveJobs, backgrounds, recovery\nc6783dbb PearlOS Omega Stage — restored staging with critical fixes\n3daf8665 config snapshot 2026-04-17\nca770326 Addidng DO local changes to branch\n4991a397 feat: iOS URL bar hide, embedded Creation Lab, browser icon, chat bar compact\nd1539119 ui(interface): right-flush task list (10px) + visible version badge in Settings\n65030e2e Tasks widget: surface ACP coding-agent sessions (claude-code, codex, …)\nfcdde1a3 Follow up UI\naec6bc1c UI Bugs Fixes\naf30b1d5 Revert \"cherry-pick: Nitesh UI fixes (25baa929) onto pearl/next-gen-ui\"\n7a7e5f16 cherry-pick: Nitesh UI fixes (25baa929) onto pearl/next-gen-ui\n4ddbd992 testing purpose\n25baa929 New UI changes fixed\ncdd47395 Fixes for Wonder Canvas\nc6414cda deploy: audio 24kHz, bridge restore, wonder canvas fixes, notes unification, task dedup\nf0bb7f94 fix: chat auth + pill bar stability\nbd041ce9 fix: replace black loading flash with themed gradient + preload backgrounds\nc5f773c1 Fix: bump ActiveJobsWidget z-index to 150 (was hidden behind ChatMode z-100 on desktop)"
+          },
+          "toolu_012tX9SXVxRabwHEer3Z79Ub": {
+            "tool_use_id": "toolu_012tX9SXVxRabwHEer3Z79Ub",
+            "tool_name": "cd /workspace/nia-universal && git show 341ebad4 --stat 2>/dev/null | head -50",
+            "is_error": false,
+            "content": {
+              "Text": "commit 341ebad4a3003e3a34091531455e77b483a4cff3\nAuthor: pearl-OS <pearl-os@niaxp.com>\nDate:   Tue Apr 21 17:23:38 2026 +0000\n\n    feat(ui): task card improvements - uniform width, wrap up button, eye flip, visual front, fade dismissal\n\n .data/web-chat-fixes.md                              |  26 +\n .tasks/task-card-lingering.json                      |  14 +\n .tasks/task-description.json                         |  16 +\n .tasks/task-screenshots.json                         |  15 +\n .tasks/task-tech-expand.json                         |  15 +\n .tasks/task-uniform-width.json                       |  14 +\n HEARTBEAT.md                                         |  34 +-\n IDENTITY.md                                          |  40 +-\n TOOLS.md                                             |   1 +\n USER.md                                              |  20 +-\n apps/interface/scripts/start.sh                      |   6 +\n apps/interface/src/app/api/tasks/route.ts            |  24 +-\n apps/interface/src/build-info.json                   |   4 +\n .../ActiveJobs/components/ActiveJobsWidget.tsx       | 156 +++-\n .../src/features/ChatMode/components/ChatMode.tsx    |  67 +-\n codex/.openclaw/workspace-state.json                 |   4 +\n codex/AGENTS.md                                      | 214 +++++\n codex/BOOTSTRAP.md                                   |  55 ++\n codex/HEARTBEAT.md                                   |   7 +\n codex/IDENTITY.md                                    |  23 +\n codex/SOUL.md                                        |  38 +\n codex/TOOLS.md                                       |  40 +\n codex/USER.md                                        |  17 +\n memory/.dreams/events.jsonl                          |   1 +\n memory/.dreams/short-term-recall.json                | 161 ++++\n memory/2026-04-21-0210.md                            |   5 +\n memory/2026-04-21-0329.md                            |   5 +\n memory/2026-04-21-0340.md                            |   5 +\n memory/2026-04-21-0342.md                            |   5 +\n memory/2026-04-21-0408.md                            |   5 +\n memory/2026-04-21-0429.md                            |   5 +\n memory/2026-04-21-0432.md                            |   5 +\n memory/2026-04-21-0444.md                            |   5 +\n memory/2026-04-21-0813.md                            |   5 +\n memory/2026-04-21-1032.md                            |   5 +\n memory/2026-04-21-1141.md                            |   5 +\n memory/2026-04-21-1407.md                            |   5 +\n memory/2026-04-21-llm-request-rejected-you-re-ou.md  |  83 ++\n scripts/health-loop.sh                               |   7 +\n scripts/web-chat-health-check.sh                     |  64 ++\n ...eshot%3A187fbdea-c982-4710-8f9d-b152e017a916.json |  47 +\n ...eshot%3Ae00e2dda-6217-4f46-9065-6d36d67e2221.json | 300 +++++++\n ...eshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json | 798 +++++++++++++++++\n ...eshot%3A836e831a-52d9-4ea4-80df-594315701c00.json |  47 +"
+            },
+            "output": "commit 341ebad4a3003e3a34091531455e77b483a4cff3\nAuthor: pearl-OS <pearl-os@niaxp.com>\nDate:   Tue Apr 21 17:23:38 2026 +0000\n\n    feat(ui): task card improvements - uniform width, wrap up button, eye flip, visual front, fade dismissal\n\n .data/web-chat-fixes.md                              |  26 +\n .tasks/task-card-lingering.json                      |  14 +\n .tasks/task-description.json                         |  16 +\n .tasks/task-screenshots.json                         |  15 +\n .tasks/task-tech-expand.json                         |  15 +\n .tasks/task-uniform-width.json                       |  14 +\n HEARTBEAT.md                                         |  34 +-\n IDENTITY.md                                          |  40 +-\n TOOLS.md                                             |   1 +\n USER.md                                              |  20 +-\n apps/interface/scripts/start.sh                      |   6 +\n apps/interface/src/app/api/tasks/route.ts            |  24 +-\n apps/interface/src/build-info.json                   |   4 +\n .../ActiveJobs/components/ActiveJobsWidget.tsx       | 156 +++-\n .../src/features/ChatMode/components/ChatMode.tsx    |  67 +-\n codex/.openclaw/workspace-state.json                 |   4 +\n codex/AGENTS.md                                      | 214 +++++\n codex/BOOTSTRAP.md                                   |  55 ++\n codex/HEARTBEAT.md                                   |   7 +\n codex/IDENTITY.md                                    |  23 +\n codex/SOUL.md                                        |  38 +\n codex/TOOLS.md                                       |  40 +\n codex/USER.md                                        |  17 +\n memory/.dreams/events.jsonl                          |   1 +\n memory/.dreams/short-term-recall.json                | 161 ++++\n memory/2026-04-21-0210.md                            |   5 +\n memory/2026-04-21-0329.md                            |   5 +\n memory/2026-04-21-0340.md                            |   5 +\n memory/2026-04-21-0342.md                            |   5 +\n memory/2026-04-21-0408.md                            |   5 +\n memory/2026-04-21-0429.md                            |   5 +\n memory/2026-04-21-0432.md                            |   5 +\n memory/2026-04-21-0444.md                            |   5 +\n memory/2026-04-21-0813.md                            |   5 +\n memory/2026-04-21-1032.md                            |   5 +\n memory/2026-04-21-1141.md                            |   5 +\n memory/2026-04-21-1407.md                            |   5 +\n memory/2026-04-21-llm-request-rejected-you-re-ou.md  |  83 ++\n scripts/health-loop.sh                               |   7 +\n scripts/web-chat-health-check.sh                     |  64 ++\n ...eshot%3A187fbdea-c982-4710-8f9d-b152e017a916.json |  47 +\n ...eshot%3Ae00e2dda-6217-4f46-9065-6d36d67e2221.json | 300 +++++++\n ...eshot%3A626c0da9-5239-4a36-87ff-cef21b344861.json | 798 +++++++++++++++++\n ...eshot%3A836e831a-52d9-4ea4-80df-594315701c00.json |  47 +"
+          },
+          "toolu_01ETQ4fgSWrnkV5KrQThFaLJ": {
+            "tool_use_id": "toolu_01ETQ4fgSWrnkV5KrQThFaLJ",
+            "tool_name": "cd /workspace/nia-universal && git diff 415828e9..341ebad4 -- apps/interface/src/features/ActiveJobs/ 2>/dev/null | head -200",
+            "is_error": false,
+            "content": {
+              "Text": "diff --git a/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx b/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\nindex 5ec51cde..71c6ac6c 100644\n--- a/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n+++ b/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n@@ -59,6 +59,7 @@ const ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n interface PolledTask {\n   taskId: string;\n   title: string;\n+  description?: string;\n   status: 'pending' | 'running' | 'complete' | 'failed';\n   screenshotUrl?: string | null;\n   approvalStatus?: string;\n@@ -910,6 +911,12 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n   const [expanded, setExpanded] = useState(false);\n   const [screenshotFullscreen, setScreenshotFullscreen] = useState(false);\n   const [actionPending, setActionPending] = useState(false);\n+  const [wrappingUp, setWrappingUp] = useState(false);\n+  const [showTechnical, setShowTechnical] = useState(false);\n+  const [isFading, setIsFading] = useState(false);\n+  const [dismissed, setDismissed] = useState(false);\n+  const dismissTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);\n+  const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);\n   const statusLabel: Record<string, string> = {\n     pending: 'Pending',\n     running: 'Running',\n@@ -927,6 +934,21 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n   const isRejected = task.approvalStatus === 'rejected' || task.approvalStatus === 'rework';\n   const canVote = task.status === 'complete' && !isApproved && !isRejected;\n \n+  useEffect(() => {\n+    return () => {\n+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);\n+      if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);\n+    };\n+  }, []);\n+\n+  const triggerDismissal = () => {\n+    if (isFading || dismissed) return;\n+    fadeTimeoutRef.current = setTimeout(() => {\n+      setIsFading(true);\n+      dismissTimeoutRef.current = setTimeout(() => setDismissed(true), 500);\n+    }, 3000);\n+  };\n+\n   const handleApproval = async (e: React.MouseEvent, action: 'approve' | 'reject') => {\n     e.stopPropagation();\n     if (actionPending) return;\n@@ -938,6 +960,7 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n         body: JSON.stringify({ action, taskId: task.taskId }),\n       });\n       onApprovalChange?.(task.taskId, action);\n+      triggerDismissal();\n     } catch (err) {\n       console.error(`[PolledTaskCard] Failed to ${action} task:`, err);\n     } finally {\n@@ -945,9 +968,28 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n     }\n   };\n \n+  const handleWrapUp = async (e: React.MouseEvent) => {\n+    e.stopPropagation();\n+    if (wrappingUp) return;\n+    setWrappingUp(true);\n+    try {\n+      await fetch('/api/tasks', {\n+        method: 'POST',\n+        headers: { 'Content-Type': 'application/json' },\n+        body: JSON.stringify({ action: 'wrapup', taskId: task.taskId }),\n+      });\n+    } catch (err) {\n+      console.error('[PolledTaskCard] Failed to wrap up task:', err);\n+    } finally {\n+      setWrappingUp(false);\n+    }\n+  };\n+\n+  if (dismissed) return null;\n+\n   return (\n     <div\n-      className={`transition-all duration-300 ease-out opacity-100 translate-x-0 ${isApproved ? 'opacity-60' : ''}`}\n+      className={`transition-all duration-300 ease-out ${isFading ? 'opacity-0 translate-x-2' : 'opacity-100 translate-x-0'} ${(!isFading && isApproved) ? 'opacity-60' : ''}`}\n       style={{ fontFamily: 'Gohufont, monospace' }}\n     >\n       <div\n@@ -959,7 +1001,7 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n           shadow-lg shadow-black/30\n           ${isApproved ? 'border-green-400/15' : isRejected ? 'border-red-400/15' : 'border-white/10'}\n         `}\n-        style={{ minWidth: '280px', ..."
+            },
+            "output": "diff --git a/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx b/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\nindex 5ec51cde..71c6ac6c 100644\n--- a/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n+++ b/apps/interface/src/features/ActiveJobs/components/ActiveJobsWidget.tsx\n@@ -59,6 +59,7 @@ const ACP_KINDS = new Set(['claude-code', 'codex', 'gemma', 'qwen']);\n interface PolledTask {\n   taskId: string;\n   title: string;\n+  description?: string;\n   status: 'pending' | 'running' | 'complete' | 'failed';\n   screenshotUrl?: string | null;\n   approvalStatus?: string;\n@@ -910,6 +911,12 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n   const [expanded, setExpanded] = useState(false);\n   const [screenshotFullscreen, setScreenshotFullscreen] = useState(false);\n   const [actionPending, setActionPending] = useState(false);\n+  const [wrappingUp, setWrappingUp] = useState(false);\n+  const [showTechnical, setShowTechnical] = useState(false);\n+  const [isFading, setIsFading] = useState(false);\n+  const [dismissed, setDismissed] = useState(false);\n+  const dismissTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);\n+  const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);\n   const statusLabel: Record<string, string> = {\n     pending: 'Pending',\n     running: 'Running',\n@@ -927,6 +934,21 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n   const isRejected = task.approvalStatus === 'rejected' || task.approvalStatus === 'rework';\n   const canVote = task.status === 'complete' && !isApproved && !isRejected;\n \n+  useEffect(() => {\n+    return () => {\n+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);\n+      if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);\n+    };\n+  }, []);\n+\n+  const triggerDismissal = () => {\n+    if (isFading || dismissed) return;\n+    fadeTimeoutRef.current = setTimeout(() => {\n+      setIsFading(true);\n+      dismissTimeoutRef.current = setTimeout(() => setDismissed(true), 500);\n+    }, 3000);\n+  };\n+\n   const handleApproval = async (e: React.MouseEvent, action: 'approve' | 'reject') => {\n     e.stopPropagation();\n     if (actionPending) return;\n@@ -938,6 +960,7 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n         body: JSON.stringify({ action, taskId: task.taskId }),\n       });\n       onApprovalChange?.(task.taskId, action);\n+      triggerDismissal();\n     } catch (err) {\n       console.error(`[PolledTaskCard] Failed to ${action} task:`, err);\n     } finally {\n@@ -945,9 +968,28 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n     }\n   };\n \n+  const handleWrapUp = async (e: React.MouseEvent) => {\n+    e.stopPropagation();\n+    if (wrappingUp) return;\n+    setWrappingUp(true);\n+    try {\n+      await fetch('/api/tasks', {\n+        method: 'POST',\n+        headers: { 'Content-Type': 'application/json' },\n+        body: JSON.stringify({ action: 'wrapup', taskId: task.taskId }),\n+      });\n+    } catch (err) {\n+      console.error('[PolledTaskCard] Failed to wrap up task:', err);\n+    } finally {\n+      setWrappingUp(false);\n+    }\n+  };\n+\n+  if (dismissed) return null;\n+\n   return (\n     <div\n-      className={`transition-all duration-300 ease-out opacity-100 translate-x-0 ${isApproved ? 'opacity-60' : ''}`}\n+      className={`transition-all duration-300 ease-out ${isFading ? 'opacity-0 translate-x-2' : 'opacity-100 translate-x-0'} ${(!isFading && isApproved) ? 'opacity-60' : ''}`}\n       style={{ fontFamily: 'Gohufont, monospace' }}\n     >\n       <div\n@@ -959,7 +1001,7 @@ function PolledTaskCard({ task, onApprovalChange }: { task: PolledTask; onApprov\n           shadow-lg shadow-black/30\n           ${isApproved ? 'border-green-400/15' : isRejected ? 'border-red-400/15' : 'border-white/10'}\n         `}\n-        style={{ minWidth: '280px', ..."
+          },
+          "toolu_01FCekjMYLS252SbBndo2FAf": {
+            "tool_use_id": "toolu_01FCekjMYLS252SbBndo2FAf",
+            "tool_name": "Read /workspace/nia-universal/apps/interface/src/app/api/tasks/route.ts",
+            "is_error": false,
+            "content": {
+              "Text": "1\timport { NextResponse } from 'next/server';\n2\timport { promises as fs } from 'fs';\n3\t\n4\tconst TASKS_FILE = '/tmp/pearlos-tasks.json';\n5\t\n6\t/** How long (ms) to keep approved/complete tasks before auto-removing them */\n7\tconst AUTO_CLEAR_DELAY_MS = 2 * 60 * 1000; // 2 minutes after approval\n8\t\n9\texport type TaskStatus = 'pending' | 'running' | 'complete' | 'failed';\n10\texport type TaskApprovalStatus = 'pending' | 'approved' | 'rework';\n11\t\n12\texport interface TaskRecord {\n13\t  taskId: string;\n14\t  title: string;\n15\t  description?: string;\n16\t  status: TaskStatus;\n17\t  screenshotUrl?: string | null;\n18\t  approvalStatus: TaskApprovalStatus;\n19\t  createdAt: string;\n20\t  updatedAt: string;\n21\t}\n22\t\n23\t/** Remove tasks that are complete+approved (or complete+rework with feedback submitted) past the grace period */\n24\tfunction autoCleanTasks(tasks: TaskRecord[]): TaskRecord[] {\n25\t  const now = Date.now();\n26\t  return tasks.filter((t) => {\n27\t    // Only auto-clear complete tasks that have been approved\n28\t    if (t.status === 'complete' && t.approvalStatus === 'approved') {\n29\t      const updatedMs = new Date(t.updatedAt).getTime();\n30\t      return now - updatedMs < AUTO_CLEAR_DELAY_MS;\n31\t    }\n32\t    return true;\n33\t  });\n34\t}\n35\t\n36\tasync function readTasks(): Promise<TaskRecord[]> {\n37\t  try {\n38\t    await fs.access(TASKS_FILE);\n39\t    const raw = await fs.readFile(TASKS_FILE, 'utf-8');\n40\t    const parsed = JSON.parse(raw);\n41\t    const tasks: TaskRecord[] = Array.isArray(parsed.tasks) ? parsed.tasks : [];\n42\t    // Auto-clean on every read\n43\t    const cleaned = autoCleanTasks(tasks);\n44\t    if (cleaned.length !== tasks.length) {\n45\t      await writeTasks(cleaned);\n46\t    }\n47\t    return cleaned;\n48\t  } catch {\n49\t    return [];\n50\t  }\n51\t}\n52\t\n53\tasync function writeTasks(tasks: TaskRecord[]) {\n54\t  await fs.writeFile(TASKS_FILE, JSON.stringify({ tasks }, null, 2), 'utf-8');\n55\t}\n56\t\n57\texport async function GET() {\n58\t  try {\n59\t    const tasks = await readTasks();\n60\t    return NextResponse.json({ tasks });\n61\t  } catch {\n62\t    return NextResponse.json({ error: 'Failed to read tasks' }, { status: 500 });\n63\t  }\n64\t}\n65\t\n66\texport async function POST(req: Request) {\n67\t  try {\n68\t    const body = await req.json();\n69\t    const { action, taskId } = body;\n70\t    if (!action || !taskId) return NextResponse.json({ error: 'Missing action or taskId' }, { status: 400 });\n71\t\n72\t    const tasks = await readTasks();\n73\t    const now = new Date().toISOString();\n74\t    const idx = tasks.findIndex(t => t.taskId === taskId);\n75\t\n76\t    if (action === 'update') {\n77\t      const { title, description, status, screenshotUrl } = body;\n78\t      if (idx === -1) {\n79\t        tasks.unshift({ taskId, title: title || taskId, description: description || '', status: status || 'pending', screenshotUrl: screenshotUrl || null, approvalStatus: 'pending', createdAt: now, updatedAt: now });\n80\t      } else {\n81\t        tasks[idx] = { ...tasks[idx], title: title || tasks[idx].title, description: description !== undefined ? description : tasks[idx].description, status: status || tasks[idx].status, screenshotUrl: screenshotUrl !== undefined ? screenshotUrl : tasks[idx].screenshotUrl, updatedAt: now };\n82\t      }\n83\t    } else if (action === 'approve' || action === 'reject') {\n84\t      if (idx === -1) return NextResponse.json({ error: 'Task not found' }, { status: 404 });\n85\t      tasks[idx] = { ...tasks[idx], approvalStatus: action === 'approve' ? 'approved' : 'rework', updatedAt: now };\n86\t    }\n87\t\n88\t    await writeTasks(tasks);\n89\t    return NextResponse.json({ ok: true, tasks });\n90\t  } catch {\n91\t    return NextResponse.json({ error: 'Failed' }, { status: 500 });\n92\t  }\n93\t}\n94\t"
+            },
+            "output": "1\timport { NextResponse } from 'next/server';\n2\timport { promises as fs } from 'fs';\n3\t\n4\tconst TASKS_FILE = '/tmp/pearlos-tasks.json';\n5\t\n6\t/** How long (ms) to keep approved/complete tasks before auto-removing them */\n7\tconst AUTO_CLEAR_DELAY_MS = 2 * 60 * 1000; // 2 minutes after approval\n8\t\n9\texport type TaskStatus = 'pending' | 'running' | 'complete' | 'failed';\n10\texport type TaskApprovalStatus = 'pending' | 'approved' | 'rework';\n11\t\n12\texport interface TaskRecord {\n13\t  taskId: string;\n14\t  title: string;\n15\t  description?: string;\n16\t  status: TaskStatus;\n17\t  screenshotUrl?: string | null;\n18\t  approvalStatus: TaskApprovalStatus;\n19\t  createdAt: string;\n20\t  updatedAt: string;\n21\t}\n22\t\n23\t/** Remove tasks that are complete+approved (or complete+rework with feedback submitted) past the grace period */\n24\tfunction autoCleanTasks(tasks: TaskRecord[]): TaskRecord[] {\n25\t  const now = Date.now();\n26\t  return tasks.filter((t) => {\n27\t    // Only auto-clear complete tasks that have been approved\n28\t    if (t.status === 'complete' && t.approvalStatus === 'approved') {\n29\t      const updatedMs = new Date(t.updatedAt).getTime();\n30\t      return now - updatedMs < AUTO_CLEAR_DELAY_MS;\n31\t    }\n32\t    return true;\n33\t  });\n34\t}\n35\t\n36\tasync function readTasks(): Promise<TaskRecord[]> {\n37\t  try {\n38\t    await fs.access(TASKS_FILE);\n39\t    const raw = await fs.readFile(TASKS_FILE, 'utf-8');\n40\t    const parsed = JSON.parse(raw);\n41\t    const tasks: TaskRecord[] = Array.isArray(parsed.tasks) ? parsed.tasks : [];\n42\t    // Auto-clean on every read\n43\t    const cleaned = autoCleanTasks(tasks);\n44\t    if (cleaned.length !== tasks.length) {\n45\t      await writeTasks(cleaned);\n46\t    }\n47\t    return cleaned;\n48\t  } catch {\n49\t    return [];\n50\t  }\n51\t}\n52\t\n53\tasync function writeTasks(tasks: TaskRecord[]) {\n54\t  await fs.writeFile(TASKS_FILE, JSON.stringify({ tasks }, null, 2), 'utf-8');\n55\t}\n56\t\n57\texport async function GET() {\n58\t  try {\n59\t    const tasks = await readTasks();\n60\t    return NextResponse.json({ tasks });\n61\t  } catch {\n62\t    return NextResponse.json({ error: 'Failed to read tasks' }, { status: 500 });\n63\t  }\n64\t}\n65\t\n66\texport async function POST(req: Request) {\n67\t  try {\n68\t    const body = await req.json();\n69\t    const { action, taskId } = body;\n70\t    if (!action || !taskId) return NextResponse.json({ error: 'Missing action or taskId' }, { status: 400 });\n71\t\n72\t    const tasks = await readTasks();\n73\t    const now = new Date().toISOString();\n74\t    const idx = tasks.findIndex(t => t.taskId === taskId);\n75\t\n76\t    if (action === 'update') {\n77\t      const { title, description, status, screenshotUrl } = body;\n78\t      if (idx === -1) {\n79\t        tasks.unshift({ taskId, title: title || taskId, description: description || '', status: status || 'pending', screenshotUrl: screenshotUrl || null, approvalStatus: 'pending', createdAt: now, updatedAt: now });\n80\t      } else {\n81\t        tasks[idx] = { ...tasks[idx], title: title || tasks[idx].title, description: description !== undefined ? description : tasks[idx].description, status: status || tasks[idx].status, screenshotUrl: screenshotUrl !== undefined ? screenshotUrl : tasks[idx].screenshotUrl, updatedAt: now };\n82\t      }\n83\t    } else if (action === 'approve' || action === 'reject') {\n84\t      if (idx === -1) return NextResponse.json({ error: 'Task not found' }, { status: 404 });\n85\t      tasks[idx] = { ...tasks[idx], approvalStatus: action === 'approve' ? 'approved' : 'rework', updatedAt: now };\n86\t    }\n87\t\n88\t    await writeTasks(tasks);\n89\t    return NextResponse.json({ ok: true, tasks });\n90\t  } catch {\n91\t    return NextResponse.json({ error: 'Failed' }, { status: 500 });\n92\t  }\n93\t}\n94\t"
+          },
+          "toolu_01JJLyJ8pnfANnL6agQJsJRo": {
+            "tool_use_id": "toolu_01JJLyJ8pnfANnL6agQJsJRo",
+            "tool_name": "grep -r \"pearlos-tasks.json\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" 2>/dev/null | head -20",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          },
+          "toolu_01SKMF7Lwdk33ynZd6nT3PFM": {
+            "tool_use_id": "toolu_01SKMF7Lwdk33ynZd6nT3PFM",
+            "tool_name": "grep -r \"api/tasks\" /workspace/nia-universal --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" -B 2 -A 2 2>/dev/null | head -50",
+            "is_error": false,
+            "content": {
+              "Text": ""
+            }
+          }
+        }
+      }
+    }
+  ],
+  "updated_at": "2026-04-22T02:05:28.837Z",
+  "cumulative_token_usage": {},
+  "request_token_usage": {},
+  "acpx": {
+    "available_commands": [
+      "update-config",
+      "debug",
+      "simplify",
+      "batch",
+      "loop",
+      "schedule",
+      "claude-api",
+      "compact",
+      "context",
+      "heapdump",
+      "init",
+      "review",
+      "security-review",
+      "extra-usage",
+      "insights"
+    ]
+  }
+}

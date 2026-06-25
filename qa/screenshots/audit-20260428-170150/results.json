@@ -1,0 +1,30 @@
+{
+  "pass": [
+    {
+      "name": "01-login",
+      "status": 200
+    },
+    {
+      "name": "02-post-login-dashboard",
+      "status": 200
+    },
+    {
+      "name": "03-settings",
+      "status": 200
+    },
+    {
+      "name": "04-notes",
+      "status": 200
+    },
+    {
+      "name": "05-launchpad",
+      "status": 200
+    }
+  ],
+  "fail": [
+    {
+      "name": "login-flow",
+      "error": "Email or password fields not found"
+    }
+  ]
+}

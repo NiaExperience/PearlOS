@@ -26,6 +26,13 @@ export interface YouTubeSearchResponse {
   comments: YouTubeComment[];
 }
 
+export interface YouTubeCuratorCue {
+  query: string;
+  note: string;
+  commentary: string;
+  nextQueries: string[];
+}
+
 export interface YouTubeSearchRequest {
   query: string;
   maxResults?: number;

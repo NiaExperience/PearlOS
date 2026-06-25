@@ -6,6 +6,8 @@ Tools for various functionality not categorized elsewhere:
 - Daily call initiation
 """
 
+import asyncio
+
 from pipecat.frames.frames import FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
 
@@ -189,6 +191,11 @@ async def bot_end_call(params: FunctionCallParams):
 
     log = log.bind(reason=close_reason)
     log.info("Emitting assistant-driven end-call events")
+
+    # Brief delay so any in-flight goodbye TTS has time to play before the
+    # session-end event tears down the pipeline. Without this, the frontend
+    # may receive bot.session.end and cancel the bot task before audio finishes.
+    await asyncio.sleep(3.0)
 
     session_end_payload = {
         "reason": close_reason,

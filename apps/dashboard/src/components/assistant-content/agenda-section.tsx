@@ -135,7 +135,7 @@ export default function AgendaSection({
   useEffect(() => {
     if (!isSupported) return;
     setIsLoading(true);
-    fetch(`/api/contentList?type=Agenda&assistantId=${selectedAssistant._id}`)
+    fetch(`/dashboard/api/contentList?type=Agenda&assistantId=${selectedAssistant._id}`)
       .then((res) => res.json())
       .then((data) => setAgendaItems(data.items || []))
       .catch((error) => {
@@ -246,12 +246,12 @@ export default function AgendaSection({
 
   const handleDeleteAgenda = async (agendaId: string) => {
     try {
-      const res = await fetch(`/api/contentDetail?type=Agenda&assistantId=${selectedAssistant._id}&id=${agendaId}`, {
+      const res = await fetch(`/dashboard/api/contentDetail?type=Agenda&assistantId=${selectedAssistant._id}&id=${agendaId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
         // Refresh list
-        fetch(`/api/contentList?type=Agenda&assistantId=${selectedAssistant._id}`)
+        fetch(`/dashboard/api/contentList?type=Agenda&assistantId=${selectedAssistant._id}`)
           .then((res) => res.json())
           .then((data) => setAgendaItems(data.items || []));
         setAgendaToDelete(null);
@@ -331,13 +331,13 @@ export default function AgendaSection({
                     try {
                       let res;
                       if (editingAgenda) {
-                        res = await fetch(`/api/contentDetail?type=Agenda&assistantId=${selectedAssistant._id}&id=${editingAgenda._id}`, {
+                        res = await fetch(`/dashboard/api/contentDetail?type=Agenda&assistantId=${selectedAssistant._id}&id=${editingAgenda._id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify(data),
                         });
                       } else {
-                        res = await fetch(`/api/contentDetail?type=Agenda&assistantId=${selectedAssistant._id}`, {
+                        res = await fetch(`/dashboard/api/contentDetail?type=Agenda&assistantId=${selectedAssistant._id}`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify(data),
@@ -345,7 +345,7 @@ export default function AgendaSection({
                       }
                       if (res.ok) {
                         // Refresh list
-                        fetch(`/api/contentList?type=Agenda&assistantId=${selectedAssistant._id}`)
+                        fetch(`/dashboard/api/contentList?type=Agenda&assistantId=${selectedAssistant._id}`)
                           .then((res) => res.json())
                           .then((data) => setAgendaItems(data.items || []));
                         setEditingAgenda(null);

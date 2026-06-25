@@ -14,6 +14,12 @@ export const GlobalSettingsSchema = z.object({
   singletonKey: z.string().default(GLOBAL_SETTINGS_SINGLETON_KEY),
   interfaceLogin: InterfaceLoginSettingsSchema,
   denyListEmails: z.array(z.string().email()).default([]),
+  // Google OAuth sign-in allowlist. When non-empty, only these emails may
+  // complete the `google` provider sign-in path. Stored in Postgres so it can
+  // be managed at runtime from the dashboard or the `allowlist:*` CLI scripts.
+  // The legacy `GOOGLE_SIGNIN_ALLOWLIST` env var still works and is merged
+  // (union) with this list during sign-in for backward compatibility.
+  allowListEmails: z.array(z.string().email()).default([]),
   createdAt: z.union([z.string(), z.date()]).optional(),
   updatedAt: z.union([z.string(), z.date()]).optional(),
 });
@@ -31,4 +37,5 @@ export const DefaultGlobalSettings: IGlobalSettings = {
   singletonKey: GLOBAL_SETTINGS_SINGLETON_KEY,
   interfaceLogin: DefaultInterfaceLoginSettings,
   denyListEmails: [],
+  allowListEmails: [],
 };

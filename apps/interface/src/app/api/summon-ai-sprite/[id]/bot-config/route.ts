@@ -3,9 +3,8 @@ import { SpriteBotConfigSchema } from '@nia/prism/core/blocks/sprite.block';
 import type { ISprite } from '@nia/prism/core/blocks/sprite.block';
 import { getLogger } from '@nia/prism/core/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 
-import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 const log = getLogger('api:summon-ai-sprite:bot-config');
 
@@ -21,24 +20,33 @@ interface RouteParams {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(interfaceAuthOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { id } = await params;
-    const userId = session.user.id;
     const body = await request.json();
+    const requestedTenantId =
+      request.nextUrl?.searchParams.get('tenantId') ||
+      request.nextUrl?.searchParams.get('tenant_id') ||
+      body?.tenantId ||
+      body?.tenant_id ||
+      undefined;
+    const actorResult = await resolveInterfaceActorContext({ requestedTenantId });
+    if (!actorResult.ok) return actorResult.response;
+    const { userId, tenantId } = actorResult.actor;
 
-    log.info('Updating bot config', { spriteId: id, userId });
+    log.info('Updating bot config', { spriteId: id, userId, tenantId });
 
     const sprite = (await findById(id)) as ISprite | null;
     if (!sprite) {
       return NextResponse.json({ error: 'Sprite not found' }, { status: 404 });
     }
 
-    if (sprite.parent_id !== userId) {
-      log.warn('Unauthorized bot config update', { spriteId: id, userId, ownerId: sprite.parent_id });
+    if (sprite.tenantId !== tenantId || sprite.parent_id !== userId) {
+      log.warn('Unauthorized bot config update', {
+        spriteId: id,
+        userId,
+        tenantId,
+        ownerId: sprite.parent_id,
+        spriteTenantId: sprite.tenantId,
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

@@ -5,7 +5,9 @@ Allows users to stop/pause/kill running agents via voice or UI.
 import os
 import logging
 import aiohttp
-from typing import Literal
+
+from pipecat.frames.frames import FunctionCallResultProperties
+from pipecat.services.llm_service import FunctionCallParams
 
 from tools.decorators import bot_tool
 
@@ -17,12 +19,24 @@ OPENCLAW_API_KEY = os.getenv("OPENCLAW_API_KEY")
 @bot_tool(
     name="bot_stop_task",
     description="Stop or cancel a running background task or sub-agent. Use when user says 'stop that', 'cancel the task', 'kill it', etc.",
-    feature_flag="openclawBridge"
+    feature_flag="openclawBridge",
+    parameters={
+        "type": "object",
+        "properties": {
+            "task_label": {
+                "type": "string",
+                "description": "A short label, title, or session key for the task to stop.",
+            },
+            "action": {
+                "type": "string",
+                "enum": ["stop", "cancel", "kill"],
+                "description": "How strongly to stop the task. Defaults to stop.",
+            },
+        },
+        "required": ["task_label"],
+    },
 )
-async def bot_stop_task(
-    task_label: str,
-    action: Literal["stop", "cancel", "kill"] = "stop"
-) -> dict:
+async def bot_stop_task(params: FunctionCallParams) -> dict:
     """
     Stop a running OpenClaw sub-agent or background task.
     
@@ -33,6 +47,25 @@ async def bot_stop_task(
     Returns:
         Status of the stop operation
     """
+    args = params.arguments or {}
+    task_label = str(
+        args.get("task_label")
+        or args.get("taskId")
+        or args.get("task_id")
+        or args.get("label")
+        or ""
+    ).strip()
+    action = str(args.get("action") or "stop").strip().lower()
+    if action not in {"stop", "cancel", "kill"}:
+        action = "stop"
+    if not task_label:
+        result = {
+            "status": "error",
+            "message": "I need the task name or label to stop it.",
+        }
+        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+        return result
+
     try:
         # Get list of active sessions
         headers = {}
@@ -47,10 +80,12 @@ async def bot_stop_task(
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 if resp.status != 200:
-                    return {
+                    result = {
                         "status": "error",
                         "message": f"Failed to list sessions: {resp.status}"
                     }
+                    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+                    return result
                 
                 data = await resp.json()
                 sessions = data.get("sessions", [])
@@ -67,10 +102,12 @@ async def bot_stop_task(
                         break
                 
                 if not target_session:
-                    return {
+                    result = {
                         "status": "not_found",
                         "message": f"No active task found matching '{task_label}'"
                     }
+                    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+                    return result
                 
                 session_key = target_session["key"]
                 
@@ -81,7 +118,7 @@ async def bot_stop_task(
                     f"{OPENCLAW_BASE_URL}/v1/chat/completions",
                     headers={**headers, "Content-Type": "application/json"},
                     json={
-                        "model": "default",
+                        "model": "openclaw",
                         "messages": [
                             {
                                 "role": "system",
@@ -94,31 +131,42 @@ async def bot_stop_task(
                     timeout=aiohttp.ClientTimeout(total=15)
                 ) as stop_resp:
                     if stop_resp.status == 200:
-                        return {
+                        result = {
                             "status": "stopped",
                             "message": f"Sent {action} signal to task '{task_label}'",
                             "session_key": session_key
                         }
+                        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+                        return result
                     else:
-                        return {
+                        result = {
                             "status": "error",
                             "message": f"Failed to stop task: {stop_resp.status}"
                         }
+                        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+                        return result
     
     except Exception as e:
         logger.error(f"[bot_stop_task] Error: {e}", exc_info=True)
-        return {
+        result = {
             "status": "error",
             "message": f"Failed to stop task: {str(e)}"
         }
+        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+        return result
 
 
 @bot_tool(
     name="bot_list_tasks",
     description="List all running background tasks and sub-agents",
-    feature_flag="openclawBridge"
+    feature_flag="openclawBridge",
+    parameters={
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
 )
-async def bot_list_tasks() -> dict:
+async def bot_list_tasks(params: FunctionCallParams) -> dict:
     """
     Get list of all currently running OpenClaw sessions/tasks.
     
@@ -137,10 +185,12 @@ async def bot_list_tasks() -> dict:
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 if resp.status != 200:
-                    return {
+                    result = {
                         "status": "error",
                         "message": f"Failed to list sessions: {resp.status}"
                     }
+                    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+                    return result
                 
                 data = await resp.json()
                 sessions = data.get("sessions", [])
@@ -160,15 +210,19 @@ async def bot_list_tasks() -> dict:
                             "tokens": s.get("totalTokens", 0)
                         })
                 
-                return {
+                result = {
                     "status": "success",
                     "count": len(tasks),
                     "tasks": tasks
                 }
+                await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+                return result
     
     except Exception as e:
         logger.error(f"[bot_list_tasks] Error: {e}", exc_info=True)
-        return {
+        result = {
             "status": "error",
             "message": f"Failed to list tasks: {str(e)}"
         }
+        await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
+        return result

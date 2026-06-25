@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getSessionSafely } from '@nia/prism/core/auth';
+import { interfaceAuthOptions } from '@interface/lib/auth-config';
+import { createBotClaimHeaders } from '@interface/lib/bot-auth-claims';
 import { getLogger, setLogContext } from '@interface/lib/logger';
+import { resolveInterfaceActorContext } from '@interface/lib/tenant-actor';
 
 // Core implementation for /api/bot/leave
 // Route layer should simply re-export POST_impl as POST.
@@ -9,6 +13,12 @@ import { getLogger, setLogContext } from '@interface/lib/logger';
 
 const BOT_BASE = (process.env.BOT_CONTROL_BASE_URL || process.env.NEXT_PUBLIC_BOT_CONTROL_BASE_URL || '').replace(/\/$/, '');
 const log = getLogger('[daily_call]');
+const DEFAULT_PUBLIC_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+
+function requestedTenantForActor(body: Record<string, unknown>): unknown {
+  const requestedTenantId = body?.tenantId ?? body?.tenant_id;
+  return requestedTenantId === DEFAULT_PUBLIC_TENANT_ID ? undefined : requestedTenantId;
+}
 
 export async function POST_impl(req: NextRequest) {
   log.info('Bot proxy leave request', {
@@ -31,18 +41,52 @@ export async function POST_impl(req: NextRequest) {
     return NextResponse.json({ error: 'room_url_required' }, { status: 400 });
   }
 
+  const actorResult = await resolveInterfaceActorContext({
+    requestedTenantId: requestedTenantForActor(body),
+  });
+  if (!actorResult.ok) return actorResult.response;
+  const actor = actorResult.actor;
+
+  const session = await getSessionSafely(req, interfaceAuthOptions).catch(() => null);
+  const sessionUser = session?.user as any;
   const headerSessionId = req.headers.get('x-session-id') || undefined;
-  const headerUserId = req.headers.get('x-user-id') || undefined;
+  const resolvedSessionId =
+    body?.sessionId ||
+    headerSessionId ||
+    (session as any)?.sessionId ||
+    (sessionUser as any)?.sessionId ||
+    `${actor.userId}:${Date.now()}`;
+  const resolvedUserId = actor.userId;
+  const resolvedTenantId = actor.tenantId;
+  if (!resolvedTenantId) {
+    return NextResponse.json({ error: 'tenant_required' }, { status: 403 });
+  }
+  log.info('Multitenancy audit context resolved', {
+    event: 'multitenancy_audit_leave_context',
+    tenantId: resolvedTenantId,
+    sessionUserId: resolvedUserId,
+    sessionId: resolvedSessionId,
+    roomUrl: body?.room_url || null,
+    hasTenantAccess: true,
+  });
 
   setLogContext({
-    sessionId: headerSessionId ?? null,
-    userId: headerUserId ?? null,
+    sessionId: resolvedSessionId ?? null,
+    userId: resolvedUserId ?? null,
   });
 
   try {
     log.info('Bot proxy leave dispatch', {
       event: 'bot_proxy_leave_dispatch',
       roomUrl: body.room_url,
+    });
+
+    const claimHeaders = createBotClaimHeaders({
+      tenantId: resolvedTenantId,
+      sessionUserId: resolvedUserId,
+      sessionId: resolvedSessionId,
+      sessionUserEmail: actor.userEmail || sessionUser?.email || undefined,
+      sessionUserName: actor.userName || sessionUser?.name || undefined,
     });
 
     const r = await fetch(BOT_BASE + '/leave', {
@@ -54,10 +98,16 @@ export async function POST_impl(req: NextRequest) {
           ? { 'X-Bot-Secret': process.env.BOT_CONTROL_SHARED_SECRET }
           : {}),
         // Forward session context headers
-        ...(headerSessionId ? { 'x-session-id': headerSessionId } : {}),
-        ...(headerUserId ? { 'x-user-id': headerUserId } : {}),
+        'x-session-id': resolvedSessionId,
+        'x-user-id': resolvedUserId,
+        ...claimHeaders,
       },
-      body: JSON.stringify({ room_url: body.room_url }),
+      body: JSON.stringify({
+        room_url: body.room_url,
+        tenantId: resolvedTenantId,
+        sessionUserId: resolvedUserId,
+        sessionId: resolvedSessionId,
+      }),
     });
 
     const text = await r.text();
@@ -72,6 +122,9 @@ export async function POST_impl(req: NextRequest) {
 
     log.info('Bot proxy leave success', {
       event: 'bot_proxy_leave_success',
+      tenantId: resolvedTenantId,
+      sessionUserId: resolvedUserId,
+      sessionId: resolvedSessionId,
       roomUrl: body.room_url,
     });
 
